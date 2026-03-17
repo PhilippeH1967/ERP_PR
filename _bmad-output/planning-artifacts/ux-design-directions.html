@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERP Provencher_Roy — Design Directions</title>
+<style>
+  :root {
+    --primary-50: #EFF6FF; --primary-100: #DBEAFE; --primary-200: #BFDBFE;
+    --primary-500: #2563EB; --primary-600: #1D4ED8; --primary-700: #1E40AF;
+    --success-50: #F0FDF4; --success-500: #16A34A; --success-700: #15803D;
+    --warning-50: #FFFBEB; --warning-500: #D97706; --warning-700: #B45309;
+    --danger-50: #FEF2F2; --danger-500: #DC2626; --danger-700: #B91C1C;
+    --neutral-50: #F9FAFB; --neutral-100: #F3F4F6; --neutral-200: #E5E7EB;
+    --neutral-300: #D1D5DB; --neutral-400: #9CA3AF; --neutral-500: #6B7280;
+    --neutral-600: #4B5563; --neutral-700: #374151; --neutral-800: #1F2937;
+    --neutral-900: #111827;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: var(--font-sans); background: var(--neutral-50); color: var(--neutral-800); font-size: 14px; line-height: 1.5; }
+  .direction-selector { display: flex; justify-content: center; gap: 8px; padding: 16px; background: #fff; border-bottom: 1px solid var(--neutral-200); position: sticky; top: 0; z-index: 100; }
+  .dir-pill { padding: 8px 20px; border-radius: 20px; border: 2px solid var(--neutral-200); background: #fff; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+  .dir-pill:hover { border-color: var(--primary-500); color: var(--primary-500); }
+  .dir-pill.active { background: var(--primary-500); color: #fff; border-color: var(--primary-500); }
+  .delegation-banner { background: #FEF3C7; border-bottom: 1px solid #F59E0B; padding: 8px 24px; display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: #92400E; }
+  .delegation-banner button { background: #92400E; color: #fff; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+  .app-shell { display: flex; height: calc(100vh - 110px); }
+  .sidebar { width: 240px; background: var(--neutral-100); border-right: 1px solid var(--neutral-200); padding: 16px 0; flex-shrink: 0; }
+  .sidebar-item { display: flex; align-items: center; gap: 10px; padding: 8px 20px; color: var(--neutral-600); font-size: 13px; cursor: pointer; transition: all 0.15s; }
+  .sidebar-item:hover { background: var(--neutral-200); color: var(--neutral-800); }
+  .sidebar-item.active { background: var(--primary-50); color: var(--primary-700); font-weight: 600; border-right: 3px solid var(--primary-500); }
+  .sidebar-icon { width: 18px; text-align: center; font-size: 15px; }
+  .topbar { height: 56px; background: #fff; border-bottom: 1px solid var(--neutral-200); display: flex; align-items: center; padding: 0 24px; gap: 16px; }
+  .topbar-logo { font-weight: 700; font-size: 16px; color: var(--primary-700); }
+  .topbar-search { flex: 1; max-width: 400px; padding: 7px 14px; border: 1px solid var(--neutral-200); border-radius: 6px; font-size: 13px; background: var(--neutral-50); color: var(--neutral-500); }
+  .topbar-right { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+  .notif-bell { position: relative; cursor: pointer; font-size: 18px; }
+  .notif-badge { position: absolute; top: -6px; right: -8px; background: var(--danger-500); color: #fff; font-size: 10px; padding: 1px 5px; border-radius: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--primary-200); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--primary-700); }
+  .main-content { flex: 1; overflow-y: auto; padding: 24px; }
+  .direction { display: none; }
+  .direction.active { display: block; }
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi-card { background: #fff; border-radius: 8px; padding: 20px; border: 1px solid var(--neutral-200); }
+  .kpi-label { font-size: 12px; font-weight: 500; color: var(--neutral-500); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .kpi-value { font-family: var(--font-mono); font-size: 28px; font-weight: 700; color: var(--neutral-900); }
+  .kpi-trend { font-size: 12px; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+  .kpi-trend.up { color: var(--success-500); }
+  .kpi-trend.down { color: var(--danger-500); }
+  .kpi-sparkline { margin-top: 8px; height: 30px; display: flex; align-items: flex-end; gap: 2px; }
+  .spark-bar { width: 8px; background: var(--primary-200); border-radius: 2px 2px 0 0; transition: background 0.2s; }
+  .spark-bar:last-child { background: var(--primary-500); }
+  .section-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--neutral-800); }
+  .data-table { width: 100%; background: #fff; border: 1px solid var(--neutral-200); border-radius: 8px; overflow: hidden; }
+  .data-table th { font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--neutral-500); padding: 10px 16px; text-align: left; background: var(--neutral-50); border-bottom: 1px solid var(--neutral-200); }
+  .data-table td { padding: 10px 16px; border-bottom: 1px solid var(--neutral-100); font-size: 14px; }
+  .data-table tr:hover { background: var(--neutral-50); cursor: pointer; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .status-dot.green { background: var(--success-500); }
+  .status-dot.amber { background: var(--warning-500); }
+  .status-dot.red { background: var(--danger-500); }
+  .budget-bar { width: 120px; height: 8px; background: var(--neutral-200); border-radius: 4px; overflow: hidden; display: inline-flex; }
+  .budget-fill { height: 100%; border-radius: 4px; }
+  .budget-fill.green { background: var(--success-500); }
+  .budget-fill.amber { background: var(--warning-500); }
+  .budget-fill.red { background: var(--danger-500); }
+  .mono { font-family: var(--font-mono); font-weight: 500; }
+  .two-col { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; margin-bottom: 24px; }
+  .notif-list { background: #fff; border-radius: 8px; border: 1px solid var(--neutral-200); overflow: hidden; }
+  .notif-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--neutral-100); font-size: 13px; cursor: pointer; transition: background 0.15s; }
+  .notif-item:hover { background: var(--neutral-50); }
+  .notif-item:last-child { border-bottom: none; }
+  .notif-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .notif-dot.blue { background: var(--primary-500); }
+  .notif-dot.orange { background: var(--warning-500); }
+  .notif-dot.red { background: var(--danger-500); }
+  .notif-time { margin-left: auto; font-size: 11px; color: var(--neutral-400); white-space: nowrap; }
+  .chart-placeholder { background: #fff; border: 1px solid var(--neutral-200); border-radius: 8px; padding: 20px; min-height: 260px; display: flex; flex-direction: column; }
+  .chart-bars { display: flex; align-items: flex-end; gap: 12px; flex: 1; padding-top: 20px; }
+  .chart-col { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 4px; }
+  .chart-bar-group { display: flex; gap: 3px; align-items: flex-end; width: 100%; justify-content: center; }
+  .chart-bar { width: 16px; border-radius: 3px 3px 0 0; }
+  .chart-bar.realized { background: var(--primary-500); }
+  .chart-bar.projected { background: var(--primary-200); }
+  .chart-month { font-size: 11px; color: var(--neutral-400); }
+  .action-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+  .action-card { background: #fff; border: 1px solid var(--neutral-200); border-radius: 8px; padding: 16px; cursor: pointer; transition: all 0.2s; }
+  .action-card:hover { border-color: var(--primary-500); box-shadow: 0 2px 8px rgba(37,99,235,0.1); }
+  .action-badge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; font-size: 14px; margin-bottom: 8px; }
+  .action-badge.blue { background: var(--primary-50); }
+  .action-badge.orange { background: var(--warning-50); }
+  .action-badge.red { background: var(--danger-50); }
+  .action-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .action-desc { font-size: 12px; color: var(--neutral-500); margin-bottom: 10px; }
+  .action-btn { display: inline-block; font-size: 12px; color: var(--primary-500); font-weight: 500; cursor: pointer; }
+  .action-count { font-family: var(--font-mono); font-size: 20px; font-weight: 700; color: var(--neutral-800); }
+  .compact-list { background: #fff; border: 1px solid var(--neutral-200); border-radius: 8px; overflow: hidden; }
+  .compact-item { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--neutral-100); font-size: 13px; }
+  .compact-item:last-child { border-bottom: none; }
+  .compact-item:hover { background: var(--neutral-50); cursor: pointer; }
+  .project-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+  .project-card { background: #fff; border: 1px solid var(--neutral-200); border-radius: 8px; padding: 20px; cursor: pointer; transition: all 0.2s; }
+  .project-card:hover { border-color: var(--primary-500); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .project-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .project-card-name { font-size: 15px; font-weight: 600; }
+  .project-card-pm { font-size: 12px; color: var(--neutral-500); margin-top: 2px; }
+  .phase-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+  .phase-badge.archi { background: var(--primary-50); color: var(--primary-700); }
+  .phase-badge.struct { background: #F0FDF4; color: #15803D; }
+  .phase-badge.mep { background: #FFF7ED; color: #C2410C; }
+  .project-card-meta { display: flex; align-items: center; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--neutral-500); }
+  .avatar-stack { display: flex; }
+  .avatar-sm { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff; margin-left: -8px; font-size: 9px; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+  .avatar-sm:first-child { margin-left: 0; }
+  .avatar-sm.a1 { background: #DBEAFE; color: #1E40AF; }
+  .avatar-sm.a2 { background: #FCE7F3; color: #9D174D; }
+  .avatar-sm.a3 { background: #D1FAE5; color: #065F46; }
+  .avatar-sm.a4 { background: #FEF3C7; color: #92400E; }
+  .mini-kpi-bar { display: flex; gap: 24px; background: #fff; border: 1px solid var(--neutral-200); border-radius: 8px; padding: 12px 20px; margin-bottom: 20px; }
+  .mini-kpi { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .mini-kpi-val { font-family: var(--font-mono); font-weight: 600; }
+  .slideover { position: fixed; right: -420px; top: 110px; width: 420px; height: calc(100vh - 110px); background: #fff; border-left: 1px solid var(--neutral-200); box-shadow: -4px 0 16px rgba(0,0,0,0.08); padding: 20px; overflow-y: auto; transition: right 0.3s ease; z-index: 50; }
+  .slideover.open { right: 0; }
+  .slideover-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .slideover-close { cursor: pointer; font-size: 22px; color: var(--neutral-400); padding: 4px; }
+  .slideover-close:hover { color: var(--neutral-700); }
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--neutral-200); margin-bottom: 16px; }
+  .tab { padding: 8px 14px; font-size: 12px; font-weight: 500; color: var(--neutral-500); cursor: pointer; border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--primary-600); border-bottom-color: var(--primary-500); }
+  .timesheet-section { margin-top: 32px; padding-top: 24px; border-top: 2px solid var(--neutral-200); }
+  .ts-grid { width: 100%; background: #fff; border: 1px solid var(--neutral-200); border-radius: 8px; border-collapse: separate; border-spacing: 0; overflow: hidden; }
+  .ts-grid th { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--neutral-500); padding: 8px 10px; background: var(--neutral-50); border-bottom: 1px solid var(--neutral-200); text-align: center; }
+  .ts-grid th:first-child { text-align: left; width: 260px; }
+  .ts-grid td { padding: 6px 8px; border-bottom: 1px solid var(--neutral-100); text-align: center; }
+  .ts-grid td:first-child { text-align: left; font-size: 13px; padding-left: 12px; }
+  .ts-grid tr:last-child td { border-bottom: none; }
+  .ts-input { width: 44px; padding: 4px; text-align: center; border: 1px solid var(--neutral-200); border-radius: 4px; font-family: var(--font-mono); font-size: 13px; }
+  .ts-input:focus { outline: none; border-color: var(--primary-500); box-shadow: 0 0 0 2px var(--primary-100); }
+  .ts-total { font-family: var(--font-mono); font-weight: 600; font-size: 13px; }
+  .ts-project-phase { font-size: 11px; color: var(--neutral-400); }
+  .ts-progress { margin-top: 12px; display: flex; align-items: center; gap: 12px; }
+  .ts-progress-bar { flex: 1; height: 8px; background: var(--neutral-200); border-radius: 4px; overflow: hidden; }
+  .ts-progress-fill { height: 100%; background: var(--primary-500); border-radius: 4px; }
+  .ts-progress-label { font-size: 12px; color: var(--neutral-500); }
+  .ts-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+  .btn-primary { background: var(--primary-500); color: #fff; border: none; padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .btn-primary:hover { background: var(--primary-600); }
+  .btn-ghost { background: none; border: 1px solid var(--neutral-200); padding: 8px 16px; border-radius: 6px; font-size: 13px; color: var(--neutral-600); cursor: pointer; }
+  .btn-ghost:hover { background: var(--neutral-50); }
+  .activity-feed { background: #fff; border: 1px solid var(--neutral-200); border-radius: 8px; overflow: hidden; }
+  .activity-item { padding: 10px 16px; border-bottom: 1px solid var(--neutral-100); font-size: 12px; color: var(--neutral-600); display: flex; align-items: center; gap: 10px; }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-avatar { width: 24px; height: 24px; border-radius: 50%; font-size: 9px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .activity-time { margin-left: auto; font-size: 11px; color: var(--neutral-400); white-space: nowrap; }
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .breadcrumb { font-size: 12px; color: var(--neutral-400); margin-bottom: 4px; }
+  .breadcrumb a { color: var(--primary-500); text-decoration: none; }
+  .page-title { font-size: 24px; font-weight: 700; color: var(--neutral-900); }
+</style>
+</head>
+<body>
+<div class="direction-selector">
+  <div class="dir-pill active" onclick="showDirection('a', this)">A &mdash; Tableau de bord central</div>
+  <div class="dir-pill" onclick="showDirection('b', this)">B &mdash; Actions prioritaires</div>
+  <div class="dir-pill" onclick="showDirection('c', this)">C &mdash; Projets d'abord</div>
+</div>
+<div class="delegation-banner">
+  <span>&#9888;&#65039; Vous agissez au nom de <strong>Jean-Fran&ccedil;ois Tremblay</strong> (Chef de projet) &mdash; P&eacute;riode : 3 au 14 mars 2026</span>
+  <button>Sortir de la d&eacute;l&eacute;gation</button>
+</div>
+<div style="display:flex; flex-direction:column; height:calc(100vh - 110px);">
+<div class="topbar">
+  <div class="topbar-logo">PR | ERP</div>
+  <input class="topbar-search" placeholder="Rechercher projets, personnes, factures... (&#8984;K)" readonly>
+  <div class="topbar-right">
+    <div class="notif-bell">&#128276;<span class="notif-badge">5</span></div>
+    <div class="avatar">PH</div>
+  </div>
+</div>
+<div class="app-shell">
+<div class="sidebar">
+  <div class="sidebar-item active"><span class="sidebar-icon">&#9632;</span> Tableau de bord</div>
+  <div class="sidebar-item"><span class="sidebar-icon">&#128194;</span> Projets</div>
+  <div class="sidebar-item"><span class="sidebar-icon">&#9202;</span> Feuilles de temps</div>
+  <div class="sidebar-item"><span class="sidebar-icon">&#128176;</span> Facturation</div>
+  <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> D&eacute;penses</div>
+  <div class="sidebar-item"><span class="sidebar-icon">&#128666;</span> Fournisseurs</div>
+  <div class="sidebar-item"><span class="sidebar-icon">&#128196;</span> Offres de services</div>
+  <div class="sidebar-item"><span class="sidebar-icon">&#129309;</span> Consortiums</div>
+  <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Param&egrave;tres</div>
+</div>
+<div class="main-content">
+
+<!-- DIRECTION A -->
+<div class="direction active" id="dir-a">
+  <div class="page-header"><div><div class="breadcrumb"><a href="#">Accueil</a> &rsaquo; Tableau de bord</div><div class="page-title">Tableau de bord &mdash; Chef de projet</div></div></div>
+  <div class="kpi-row">
+    <div class="kpi-card"><div class="kpi-label">Heures consomm&eacute;es ce mois</div><div class="kpi-value">1,240h</div><div class="kpi-trend up">&#9650; +8% vs mois pr&eacute;c.</div><div class="kpi-sparkline"><div class="spark-bar" style="height:40%"></div><div class="spark-bar" style="height:55%"></div><div class="spark-bar" style="height:45%"></div><div class="spark-bar" style="height:60%"></div><div class="spark-bar" style="height:70%"></div><div class="spark-bar" style="height:85%"></div></div></div>
+    <div class="kpi-card"><div class="kpi-label">Ratio CA / Salaires</div><div class="kpi-value">2.85</div><div class="kpi-trend up">&#9650; +0.15 vs mois pr&eacute;c.</div><div class="kpi-sparkline"><div class="spark-bar" style="height:60%"></div><div class="spark-bar" style="height:55%"></div><div class="spark-bar" style="height:65%"></div><div class="spark-bar" style="height:58%"></div><div class="spark-bar" style="height:72%"></div><div class="spark-bar" style="height:80%"></div></div></div>
+    <div class="kpi-card"><div class="kpi-label">Taux de facturation</div><div class="kpi-value">78%</div><div class="kpi-trend down">&#9660; -3% vs objectif</div><div class="kpi-sparkline"><div class="spark-bar" style="height:80%"></div><div class="spark-bar" style="height:75%"></div><div class="spark-bar" style="height:82%"></div><div class="spark-bar" style="height:70%"></div><div class="spark-bar" style="height:68%"></div><div class="spark-bar" style="height:65%"></div></div></div>
+    <div class="kpi-card"><div class="kpi-label">Marge moyenne</div><div class="kpi-value">34%</div><div class="kpi-trend up">&#9650; +2% vs T3</div><div class="kpi-sparkline"><div class="spark-bar" style="height:50%"></div><div class="spark-bar" style="height:55%"></div><div class="spark-bar" style="height:52%"></div><div class="spark-bar" style="height:60%"></div><div class="spark-bar" style="height:65%"></div><div class="spark-bar" style="height:70%"></div></div></div>
+  </div>
+  <div class="two-col">
+    <div><div class="section-title">Sant&eacute; des projets</div>
+      <table class="data-table"><thead><tr><th>Projet</th><th>Chef de projet</th><th>Budget</th><th>Statut</th></tr></thead><tbody>
+        <tr><td><strong>Centre Vid&eacute;otron &mdash; Phase 2</strong></td><td>J-F. Tremblay</td><td><div class="budget-bar"><div class="budget-fill green" style="width:55%"></div></div> <span class="mono" style="font-size:12px">55%</span></td><td><span class="status-dot green"></span>En sant&eacute;</td></tr>
+        <tr><td><strong>Biblioth&egrave;que Nationale &mdash; Agrandissement</strong></td><td>Marie Lavoie</td><td><div class="budget-bar"><div class="budget-fill amber" style="width:82%"></div></div> <span class="mono" style="font-size:12px">82%</span></td><td><span class="status-dot amber"></span>&Agrave; risque</td></tr>
+        <tr><td><strong>Tour Deloitte &mdash; R&eacute;novation</strong></td><td>Pierre Gagnon</td><td><div class="budget-bar"><div class="budget-fill red" style="width:96%"></div></div> <span class="mono" style="font-size:12px">96%</span></td><td><span class="status-dot red"></span>Critique</td></tr>
+        <tr><td><strong>Complexe Aquatique Laval</strong></td><td>Sophie B&eacute;langer</td><td><div class="budget-bar"><div class="budget-fill green" style="width:38%"></div></div> <span class="mono" style="font-size:12px">38%</span></td><td><span class="status-dot green"></span>En sant&eacute;</td></tr>
+        <tr><td><strong>R&eacute;sidence &Eacute;tudiante UdeM</strong></td><td>J-F. Tremblay</td><td><div class="budget-bar"><div class="budget-fill green" style="width:62%"></div></div> <span class="mono" style="font-size:12px">62%</span></td><td><span class="status-dot green"></span>En sant&eacute;</td></tr>
+      </tbody></table>
+    </div>
+    <div><div class="section-title">Budget r&eacute;alis&eacute; vs projet&eacute;</div>
+      <div class="chart-placeholder"><div class="chart-bars">
+        <div class="chart-col"><div class="chart-bar-group"><div class="chart-bar realized" style="height:80px"></div><div class="chart-bar projected" style="height:95px"></div></div><div class="chart-month">Oct</div></div>
+        <div class="chart-col"><div class="chart-bar-group"><div class="chart-bar realized" style="height:90px"></div><div class="chart-bar projected" style="height:100px"></div></div><div class="chart-month">Nov</div></div>
+        <div class="chart-col"><div class="chart-bar-group"><div class="chart-bar realized" style="height:105px"></div><div class="chart-bar projected" style="height:100px"></div></div><div class="chart-month">D&eacute;c</div></div>
+        <div class="chart-col"><div class="chart-bar-group"><div class="chart-bar realized" style="height:85px"></div><div class="chart-bar projected" style="height:105px"></div></div><div class="chart-month">Jan</div></div>
+        <div class="chart-col"><div class="chart-bar-group"><div class="chart-bar realized" style="height:110px"></div><div class="chart-bar projected" style="height:105px"></div></div><div class="chart-month">F&eacute;v</div></div>
+        <div class="chart-col"><div class="chart-bar-group"><div class="chart-bar realized" style="height:60px"></div><div class="chart-bar projected" style="height:110px"></div></div><div class="chart-month">Mars</div></div>
+      </div><div style="display:flex;gap:16px;margin-top:12px;font-size:11px;color:var(--neutral-400)"><span><span style="display:inline-block;width:10px;height:10px;background:var(--primary-500);border-radius:2px;margin-right:4px"></span>R&eacute;alis&eacute;</span><span><span style="display:inline-block;width:10px;height:10px;background:var(--primary-200);border-radius:2px;margin-right:4px"></span>Projet&eacute;</span></div></div>
+    </div>
+  </div>
+  <div class="section-title">Actions requises</div>
+  <div class="notif-list">
+    <div class="notif-item"><div class="notif-dot blue"></div><strong>3 feuilles de temps</strong>&nbsp;en attente d'approbation<span class="notif-time">il y a 2h</span></div>
+    <div class="notif-item"><div class="notif-dot orange"></div>Facture <strong>Biblioth&egrave;que Nationale</strong> &mdash; pr&ecirc;te pour r&eacute;vision<span class="notif-time">il y a 4h</span></div>
+    <div class="notif-item"><div class="notif-dot red"></div><strong>Tour Deloitte</strong> &mdash; budget &agrave; 96%, action requise<span class="notif-time">hier</span></div>
+    <div class="notif-item"><div class="notif-dot blue"></div>Rapport de d&eacute;penses de <strong>Sophie B&eacute;langer</strong> &agrave; approuver<span class="notif-time">hier</span></div>
+    <div class="notif-item"><div class="notif-dot orange"></div>Offre <strong>Mus&eacute;e des Beaux-Arts</strong> &mdash; date limite dans 5 jours<span class="notif-time">2 mars</span></div>
+  </div>
+  <div class="timesheet-section"><div class="section-title">Feuille de temps &mdash; Semaine du 3 mars 2026</div>
+    <table class="ts-grid"><thead><tr><th>Projet / Phase</th><th>Lun</th><th>Mar</th><th>Mer</th><th>Jeu</th><th>Ven</th><th>Sam</th><th>Dim</th><th>Total</th></tr></thead><tbody>
+      <tr><td>Centre Vid&eacute;otron &mdash; Phase 2<br><span class="ts-project-phase">Architecture &mdash; Plans &amp; devis</span></td><td><input class="ts-input" value="4.0"></td><td><input class="ts-input" value="3.5"></td><td><input class="ts-input" value="4.0"></td><td><input class="ts-input" value="2.0"></td><td><input class="ts-input" value="4.0"></td><td><input class="ts-input" value=""></td><td><input class="ts-input" value=""></td><td class="ts-total">17.5</td></tr>
+      <tr><td>Biblioth&egrave;que Nationale<br><span class="ts-project-phase">Structure &mdash; Coordination</span></td><td><input class="ts-input" value="3.5"></td><td><input class="ts-input" value="4.0"></td><td><input class="ts-input" value="3.5"></td><td><input class="ts-input" value="4.0"></td><td><input class="ts-input" value=""></td><td><input class="ts-input" value=""></td><td><input class="ts-input" value=""></td><td class="ts-total">15.0</td></tr>
+      <tr><td>Administration interne<br><span class="ts-project-phase">R&eacute;unions &amp; formation</span></td><td><input class="ts-input" value="0.5"></td><td><input class="ts-input" value="0.5"></td><td><input class="ts-input" value="0.5"></td><td><input class="ts-input" value="2.0"></td><td><input class="ts-input" value=""></td><td><input class="ts-input" value=""></td><td><input class="ts-input" value=""></td><td class="ts-total">3.5</td></tr>
+      <tr style="background:var(--neutral-50);font-weight:600"><td>Total quotidien</td><td class="ts-total">8.0</td><td class="ts-total">8.0</td><td class="ts-total">8.0</td><td class="ts-total">8.0</td><td class="ts-total">4.0</td><td class="ts-total">0</td><td class="ts-total">0</td><td class="ts-total" style="color:var(--primary-600)">36.0</td></tr>
+    </tbody></table>
+    <div class="ts-progress"><div class="ts-progress-bar"><div class="ts-progress-fill" style="width:90%"></div></div><span class="ts-progress-label"><span class="mono">36.0</span> / 40.0 heures</span></div>
+    <div class="ts-footer"><button class="btn-ghost">Sauvegarder brouillon</button><button class="btn-primary">Soumettre la semaine</button></div>
+  </div>
+</div>
+
+<!-- DIRECTION B -->
+<div class="direction" id="dir-b">
+  <div class="page-header"><div><div class="breadcrumb"><a href="#">Accueil</a> &rsaquo; Actions prioritaires</div><div class="page-title">Bonjour Philippe &mdash; 5 actions en attente</div></div></div>
+  <div class="section-title">Actions requises</div>
+  <div class="action-grid">
+    <div class="action-card"><div class="action-badge blue">&#9202;</div><div class="action-count">3</div><div class="action-title">Feuilles de temps</div><div class="action-desc">En attente d'approbation</div><div class="action-btn">Approuver &rarr;</div></div>
+    <div class="action-card"><div class="action-badge orange">&#128176;</div><div class="action-count">1</div><div class="action-title">Facture &agrave; r&eacute;viser</div><div class="action-desc">Biblioth&egrave;que Nationale &mdash; $45,200.00</div><div class="action-btn">R&eacute;viser &rarr;</div></div>
+    <div class="action-card"><div class="action-badge blue">&#128179;</div><div class="action-count">1</div><div class="action-title">Rapport de d&eacute;penses</div><div class="action-desc">Sophie B&eacute;langer &mdash; $342.50</div><div class="action-btn">Examiner &rarr;</div></div>
+    <div class="action-card"><div class="action-badge orange">&#128196;</div><div class="action-count">1</div><div class="action-title">Offre de services</div><div class="action-desc">Mus&eacute;e des Beaux-Arts &mdash; 5 jours</div><div class="action-btn">Continuer &rarr;</div></div>
+    <div class="action-card"><div class="action-badge red">&#9888;</div><div class="action-count">!</div><div class="action-title">Alerte budget</div><div class="action-desc">Tour Deloitte &mdash; 96% consomm&eacute;</div><div class="action-btn">Voir d&eacute;tails &rarr;</div></div>
+    <div class="action-card"><div class="action-badge blue">&#129309;</div><div class="action-count">1</div><div class="action-title">Rapport consortium</div><div class="action-desc">Consortium M&eacute;tro &mdash; mensuel pr&ecirc;t</div><div class="action-btn">Consulter &rarr;</div></div>
+  </div>
+  <div class="two-col">
+    <div><div class="section-title">Mes projets</div><div class="compact-list">
+      <div class="compact-item"><span class="status-dot green"></span><strong>Centre Vid&eacute;otron &mdash; Phase 2</strong><span style="margin-left:auto" class="mono">$1.2M</span><span style="margin-left:12px;font-size:12px;color:var(--neutral-400)">55%</span></div>
+      <div class="compact-item"><span class="status-dot amber"></span><strong>Biblioth&egrave;que Nationale</strong><span style="margin-left:auto" class="mono">$890K</span><span style="margin-left:12px;font-size:12px;color:var(--neutral-400)">82%</span></div>
+      <div class="compact-item"><span class="status-dot red"></span><strong>Tour Deloitte &mdash; R&eacute;novation</strong><span style="margin-left:auto" class="mono">$450K</span><span style="margin-left:12px;font-size:12px;color:var(--neutral-400)">96%</span></div>
+      <div class="compact-item"><span class="status-dot green"></span><strong>Complexe Aquatique Laval</strong><span style="margin-left:auto" class="mono">$2.1M</span><span style="margin-left:12px;font-size:12px;color:var(--neutral-400)">38%</span></div>
+      <div class="compact-item"><span class="status-dot green"></span><strong>R&eacute;sidence &Eacute;tudiante UdeM</strong><span style="margin-left:auto" class="mono">$680K</span><span style="margin-left:12px;font-size:12px;color:var(--neutral-400)">62%</span></div>
+    </div></div>
+    <div><div class="section-title">Activit&eacute; r&eacute;cente</div><div class="activity-feed">
+      <div class="activity-item"><div class="activity-avatar" style="background:#DBEAFE;color:#1E40AF">ML</div>Marie Lavoie a soumis sa feuille de temps<span class="activity-time">il y a 30 min</span></div>
+      <div class="activity-item"><div class="activity-avatar" style="background:#D1FAE5;color:#065F46">PG</div>Pierre Gagnon a approuv&eacute; la facture Tour Deloitte<span class="activity-time">il y a 1h</span></div>
+      <div class="activity-item"><div class="activity-avatar" style="background:#FCE7F3;color:#9D174D">SB</div>Sophie B&eacute;langer a cr&eacute;&eacute; un rapport de d&eacute;penses<span class="activity-time">il y a 2h</span></div>
+      <div class="activity-item"><div class="activity-avatar" style="background:#FEF3C7;color:#92400E">NR</div>Nathalie Roy a export&eacute; 3 factures vers Intact<span class="activity-time">il y a 3h</span></div>
+      <div class="activity-item"><div class="activity-avatar" style="background:#DBEAFE;color:#1E40AF">JT</div>J-F. Tremblay a bloqu&eacute; la phase MEP<span class="activity-time">hier</span></div>
+    </div></div>
+  </div>
+  <div class="timesheet-section"><div class="section-title">Ma feuille de temps &mdash; Semaine du 3 mars 2026</div>
+    <table class="ts-grid"><thead><tr><th>Projet / Phase</th><th>Lun</th><th>Mar</th><th>Mer</th><th>Jeu</th><th>Ven</th><th>Sam</th><th>Dim</th><th>Total</th></tr></thead><tbody>
+      <tr><td>Centre Vid&eacute;otron &mdash; Phase 2<br><span class="ts-project-phase">Architecture &mdash; Plans &amp; devis</span></td><td><input class="ts-input" value="4.0"></td><td><input class="ts-input" value="3.5"></td><td><input class="ts-input" value="4.0"></td><td><input class="ts-input" value="2.0"></td><td><input class="ts-input" value="4.0"></td><td><input class="ts-input" value=""></td><td><input class="ts-input" value=""></td><td class="ts-total">17.5</td></tr>
+      <tr><td>Biblioth&egrave;que Nationale<br><span class="ts-project-phase">Structure &mdash; Coordination</span></td><td><input class="ts-input" value="3.5"></td><td><input class="ts-input" value="4.0"></td><td><input class="ts-input" value="3.5"></td><td><input class="ts-input" value="4.0"></td><td><input class="ts-input" value=""></td><td><input class="ts-input" value=""></td><td><input class="ts-input" value=""></td><td class="ts-total">15.0</td></tr>
+      <tr><td>Administration interne<br><span class="ts-project-phase">R&eacute;unions &amp; formation</span></td><td><input class="ts-input" value="0.5"></td><td><input class="ts-input" value="0.5"></td><td><input class="ts-input" value="0.5"></td><td><input class="ts-input" value="2.0"></td><td><input class="ts-input" value=""></td><td><input class="ts-input" value=""></td><td><input class="ts-input" value=""></td><td class="ts-total">3.5</td></tr>
+      <tr style="background:var(--neutral-50);font-weight:600"><td>Total quotidien</td><td class="ts-total">8.0</td><td class="ts-total">8.0</td><td class="ts-total">8.0</td><td class="ts-total">8.0</td><td class="ts-total">4.0</td><td class="ts-total">0</td><td class="ts-total">0</td><td class="ts-total" style="color:var(--primary-600)">36.0</td></tr>
+    </tbody></table>
+    <div class="ts-progress"><div class="ts-progress-bar"><div class="ts-progress-fill" style="width:90%"></div></div><span class="ts-progress-label"><span class="mono">36.0</span> / 40.0 heures</span></div>
+    <div class="ts-footer"><button class="btn-ghost">Sauvegarder brouillon</button><button class="btn-primary">Soumettre la semaine</button></div>
+  </div>
+</div>
+
+<!-- DIRECTION C -->
+<div class="direction" id="dir-c">
+  <div class="page-header"><div><div class="breadcrumb"><a href="#">Accueil</a> &rsaquo; Projets</div><div class="page-title">Mes projets</div></div><button class="btn-primary">+ Nouveau projet</button></div>
+  <div class="mini-kpi-bar">
+    <div class="mini-kpi"><span style="color:var(--neutral-400)">Carnet :</span><span class="mini-kpi-val">$2.4M</span></div>
+    <div class="mini-kpi"><span style="color:var(--neutral-400)">Ratio CA/Sal :</span><span class="mini-kpi-val">2.85</span></div>
+    <div class="mini-kpi"><span style="color:var(--neutral-400)">Facturation :</span><span class="mini-kpi-val">78%</span></div>
+    <div class="mini-kpi"><span style="color:var(--neutral-400)">Marge :</span><span class="mini-kpi-val">34%</span></div>
+    <div class="mini-kpi" style="margin-left:auto"><span class="notif-dot blue" style="display:inline-block;border-radius:50%;margin-right:4px"></span>5 actions</div>
+  </div>
+  <div class="project-grid">
+    <div class="project-card" onclick="toggleSlide()"><div class="project-card-header"><div><div class="project-card-name">Centre Vid&eacute;otron &mdash; Phase 2</div><div class="project-card-pm">J-F. Tremblay</div></div><span class="status-dot green" style="margin-top:4px"></span></div><span class="phase-badge archi">Architecture</span><div style="margin-top:12px"><div class="budget-bar" style="width:100%"><div class="budget-fill green" style="width:55%"></div></div><span style="font-size:11px;color:var(--neutral-400);margin-left:8px" class="mono">55% &mdash; $660K / $1.2M</span></div><div class="project-card-meta"><div class="avatar-stack"><div class="avatar-sm a1">JT</div><div class="avatar-sm a2">ML</div><div class="avatar-sm a3">PG</div><div class="avatar-sm a4">+4</div></div><span>7 membres</span></div></div>
+    <div class="project-card"><div class="project-card-header"><div><div class="project-card-name">Biblioth&egrave;que Nationale</div><div class="project-card-pm">Marie Lavoie</div></div><span class="status-dot amber" style="margin-top:4px"></span></div><span class="phase-badge struct">Structure</span><div style="margin-top:12px"><div class="budget-bar" style="width:100%"><div class="budget-fill amber" style="width:82%"></div></div><span style="font-size:11px;color:var(--neutral-400);margin-left:8px" class="mono">82% &mdash; $730K / $890K</span></div><div class="project-card-meta"><div class="avatar-stack"><div class="avatar-sm a2">ML</div><div class="avatar-sm a3">SB</div><div class="avatar-sm a1">+3</div></div><span>5 membres</span></div></div>
+    <div class="project-card"><div class="project-card-header"><div><div class="project-card-name">Tour Deloitte &mdash; R&eacute;novation</div><div class="project-card-pm">Pierre Gagnon</div></div><span class="status-dot red" style="margin-top:4px"></span></div><span class="phase-badge mep">MEP</span><div style="margin-top:12px"><div class="budget-bar" style="width:100%"><div class="budget-fill red" style="width:96%"></div></div><span style="font-size:11px;color:var(--neutral-400);margin-left:8px" class="mono">96% &mdash; $432K / $450K</span></div><div class="project-card-meta"><div class="avatar-stack"><div class="avatar-sm a3">PG</div><div class="avatar-sm a4">NR</div><div class="avatar-sm a1">+2</div></div><span>4 membres</span></div></div>
+    <div class="project-card"><div class="project-card-header"><div><div class="project-card-name">Complexe Aquatique Laval</div><div class="project-card-pm">Sophie B&eacute;langer</div></div><span class="status-dot green" style="margin-top:4px"></span></div><span class="phase-badge archi">Architecture</span><div style="margin-top:12px"><div class="budget-bar" style="width:100%"><div class="budget-fill green" style="width:38%"></div></div><span style="font-size:11px;color:var(--neutral-400);margin-left:8px" class="mono">38% &mdash; $798K / $2.1M</span></div><div class="project-card-meta"><div class="avatar-stack"><div class="avatar-sm a2">SB</div><div class="avatar-sm a1">JT</div><div class="avatar-sm a4">+6</div></div><span>8 membres</span></div></div>
+    <div class="project-card"><div class="project-card-header"><div><div class="project-card-name">R&eacute;sidence &Eacute;tudiante UdeM</div><div class="project-card-pm">J-F. Tremblay</div></div><span class="status-dot green" style="margin-top:4px"></span></div><span class="phase-badge struct">Structure</span><div style="margin-top:12px"><div class="budget-bar" style="width:100%"><div class="budget-fill green" style="width:62%"></div></div><span style="font-size:11px;color:var(--neutral-400);margin-left:8px" class="mono">62% &mdash; $422K / $680K</span></div><div class="project-card-meta"><div class="avatar-stack"><div class="avatar-sm a1">JT</div><div class="avatar-sm a3">PG</div><div class="avatar-sm a2">+1</div></div><span>3 membres</span></div></div>
+    <div class="project-card"><div class="project-card-header"><div><div class="project-card-name">Consortium M&eacute;tro &mdash; Phase 3</div><div class="project-card-pm">Marie Lavoie</div></div><span class="status-dot green" style="margin-top:4px"></span></div><span class="phase-badge archi">Architecture</span><div style="margin-top:12px"><div class="budget-bar" style="width:100%"><div class="budget-fill green" style="width:45%"></div></div><span style="font-size:11px;color:var(--neutral-400);margin-left:8px" class="mono">45% &mdash; $1.35M / $3.0M</span></div><div class="project-card-meta"><div class="avatar-stack"><div class="avatar-sm a2">ML</div><div class="avatar-sm a4">NR</div><div class="avatar-sm a3">+8</div></div><span>10 membres &middot; <span style="color:var(--primary-500)">Consortium</span></span></div></div>
+  </div>
+  <div class="timesheet-section"><div class="section-title">Ma feuille de temps &mdash; Semaine du 3 mars 2026</div>
+    <table class="ts-grid"><thead><tr><th>Projet / Phase</th><th>Lun</th><th>Mar</th><th>Mer</th><th>Jeu</th><th>Ven</th><th>Sam</th><th>Dim</th><th>Total</th></tr></thead><tbody>
+      <tr><td>Centre Vid&eacute;otron &mdash; Phase 2<br><span class="ts-project-phase">Architecture &mdash; Plans &amp; devis</span></td><td><input class="ts-input" value="4.0"></td><td><input class="ts-input" value="3.5"></td><td><input class="ts-input" value="4.0"></td><td><input class="ts-input" value="2.0"></td><td><input class="ts-input" value="4.0"></td><td><input class="ts-input" value=""></td><td><input class="ts-input" value=""></td><td class="ts-total">17.5</td></tr>
+      <tr><td>Biblioth&egrave;que Nationale<br><span class="ts-project-phase">Structure &mdash; Coordination</span></td><td><input class="ts-input" value="3.5"></td><td><input class="ts-input" value="4.0"></td><td><input class="ts-input" value="3.5"></td><td><input class="ts-input" value="4.0"></td><td><input class="ts-input" value=""></td><td><input class="ts-input" value=""></td><td><input class="ts-input" value=""></td><td class="ts-total">15.0</td></tr>
+      <tr><td>Administration interne<br><span class="ts-project-phase">R&eacute;unions &amp; formation</span></td><td><input class="ts-input" value="0.5"></td><td><input class="ts-input" value="0.5"></td><td><input class="ts-input" value="0.5"></td><td><input class="ts-input" value="2.0"></td><td><input class="ts-input" value=""></td><td><input class="ts-input" value=""></td><td><input class="ts-input" value=""></td><td class="ts-total">3.5</td></tr>
+      <tr style="background:var(--neutral-50);font-weight:600"><td>Total quotidien</td><td class="ts-total">8.0</td><td class="ts-total">8.0</td><td class="ts-total">8.0</td><td class="ts-total">8.0</td><td class="ts-total">4.0</td><td class="ts-total">0</td><td class="ts-total">0</td><td class="ts-total" style="color:var(--primary-600)">36.0</td></tr>
+    </tbody></table>
+    <div class="ts-progress"><div class="ts-progress-bar"><div class="ts-progress-fill" style="width:90%"></div></div><span class="ts-progress-label"><span class="mono">36.0</span> / 40.0 heures</span></div>
+    <div class="ts-footer"><button class="btn-ghost">Sauvegarder brouillon</button><button class="btn-primary">Soumettre la semaine</button></div>
+  </div>
+</div>
+
+</div><!-- /main-content -->
+</div><!-- /app-shell -->
+</div>
+
+<!-- Slide-over Panel for Direction C -->
+<div class="slideover" id="slideover">
+  <div class="slideover-header"><div><div style="font-size:18px;font-weight:600">Centre Vid&eacute;otron &mdash; Phase 2</div><div style="font-size:12px;color:var(--neutral-400)">Code: PR-2025-042 &middot; J-F. Tremblay</div></div><div class="slideover-close" onclick="toggleSlide()">&times;</div></div>
+  <div class="tabs"><div class="tab active">Vue d'ensemble</div><div class="tab">Temps</div><div class="tab">Budget</div><div class="tab">Factures</div><div class="tab">&Eacute;quipe</div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+    <div class="kpi-card" style="padding:12px"><div class="kpi-label" style="font-size:10px">Budget</div><div style="font-family:var(--font-mono);font-size:18px;font-weight:700">$660K <span style="font-size:12px;color:var(--neutral-400)">/ $1.2M</span></div></div>
+    <div class="kpi-card" style="padding:12px"><div class="kpi-label" style="font-size:10px">Heures</div><div style="font-family:var(--font-mono);font-size:18px;font-weight:700">4,200 <span style="font-size:12px;color:var(--neutral-400)">/ 7,600</span></div></div>
+  </div>
+  <div style="font-size:13px;font-weight:600;margin-bottom:8px">Phases</div>
+  <div class="compact-list" style="margin-bottom:16px">
+    <div class="compact-item"><span class="status-dot green"></span>Architecture &mdash; Plans &amp; devis<span style="margin-left:auto" class="mono">48%</span></div>
+    <div class="compact-item"><span class="status-dot green"></span>Structure &mdash; Coordination<span style="margin-left:auto" class="mono">62%</span></div>
+    <div class="compact-item"><span class="status-dot amber"></span>MEP &mdash; Conception<span style="margin-left:auto" class="mono">78%</span></div>
+  </div>
+  <div style="font-size:13px;font-weight:600;margin-bottom:8px">&Eacute;quipe</div>
+  <div class="compact-list">
+    <div class="compact-item"><div class="avatar-sm a1" style="margin-left:0">JT</div>J-F. Tremblay<span style="margin-left:auto;font-size:11px;color:var(--neutral-400)">Chef de projet</span></div>
+    <div class="compact-item"><div class="avatar-sm a2" style="margin-left:0">ML</div>Marie Lavoie<span style="margin-left:auto;font-size:11px;color:var(--neutral-400)">Architecte</span></div>
+    <div class="compact-item"><div class="avatar-sm a3" style="margin-left:0">PG</div>Pierre Gagnon<span style="margin-left:auto;font-size:11px;color:var(--neutral-400)">Ing&eacute;nieur structure</span></div>
+  </div>
+</div>
+
+<script>
+function showDirection(dir, el) {
+  document.querySelectorAll('.direction').forEach(function(d) { d.classList.remove('active'); });
+  document.querySelectorAll('.dir-pill').forEach(function(p) { p.classList.remove('active'); });
+  document.getElementById('dir-' + dir).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('slideover').classList.remove('open');
+}
+function toggleSlide() {
+  document.getElementById('slideover').classList.toggle('open');
+}
+</script>
+</body>
+</html>

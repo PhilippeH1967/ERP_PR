@@ -1,0 +1,201 @@
+# generated: 2026-03-17
+# project: ERP
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-03-17
+project: ERP
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # === MVP-1: Operational Foundation ===
+
+  # Epic 1: Foundation & Platform Setup (6 stories)
+  epic-1: in-progress
+  1-1-project-scaffolding-docker-infrastructure: done
+  1-2-core-models-multi-tenancy-audit-trail: backlog
+  1-3-sso-authentication-jwt: backlog
+  1-4-rbac-framework-role-assignment: backlog
+  1-5-bilingual-support-locale-aware-formatting: backlog
+  1-6-frontend-shell-design-system-foundation: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: Client & Organization Management (4 stories)
+  epic-2: backlog
+  2-1-client-crud-5-tab-interface: backlog
+  2-2-client-duplicate-detection-alias-search: backlog
+  2-3-client-financial-history-project-linking: backlog
+  2-4-external-organizations-registry: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: Project Creation & Management (10 stories)
+  epic-3: backlog
+  3-1-project-model-template-system: backlog
+  3-2-project-wizard-step-1-metadata: backlog
+  3-3-project-wizard-step-2-budget: backlog
+  3-4-project-wizard-step-3-resources-planning: backlog
+  3-5-project-wizard-step-4-subcontractors-confirmation: backlog
+  3-6-virtual-to-real-resource-assignment: backlog
+  3-7-wbs-management-dual-labels: backlog
+  3-8-project-dashboard-health-indicators: backlog
+  3-9-internal-projects-personnel-lending: backlog
+  3-10-project-lifecycle-leadership-management: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Time Tracking & Approval (6 stories)
+  epic-4: backlog
+  4-1-weekly-timesheet-entry-grid: backlog
+  4-2-timesheet-draft-submit-favorites: backlog
+  4-3-phase-person-blocking: backlog
+  4-4-two-level-timesheet-approval: backlog
+  4-5-finance-second-level-approval-corrections: backlog
+  4-6-automated-timesheet-reminders: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: Invoicing & Financial Layer (8 stories)
+  epic-5: backlog
+  5-1-financial-phases-dual-rate-configuration: backlog
+  5-2-7-column-invoice-preparation-screen: backlog
+  5-3-ca-salary-ratio-banner-visual-alerts: backlog
+  5-4-invoice-templates-client-labels: backlog
+  5-5-billing-dossier-assembly: backlog
+  5-6-invoice-approval-workflow-status-tracking: backlog
+  5-7-payment-recording-aging-holdback-tracking: backlog
+  5-8-non-billable-tracking-intact-export: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Expense Management (4 stories)
+  epic-6: backlog
+  6-1-expense-report-creation-receipt-upload: backlog
+  6-2-expense-categories-project-configuration: backlog
+  6-3-4-role-expense-approval-workflow: backlog
+  6-4-expense-reporting-intact-export: backlog
+  epic-6-retrospective: optional
+
+  # Epic 7: Supplier Payment Tracking (3 stories)
+  epic-7: backlog
+  7-1-st-invoice-entry-pm-authorization: backlog
+  7-2-payment-execution-validation: backlog
+  7-3-cross-project-payment-reports: backlog
+  epic-7-retrospective: optional
+
+  # Epic 8: Dashboards, Notifications & Actions (4 stories)
+  epic-8: backlog
+  8-1-role-based-dashboards: backlog
+  8-2-pm-financial-kpis-hours-reports: backlog
+  8-3-system-health-admin-metrics: backlog
+  8-4-notification-center-actions-requises: backlog
+  epic-8-retrospective: optional
+
+  # Epic 9: Delegation & Access (3 stories)
+  epic-9: backlog
+  9-1-delegation-creation-scope-management: backlog
+  9-2-delegated-actions-audit-trail: backlog
+  9-3-department-assistant-delegation: backlog
+  epic-9-retrospective: optional
+
+  # Epic 10: Configuration & Regional Settings (2 stories)
+  epic-10: backlog
+  10-1-hr-labor-rules-overtime-configuration: backlog
+  10-2-expense-policies-business-configuration: backlog
+  epic-10-retrospective: optional
+
+  # Epic 11: ChangePoint Data Migration (3 stories)
+  epic-11: backlog
+  11-1-changepoint-data-import: backlog
+  11-2-migration-validation-reconciliation: backlog
+  11-3-parallel-run-period: backlog
+  epic-11-retrospective: optional
+
+  # === MVP-1.5: Productivity Enhancement ===
+
+  # Epic 12: Project Lifecycle Extended (4 stories)
+  epic-12: backlog
+  12-1-contract-amendments-avenants: backlog
+  12-2-three-level-budget-view-rebaseline: backlog
+  12-3-project-reopening-archival: backlog
+  12-4-consortium-project-flag: backlog
+  epic-12-retrospective: optional
+
+  # Epic 13: Service Proposals (4 stories)
+  epic-13: backlog
+  13-1-proposal-creation-team-assignment: backlog
+  13-2-proposal-lifecycle-pipeline-dashboard: backlog
+  13-3-proposal-time-tracking: backlog
+  13-4-proposal-to-project-conversion-reporting: backlog
+  epic-13-retrospective: optional
+
+  # Epic 14: Billing Extended (4 stories)
+  epic-14: backlog
+  14-1-credit-notes-avoirs: backlog
+  14-2-invoice-cancellation-reissue: backlog
+  14-3-automated-dunning-process: backlog
+  14-4-write-offs-cross-linked-holdback-alerts: backlog
+  epic-14-retrospective: optional
+
+  # Epic 15: Supplier Extended (4 stories)
+  epic-15: backlog
+  15-1-st-credit-notes-partial-payments: backlog
+  15-2-st-dispute-management: backlog
+  15-3-st-contractual-holdbacks: backlog
+  15-4-st-intact-import-document-attachments: backlog
+  epic-15-retrospective: optional
+
+  # Epic 16: Consortium Management (6 stories)
+  epic-16: backlog
+  16-1-consortium-entity-member-configuration: backlog
+  16-2-dual-financial-perspective: backlog
+  16-3-partner-invoicing-st-consortium: backlog
+  16-4-basic-profit-distribution: backlog
+  16-5-consortium-invoicing-financial-synthesis: backlog
+  16-6-bu-director-consortium-dashboard: backlog
+  epic-16-retrospective: optional
+
+  # Epic 17: Multi-Currency, Data Operations & Extended Features (4 stories)
+  epic-17: backlog
+  17-1-multi-currency-invoicing: backlog
+  17-2-bulk-import-export: backlog
+  17-3-time-tracking-extended-features: backlog
+  17-4-expense-extended-client-groups: backlog
+  epic-17-retrospective: optional
+
+  # === MVP-2: Strategic Intelligence ===
+
+  # Epic 18: Strategic Intelligence & Advanced Features (7 stories)
+  epic-18: backlog
+  18-1-advanced-profit-sharing-rules: backlog
+  18-2-guided-profit-distribution-workflow: backlog
+  18-3-treasury-cash-management: backlog
+  18-4-tax-declarations-fiscal-compliance: backlog
+  18-5-consortium-excel-import: backlog
+  18-6-data-retention-archival-purge: backlog
+  18-7-year-end-adjustments-bank-reconciliation-entity-transfers: backlog
+  epic-18-retrospective: optional

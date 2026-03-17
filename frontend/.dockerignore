@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-ssr
+coverage
+.git
+.gitignore
+README.md
+*.local
+e2e/test-results
+e2e/.auth
+.vscode
+.idea

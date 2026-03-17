@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PR | ERP — Flux 11: Administration</title>
+    <style>
+        :root { --primary: #2563EB; --primary-light: #DBEAFE; --primary-dark: #1D4ED8; --success: #16A34A; --success-light: #DCFCE7; --warning: #D97706; --warning-light: #FEF3C7; --danger: #DC2626; --danger-light: #FEE2E2; --gray-50: #F9FAFB; --gray-100: #F3F4F6; --gray-200: #E5E7EB; --gray-300: #D1D5DB; --gray-400: #9CA3AF; --gray-500: #6B7280; --gray-600: #4B5563; --gray-700: #374151; --gray-800: #1F2937; --gray-900: #111827; --radius: 8px; --radius-sm: 4px; --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06); --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06); --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05); --font-mono: 'SF Mono', 'Cascadia Code', Consolas, monospace; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--gray-50); color: var(--gray-800); font-size: 14px; line-height: 1.5; }
+        .mockup-nav { background: var(--gray-900); position: sticky; top: 0; z-index: 9999; box-shadow: var(--shadow-lg); }
+        .mockup-nav-title { background: var(--primary-dark); padding: 10px 24px; font-size: 13px; font-weight: 700; color: white; letter-spacing: 0.5px; text-transform: uppercase; }
+        .mockup-nav-groups { display: flex; overflow-x: auto; padding: 0 12px; }
+        .nav-group { display: flex; align-items: stretch; border-right: 1px solid var(--gray-700); }
+        .nav-group:last-child { border-right: none; }
+        .nav-group-wrapper { display: flex; flex-direction: column; }
+        .nav-group-label { font-size: 10px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 12px 0 12px; white-space: nowrap; }
+        .nav-group-buttons { display: flex; }
+        .nav-btn { background: none; border: none; color: var(--gray-400); padding: 10px 14px; cursor: pointer; font-size: 12px; font-weight: 500; white-space: nowrap; border-bottom: 3px solid transparent; transition: all 0.2s; }
+        .nav-btn:hover { color: white; background: rgba(255,255,255,0.05); }
+        .nav-btn.active { color: white; border-bottom-color: var(--primary); }
+        .flow-bar { background: white; border-bottom: 1px solid var(--gray-200); padding: 12px 24px; display: flex; align-items: center; gap: 8px; }
+        .flow-step { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--gray-400); }
+        .flow-step.active { color: var(--primary); font-weight: 600; }
+        .flow-num { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: var(--gray-200); color: var(--gray-500); }
+        .flow-step.active .flow-num { background: var(--primary); color: white; }
+        .flow-role { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; margin-left: 4px; }
+        .flow-role-admin { background: var(--gray-100); color: var(--gray-600); }
+        .app-shell { display: none; background: var(--gray-50); min-height: calc(100vh - 90px); flex-direction: column; }
+        .app-shell.active { display: flex; }
+        .app-topbar { background: white; border-bottom: 1px solid var(--gray-200); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; }
+        .topbar-left { display: flex; align-items: center; gap: 16px; }
+        .topbar-logo { font-size: 18px; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; }
+        .topbar-logo span { color: var(--gray-400); font-weight: 400; }
+        .topbar-search { padding: 8px 12px 8px 36px; border: 1px solid var(--gray-200); border-radius: var(--radius); font-size: 13px; width: 280px; background: var(--gray-50); }
+        .topbar-right { display: flex; align-items: center; gap: 16px; }
+        .topbar-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--gray-500); color: white; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .app-body { display: flex; flex: 1; width: 100%; }
+        .sidebar { width: 240px; min-width: 240px; background: var(--gray-100); border-right: 1px solid var(--gray-200); padding: 16px 0; min-height: calc(100vh - 128px); }
+        .sidebar-section-label { padding: 12px 20px 4px; font-size: 10px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.5px; }
+        .sidebar-item { padding: 9px 20px 9px 28px; font-size: 14px; color: var(--gray-600); cursor: pointer; display: flex; align-items: center; gap: 10px; }
+        .sidebar-item.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+        .sidebar-icon { width: 18px; text-align: center; font-size: 15px; }
+        .main-content { flex: 1; padding: 24px; overflow-x: auto; }
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .page-header h1 { font-size: 24px; font-weight: 700; }
+        .card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px; }
+        .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .card-title { font-size: 16px; font-weight: 600; }
+        table { width: 100%; border-collapse: collapse; }
+        table th { background: var(--gray-50); padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 2px solid var(--gray-200); }
+        table td { padding: 10px 12px; border-bottom: 1px solid var(--gray-100); font-size: 14px; }
+        .mono { font-family: var(--font-mono); font-size: 13px; }
+        .text-right { text-align: right; }
+        .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+        .badge-green { background: var(--success-light); color: var(--success); }
+        .badge-amber { background: var(--warning-light); color: #92400E; }
+        .badge-red { background: var(--danger-light); color: var(--danger); }
+        .badge-blue { background: var(--primary-light); color: var(--primary); }
+        .badge-gray { background: var(--gray-100); color: var(--gray-500); }
+        .btn { padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-ghost { background: transparent; color: var(--gray-600); border: 1px solid var(--gray-300); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-sm { padding: 6px 14px; font-size: 12px; }
+        .btn-group { display: flex; gap: 8px; }
+        .section-divider { font-size: 12px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; margin: 24px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--gray-200); }
+        .form-group { margin-bottom: 16px; }
+        .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 4px; }
+        .form-input, .form-select { width: 100%; padding: 10px 12px; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); font-size: 14px; background: white; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+        .form-hint { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+        .kpi-grid { display: grid; gap: 16px; margin-bottom: 24px; }
+        .kpi-grid-4 { grid-template-columns: repeat(4, 1fr); }
+        .kpi-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
+        .kpi-label { font-size: 12px; color: var(--gray-500); text-transform: uppercase; font-weight: 600; letter-spacing: 0.3px; margin-bottom: 4px; }
+        .kpi-value { font-size: 28px; font-weight: 700; font-family: var(--font-mono); color: var(--gray-900); }
+        .kpi-value.sm { font-size: 22px; }
+        .kpi-detail { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+        .progress-bar { width: 100%; height: 6px; background: var(--gray-200); border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 3px; }
+
+        /* CONFIG CARD GRID */
+        .config-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+        .config-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; cursor: pointer; transition: all 0.15s; border: 2px solid transparent; }
+        .config-card:hover { border-color: var(--primary); box-shadow: var(--shadow-md); }
+        .config-icon { font-size: 28px; margin-bottom: 8px; }
+        .config-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+        .config-desc { font-size: 12px; color: var(--gray-500); }
+
+        .text-success { color: var(--success); }
+        .text-warning { color: var(--warning); }
+        .text-danger { color: var(--danger); }
+    </style>
+</head>
+<body>
+
+<nav class="mockup-nav">
+    <div class="mockup-nav-title">PR | ERP — Flux 11: Administration (11 mars 2026)</div>
+    <div class="mockup-nav-groups">
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Parametres</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn active" onclick="showScreen('adm-1')">1. Hub configuration</button>
+                    <button class="nav-btn" onclick="showScreen('adm-2')">2. Organisation</button>
+                </div>
+            </div>
+        </div>
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Utilisateurs</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn" onclick="showScreen('adm-3')">3. Utilisateurs &amp; roles</button>
+                </div>
+            </div>
+        </div>
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Migration</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn" onclick="showScreen('adm-4')">4. Import ChangePoint</button>
+                </div>
+            </div>
+        </div>
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Transferts</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn" onclick="showScreen('adm-6')">6. Directeur BU</button>
+                </div>
+            </div>
+        </div>
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Securite</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn" onclick="showScreen('adm-5')">5. Audit trail</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- ================================================================== -->
+<!-- ADM-1: HUB DE CONFIGURATION (FR83)                                 -->
+<!-- Page d'accueil admin avec navigation vers toutes les configs       -->
+<!-- ================================================================== -->
+<div id="adm-1" class="app-shell active">
+    <div class="flow-bar">
+        <div class="flow-step active"><div class="flow-num">&#9733;</div> Administration systeme <span class="flow-role flow-role-admin">Admin</span></div>
+    </div>
+    <div class="app-topbar">
+        <div class="topbar-left"><div class="topbar-logo">PR<span>|ERP</span></div><input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly></div>
+        <div class="topbar-right"><div class="topbar-avatar">AD</div></div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Administration</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#9881;</span> Configuration</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Organisation</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Utilisateurs</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128274;</span> Roles &amp; permissions</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128188;</span> Clients</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Audit trail</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128229;</span> Migration</div>
+        </aside>
+        <main class="main-content">
+            <div class="page-header"><h1>Configuration systeme (FR83)</h1></div>
+
+            <div class="section-divider" style="margin-top: 0;">Organisation</div>
+            <div class="config-grid">
+                <div class="config-card" onclick="showScreen('adm-2')">
+                    <div class="config-icon">&#127970;</div>
+                    <div class="config-title">Organisation &amp; regional</div>
+                    <div class="config-desc">Entites legales, devise, format dates, langue, fuseau (FR76-FR77)</div>
+                </div>
+                <div class="config-card">
+                    <div class="config-icon">&#127981;</div>
+                    <div class="config-title">Unites d'affaires</div>
+                    <div class="config-desc">6 BUs configurees: Batiment, Infrastructure, Environnement...</div>
+                </div>
+                <div class="config-card">
+                    <div class="config-icon">&#128100;</div>
+                    <div class="config-title">Postes de reference</div>
+                    <div class="config-desc">31 profils (architecte, ingenieur, technicien...) (FR4)</div>
+                </div>
+            </div>
+
+            <div class="section-divider">Projets &amp; facturation</div>
+            <div class="config-grid">
+                <div class="config-card">
+                    <div class="config-icon">&#128196;</div>
+                    <div class="config-title">Templates de projet</div>
+                    <div class="config-desc">Gabarits par type de contrat: forfaitaire, horaire, consortium (FR2)</div>
+                </div>
+                <div class="config-card">
+                    <div class="config-icon">&#128176;</div>
+                    <div class="config-title">Formats de facture</div>
+                    <div class="config-desc">10+ formats configurables par client/type de projet</div>
+                </div>
+                <div class="config-card">
+                    <div class="config-icon">&#128290;</div>
+                    <div class="config-title">Grilles tarifaires</div>
+                    <div class="config-desc">Taux horaires par poste, niveau, type de facturation (FR28-29)</div>
+                </div>
+            </div>
+
+            <div class="section-divider">RH &amp; Depenses</div>
+            <div class="config-grid">
+                <div class="config-card">
+                    <div class="config-icon">&#128197;</div>
+                    <div class="config-title">Regles travail (FR78)</div>
+                    <div class="config-desc">Semaine 37.5h QC, heures supp., conges feries, periodes de paie</div>
+                </div>
+                <div class="config-card">
+                    <div class="config-icon">&#128179;</div>
+                    <div class="config-title">Politiques depenses (FR80)</div>
+                    <div class="config-desc">Per diem, taux kilometrage, categories refacturables, taxes</div>
+                </div>
+                <div class="config-card">
+                    <div class="config-icon">&#128176;</div>
+                    <div class="config-title">Taxes</div>
+                    <div class="config-desc">TPS 5%, TVQ 9.975%, configurations par juridiction</div>
+                </div>
+            </div>
+
+            <div class="section-divider">Integrations &amp; migration</div>
+            <div class="config-grid">
+                <div class="config-card">
+                    <div class="config-icon">&#128268;</div>
+                    <div class="config-title">SSO Microsoft Entra</div>
+                    <div class="config-desc">Authentification Microsoft 365, auto-provisioning (FR65)</div>
+                </div>
+                <div class="config-card">
+                    <div class="config-icon">&#128736;</div>
+                    <div class="config-title">API Intact</div>
+                    <div class="config-desc">Connexion comptable, sync fournisseurs, export factures</div>
+                </div>
+                <div class="config-card" onclick="showScreen('adm-4')">
+                    <div class="config-icon">&#128229;</div>
+                    <div class="config-title">Migration ChangePoint</div>
+                    <div class="config-desc">Import historique 10+ ans: projets, WBS, heures (FR84-85)</div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- ADM-2: ORGANISATION & REGIONAL (FR76, FR77, FR78, FR80)            -->
+<!-- ================================================================== -->
+<div id="adm-2" class="app-shell">
+    <div class="flow-bar">
+        <div class="flow-step active"><div class="flow-num">&#9733;</div> Configuration organisation <span class="flow-role flow-role-admin">Admin</span></div>
+    </div>
+    <div class="app-topbar">
+        <div class="topbar-left"><div class="topbar-logo">PR<span>|ERP</span></div><input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly></div>
+        <div class="topbar-right"><div class="topbar-avatar">AD</div></div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Administration</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Configuration</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#127970;</span> Organisation</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Utilisateurs</div>
+        </aside>
+        <main class="main-content">
+            <div class="breadcrumb"><a href="#" onclick="showScreen('adm-1'); return false;">Configuration</a> &gt; Organisation</div>
+            <div class="page-header">
+                <h1>Organisation &amp; parametres regionaux</h1>
+                <button class="btn btn-primary">Sauvegarder</button>
+            </div>
+
+            <div class="card">
+                <div class="section-divider" style="margin-top: 0;">Entite legale</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Nom de l'organisation</label>
+                        <input class="form-input" value="Provencher Roy et Associes Architectes">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">NEQ</label>
+                        <input class="form-input" value="1161234567" style="font-family: var(--font-mono);">
+                    </div>
+                </div>
+
+                <div class="section-divider">Parametres regionaux (FR76)</div>
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label class="form-label">Pays</label>
+                        <select class="form-select"><option selected>Canada</option><option>France</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Devise</label>
+                        <select class="form-select"><option selected>CAD ($)</option><option>EUR (&#8364;)</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Langue interface</label>
+                        <select class="form-select"><option selected>Francais (fr-CA)</option><option>Francais (fr-FR)</option><option>English (en-CA)</option></select>
+                    </div>
+                </div>
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label class="form-label">Format date</label>
+                        <select class="form-select"><option selected>AAAA-MM-JJ (2026-03-11)</option><option>JJ/MM/AAAA (11/03/2026)</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Fuseau horaire</label>
+                        <select class="form-select"><option selected>America/Montreal (EST/EDT)</option><option>Europe/Paris (CET/CEST)</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Premier jour semaine</label>
+                        <select class="form-select"><option>Dimanche</option><option selected>Lundi</option></select>
+                    </div>
+                </div>
+                <div style="padding: 10px 14px; background: var(--primary-light); border-radius: var(--radius-sm); font-size: 12px; color: var(--primary-dark); margin-top: 8px;">
+                    FR77: Tous les montants, dates et nombres seront formates selon ces parametres. Ex: $10 200.50 / 2026-03-04
+                </div>
+
+                <div class="section-divider">Regles travail (FR78)</div>
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label class="form-label">Semaine standard</label>
+                        <input class="form-input" value="37.5" style="font-family: var(--font-mono);"> <div class="form-hint">heures (Quebec: 37.5, France: 35)</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Seuil heures supp.</label>
+                        <input class="form-input" value="40" style="font-family: var(--font-mono);"> <div class="form-hint">heures / semaine</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cycle de paie</label>
+                        <select class="form-select"><option selected>Bimensuel (1er et 15)</option><option>Hebdomadaire</option><option>Mensuel</option></select>
+                    </div>
+                </div>
+
+                <div class="section-divider">Politiques depenses (FR80)</div>
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label class="form-label">Taux kilometrage</label>
+                        <input class="form-input" value="$0.68" style="font-family: var(--font-mono);"> <div class="form-hint">par km (bareme federal)</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Per diem repas</label>
+                        <input class="form-input" value="$75.00" style="font-family: var(--font-mono);"> <div class="form-hint">par jour</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Max hebergement / nuit</label>
+                        <input class="form-input" value="$150.00" style="font-family: var(--font-mono);"> <div class="form-hint">seuil d'alerte</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- ADM-3: UTILISATEURS & RÔLES (FR65, FR66, FR67)                     -->
+<!-- ================================================================== -->
+<div id="adm-3" class="app-shell">
+    <div class="flow-bar">
+        <div class="flow-step active"><div class="flow-num">&#9733;</div> Gestion utilisateurs <span class="flow-role flow-role-admin">Admin</span></div>
+    </div>
+    <div class="app-topbar">
+        <div class="topbar-left"><div class="topbar-logo">PR<span>|ERP</span></div><input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly></div>
+        <div class="topbar-right"><div class="topbar-avatar">AD</div></div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Administration</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Configuration</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Organisation</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128101;</span> Utilisateurs</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128274;</span> Roles &amp; permissions</div>
+        </aside>
+        <main class="main-content">
+            <div class="page-header">
+                <h1>Utilisateurs &amp; roles (FR66)</h1>
+                <div class="btn-group">
+                    <button class="btn btn-ghost">Sync Entra ID</button>
+                    <button class="btn btn-primary">+ Ajouter utilisateur</button>
+                </div>
+            </div>
+
+            <div class="kpi-grid kpi-grid-4">
+                <div class="kpi-card"><div class="kpi-label">Total utilisateurs</div><div class="kpi-value sm">82</div></div>
+                <div class="kpi-card"><div class="kpi-label">Actifs (7 jours)</div><div class="kpi-value sm">68</div></div>
+                <div class="kpi-card"><div class="kpi-label">SSO Microsoft (FR65)</div><div class="kpi-value sm text-success">100%</div></div>
+                <div class="kpi-card"><div class="kpi-label">Roles distincts</div><div class="kpi-value sm">8</div></div>
+            </div>
+
+            <div class="card" style="padding: 0;">
+                <table>
+                    <thead>
+                        <tr><th>Nom</th><th>Courriel</th><th>Role</th><th>BU</th><th>Derniere connexion</th><th>Statut</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Jean-Francois Tremblay</strong></td>
+                            <td class="mono" style="font-size: 12px;">jf.tremblay@provencherroy.ca</td>
+                            <td><span class="badge badge-amber">PM</span></td>
+                            <td>Batiment</td>
+                            <td style="font-size: 12px;">Il y a 2h</td>
+                            <td><span class="badge badge-green">&#9679; Actif</span></td>
+                            <td><button class="btn btn-ghost btn-sm">Modifier</button></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Nathalie Roy</strong></td>
+                            <td class="mono" style="font-size: 12px;">n.roy@provencherroy.ca</td>
+                            <td><span class="badge badge-green">Finance</span></td>
+                            <td>—</td>
+                            <td style="font-size: 12px;">Il y a 1h</td>
+                            <td><span class="badge badge-green">&#9679; Actif</span></td>
+                            <td><button class="btn btn-ghost btn-sm">Modifier</button></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Pierre Dumont</strong></td>
+                            <td class="mono" style="font-size: 12px;">p.dumont@provencherroy.ca</td>
+                            <td><span class="badge badge-purple">Directeur</span></td>
+                            <td>Batiment</td>
+                            <td style="font-size: 12px;">Hier</td>
+                            <td><span class="badge badge-green">&#9679; Actif</span></td>
+                            <td><button class="btn btn-ghost btn-sm">Modifier</button></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Marie Leclerc</strong></td>
+                            <td class="mono" style="font-size: 12px;">m.leclerc@provencherroy.ca</td>
+                            <td><span class="badge badge-blue">Employe</span></td>
+                            <td>Batiment</td>
+                            <td style="font-size: 12px;">Il y a 3h</td>
+                            <td><span class="badge badge-green">&#9679; Actif</span></td>
+                            <td><button class="btn btn-ghost btn-sm">Modifier</button></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Caroline Belanger</strong></td>
+                            <td class="mono" style="font-size: 12px;">c.belanger@provencherroy.ca</td>
+                            <td><span class="badge badge-gray">Assist. dept.</span></td>
+                            <td>Batiment</td>
+                            <td style="font-size: 12px;">Il y a 5h</td>
+                            <td><span class="badge badge-green">&#9679; Actif</span></td>
+                            <td><button class="btn btn-ghost btn-sm">Modifier</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Role visibility matrix (FR67) -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Matrice visibilite salaires (FR67)</div>
+                </div>
+                <table>
+                    <thead>
+                        <tr><th>Role</th><th>Cout standard</th><th>Cout reel salaire</th><th>Projets</th><th>Facturation</th><th>Admin</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Employe</td><td>&#10003;</td><td>&#10005;</td><td>Ses projets</td><td>&#10005;</td><td>&#10005;</td></tr>
+                        <tr><td>PM</td><td>&#10003;</td><td>&#10005;</td><td>Ses projets</td><td>Ses projets</td><td>&#10005;</td></tr>
+                        <tr><td>Directeur projet</td><td>&#10003;</td><td>&#10003;</td><td>Sa BU</td><td>Sa BU</td><td>&#10005;</td></tr>
+                        <tr><td>Finance</td><td>&#10003;</td><td>&#10003;</td><td>Tous</td><td>Tous</td><td>&#10005;</td></tr>
+                        <tr><td>Directeur BU</td><td>&#10003;</td><td>&#10003;</td><td>Sa BU</td><td>Sa BU</td><td>&#10005;</td></tr>
+                        <tr><td>Admin</td><td>&#10003;</td><td>&#10003;</td><td>Tous</td><td>Tous</td><td>&#10003;</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- ADM-4: MIGRATION CHANGEPOINT (FR84, FR85)                          -->
+<!-- ================================================================== -->
+<div id="adm-4" class="app-shell">
+    <div class="flow-bar">
+        <div class="flow-step active"><div class="flow-num">&#9733;</div> Migration ChangePoint <span class="flow-role flow-role-admin">Admin</span></div>
+    </div>
+    <div class="app-topbar">
+        <div class="topbar-left"><div class="topbar-logo">PR<span>|ERP</span></div><input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly></div>
+        <div class="topbar-right"><div class="topbar-avatar">AD</div></div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Administration</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Configuration</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128229;</span> Migration</div>
+        </aside>
+        <main class="main-content">
+            <div class="page-header">
+                <h1>Migration ChangePoint (FR84)</h1>
+            </div>
+
+            <div class="kpi-grid kpi-grid-4">
+                <div class="kpi-card" style="border-top: 3px solid var(--success);">
+                    <div class="kpi-label">Projets migres</div>
+                    <div class="kpi-value sm">842</div>
+                    <div class="kpi-detail">10+ ans d'historique</div>
+                </div>
+                <div class="kpi-card" style="border-top: 3px solid var(--primary);">
+                    <div class="kpi-label">Entrees de temps</div>
+                    <div class="kpi-value sm">1.2M</div>
+                    <div class="kpi-detail">2014-2026</div>
+                </div>
+                <div class="kpi-card" style="border-top: 3px solid var(--warning);">
+                    <div class="kpi-label">Historique facturation</div>
+                    <div class="kpi-value sm">4 280</div>
+                    <div class="kpi-detail">factures</div>
+                </div>
+                <div class="kpi-card" style="border-top: 3px solid var(--danger);">
+                    <div class="kpi-label">Anomalies (FR85)</div>
+                    <div class="kpi-value sm">23</div>
+                    <div class="kpi-detail">A corriger manuellement</div>
+                </div>
+            </div>
+
+            <!-- Import steps -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Etapes de migration</div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--success-light); border-radius: var(--radius);">
+                        <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--success); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;">&#10003;</div>
+                        <div style="flex: 1;"><strong>1. Projets &amp; WBS</strong><div style="font-size: 12px; color: var(--gray-500);">842 projets, 3 218 phases importes</div></div>
+                        <span class="badge badge-green">Complete</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--success-light); border-radius: var(--radius);">
+                        <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--success); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;">&#10003;</div>
+                        <div style="flex: 1;"><strong>2. Entrees de temps</strong><div style="font-size: 12px; color: var(--gray-500);">1 245 832 entrees importees</div></div>
+                        <span class="badge badge-green">Complete</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--success-light); border-radius: var(--radius);">
+                        <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--success); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;">&#10003;</div>
+                        <div style="flex: 1;"><strong>3. Historique facturation</strong><div style="font-size: 12px; color: var(--gray-500);">4 280 factures importees</div></div>
+                        <span class="badge badge-green">Complete</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--warning-light); border-radius: var(--radius);">
+                        <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--warning); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;">!</div>
+                        <div style="flex: 1;"><strong>4. Validation integrite (FR85)</strong><div style="font-size: 12px; color: var(--gray-500);">23 anomalies detectees — correction manuelle requise</div></div>
+                        <span class="badge badge-amber">En cours</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Validation errors -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Anomalies de validation (FR85)</div>
+                    <span class="badge badge-amber">23 a corriger</span>
+                </div>
+                <table>
+                    <thead><tr><th>Type</th><th>Detail</th><th>Projet source</th><th>Severite</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <tr>
+                            <td>Heures orphelines</td>
+                            <td>45 entrees sans projet correspondant</td>
+                            <td>CP-2018-xxx (supprime)</td>
+                            <td><span class="badge badge-amber">Moyenne</span></td>
+                            <td><button class="btn btn-ghost btn-sm">Corriger</button></td>
+                        </tr>
+                        <tr>
+                            <td>Code WBS duplique</td>
+                            <td>Phase "Concept" existe 2x sur P-2019-042</td>
+                            <td>CP-2019-042</td>
+                            <td><span class="badge badge-red">Haute</span></td>
+                            <td><button class="btn btn-ghost btn-sm">Corriger</button></td>
+                        </tr>
+                        <tr>
+                            <td>Montant incoherent</td>
+                            <td>Facture $0.00 avec heures > 0</td>
+                            <td>CP-2020-015</td>
+                            <td><span class="badge badge-amber">Moyenne</span></td>
+                            <td><button class="btn btn-ghost btn-sm">Corriger</button></td>
+                        </tr>
+                        <tr>
+                            <td>Employe inconnu</td>
+                            <td>12 entrees pour "user_deleted_2021"</td>
+                            <td>Multiples</td>
+                            <td><span class="badge badge-gray">Basse</span></td>
+                            <td><button class="btn btn-ghost btn-sm">Ignorer</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- ADM-5: AUDIT TRAIL (FR68)                                          -->
+<!-- ================================================================== -->
+<div id="adm-5" class="app-shell">
+    <div class="flow-bar">
+        <div class="flow-step active"><div class="flow-num">&#9733;</div> Audit trail <span class="flow-role flow-role-admin">Admin</span></div>
+    </div>
+    <div class="app-topbar">
+        <div class="topbar-left"><div class="topbar-logo">PR<span>|ERP</span></div><input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly></div>
+        <div class="topbar-right"><div class="topbar-avatar">AD</div></div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Administration</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Configuration</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Utilisateurs</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128203;</span> Audit trail</div>
+        </aside>
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>Audit trail (FR68)</h1>
+                    <span style="font-size: 13px; color: var(--gray-500);">Trace complete des modifications sur entites critiques</span>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-ghost">&#128438; Exporter</button>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; padding: 12px 16px; background: white; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px;">
+                <input type="text" placeholder="Rechercher par utilisateur, entite..." style="flex: 1; padding: 8px 12px; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); font-size: 13px;">
+                <select style="padding: 8px 12px; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); font-size: 13px;">
+                    <option selected>Toutes les entites</option>
+                    <option>Projets</option>
+                    <option>Timesheets</option>
+                    <option>Factures</option>
+                    <option>Utilisateurs</option>
+                    <option>Delegations</option>
+                </select>
+                <select style="padding: 8px 12px; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); font-size: 13px;">
+                    <option selected>Toutes les actions</option>
+                    <option>Creation</option>
+                    <option>Modification</option>
+                    <option>Approbation</option>
+                    <option>Suppression</option>
+                </select>
+                <input type="date" value="2026-03-11" style="padding: 8px 12px; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); font-size: 13px;">
+            </div>
+
+            <div class="card" style="padding: 0;">
+                <table>
+                    <thead>
+                        <tr><th>Horodatage</th><th>Utilisateur</th><th>Action</th><th>Entite</th><th>Detail</th><th>Delegation</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="mono" style="font-size: 12px;">11:42:15</td>
+                            <td>Sophie Pelletier</td>
+                            <td><span class="badge badge-green">Approbation</span></td>
+                            <td>Timesheet</td>
+                            <td style="font-size: 12px;">Marie Leclerc — Sem. 11 (37.5h)</td>
+                            <td><span class="badge badge-purple" style="font-size: 10px;">Par deleg. J-F Tremblay</span></td>
+                        </tr>
+                        <tr>
+                            <td class="mono" style="font-size: 12px;">11:38:22</td>
+                            <td>Nathalie Roy</td>
+                            <td><span class="badge badge-blue">Modification</span></td>
+                            <td>Facture</td>
+                            <td style="font-size: 12px;">FAC-2026-042 — Montant $320K &#8594; $315K</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td class="mono" style="font-size: 12px;">10:55:08</td>
+                            <td>J-F Tremblay</td>
+                            <td><span class="badge badge-green">Creation</span></td>
+                            <td>Delegation</td>
+                            <td style="font-size: 12px;">Delegation &#8594; Sophie Pelletier (17-28 mars)</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td class="mono" style="font-size: 12px;">10:22:45</td>
+                            <td>Marie Leclerc</td>
+                            <td><span class="badge badge-blue">Soumission</span></td>
+                            <td>Timesheet</td>
+                            <td style="font-size: 12px;">Sem. 11 — 37.5h (3 projets)</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td class="mono" style="font-size: 12px;">09:15:33</td>
+                            <td>Admin systeme</td>
+                            <td><span class="badge badge-amber">Modification</span></td>
+                            <td>Utilisateur</td>
+                            <td style="font-size: 12px;">Caroline Belanger — Role: Employe &#8594; Assist. dept.</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td class="mono" style="font-size: 12px;">08:45:12</td>
+                            <td>Pierre Dumont</td>
+                            <td><span class="badge badge-green">Approbation</span></td>
+                            <td>Facture</td>
+                            <td style="font-size: 12px;">FAC-2026-041 — Approuvee ($95K)</td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div style="text-align: center; padding: 12px; color: var(--gray-400); font-size: 13px;">
+                Affichage 1-6 sur 2 847 entrees &middot; <a href="#" style="color: var(--primary);">Charger plus</a>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- SCREEN adm-6: Changement de Directeur de BU                       -->
+<!-- FR15f, FR15g                                                       -->
+<!-- ================================================================== -->
+<div id="adm-6" class="app-shell">
+    <div class="flow-bar">
+        <div class="flow-step active"><div class="flow-num">6</div> Changement Directeur BU <span class="flow-role flow-role-admin">Admin</span> <span class="flow-role" style="background:#F3E8FF;color:#7C3AED;">Direction</span></div>
+    </div>
+    <div class="app-topbar">
+        <div class="topbar-left"><div class="topbar-logo">PR<span>|ERP</span></div><input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly></div>
+        <div class="topbar-right"><div class="topbar-bell">&#128276;</div><div class="topbar-avatar">AD</div></div>
+    </div>
+    <div class="app-body">
+        <div class="sidebar">
+            <div class="sidebar-section-label">Parametres</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Organisation</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Utilisateurs</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128188;</span> Clients</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128736;</span> Unites d'affaires</div>
+        </div>
+        <main class="main-content">
+            <div class="breadcrumb"><a href="#">Parametres</a> &gt; <a href="#">Unites d'affaires</a> &gt; Changement de directeur</div>
+            <div class="page-header">
+                <h1>Directeurs d'unites d'affaires</h1>
+            </div>
+
+            <!-- Current BU Directors -->
+            <div class="card">
+                <div class="card-header"><div class="card-title">Directeurs actuels</div></div>
+                <table>
+                    <thead><tr><th>Unite d'affaires</th><th>Directeur actuel</th><th>En poste depuis</th><th>Projets actifs</th><th>Employes</th><th></th></tr></thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Architecture 1</strong></td>
+                            <td>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <div style="width:32px;height:32px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">PD</div>
+                                    <div><div style="font-weight:600;">Pierre Dumont</div><div style="font-size:11px;color:var(--gray-400);">Associe directeur</div></div>
+                                </div>
+                            </td>
+                            <td class="mono" style="font-size:12px;">2022-09-01</td>
+                            <td class="text-right mono">18</td>
+                            <td class="text-right mono">24</td>
+                            <td><button class="btn btn-ghost btn-sm" style="color:var(--primary);">Changer</button></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Architecture 2</strong></td>
+                            <td>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <div style="width:32px;height:32px;border-radius:50%;background:var(--warning);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">PD</div>
+                                    <div><div style="font-weight:600;">Pierre Dumont</div><div style="font-size:11px;color:var(--gray-400);">Cumul — depuis nov. 2025</div></div>
+                                </div>
+                            </td>
+                            <td class="mono" style="font-size:12px;">2025-11-20</td>
+                            <td class="text-right mono">12</td>
+                            <td class="text-right mono">16</td>
+                            <td><button class="btn btn-ghost btn-sm" style="color:var(--primary);">Changer</button></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Urbanisme</strong></td>
+                            <td>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <div style="width:32px;height:32px;border-radius:50%;background:var(--success);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">FM</div>
+                                    <div><div style="font-weight:600;">Francois Moreau</div><div style="font-size:11px;color:var(--gray-400);">Associe</div></div>
+                                </div>
+                            </td>
+                            <td class="mono" style="font-size:12px;">2025-06-01</td>
+                            <td class="text-right mono">8</td>
+                            <td class="text-right mono">11</td>
+                            <td><button class="btn btn-ghost btn-sm" style="color:var(--primary);">Changer</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Transfer form (expanded for Architecture 2) -->
+            <div class="card" style="border:2px solid var(--primary);">
+                <div class="card-header">
+                    <div class="card-title">Transfert — Architecture 2</div>
+                    <span class="badge badge-blue">En cours</span>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Directeur actuel</label>
+                        <input type="text" value="Pierre Dumont" readonly style="background:var(--gray-50);">
+                    </div>
+                    <div class="form-group">
+                        <label>Nouveau directeur *</label>
+                        <input type="text" placeholder="Rechercher un employe..." value="Sylvie Bergeron">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Date effective *</label>
+                        <input type="date" value="2026-04-01">
+                    </div>
+                    <div class="form-group">
+                        <label>Motif *</label>
+                        <select>
+                            <option selected>Reorganisation d'equipe</option>
+                            <option>Nomination / promotion</option>
+                            <option>Depart</option>
+                            <option>Autre</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea rows="2" placeholder="Precisions...">Sylvie Bergeron nommee directrice Archi 2 suite a la reorganisation. Pierre Dumont conserve Archi 1.</textarea>
+                </div>
+
+                <!-- Impact confirmation -->
+                <div style="background:var(--warning-light);border:1px solid var(--warning);border-radius:var(--radius);padding:14px 18px;margin-top:16px;">
+                    <div style="font-size:13px;font-weight:600;color:var(--warning);margin-bottom:8px;">&#9888; Projets impactes par ce changement (12 projets)</div>
+                    <div style="max-height:120px;overflow-y:auto;">
+                        <table style="font-size:12px;">
+                            <thead><tr><th>Code</th><th>Projet</th><th>PM</th><th>Statut</th></tr></thead>
+                            <tbody>
+                                <tr><td class="mono">PR-2025-045</td><td>Centre culturel Quebec</td><td>J-F Tremblay</td><td><span class="badge badge-green" style="font-size:10px;">Actif</span></td></tr>
+                                <tr><td class="mono">PR-2025-051</td><td>Residence du Parc</td><td>Marie Leclerc</td><td><span class="badge badge-green" style="font-size:10px;">Actif</span></td></tr>
+                                <tr><td class="mono">PR-2025-062</td><td>Clinique Ste-Anne</td><td>Sophie Pelletier</td><td><span class="badge badge-green" style="font-size:10px;">Actif</span></td></tr>
+                                <tr><td class="mono">PR-2024-078</td><td>Tour Bureau Quebec</td><td>Marc Belanger</td><td><span class="badge badge-amber" style="font-size:10px;">En attente</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="font-size:11px;color:#92400E;margin-top:8px;">+ 8 autres projets actifs seront mis a jour automatiquement</div>
+                </div>
+
+                <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:16px;">
+                    <button class="btn btn-ghost">Annuler</button>
+                    <button class="btn btn-primary">Confirmer le changement</button>
+                </div>
+            </div>
+
+            <!-- BU Director change history -->
+            <div class="card" style="margin-top:8px;">
+                <div class="card-header"><div class="card-title">Historique des changements de directeurs BU</div></div>
+                <table>
+                    <thead><tr><th>Date</th><th>BU</th><th>Ancien</th><th>Nouveau</th><th>Motif</th><th>Projets impactes</th><th>Par</th></tr></thead>
+                    <tbody>
+                        <tr>
+                            <td class="mono" style="font-size:12px;">2025-11-20</td>
+                            <td><strong>Architecture 2</strong></td>
+                            <td>Robert Lavoie</td>
+                            <td><strong>Pierre Dumont</strong></td>
+                            <td style="font-size:12px;">Reorganisation</td>
+                            <td class="text-right mono">14</td>
+                            <td style="font-size:12px;">Direction generale</td>
+                        </tr>
+                        <tr>
+                            <td class="mono" style="font-size:12px;">2025-06-01</td>
+                            <td><strong>Urbanisme</strong></td>
+                            <td style="color:var(--gray-400);">— (creation)</td>
+                            <td><strong>Francois Moreau</strong></td>
+                            <td style="font-size:12px;">Nouvelle BU</td>
+                            <td class="text-right mono">0</td>
+                            <td style="font-size:12px;">Direction generale</td>
+                        </tr>
+                        <tr>
+                            <td class="mono" style="font-size:12px;">2022-09-01</td>
+                            <td><strong>Architecture 1</strong></td>
+                            <td>Jean-Pierre Gagnon</td>
+                            <td><strong>Pierre Dumont</strong></td>
+                            <td style="font-size:12px;">Nomination</td>
+                            <td class="text-right mono">22</td>
+                            <td style="font-size:12px;">Direction generale</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script>
+function showScreen(id) {
+    document.querySelectorAll('.app-shell').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    if (event && event.target) event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

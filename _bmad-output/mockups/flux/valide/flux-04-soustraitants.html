@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PR | ERP — Flux 04: Sous-traitants</title>
+    <style>
+        :root {
+            --primary: #2563EB;
+            --primary-light: #DBEAFE;
+            --primary-dark: #1D4ED8;
+            --success: #16A34A;
+            --success-light: #DCFCE7;
+            --warning: #D97706;
+            --warning-light: #FEF3C7;
+            --danger: #DC2626;
+            --danger-light: #FEE2E2;
+            --gray-50: #F9FAFB;
+            --gray-100: #F3F4F6;
+            --gray-200: #E5E7EB;
+            --gray-300: #D1D5DB;
+            --gray-400: #9CA3AF;
+            --gray-500: #6B7280;
+            --gray-600: #4B5563;
+            --gray-700: #374151;
+            --gray-800: #1F2937;
+            --gray-900: #111827;
+            --radius: 8px;
+            --radius-sm: 4px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+            --font-mono: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--gray-50); color: var(--gray-800); font-size: 14px; line-height: 1.5; }
+        .mockup-nav { background: var(--gray-900); position: sticky; top: 0; z-index: 9999; box-shadow: var(--shadow-lg); }
+        .mockup-nav-title { background: var(--primary-dark); padding: 10px 24px; font-size: 13px; font-weight: 700; color: white; letter-spacing: 0.5px; text-transform: uppercase; }
+        .mockup-nav-groups { display: flex; overflow-x: auto; padding: 0 12px; }
+        .nav-group { display: flex; align-items: stretch; border-right: 1px solid var(--gray-700); }
+        .nav-group:last-child { border-right: none; }
+        .nav-group-wrapper { display: flex; flex-direction: column; }
+        .nav-group-label { font-size: 10px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 12px 0 12px; white-space: nowrap; }
+        .nav-group-buttons { display: flex; }
+        .nav-btn { background: none; border: none; color: var(--gray-400); padding: 10px 14px; cursor: pointer; font-size: 12px; font-weight: 500; white-space: nowrap; border-bottom: 3px solid transparent; transition: all 0.2s; }
+        .nav-btn:hover { color: white; background: rgba(255,255,255,0.05); }
+        .nav-btn.active { color: white; border-bottom-color: var(--primary); }
+        .flow-bar { background: white; border-bottom: 1px solid var(--gray-200); padding: 12px 24px; display: flex; align-items: center; gap: 8px; }
+        .flow-step { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--gray-400); }
+        .flow-step.active { color: var(--primary); font-weight: 600; }
+        .flow-step.done { color: var(--success); }
+        .flow-num { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: var(--gray-200); color: var(--gray-500); }
+        .flow-step.active .flow-num { background: var(--primary); color: white; }
+        .flow-step.done .flow-num { background: var(--success); color: white; }
+        .flow-arrow { color: var(--gray-300); font-size: 14px; margin: 0 4px; }
+        .flow-role { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; margin-left: 4px; }
+        .flow-role-fin { background: #DCFCE7; color: #15803D; }
+        .flow-role-pm { background: #FEF3C7; color: #92400E; }
+        .flow-role-dir { background: #EDE9FE; color: #7C3AED; }
+        .flow-role-emp { background: var(--primary-light); color: var(--primary); }
+        .app-shell { display: none; background: var(--gray-50); min-height: calc(100vh - 90px); flex-direction: column; }
+        .app-shell.active { display: flex; }
+        .app-topbar { background: white; border-bottom: 1px solid var(--gray-200); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; }
+        .topbar-left { display: flex; align-items: center; gap: 16px; }
+        .topbar-logo { font-size: 18px; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; }
+        .topbar-logo span { color: var(--gray-400); font-weight: 400; }
+        .topbar-search { padding: 8px 12px 8px 36px; border: 1px solid var(--gray-200); border-radius: var(--radius); font-size: 13px; width: 280px; background: var(--gray-50) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%239CA3AF' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E") no-repeat 12px center; }
+        .topbar-right { display: flex; align-items: center; gap: 16px; }
+        .topbar-bell { position: relative; width: 36px; height: 36px; border-radius: 50%; background: var(--gray-50); border: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; }
+        .topbar-bell .bell-badge { position: absolute; top: -2px; right: -2px; background: var(--danger); color: white; font-size: 10px; font-weight: 700; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .topbar-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--warning); color: white; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .app-body { display: flex; flex: 1; width: 100%; }
+        .sidebar { width: 240px; min-width: 240px; background: var(--gray-100); border-right: 1px solid var(--gray-200); padding: 16px 0; min-height: calc(100vh - 128px); }
+        .sidebar-section-label { padding: 12px 20px 4px; font-size: 10px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.5px; }
+        .sidebar-item { padding: 9px 20px 9px 28px; font-size: 14px; color: var(--gray-600); cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all 0.15s; }
+        .sidebar-item:hover { background: var(--gray-200); color: var(--gray-800); }
+        .sidebar-item.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+        .sidebar-icon { width: 18px; text-align: center; font-size: 15px; }
+        .main-content { flex: 1; padding: 24px; overflow-x: auto; }
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .page-header h1 { font-size: 24px; font-weight: 700; }
+        .breadcrumb { font-size: 13px; color: var(--gray-500); margin-bottom: 4px; }
+        .breadcrumb a { color: var(--primary); text-decoration: none; }
+        .card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px; }
+        .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .card-title { font-size: 16px; font-weight: 600; }
+        .kpi-grid { display: grid; gap: 16px; margin-bottom: 24px; }
+        .kpi-grid-4 { grid-template-columns: repeat(4, 1fr); }
+        .kpi-grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .kpi-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
+        .kpi-label { font-size: 12px; color: var(--gray-500); text-transform: uppercase; font-weight: 600; letter-spacing: 0.3px; margin-bottom: 4px; }
+        .kpi-value { font-size: 28px; font-weight: 700; font-family: var(--font-mono); color: var(--gray-900); }
+        .kpi-value.sm { font-size: 22px; }
+        .kpi-detail { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+        .kpi-trend-up { color: var(--success); font-size: 12px; font-weight: 600; }
+        .kpi-trend-down { color: var(--danger); font-size: 12px; font-weight: 600; }
+        table { width: 100%; border-collapse: collapse; }
+        table th { background: var(--gray-50); padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 2px solid var(--gray-200); }
+        table td { padding: 10px 12px; border-bottom: 1px solid var(--gray-100); font-size: 14px; }
+        table tr:hover { background: var(--gray-50); }
+        .mono { font-family: var(--font-mono); font-size: 13px; }
+        .text-right { text-align: right; }
+        .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+        .badge-green { background: var(--success-light); color: var(--success); }
+        .badge-amber { background: var(--warning-light); color: #92400E; }
+        .badge-red { background: var(--danger-light); color: var(--danger); }
+        .badge-blue { background: var(--primary-light); color: var(--primary); }
+        .badge-gray { background: var(--gray-100); color: var(--gray-500); }
+        .badge-purple { background: #EDE9FE; color: #7C3AED; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+        .dot-green { background: var(--success); }
+        .dot-amber { background: var(--warning); }
+        .dot-red { background: var(--danger); }
+        .btn { padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-ghost { background: transparent; color: var(--gray-600); border: 1px solid var(--gray-300); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-sm { padding: 6px 14px; font-size: 12px; }
+        .btn-group { display: flex; gap: 8px; }
+        .filter-bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: white; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px; }
+        .filter-bar input, .filter-bar select { padding: 8px 12px; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); font-size: 13px; background: white; }
+        .filter-bar input { width: 220px; }
+        .filter-bar .spacer { flex: 1; }
+        .section-divider { font-size: 12px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; margin: 24px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--gray-200); }
+        .progress-bar { width: 100%; height: 6px; background: var(--gray-200); border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 3px; }
+        .progress-fill.green { background: var(--success); }
+        .progress-fill.amber { background: var(--warning); }
+        .progress-fill.blue { background: var(--primary); }
+        .budget-bar-wrapper { display: flex; align-items: center; gap: 8px; }
+        .budget-bar { width: 100px; height: 6px; background: var(--gray-200); border-radius: 3px; overflow: hidden; }
+        .budget-bar-fill { height: 100%; border-radius: 3px; }
+        .budget-pct { font-size: 12px; font-family: var(--font-mono); color: var(--gray-600); min-width: 32px; }
+        .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--gray-200); margin-bottom: 20px; }
+        .tab { padding: 10px 20px; font-size: 14px; font-weight: 500; color: var(--gray-500); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+        /* SLIDE-OVER */
+        .slide-over-backdrop { position: fixed; top: 0; right: 0; bottom: 0; left: 240px; background: rgba(0,0,0,0.3); z-index: 100; display: flex; justify-content: flex-end; }
+        .slide-over { width: 560px; background: white; box-shadow: var(--shadow-lg); overflow-y: auto; display: flex; flex-direction: column; }
+        .slide-over-header { padding: 16px 24px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
+        .slide-over-header h2 { font-size: 18px; font-weight: 700; }
+        .slide-over-close { width: 32px; height: 32px; border-radius: 50%; background: var(--gray-100); border: none; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; color: var(--gray-500); }
+        .slide-over-body { padding: 24px; flex: 1; }
+        .slide-over-footer { padding: 16px 24px; border-top: 1px solid var(--gray-200); display: flex; justify-content: flex-end; gap: 8px; }
+
+        /* FORM */
+        .form-group { margin-bottom: 16px; }
+        .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 4px; }
+        .form-input, .form-select { width: 100%; padding: 10px 12px; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); font-size: 14px; background: white; }
+        .form-input:focus, .form-select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .form-hint { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+        .upload-zone { border: 2px dashed var(--gray-300); border-radius: var(--radius); padding: 24px; text-align: center; color: var(--gray-500); cursor: pointer; transition: all 0.15s; }
+        .upload-zone:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+
+        /* BUDGET CONTEXT */
+        .budget-context { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 16px; margin-top: 16px; }
+        .budget-context-title { font-size: 13px; font-weight: 700; color: var(--gray-700); margin-bottom: 12px; }
+        .budget-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+        .budget-row.total { border-top: 2px solid var(--gray-300); margin-top: 4px; padding-top: 10px; font-weight: 700; }
+        .budget-row .label { color: var(--gray-600); }
+        .budget-row .value { font-family: var(--font-mono); }
+
+        /* LAYER BADGES (FR9) */
+        .layer-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+        .layer-internal { background: var(--primary-light); color: var(--primary); }
+        .layer-refact { background: #DCFCE7; color: #15803D; }
+        .layer-absorbed { background: var(--gray-100); color: var(--gray-600); }
+
+        /* VIEW TOGGLE */
+        .view-toggle { display: flex; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); overflow: hidden; }
+        .view-toggle-btn { padding: 6px 16px; font-size: 12px; font-weight: 600; border: none; background: white; color: var(--gray-500); cursor: pointer; }
+        .view-toggle-btn.active { background: var(--primary); color: white; }
+
+        /* SUPPLIER GROUP */
+        .supplier-group { margin-bottom: 20px; }
+        .supplier-group-header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--gray-100); border-radius: var(--radius) var(--radius) 0 0; border: 1px solid var(--gray-200); border-bottom: none; }
+        .supplier-group-name { font-weight: 600; font-size: 15px; }
+        .supplier-group-total { font-family: var(--font-mono); font-size: 13px; color: var(--gray-600); margin-left: auto; }
+
+        /* APPROVAL CARD */
+        .approval-card { background: white; border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; display: flex; align-items: flex-start; gap: 16px; }
+        .approval-card-main { flex: 1; }
+        .approval-card-actions { display: flex; flex-direction: column; gap: 6px; }
+
+        /* REPORT TABLE */
+        .report-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .report-header h2 { font-size: 18px; font-weight: 700; }
+
+        /* Intact import */
+        .import-zone { background: white; border: 2px dashed var(--primary); border-radius: var(--radius); padding: 32px; text-align: center; }
+        .import-icon { font-size: 36px; margin-bottom: 8px; }
+        .import-text { font-size: 14px; color: var(--gray-600); }
+        .import-text strong { color: var(--primary); cursor: pointer; }
+
+        .text-danger { color: var(--danger); }
+        .text-warning { color: var(--warning); }
+        .text-success { color: var(--success); }
+        .font-bold { font-weight: 700; }
+        .mt-8 { margin-top: 8px; }
+        .mt-16 { margin-top: 16px; }
+        .mb-8 { margin-bottom: 8px; }
+        .mb-16 { margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+
+<nav class="mockup-nav">
+    <div class="mockup-nav-title">PR | ERP — Flux 04: Sous-traitants (11 mars 2026)</div>
+    <div class="mockup-nav-groups">
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Analyste &amp; PM</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn active" onclick="showScreen('st-1')">1. Suivi par projet</button>
+                    <button class="nav-btn" onclick="showScreen('st-2')">2. Saisir facture (Anal.)</button>
+                    <button class="nav-btn" onclick="showScreen('st-3')">3. Autoriser (PM)</button>
+                </div>
+            </div>
+        </div>
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Finance — Comptes fournisseurs</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn" onclick="showScreen('st-4')">4. Vue cross-projet</button>
+                    <button class="nav-btn" onclick="showScreen('st-5')">5. Valider paiement (Anal.)</button>
+                </div>
+            </div>
+        </div>
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Rapports &amp; Import</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn" onclick="showScreen('st-6')">6. Rapport fournisseurs</button>
+                    <button class="nav-btn" onclick="showScreen('st-7')">7. Import Intact</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- ================================================================== -->
+<!-- ST-1: PM — ONGLET SOUS-TRAITANTS DU PROJET (FR51)                  -->
+<!-- Vue: Budget sous-traitance par fournisseur, historique factures     -->
+<!-- ================================================================== -->
+<div id="st-1" class="app-shell active">
+    <div class="flow-bar">
+        <div class="flow-step active"><div class="flow-num">1</div> Analyste saisit <span class="flow-role flow-role-fin">Anal.</span></div>
+        <span class="flow-arrow">&#8594;</span>
+        <div class="flow-step"><div class="flow-num">2</div> PM autorise <span class="flow-role flow-role-pm">PM</span></div>
+        <span class="flow-arrow">&#8594;</span>
+        <div class="flow-step"><div class="flow-num">3</div> Analyste valide paiement <span class="flow-role flow-role-fin">Anal.</span></div>
+    </div>
+    <div class="app-topbar">
+        <div class="topbar-left"><div class="topbar-logo">PR<span>|ERP</span></div><input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly></div>
+        <div class="topbar-right"><div class="topbar-bell">&#128276;<span class="bell-badge">3</span></div><div class="topbar-avatar" style="background: var(--warning);">JF</div></div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Principal</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128200;</span> Tableau de bord</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128197;</span> Feuilles de temps</div>
+            <div class="sidebar-section-label">Gestion de projets</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128193;</span> Projets</div>
+            <div class="sidebar-section-label">Finance</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128176;</span> Facturation</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> Comptes fournisseurs</div>
+        </aside>
+        <main class="main-content">
+            <div class="breadcrumb"><a href="#">Projets</a> &gt; <a href="#">P-2024-042</a> &gt; Sous-traitants</div>
+            <div class="page-header">
+                <div>
+                    <h1>Complexe Desjardins Ph.2</h1>
+                    <span style="font-size: 13px; color: var(--gray-500);">P-2024-042 &middot; BU Bâtiment &middot; En cours</span>
+                </div>
+                <button class="btn btn-primary" onclick="showScreen('st-2')">+ Saisir facture ST (Analyste)</button>
+            </div>
+
+            <div class="tabs">
+                <div class="tab active">Sous-traitants</div>
+            </div>
+            <div style="font-size:11px;color:var(--gray-400);margin-bottom:12px;">Les onglets Vue d'ensemble, Temps, Budget, Equipe et Factures sont accessibles depuis la fiche projet.</div>
+
+            <!-- KPIs sous-traitance -->
+            <div class="kpi-grid kpi-grid-4">
+                <div class="kpi-card">
+                    <div class="kpi-label">Budget sous-traitance</div>
+                    <div class="kpi-value sm">$420 000</div>
+                    <div class="kpi-detail">3 fournisseurs actifs</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Facturé cumulatif</div>
+                    <div class="kpi-value sm">$285 000</div>
+                    <div class="kpi-detail" style="color: var(--warning);">68% du budget</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Solde disponible</div>
+                    <div class="kpi-value sm">$135 000</div>
+                    <div class="kpi-detail">32% restant</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Factures en attente</div>
+                    <div class="kpi-value sm">2</div>
+                    <div class="kpi-detail">$86 500 à autoriser</div>
+                </div>
+            </div>
+
+            <!-- Tableau récapitulatif par sous-traitant -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Suivi par sous-traitant (FR51)</div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sous-traitant</th>
+                            <th>Discipline</th>
+                            <th>Type budget</th>
+                            <th class="text-right">Budget</th>
+                            <th class="text-right">Facturé</th>
+                            <th>Consommation</th>
+                            <th class="text-right">Nb factures</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Geniplus Structure inc.</strong></td>
+                            <td>Structure</td>
+                            <td><span class="layer-badge layer-refact">Refacturable 15%</span></td>
+                            <td class="text-right mono">$180 000</td>
+                            <td class="text-right mono">$142 500</td>
+                            <td>
+                                <div class="budget-bar-wrapper">
+                                    <div class="budget-bar"><div class="budget-bar-fill" style="width:79%; background: var(--warning);"></div></div>
+                                    <span class="budget-pct">79%</span>
+                                </div>
+                            </td>
+                            <td class="text-right mono">5</td>
+                            <td><span class="badge badge-amber">&#9679; 1 en attente</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>BPA Mécanique ltée</strong></td>
+                            <td>Mécanique</td>
+                            <td><span class="layer-badge layer-refact">Refacturable 10%</span></td>
+                            <td class="text-right mono">$150 000</td>
+                            <td class="text-right mono">$85 500</td>
+                            <td>
+                                <div class="budget-bar-wrapper">
+                                    <div class="budget-bar"><div class="budget-bar-fill" style="width:57%; background: var(--success);"></div></div>
+                                    <span class="budget-pct">57%</span>
+                                </div>
+                            </td>
+                            <td class="text-right mono">3</td>
+                            <td><span class="badge badge-amber">&#9679; 1 en attente</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>SNC Électrique inc.</strong></td>
+                            <td>Électricité</td>
+                            <td><span class="layer-badge layer-absorbed">Absorbé</span></td>
+                            <td class="text-right mono">$90 000</td>
+                            <td class="text-right mono">$57 000</td>
+                            <td>
+                                <div class="budget-bar-wrapper">
+                                    <div class="budget-bar"><div class="budget-bar-fill" style="width:63%; background: var(--success);"></div></div>
+                                    <span class="budget-pct">63%</span>
+                                </div>
+                            </td>
+                            <td class="text-right mono">3</td>
+                            <td><span class="badge badge-green">&#9679; À jour</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Détail factures pour Geniplus -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Geniplus Structure inc. — Historique factures</div>
+                    <span class="badge badge-amber">Budget 79% consommé</span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>N° facture</th>
+                            <th>Date réception</th>
+                            <th>Description</th>
+                            <th class="text-right">Montant</th>
+                            <th>Statut</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="mono">GEN-2024-018</td>
+                            <td>2026-03-08</td>
+                            <td>Phase Définitif — Calculs structuraux révisés</td>
+                            <td class="text-right mono">$23 000</td>
+                            <td><span class="badge badge-amber">&#9679; Reçue</span></td>
+                            <td><button class="btn btn-primary btn-sm" onclick="showScreen('st-3')">Autoriser</button></td>
+                        </tr>
+                        <tr>
+                            <td class="mono">GEN-2024-017</td>
+                            <td>2026-02-15</td>
+                            <td>Phase Définitif — Modélisation 3D structure</td>
+                            <td class="text-right mono">$35 000</td>
+                            <td><span class="badge badge-green">&#9679; Payée</span></td>
+                            <td><button class="btn btn-ghost btn-sm">Voir</button></td>
+                        </tr>
+                        <tr>
+                            <td class="mono">GEN-2024-016</td>
+                            <td>2026-01-22</td>
+                            <td>Phase Préliminaire — Analyse sols et fondations</td>
+                            <td class="text-right mono">$42 000</td>
+                            <td><span class="badge badge-green">&#9679; Payée</span></td>
+                            <td><button class="btn btn-ghost btn-sm">Voir</button></td>
+                        </tr>
+                        <tr>
+                            <td class="mono">GEN-2024-015</td>
+                            <td>2025-12-10</td>
+                            <td>Phase Concept — Étude faisabilité structurale</td>
+                            <td class="text-right mono">$28 500</td>
+                            <td><span class="badge badge-green">&#9679; Payée</span></td>
+                            <td><button class="btn btn-ghost btn-sm">Voir</button></td>
+                        </tr>
+                        <tr>
+                            <td class="mono">GEN-2024-014</td>
+                            <td>2025-11-05</td>
+                            <td>Mobilisation et revue documents existants</td>
+                            <td class="text-right mono">$14 000</td>
+                            <td><span class="badge badge-green">&#9679; Payée</span></td>
+                            <td><button class="btn btn-ghost btn-sm">Voir</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- ST-2: PM — SAISIR FACTURE SOUS-TRAITANT (Slide-over) (FR47)        -->
+<!-- Formulaire de saisie avec contexte budgétaire                      -->
+<!-- ================================================================== -->
+<div id="st-2" class="app-shell">
+    <div class="flow-bar">
+        <div class="flow-step active"><div class="flow-num">1</div> Analyste saisit <span class="flow-role flow-role-fin">Anal.</span></div>
+        <span class="flow-arrow">&#8594;</span>
+        <div class="flow-step"><div class="flow-num">2</div> PM autorise <span class="flow-role flow-role-pm">PM</span></div>
+        <span class="flow-arrow">&#8594;</span>
+        <div class="flow-step"><div class="flow-num">3</div> Analyste valide paiement <span class="flow-role flow-role-fin">Anal.</span></div>
+    </div>
+    <div class="app-topbar">
+        <div class="topbar-left"><div class="topbar-logo">PR<span>|ERP</span></div><input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly></div>
+        <div class="topbar-right"><div class="topbar-bell">&#128276;<span class="bell-badge">3</span></div><div class="topbar-avatar" style="background: var(--success);">NR</div></div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Finance</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128176;</span> Facturation</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128179;</span> Comptes fournisseurs</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128202;</span> Rapports</div>
+        </aside>
+        <main class="main-content" style="position: relative;">
+            <!-- Background: project page dimmed -->
+            <div style="opacity: 0.3; pointer-events: none;">
+                <div class="breadcrumb"><a href="#">Comptes fournisseurs</a> &gt; <a href="#">P-2024-042</a> &gt; Sous-traitants</div>
+                <div class="page-header">
+                    <div>
+                        <h1>Complexe Desjardins Ph.2</h1>
+                        <span style="font-size: 13px; color: var(--gray-500);">P-2024-042 &middot; Analyste: Nathalie Roy</span>
+                    </div>
+                </div>
+                <div class="tabs">
+                    <div class="tab active">Sous-traitants</div>
+                </div>
+            </div>
+
+            <!-- Slide-over panel -->
+            <div class="slide-over-backdrop">
+                <div class="slide-over">
+                    <div class="slide-over-header">
+                        <h2>Saisie facture sous-traitant</h2>
+                        <button class="slide-over-close" onclick="showScreen('st-1')">&#10005;</button>
+                    </div>
+                    <div class="slide-over-body">
+                        <div class="form-group">
+                            <label class="form-label">Sous-traitant</label>
+                            <select class="form-select">
+                                <option>— Sélectionner —</option>
+                                <option selected>Geniplus Structure inc.</option>
+                                <option>BPA Mécanique ltée</option>
+                                <option>SNC Électrique inc.</option>
+                            </select>
+                            <div class="form-hint">Fournisseurs assignés à ce projet uniquement</div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">N° de facture fournisseur</label>
+                                <input class="form-input" type="text" value="GEN-2024-019" placeholder="Ex: GEN-2024-019">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Date de réception</label>
+                                <input class="form-input" type="date" value="2026-03-11">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Montant (avant taxes)</label>
+                            <input class="form-input" type="text" value="$45 000.00" style="font-family: var(--font-mono);">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Phase / Livrable</label>
+                                <select class="form-select">
+                                    <option>Concept</option>
+                                    <option>Préliminaire</option>
+                                    <option selected>Définitif</option>
+                                    <option>Plans &amp; devis</option>
+                                    <option>Surveillance</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Type de budget (FR9)</label>
+                                <select class="form-select">
+                                    <option>Honoraires internes</option>
+                                    <option selected>Refacturable (avec majoration)</option>
+                                    <option>Absorbé</option>
+                                </select>
+                                <div class="form-hint">Majoration actuelle: 15%</div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Description des travaux</label>
+                            <textarea class="form-input" rows="3" style="resize: vertical;">Plans de structure révisés — modifications suite commentaires client du 5 mars</textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Document(s) joint(s)</label>
+                            <div class="upload-zone">
+                                &#128206; Glisser la facture ici ou <strong>parcourir</strong><br>
+                                <span style="font-size: 11px; color: var(--gray-400);">PDF, JPG, PNG — max 10 Mo</span>
+                            </div>
+                        </div>
+
+                        <!-- Budget context -->
+                        <div class="budget-context">
+                            <div class="budget-context-title">Contexte budgétaire — Geniplus Structure</div>
+                            <div class="budget-row">
+                                <span class="label">Budget total</span>
+                                <span class="value">$180 000</span>
+                            </div>
+                            <div class="budget-row">
+                                <span class="label">Déjà facturé</span>
+                                <span class="value">$142 500</span>
+                            </div>
+                            <div class="budget-row">
+                                <span class="label">Cette facture</span>
+                                <span class="value">$45 000</span>
+                            </div>
+                            <div class="budget-row total">
+                                <span class="label text-danger">Solde après</span>
+                                <span class="value text-danger font-bold">-$7 500</span>
+                            </div>
+                            <div style="margin-top: 8px; padding: 8px 12px; background: var(--danger-light); border-radius: var(--radius-sm); font-size: 12px; color: var(--danger);">
+                                &#9888; Dépassement budgétaire de $7 500 (104%). Un avenant au contrat de sous-traitance pourrait être requis.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="slide-over-footer">
+                        <button class="btn btn-ghost" onclick="showScreen('st-1')">Annuler</button>
+                        <button class="btn btn-primary">Enregistrer et soumettre au PM pour autorisation</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- ST-3: PM — AUTORISER FACTURE SOUS-TRAITANT (FR48)                  -->
+<!-- Vue détaillée avec document, budget, et boutons d'action           -->
+<!-- ================================================================== -->
+<div id="st-3" class="app-shell">
+    <div class="flow-bar">
+        <div class="flow-step done"><div class="flow-num">&#10003;</div> Analyste saisit <span class="flow-role flow-role-fin">Anal.</span></div>
+        <span class="flow-arrow">&#8594;</span>
+        <div class="flow-step active"><div class="flow-num">2</div> PM autorise <span class="flow-role flow-role-pm">PM</span></div>
+        <span class="flow-arrow">&#8594;</span>
+        <div class="flow-step"><div class="flow-num">3</div> Analyste valide paiement <span class="flow-role flow-role-fin">Anal.</span></div>
+    </div>
+    <div class="app-topbar">
+        <div class="topbar-left"><div class="topbar-logo">PR<span>|ERP</span></div><input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly></div>
+        <div class="topbar-right"><div class="topbar-bell">&#128276;<span class="bell-badge">5</span></div><div class="topbar-avatar" style="background: var(--warning);">JF</div></div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Principal</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128200;</span> Tableau de bord</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128196;</span> Projets</div>
+            <div class="sidebar-section-label">Approbations</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128197;</span> Feuilles de temps</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128176;</span> Factures client</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128179;</span> Factures ST <span class="badge badge-red" style="margin-left:auto;">5</span></div>
+        </aside>
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>Factures sous-traitants a autoriser</h1>
+                    <span style="font-size:13px;color:var(--gray-500);">5 factures en attente &bull; Jean-Francois Tremblay (PM)</span>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-success btn-sm">&#10003; Autoriser selectionnees</button>
+                    <button class="btn btn-danger btn-sm">Refuser selectionnees</button>
+                </div>
+            </div>
+
+            <!-- Regroupement Projet > Fournisseur -->
+            <div class="card" style="padding:0;">
+
+                <!-- PROJET 1: Complexe Desjardins -->
+                <div style="padding:10px 16px;background:var(--gray-100);border-bottom:1px solid var(--gray-200);display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="var b=this.nextElementSibling;var a=this.querySelector('.pa');b.style.display=b.style.display==='none'?'':'none';a.style.transform=a.style.transform==='rotate(90deg)'?'rotate(0deg)':'rotate(90deg)';">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span class="pa" style="display:inline-block;transition:transform 0.2s;transform:rotate(90deg);font-size:10px;color:var(--gray-400);">&#9654;</span>
+                        <strong style="font-size:14px;">P-2024-042 — Complexe Desjardins Ph.2</strong>
+                        <span style="font-size:11px;color:var(--gray-400);">Desjardins Immobilier</span>
+                    </div>
+                    <div style="display:flex;gap:12px;align-items:center;">
+                        <span class="badge badge-red" style="font-size:10px;">3 factures</span>
+                        <span class="mono" style="font-size:14px;font-weight:700;">$64,444.25</span>
+                    </div>
+                </div>
+                <div>
+                    <!-- Fournisseur: Geniplus Structure -->
+                    <div style="padding:6px 16px 6px 40px;background:var(--gray-50);border-bottom:1px solid var(--gray-200);font-size:12px;font-weight:600;color:var(--gray-600);display:flex;justify-content:space-between;">
+                        <span>Geniplus Structure inc. <span style="font-weight:400;color:var(--gray-400);">&bull; Budget: $180K &bull; Consomme: 79%</span></span>
+                        <span style="font-size:11px;color:var(--gray-400);">2 factures &bull; $49,444.25</span>
+                    </div>
+                    <table>
+                        <thead><tr><th style="width:30px;"><input type="checkbox"></th><th>N° facture</th><th>Date</th><th>Phase</th><th>Description</th><th class="text-right">Montant HT</th><th class="text-right">Total TTC</th><th>Type</th><th>Budget</th><th>Actions</th></tr></thead>
+                        <tbody>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td class="mono" style="font-weight:600;">GEN-2024-018</td>
+                                <td class="mono" style="font-size:12px;">08 mars</td>
+                                <td style="font-size:12px;">Definitif</td>
+                                <td style="font-size:12px;">Calculs structuraux revises</td>
+                                <td class="text-right mono">$23,000</td>
+                                <td class="text-right mono" style="font-weight:600;">$26,444.25</td>
+                                <td><span class="badge badge-blue" style="font-size:9px;">Refact. 15%</span></td>
+                                <td>
+                                    <div class="progress-bar" style="width:50px;height:6px;display:inline-block;vertical-align:middle;"><div class="progress-fill amber" style="width:92%;"></div></div>
+                                    <span style="font-size:10px;color:var(--warning);margin-left:4px;">92%</span>
+                                </td>
+                                <td>
+                                    <div style="display:flex;gap:4px;">
+                                        <button style="background:var(--primary-light);border:1px solid var(--primary);border-radius:var(--radius-sm);padding:3px 8px;cursor:pointer;font-size:11px;color:var(--primary);font-weight:600;" onclick="event.stopPropagation();openStSlide()">&#128065;</button>
+                                        <button class="btn btn-success btn-sm" style="padding:3px 8px;font-size:11px;">&#10003;</button>
+                                        <button class="btn btn-danger btn-sm" style="padding:3px 8px;font-size:11px;">&#10007;</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td class="mono" style="font-weight:600;">GEN-2024-019</td>
+                                <td class="mono" style="font-size:12px;">12 mars</td>
+                                <td style="font-size:12px;">Definitif</td>
+                                <td style="font-size:12px;">Plans fondations revises</td>
+                                <td class="text-right mono">$20,000</td>
+                                <td class="text-right mono" style="font-weight:600;">$23,000</td>
+                                <td><span class="badge badge-blue" style="font-size:9px;">Refact. 15%</span></td>
+                                <td>
+                                    <div class="progress-bar" style="width:50px;height:6px;display:inline-block;vertical-align:middle;"><div class="progress-fill red" style="width:103%;"></div></div>
+                                    <span style="font-size:10px;color:var(--danger);margin-left:4px;">103%!</span>
+                                </td>
+                                <td>
+                                    <div style="display:flex;gap:4px;">
+                                        <button style="background:var(--primary-light);border:1px solid var(--primary);border-radius:var(--radius-sm);padding:3px 8px;cursor:pointer;font-size:11px;color:var(--primary);font-weight:600;" onclick="event.stopPropagation();openStSlide()">&#128065;</button>
+                                        <button class="btn btn-success btn-sm" style="padding:3px 8px;font-size:11px;">&#10003;</button>
+                                        <button class="btn btn-danger btn-sm" style="padding:3px 8px;font-size:11px;">&#10007;</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Fournisseur: BPA Mecanique -->
+                    <div style="padding:6px 16px 6px 40px;background:var(--gray-50);border-bottom:1px solid var(--gray-200);font-size:12px;font-weight:600;color:var(--gray-600);display:flex;justify-content:space-between;">
+                        <span>BPA Mecanique ltee <span style="font-weight:400;color:var(--gray-400);">&bull; Budget: $120K &bull; Consomme: 45%</span></span>
+                        <span style="font-size:11px;color:var(--gray-400);">1 facture &bull; $15,000</span>
+                    </div>
+                    <table>
+                        <thead><tr><th style="width:30px;"><input type="checkbox"></th><th>N° facture</th><th>Date</th><th>Phase</th><th>Description</th><th class="text-right">Montant HT</th><th class="text-right">Total TTC</th><th>Type</th><th>Budget</th><th>Actions</th></tr></thead>
+                        <tbody>
+                            <tr>
+                                <td style="width:30px;"><input type="checkbox"></td>
+                                <td class="mono" style="font-weight:600;">BPA-2024-042</td>
+                                <td class="mono" style="font-size:12px;">10 mars</td>
+                                <td style="font-size:12px;">Plans &amp; devis</td>
+                                <td style="font-size:12px;">Plans mecaniques phase execution</td>
+                                <td class="text-right mono">$13,043</td>
+                                <td class="text-right mono" style="font-weight:600;">$15,000</td>
+                                <td><span class="badge badge-blue" style="font-size:9px;">Refact. 10%</span></td>
+                                <td>
+                                    <div class="progress-bar" style="width:50px;height:6px;display:inline-block;vertical-align:middle;"><div class="progress-fill blue" style="width:56%;"></div></div>
+                                    <span style="font-size:10px;color:var(--gray-500);margin-left:4px;">56%</span>
+                                </td>
+                                <td>
+                                    <div style="display:flex;gap:4px;">
+                                        <button style="background:var(--primary-light);border:1px solid var(--primary);border-radius:var(--radius-sm);padding:3px 8px;cursor:pointer;font-size:11px;color:var(--primary);font-weight:600;" onclick="event.stopPropagation();openStSlide()">&#128065;</button>
+                                        <button class="btn btn-success btn-sm" style="padding:3px 8px;font-size:11px;">&#10003;</button>
+                                        <button class="btn btn-danger btn-sm" style="padding:3px 8px;font-size:11px;">&#10007;</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- PROJET 2: Bibliotheque Montreal -->
+                <div style="padding:10px 16px;background:var(--gray-100);border-bottom:1px solid var(--gray-200);display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="var b=this.nextElementSibling;var a=this.querySelector('.pa');b.style.display=b.style.display==='none'?'':'none';a.style.transform=a.style.transform==='rotate(90deg)'?'rotate(0deg)':'rotate(90deg)';">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span class="pa" style="display:inline-block;transition:transform 0.2s;transform:rotate(0deg);font-size:10px;color:var(--gray-400);">&#9654;</span>
+                        <strong style="font-size:14px;">P-2025-012 — Bibliotheque Ville de Montreal</strong>
+                        <span style="font-size:11px;color:var(--gray-400);">Ville de Montreal</span>
+                    </div>
+                    <div style="display:flex;gap:12px;align-items:center;">
+                        <span class="badge badge-amber" style="font-size:10px;">2 factures</span>
+                        <span class="mono" style="font-size:14px;font-weight:700;">$34,500</span>
+                    </div>
+                </div>
+                <div style="display:none;">
+                    <div style="padding:6px 16px 6px 40px;background:var(--gray-50);border-bottom:1px solid var(--gray-200);font-size:12px;font-weight:600;color:var(--gray-600);display:flex;justify-content:space-between;">
+                        <span>SDK Structures inc. <span style="font-weight:400;color:var(--gray-400);">&bull; Budget: $200K &bull; Consomme: 22%</span></span>
+                        <span style="font-size:11px;color:var(--gray-400);">2 factures &bull; $34,500</span>
+                    </div>
+                    <table>
+                        <thead><tr><th style="width:30px;"><input type="checkbox"></th><th>N° facture</th><th>Date</th><th>Phase</th><th>Description</th><th class="text-right">Montant HT</th><th class="text-right">Total TTC</th><th>Type</th><th>Budget</th><th>Actions</th></tr></thead>
+                        <tbody>
+                            <tr>
+                                <td style="width:30px;"><input type="checkbox"></td>
+                                <td class="mono" style="font-weight:600;">SDK-2026-007</td>
+                                <td class="mono" style="font-size:12px;">06 mars</td>
+                                <td style="font-size:12px;">Concept</td>
+                                <td style="font-size:12px;">Etude preliminaire structure</td>
+                                <td class="text-right mono">$18,000</td>
+                                <td class="text-right mono" style="font-weight:600;">$20,700</td>
+                                <td><span class="badge badge-blue" style="font-size:9px;">Refact. 10%</span></td>
+                                <td>
+                                    <div class="progress-bar" style="width:50px;height:6px;display:inline-block;vertical-align:middle;"><div class="progress-fill blue" style="width:31%;"></div></div>
+                                    <span style="font-size:10px;color:var(--gray-500);margin-left:4px;">31%</span>
+                                </td>
+                                <td>
+                                    <div style="display:flex;gap:4px;">
+                                        <button style="background:var(--primary-light);border:1px solid var(--primary);border-radius:var(--radius-sm);padding:3px 8px;cursor:pointer;font-size:11px;color:var(--primary);font-weight:600;" onclick="event.stopPropagation();openStSlide()">&#128065;</button>
+                                        <button class="btn btn-success btn-sm" style="padding:3px 8px;font-size:11px;">&#10003;</button>
+                                        <button class="btn btn-danger btn-sm" style="padding:3px 8px;font-size:11px;">&#10007;</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="width:30px;"><input type="checkbox"></td>
+                                <td class="mono" style="font-weight:600;">SDK-2026-008</td>
+                                <td class="mono" style="font-size:12px;">11 mars</td>
+                                <td style="font-size:12px;">Concept</td>
+                                <td style="font-size:12px;">Releve existant fondations</td>
+                                <td class="text-right mono">$12,000</td>
+                                <td class="text-right mono" style="font-weight:600;">$13,800</td>
+                                <td><span class="badge badge-gray" style="font-size:9px;">Absorbe</span></td>
+                                <td>
+                                    <div class="progress-bar" style="width:50px;height:6px;display:inline-block;vertical-align:middle;"><div class="progress-fill blue" style="width:37%;"></div></div>
+                                    <span style="font-size:10px;color:var(--gray-500);margin-left:4px;">37%</span>
+                                </td>
+                                <td>
+                                    <div style="display:flex;gap:4px;">
+                                        <button style="background:var(--primary-light);border:1px solid var(--primary);border-radius:var(--radius-sm);padding:3px 8px;cursor:pointer;font-size:11px;color:var(--primary);font-weight:600;" onclick="event.stopPropagation();openStSlide()">&#128065;</button>
+                                        <button class="btn btn-success btn-sm" style="padding:3px 8px;font-size:11px;">&#10003;</button>
+                                        <button class="btn btn-danger btn-sm" style="padding:3px 8px;font-size:11px;">&#10007;</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div style="font-size:13px;color:var(--gray-500);padding:8px 0;">5 factures &bull; 2 projets &bull; Total: <strong class="mono">$98,944.25</strong> &bull; <span style="color:var(--danger);">1 depassement budget</span></div>
+        </main>
+    </div>
+
+    <!-- SLIDE-OVER: Detail facture ST -->
+    <div class="slide-over-backdrop" id="stSlideBackdrop" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:8000;" onclick="closeStSlide()"></div>
+    <div id="stSlidePanel" style="position:fixed;top:0;right:0;width:520px;height:100vh;background:white;box-shadow:-4px 0 20px rgba(0,0,0,0.15);z-index:8001;transform:translateX(100%);transition:transform 0.3s ease;display:flex;flex-direction:column;overflow-y:auto;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+            <div>
+                <div style="font-size:12px;color:var(--gray-500);">GEN-2024-018</div>
+                <h2 style="font-size:18px;font-weight:700;">Geniplus Structure inc.</h2>
+            </div>
+            <button style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--gray-400);" onclick="closeStSlide()">&times;</button>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:20px;">
+            <!-- Detail facture -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                <div style="background:var(--gray-50);border-radius:var(--radius-sm);padding:10px;"><div style="font-size:10px;color:var(--gray-400);text-transform:uppercase;font-weight:600;">Projet</div><div style="font-weight:600;">P-2024-042 — Complexe Desjardins</div></div>
+                <div style="background:var(--gray-50);border-radius:var(--radius-sm);padding:10px;"><div style="font-size:10px;color:var(--gray-400);text-transform:uppercase;font-weight:600;">Phase</div><div style="font-weight:600;">Definitif</div></div>
+                <div style="background:var(--gray-50);border-radius:var(--radius-sm);padding:10px;"><div style="font-size:10px;color:var(--gray-400);text-transform:uppercase;font-weight:600;">Type</div><div><span class="badge badge-blue" style="font-size:11px;">Refacturable 15%</span></div></div>
+                <div style="background:var(--gray-50);border-radius:var(--radius-sm);padding:10px;"><div style="font-size:10px;color:var(--gray-400);text-transform:uppercase;font-weight:600;">Saisie par</div><div>N. Roy — 8 mars 2026</div></div>
+            </div>
+
+            <div style="font-size:12px;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:6px;">Description</div>
+            <div style="font-size:13px;color:var(--gray-600);margin-bottom:16px;padding:10px;background:var(--gray-50);border-radius:var(--radius-sm);">Calculs structuraux revises suite aux modifications demandees par le client lors de la reunion du 5 mars 2026.</div>
+
+            <!-- Montants -->
+            <div style="padding:14px;background:var(--gray-50);border-radius:var(--radius);margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Montant HT</span><span class="mono" style="font-weight:600;">$23,000.00</span></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px;color:var(--gray-500);"><span>TPS (5%)</span><span class="mono">$1,150.00</span></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px;color:var(--gray-500);"><span>TVQ (9.975%)</span><span class="mono">$2,294.25</span></div>
+                <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:2px solid var(--gray-300);font-weight:700;font-size:18px;"><span>Total TTC</span><span class="mono">$26,444.25</span></div>
+            </div>
+
+            <!-- Impact budget -->
+            <div style="font-size:12px;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:6px;">Impact budgetaire — Geniplus Structure</div>
+            <div style="padding:12px;background:var(--gray-50);border-radius:var(--radius);margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"><span>Budget fournisseur</span><span class="mono">$180,000</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"><span>Facture a ce jour</span><span class="mono">$142,500</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"><span>Cette facture</span><span class="mono" style="font-weight:600;">$23,000</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:13px;padding-top:6px;border-top:1px solid var(--gray-300);font-weight:600;"><span>Solde apres</span><span class="mono" style="color:var(--warning);">$14,500 (8%)</span></div>
+                <div class="progress-bar" style="height:8px;margin-top:8px;"><div class="progress-fill amber" style="width:92%;"></div></div>
+            </div>
+
+            <!-- Refacturation -->
+            <div style="font-size:12px;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:6px;">Refacturation au client</div>
+            <div style="padding:12px;background:var(--primary-light);border:1px solid var(--primary);border-radius:var(--radius);margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"><span>Montant ST</span><span class="mono">$23,000</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"><span>Majoration 15%</span><span class="mono">$3,450</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;padding-top:6px;border-top:1px solid var(--primary);"><span>A facturer client</span><span class="mono">$26,450</span></div>
+            </div>
+
+            <!-- Alerte budget -->
+            <div style="padding:10px 12px;background:var(--warning-light);border:1px solid var(--warning);border-radius:var(--radius-sm);font-size:12px;color:#92400E;margin-bottom:16px;">
+                &#9888; Apres cette facture, il ne restera que $14,500 (8%) sur le budget de ce fournisseur.
+            </div>
+
+            <!-- Document joint -->
+            <div style="font-size:12px;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:6px;">Document joint</div>
+            <div style="padding:14px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius);text-align:center;margin-bottom:16px;">
+                <span style="font-size:32px;">&#128196;</span>
+                <div style="font-size:13px;font-weight:600;margin-top:4px;">GEN-2024-018.pdf</div>
+                <div style="font-size:11px;color:var(--gray-400);">2.4 Mo &bull; <a href="#" style="color:var(--primary);text-decoration:none;">Ouvrir la facture</a></div>
+            </div>
+
+            <!-- Note -->
+            <div style="font-size:12px;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:6px;">Note d'autorisation (optionnel)</div>
+            <textarea style="width:100%;padding:8px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;resize:vertical;" rows="2" placeholder="Commentaire pour l'analyste..."></textarea>
+
+            <!-- Actions -->
+            <div style="display:flex;gap:8px;margin-top:16px;">
+                <button class="btn btn-danger" style="flex:1;">Refuser</button>
+                <button class="btn btn-success" style="flex:1;">&#10003; Autoriser</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- ST-4: FINANCE — VUE CROSS-PROJET (Comptes fournisseurs) (FR49)     -->
+<!-- Vue centralisée de toutes les factures ST, tous projets confondus  -->
+<!-- ================================================================== -->
+<div id="st-4" class="app-shell">
+    <div class="flow-bar">
+        <div class="flow-step done"><div class="flow-num">&#10003;</div> Analyste saisit <span class="flow-role flow-role-fin">Anal.</span></div>
+        <span class="flow-arrow">&#8594;</span>
+        <div class="flow-step done"><div class="flow-num">&#10003;</div> PM autorise <span class="flow-role flow-role-pm">PM</span></div>
+        <span class="flow-arrow">&#8594;</span>
+        <div class="flow-step active"><div class="flow-num">3</div> Analyste valide paiement <span class="flow-role flow-role-fin">Anal.</span></div>
+    </div>
+    <div class="app-topbar">
+        <div class="topbar-left"><div class="topbar-logo">PR<span>|ERP</span></div><input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly></div>
+        <div class="topbar-right"><div class="topbar-bell">&#128276;<span class="bell-badge">8</span></div><div class="topbar-avatar" style="background: var(--success);">NR</div></div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Principal</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128200;</span> Tableau de bord</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128197;</span> Feuilles de temps</div>
+            <div class="sidebar-section-label">Gestion de projets</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128193;</span> Projets</div>
+            <div class="sidebar-section-label">Finance</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128176;</span> Facturation</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128179;</span> Comptes fournisseurs</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128202;</span> Rapports</div>
+            <div class="sidebar-section-label">Administration</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Paramètres</div>
+        </aside>
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>Comptes fournisseurs</h1>
+                    <span style="font-size: 13px; color: var(--gray-500);">Vue cross-projet — Toutes les factures sous-traitants</span>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-ghost" onclick="showScreen('st-6')">&#128202; Rapport</button>
+                    <button class="btn btn-ghost" onclick="showScreen('st-7')">&#128229; Import Intact</button>
+                </div>
+            </div>
+
+            <!-- KPIs -->
+            <div class="kpi-grid kpi-grid-4">
+                <div class="kpi-card" style="border-left: 4px solid var(--success);">
+                    <div class="kpi-label">Autorisées à payer</div>
+                    <div class="kpi-value sm">$148 500</div>
+                    <div class="kpi-detail">9 factures</div>
+                </div>
+                <div class="kpi-card" style="border-left: 4px solid var(--warning);">
+                    <div class="kpi-label">En attente autorisation PM</div>
+                    <div class="kpi-value sm">$86 000</div>
+                    <div class="kpi-detail">5 factures</div>
+                </div>
+                <div class="kpi-card" style="border-left: 4px solid var(--primary);">
+                    <div class="kpi-label">Payé ce mois</div>
+                    <div class="kpi-value sm">$312 000</div>
+                    <div class="kpi-detail">18 factures</div>
+                </div>
+                <div class="kpi-card" style="border-left: 4px solid var(--gray-400);">
+                    <div class="kpi-label">Total en cours (tous statuts)</div>
+                    <div class="kpi-value sm">$546 500</div>
+                    <div class="kpi-detail">32 factures actives</div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filter-bar">
+                <input type="text" placeholder="Rechercher fournisseur ou n° facture...">
+                <select>
+                    <option>Tous les statuts</option>
+                    <option selected>Autorisées (à payer)</option>
+                    <option>Reçues (attente PM)</option>
+                    <option>Payées</option>
+                </select>
+                <select>
+                    <option>Tous les projets</option>
+                    <option>P-2024-042 Complexe Desjardins</option>
+                    <option>P-2024-038 École Mgr-de-Laval</option>
+                    <option>P-2023-091 Centre sportif Lévis</option>
+                </select>
+                <div class="spacer"></div>
+                <div class="view-toggle">
+                    <button class="view-toggle-btn active">Par fournisseur</button>
+                    <button class="view-toggle-btn">Par projet</button>
+                    <button class="view-toggle-btn">Chronologique</button>
+                </div>
+            </div>
+
+            <!-- Grouped by supplier -->
+            <div class="supplier-group">
+                <div class="supplier-group-header">
+                    <span class="supplier-group-name">Geniplus Structure inc.</span>
+                    <span class="badge badge-blue">3 projets</span>
+                    <span class="supplier-group-total">Total autorisé: $85 000</span>
+                </div>
+                <div class="card" style="border-radius: 0 0 var(--radius) var(--radius); margin-bottom: 0;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>N° facture</th>
+                                <th>Projet</th>
+                                <th>Date réception</th>
+                                <th>Description</th>
+                                <th class="text-right">Montant</th>
+                                <th>Type</th>
+                                <th>Statut</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">GEN-2024-017</td>
+                                <td><a href="#" style="color: var(--primary); text-decoration: none;">P-2024-042</a></td>
+                                <td>2026-02-15</td>
+                                <td>Modélisation 3D structure</td>
+                                <td class="text-right mono">$35 000</td>
+                                <td><span class="layer-badge layer-refact">Refact.</span></td>
+                                <td><span class="badge badge-green">&#9679; Autorisée</span></td>
+                                <td><button class="btn btn-success btn-sm" onclick="showScreen('st-5')">Marquer payée</button></td>
+                            </tr>
+                            <tr>
+                                <td class="mono">GEN-2024-012</td>
+                                <td><a href="#" style="color: var(--primary); text-decoration: none;">P-2024-038</a></td>
+                                <td>2026-02-08</td>
+                                <td>Calculs parasismiques</td>
+                                <td class="text-right mono">$28 000</td>
+                                <td><span class="layer-badge layer-refact">Refact.</span></td>
+                                <td><span class="badge badge-green">&#9679; Autorisée</span></td>
+                                <td><button class="btn btn-success btn-sm">Marquer payée</button></td>
+                            </tr>
+                            <tr>
+                                <td class="mono">GEN-2024-010</td>
+                                <td><a href="#" style="color: var(--primary); text-decoration: none;">P-2023-091</a></td>
+                                <td>2026-01-29</td>
+                                <td>Inspection fondations</td>
+                                <td class="text-right mono">$22 000</td>
+                                <td><span class="layer-badge layer-absorbed">Absorbé</span></td>
+                                <td><span class="badge badge-green">&#9679; Autorisée</span></td>
+                                <td><button class="btn btn-success btn-sm">Marquer payée</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="supplier-group">
+                <div class="supplier-group-header">
+                    <span class="supplier-group-name">BPA Mécanique ltée</span>
+                    <span class="badge badge-blue">2 projets</span>
+                    <span class="supplier-group-total">Total autorisé: $63 500</span>
+                </div>
+                <div class="card" style="border-radius: 0 0 var(--radius) var(--radius); margin-bottom: 0;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>N° facture</th>
+                                <th>Projet</th>
+                                <th>Date réception</th>
+                                <th>Description</th>
+                                <th class="text-right">Montant</th>
+                                <th>Type</th>
+                                <th>Statut</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">BPA-2024-045</td>
+                                <td><a href="#" style="color: var(--primary); text-decoration: none;">P-2024-042</a></td>
+                                <td>2026-03-01</td>
+                                <td>Modélisation CVAC</td>
+                                <td class="text-right mono">$42 500</td>
+                                <td><span class="layer-badge layer-refact">Refact.</span></td>
+                                <td><span class="badge badge-green">&#9679; Autorisée</span></td>
+                                <td><button class="btn btn-success btn-sm">Marquer payée</button></td>
+                            </tr>
+                            <tr>
+                                <td class="mono">BPA-2024-044</td>
+                                <td><a href="#" style="color: var(--primary); text-decoration: none;">P-2024-038</a></td>
+                                <td>2026-02-22</td>
+                                <td>Plans plomberie</td>
+                                <td class="text-right mono">$21 000</td>
+                                <td><span class="layer-badge layer-refact">Refact.</span></td>
+                                <td><span class="badge badge-green">&#9679; Autorisée</span></td>
+                                <td><button class="btn btn-success btn-sm">Marquer payée</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="supplier-group">
+                <div class="supplier-group-header">
+                    <span class="supplier-group-name">SNC Électrique inc.</span>
+                    <span class="badge badge-blue">1 projet</span>
+                    <span class="supplier-group-total">En attente PM: $22 500</span>
+                </div>
+                <div class="card" style="border-radius: 0 0 var(--radius) var(--radius); margin-bottom: 0;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>N° facture</th>
+                                <th>Projet</th>
+                                <th>Date réception</th>
+                                <th>Description</th>
+                                <th class="text-right">Montant</th>
+                                <th>Type</th>
+                                <th>Statut</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">SNC-2024-008</td>
+                                <td><a href="#" style="color: var(--primary); text-decoration: none;">P-2024-042</a></td>
+                                <td>2026-03-05</td>
+                                <td>Plans électriques — phase Définitif</td>
+                                <td class="text-right mono">$22 500</td>
+                                <td><span class="layer-badge layer-absorbed">Absorbé</span></td>
+                                <td><span class="badge badge-amber">&#9679; Attente PM</span></td>
+                                <td><span style="font-size: 12px; color: var(--gray-400);">PM: J-F Tremblay</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- ST-5: FINANCE — TRAITER PAIEMENT (FR49)                            -->
+<!-- Confirmation de paiement avec détails et export                    -->
+<!-- ================================================================== -->
+<div id="st-5" class="app-shell">
+    <div class="flow-bar">
+        <div class="flow-step done"><div class="flow-num">&#10003;</div> Analyste saisit <span class="flow-role flow-role-fin">Anal.</span></div>
+        <span class="flow-arrow">&#8594;</span>
+        <div class="flow-step done"><div class="flow-num">&#10003;</div> PM autorise <span class="flow-role flow-role-pm">PM</span></div>
+        <span class="flow-arrow">&#8594;</span>
+        <div class="flow-step active"><div class="flow-num">3</div> Analyste valide paiement <span class="flow-role flow-role-fin">Anal.</span></div>
+    </div>
+    <div class="app-topbar">
+        <div class="topbar-left"><div class="topbar-logo">PR<span>|ERP</span></div><input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly></div>
+        <div class="topbar-right"><div class="topbar-bell">&#128276;<span class="bell-badge">8</span></div><div class="topbar-avatar" style="background: var(--success);">NR</div></div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Principal</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128200;</span> Tableau de bord</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128197;</span> Feuilles de temps</div>
+            <div class="sidebar-section-label">Gestion de projets</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128193;</span> Projets</div>
+            <div class="sidebar-section-label">Finance</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128176;</span> Facturation</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128179;</span> Comptes fournisseurs</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128202;</span> Rapports</div>
+        </aside>
+        <main class="main-content">
+            <div class="breadcrumb"><a href="#">Comptes fournisseurs</a> &gt; Traiter paiement</div>
+            <div class="page-header">
+                <div>
+                    <h1>Valider paiement — Geniplus Structure</h1>
+                    <span style="font-size: 13px; color: var(--gray-500);">Facture GEN-2024-017 &middot; Autorisee par J-F Tremblay (PM) le 20 fev. 2026 &middot; Analyste: N. Roy</span>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                <!-- Left: Invoice summary -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Résumé de la facture</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <div>
+                            <div class="kpi-label">Fournisseur</div>
+                            <div style="font-weight: 600;">Geniplus Structure inc.</div>
+                        </div>
+                        <div>
+                            <div class="kpi-label">N° facture</div>
+                            <div style="font-weight: 600; font-family: var(--font-mono);">GEN-2024-017</div>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <div>
+                            <div class="kpi-label">Projet</div>
+                            <div style="font-weight: 600;">P-2024-042 — Complexe Desjardins</div>
+                        </div>
+                        <div>
+                            <div class="kpi-label">Phase</div>
+                            <div>Définitif</div>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <div>
+                            <div class="kpi-label">Type budget</div>
+                            <div><span class="layer-badge layer-refact">Refacturable 15%</span></div>
+                        </div>
+                        <div>
+                            <div class="kpi-label">Autorisé par</div>
+                            <div>J-F Tremblay (PM) — 20 fév. 2026</div>
+                        </div>
+                    </div>
+
+                    <div style="padding: 16px; background: var(--gray-50); border-radius: var(--radius); margin-top: 8px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span>Montant HT</span><span class="mono">$35 000.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 13px; color: var(--gray-500);">
+                            <span>TPS (5%)</span><span class="mono">$1 750.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 13px; color: var(--gray-500);">
+                            <span>TVQ (9.975%)</span><span class="mono">$3 491.25</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 2px solid var(--gray-300); font-weight: 700; font-size: 18px;">
+                            <span>Total à payer</span><span class="mono">$40 241.25</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Payment form -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Valider et enregistrer le paiement</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date de paiement</label>
+                        <input class="form-input" type="date" value="2026-03-11">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mode de paiement</label>
+                        <select class="form-select">
+                            <option>Virement bancaire (EFT)</option>
+                            <option>Chèque</option>
+                            <option>Carte de crédit</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">N° de référence paiement</label>
+                        <input class="form-input" type="text" placeholder="Ex: VIR-2026-0342">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Compte GL (Intact)</label>
+                        <select class="form-select">
+                            <option selected>5200 — Sous-traitance refacturable</option>
+                            <option>5210 — Sous-traitance absorbée</option>
+                            <option>5220 — Honoraires internes ST</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Note (optionnel)</label>
+                        <textarea class="form-input" rows="2" placeholder="Commentaire interne..." style="resize: vertical;"></textarea>
+                    </div>
+
+                    <div style="margin-top: 16px; padding: 12px 16px; background: var(--success-light); border-radius: var(--radius); display: flex; align-items: center; gap: 12px;">
+                        <input type="checkbox" id="sync-intact" checked style="width: 18px; height: 18px;">
+                        <div>
+                            <label for="sync-intact" style="font-weight: 600; font-size: 13px; cursor: pointer;">Synchroniser avec Intact</label>
+                            <div style="font-size: 12px; color: var(--gray-500);">Créer automatiquement l'écriture dans le module Comptes fournisseurs d'Intact</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 24px; display: flex; gap: 8px; justify-content: flex-end;">
+                        <button class="btn btn-ghost" onclick="showScreen('st-4')">Annuler</button>
+                        <button class="btn btn-success">&#10003; Valider le paiement</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- ST-6: FINANCE — RAPPORT PAIEMENTS PAR FOURNISSEUR (FR50)           -->
+<!-- Rapport cross-projet groupé par fournisseur, exportable            -->
+<!-- ================================================================== -->
+<div id="st-6" class="app-shell">
+    <div class="flow-bar">
+        <div class="flow-step done"><div class="flow-num">&#10003;</div> Analyste saisit <span class="flow-role flow-role-fin">Anal.</span></div>
+        <span class="flow-arrow">&#8594;</span>
+        <div class="flow-step done"><div class="flow-num">&#10003;</div> PM autorise <span class="flow-role flow-role-pm">PM</span></div>
+        <span class="flow-arrow">&#8594;</span>
+        <div class="flow-step done"><div class="flow-num">&#10003;</div> Analyste valide paiement <span class="flow-role flow-role-fin">Anal.</span></div>
+    </div>
+    <div class="app-topbar">
+        <div class="topbar-left"><div class="topbar-logo">PR<span>|ERP</span></div><input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly></div>
+        <div class="topbar-right"><div class="topbar-bell">&#128276;<span class="bell-badge">8</span></div><div class="topbar-avatar" style="background: var(--success);">NR</div></div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Principal</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128200;</span> Tableau de bord</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128197;</span> Feuilles de temps</div>
+            <div class="sidebar-section-label">Gestion de projets</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128193;</span> Projets</div>
+            <div class="sidebar-section-label">Finance</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128176;</span> Facturation</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> Comptes fournisseurs</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128202;</span> Rapports</div>
+        </aside>
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>Rapport — Paiements fournisseurs</h1>
+                    <span style="font-size: 13px; color: var(--gray-500);">Rapport cross-projet groupé par fournisseur (FR50)</span>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-ghost">&#128438; Exporter Excel</button>
+                    <button class="btn btn-ghost">&#128424; Exporter PDF</button>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filter-bar">
+                <select>
+                    <option>Période: Mars 2026</option>
+                    <option>Période: Fév. 2026</option>
+                    <option>Période: T1 2026</option>
+                    <option>Période: Année 2025-2026</option>
+                    <option selected>Période personnalisée...</option>
+                </select>
+                <input type="date" value="2025-04-01" style="width: 140px;">
+                <span style="color: var(--gray-400);">au</span>
+                <input type="date" value="2026-03-11" style="width: 140px;">
+                <select>
+                    <option selected>Toutes les BU</option>
+                    <option>BU Bâtiment</option>
+                    <option>BU Infrastructure</option>
+                    <option>BU Environnement</option>
+                </select>
+                <div class="spacer"></div>
+                <select>
+                    <option selected>Grouper par fournisseur</option>
+                    <option>Grouper par projet</option>
+                    <option>Grouper par BU</option>
+                    <option>Grouper par mois</option>
+                </select>
+            </div>
+
+            <!-- Summary KPIs -->
+            <div class="kpi-grid kpi-grid-4">
+                <div class="kpi-card">
+                    <div class="kpi-label">Total payé (période)</div>
+                    <div class="kpi-value sm">$1 842 500</div>
+                    <div class="kpi-detail">142 factures</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Refacturable</div>
+                    <div class="kpi-value sm">$1 285 000</div>
+                    <div class="kpi-detail">70% du total &middot; 98 factures</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Absorbé</div>
+                    <div class="kpi-value sm">$412 500</div>
+                    <div class="kpi-detail">22% du total &middot; 32 factures</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Honoraires internes</div>
+                    <div class="kpi-value sm">$145 000</div>
+                    <div class="kpi-detail">8% du total &middot; 12 factures</div>
+                </div>
+            </div>
+
+            <!-- Report table grouped by supplier -->
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fournisseur</th>
+                            <th class="text-right">Nb projets</th>
+                            <th class="text-right">Nb factures</th>
+                            <th class="text-right">Total refact.</th>
+                            <th class="text-right">Total absorbé</th>
+                            <th class="text-right">Total internes</th>
+                            <th class="text-right">Grand total</th>
+                            <th>Tendance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="font-weight: 600;">
+                            <td>Geniplus Structure inc.</td>
+                            <td class="text-right mono">5</td>
+                            <td class="text-right mono">28</td>
+                            <td class="text-right mono">$385 000</td>
+                            <td class="text-right mono">$42 000</td>
+                            <td class="text-right mono">—</td>
+                            <td class="text-right mono">$427 000</td>
+                            <td><span class="kpi-trend-up">&#9650; +12%</span></td>
+                        </tr>
+                        <tr style="font-weight: 600;">
+                            <td>BPA Mécanique ltée</td>
+                            <td class="text-right mono">4</td>
+                            <td class="text-right mono">22</td>
+                            <td class="text-right mono">$298 000</td>
+                            <td class="text-right mono">$85 500</td>
+                            <td class="text-right mono">$45 000</td>
+                            <td class="text-right mono">$428 500</td>
+                            <td><span class="kpi-trend-up">&#9650; +8%</span></td>
+                        </tr>
+                        <tr style="font-weight: 600;">
+                            <td>SNC Électrique inc.</td>
+                            <td class="text-right mono">3</td>
+                            <td class="text-right mono">18</td>
+                            <td class="text-right mono">$195 000</td>
+                            <td class="text-right mono">$112 000</td>
+                            <td class="text-right mono">$35 000</td>
+                            <td class="text-right mono">$342 000</td>
+                            <td><span style="color: var(--gray-400); font-size: 12px;">&#9644; stable</span></td>
+                        </tr>
+                        <tr style="font-weight: 600;">
+                            <td>Arpentage Lavoie &amp; Fils</td>
+                            <td class="text-right mono">6</td>
+                            <td class="text-right mono">24</td>
+                            <td class="text-right mono">$142 000</td>
+                            <td class="text-right mono">$78 000</td>
+                            <td class="text-right mono">$25 000</td>
+                            <td class="text-right mono">$245 000</td>
+                            <td><span class="kpi-trend-down">&#9660; -5%</span></td>
+                        </tr>
+                        <tr style="font-weight: 600;">
+                            <td>Géotech Solutions QC</td>
+                            <td class="text-right mono">3</td>
+                            <td class="text-right mono">12</td>
+                            <td class="text-right mono">$112 000</td>
+                            <td class="text-right mono">$48 000</td>
+                            <td class="text-right mono">$18 000</td>
+                            <td class="text-right mono">$178 000</td>
+                            <td><span class="kpi-trend-up">&#9650; +22%</span></td>
+                        </tr>
+                        <tr style="font-weight: 600;">
+                            <td>Enviro-Lab inc.</td>
+                            <td class="text-right mono">4</td>
+                            <td class="text-right mono">16</td>
+                            <td class="text-right mono">$85 000</td>
+                            <td class="text-right mono">$32 000</td>
+                            <td class="text-right mono">$15 000</td>
+                            <td class="text-right mono">$132 000</td>
+                            <td><span style="color: var(--gray-400); font-size: 12px;">&#9644; stable</span></td>
+                        </tr>
+                        <tr style="font-weight: 600;">
+                            <td>Autres (6 fournisseurs)</td>
+                            <td class="text-right mono">—</td>
+                            <td class="text-right mono">22</td>
+                            <td class="text-right mono">$68 000</td>
+                            <td class="text-right mono">$15 000</td>
+                            <td class="text-right mono">$7 000</td>
+                            <td class="text-right mono">$90 000</td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr style="font-weight: 700; background: var(--gray-50); border-top: 2px solid var(--gray-300);">
+                            <td>TOTAL</td>
+                            <td class="text-right mono">—</td>
+                            <td class="text-right mono">142</td>
+                            <td class="text-right mono">$1 285 000</td>
+                            <td class="text-right mono">$412 500</td>
+                            <td class="text-right mono">$145 000</td>
+                            <td class="text-right mono">$1 842 500</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- ST-7: FINANCE — IMPORT INTACT (FR52)                               -->
+<!-- Importation de factures fournisseurs depuis l'API Intact           -->
+<!-- ================================================================== -->
+<div id="st-7" class="app-shell">
+    <div class="flow-bar">
+        <div class="flow-step done"><div class="flow-num">&#10003;</div> Analyste saisit <span class="flow-role flow-role-fin">Anal.</span></div>
+        <span class="flow-arrow">&#8594;</span>
+        <div class="flow-step done"><div class="flow-num">&#10003;</div> PM autorise <span class="flow-role flow-role-pm">PM</span></div>
+        <span class="flow-arrow">&#8594;</span>
+        <div class="flow-step done"><div class="flow-num">&#10003;</div> Analyste valide paiement <span class="flow-role flow-role-fin">Anal.</span></div>
+    </div>
+    <div class="app-topbar">
+        <div class="topbar-left"><div class="topbar-logo">PR<span>|ERP</span></div><input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly></div>
+        <div class="topbar-right"><div class="topbar-bell">&#128276;<span class="bell-badge">8</span></div><div class="topbar-avatar" style="background: var(--success);">NR</div></div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Principal</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128200;</span> Tableau de bord</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128197;</span> Feuilles de temps</div>
+            <div class="sidebar-section-label">Gestion de projets</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128193;</span> Projets</div>
+            <div class="sidebar-section-label">Finance</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128176;</span> Facturation</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128179;</span> Comptes fournisseurs</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128202;</span> Rapports</div>
+        </aside>
+        <main class="main-content">
+            <div class="breadcrumb"><a href="#">Comptes fournisseurs</a> &gt; Import Intact</div>
+            <div class="page-header">
+                <div>
+                    <h1>Import factures — Intact (FR52)</h1>
+                    <span style="font-size: 13px; color: var(--gray-500);">Importer les factures fournisseurs depuis le module Comptes fournisseurs d'Intact</span>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                <!-- Left: Import method -->
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Source d'importation</div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <!-- API option -->
+                            <div style="padding: 16px; border: 2px solid var(--primary); border-radius: var(--radius); background: var(--primary-light); cursor: pointer;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <input type="radio" name="import-method" checked style="width: 18px; height: 18px;">
+                                    <div>
+                                        <div style="font-weight: 600;">API Intact (recommandé)</div>
+                                        <div style="font-size: 12px; color: var(--gray-500);">Synchronisation automatique depuis le module CP d'Intact</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- CSV option -->
+                            <div style="padding: 16px; border: 1px solid var(--gray-200); border-radius: var(--radius); cursor: pointer;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <input type="radio" name="import-method" style="width: 18px; height: 18px;">
+                                    <div>
+                                        <div style="font-weight: 600;">Fichier CSV</div>
+                                        <div style="font-size: 12px; color: var(--gray-500);">Import manuel depuis un export CSV d'Intact</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 16px;">
+                            <div class="form-group">
+                                <label class="form-label">Période à synchroniser</label>
+                                <div class="form-row">
+                                    <input class="form-input" type="date" value="2026-03-01">
+                                    <input class="form-input" type="date" value="2026-03-11">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Filtre fournisseur (optionnel)</label>
+                                <input class="form-input" type="text" placeholder="Tous les fournisseurs">
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 8px;">Lancer la synchronisation</button>
+                    </div>
+
+                    <!-- Connection status -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Statut connexion Intact</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                            <span class="status-dot dot-green"></span>
+                            <span style="font-weight: 600; color: var(--success);">Connecté</span>
+                            <span style="font-size: 12px; color: var(--gray-400);">&middot; Dernière sync: 10 mars 2026 à 18:45</span>
+                        </div>
+                        <div style="font-size: 13px; color: var(--gray-600);">
+                            Module: Comptes fournisseurs (CP)<br>
+                            Compagnie: PR Ingénieurs-conseils inc.<br>
+                            Version API: Intact v2024.3
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Preview of importable invoices -->
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Aperçu — 4 factures trouvées dans Intact</div>
+                            <span class="badge badge-blue">Nouvelles</span>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 30px;"><input type="checkbox" checked></th>
+                                    <th>N° facture</th>
+                                    <th>Fournisseur</th>
+                                    <th class="text-right">Montant</th>
+                                    <th>Statut</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><input type="checkbox" checked></td>
+                                    <td class="mono">GEO-2026-014</td>
+                                    <td>Géotech Solutions QC</td>
+                                    <td class="text-right mono">$18 500</td>
+                                    <td><span class="badge badge-blue">Nouvelle</span></td>
+                                </tr>
+                                <tr>
+                                    <td><input type="checkbox" checked></td>
+                                    <td class="mono">ARP-2026-008</td>
+                                    <td>Arpentage Lavoie &amp; Fils</td>
+                                    <td class="text-right mono">$7 200</td>
+                                    <td><span class="badge badge-blue">Nouvelle</span></td>
+                                </tr>
+                                <tr>
+                                    <td><input type="checkbox" checked></td>
+                                    <td class="mono">ENV-2026-022</td>
+                                    <td>Enviro-Lab inc.</td>
+                                    <td class="text-right mono">$4 800</td>
+                                    <td><span class="badge badge-blue">Nouvelle</span></td>
+                                </tr>
+                                <tr style="background: var(--warning-light);">
+                                    <td><input type="checkbox"></td>
+                                    <td class="mono">BPA-2024-046</td>
+                                    <td>BPA Mécanique ltée</td>
+                                    <td class="text-right mono">$31 000</td>
+                                    <td><span class="badge badge-amber">Doublon?</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div style="margin-top: 12px; padding: 10px 14px; background: var(--warning-light); border-radius: var(--radius-sm); font-size: 12px; color: #92400E;">
+                            &#9888; BPA-2024-046 correspond potentiellement à une facture déjà saisie manuellement (BPA-2024-045, montant similaire). Vérifiez avant d'importer.
+                        </div>
+
+                        <div style="margin-top: 16px;">
+                            <div class="form-group">
+                                <label class="form-label">Assignation projet automatique</label>
+                                <div style="font-size: 12px; color: var(--gray-500); margin-bottom: 8px;">Les factures seront assignées au projet correspondant basé sur le code de projet dans Intact. Les factures sans correspondance devront être assignées manuellement.</div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                            <button class="btn btn-ghost">Annuler</button>
+                            <button class="btn btn-primary">Importer 3 factures sélectionnées</button>
+                        </div>
+                    </div>
+
+                    <!-- Import history -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Historique des imports</div>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Source</th>
+                                    <th class="text-right">Importées</th>
+                                    <th class="text-right">Doublons ignorés</th>
+                                    <th>Par</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>10 mars 2026</td>
+                                    <td>API Intact</td>
+                                    <td class="text-right mono">6</td>
+                                    <td class="text-right mono">1</td>
+                                    <td>Nathalie R.</td>
+                                </tr>
+                                <tr>
+                                    <td>3 mars 2026</td>
+                                    <td>API Intact</td>
+                                    <td class="text-right mono">8</td>
+                                    <td class="text-right mono">0</td>
+                                    <td>Nathalie R.</td>
+                                </tr>
+                                <tr>
+                                    <td>24 fév. 2026</td>
+                                    <td>CSV</td>
+                                    <td class="text-right mono">12</td>
+                                    <td class="text-right mono">2</td>
+                                    <td>Nathalie R.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script>
+function showScreen(id) {
+    document.querySelectorAll('.app-shell').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    window.scrollTo(0, 0);
+}
+
+function openStSlide() {
+    document.getElementById('stSlideBackdrop').style.display = 'block';
+    document.getElementById('stSlidePanel').style.transform = 'translateX(0)';
+}
+
+function closeStSlide() {
+    document.getElementById('stSlideBackdrop').style.display = 'none';
+    document.getElementById('stSlidePanel').style.transform = 'translateX(100%)';
+}
+</script>
+
+</body>
+</html>

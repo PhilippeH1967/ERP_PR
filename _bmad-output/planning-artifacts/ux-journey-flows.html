@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERP — User Journey Flows (Step 10)</title>
+<style>
+  :root {
+    --red: #e63946;
+    --red-light: #fef2f2;
+    --red-dark: #be123c;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    --green: #22c55e;
+    --green-light: #f0fdf4;
+    --amber: #f59e0b;
+    --amber-light: #fffbeb;
+    --blue: #3b82f6;
+    --blue-light: #eff6ff;
+    --purple: #8b5cf6;
+    --purple-light: #f5f3ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--gray-50); color: var(--gray-800); }
+  .mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+
+  /* Header */
+  header { background: white; border-bottom: 1px solid var(--gray-200); padding: 16px 32px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; }
+  header h1 { font-size: 20px; font-weight: 700; color: var(--gray-900); }
+  header span.badge { background: var(--red); color: white; font-size: 11px; padding: 2px 8px; border-radius: 9999px; font-weight: 600; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; background: white; border-bottom: 1px solid var(--gray-200); padding: 0 32px; overflow-x: auto; position: sticky; top: 57px; z-index: 99; }
+  .tab { padding: 12px 20px; font-size: 13px; font-weight: 500; color: var(--gray-500); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; }
+  .tab:hover { color: var(--gray-700); background: var(--gray-50); }
+  .tab.active { color: var(--red); border-bottom-color: var(--red); font-weight: 600; }
+
+  /* Content */
+  .content { max-width: 1400px; margin: 0 auto; padding: 32px; }
+  .journey { display: none; }
+  .journey.active { display: block; }
+
+  /* Journey header */
+  .journey-header { margin-bottom: 32px; }
+  .journey-header h2 { font-size: 24px; font-weight: 700; color: var(--gray-900); margin-bottom: 8px; }
+  .journey-header .subtitle { font-size: 14px; color: var(--gray-500); margin-bottom: 16px; }
+  .journey-header .persona { display: inline-flex; align-items: center; gap: 8px; background: var(--red-light); border: 1px solid #fecaca; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--red-dark); }
+  .journey-header .innovation { display: inline-flex; align-items: center; gap: 8px; background: var(--green-light); border: 1px solid #bbf7d0; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 500; color: #166534; margin-left: 8px; }
+
+  /* Flow diagram */
+  .flow { display: flex; flex-direction: column; gap: 2px; align-items: center; margin: 24px 0; }
+  .flow-row { display: flex; align-items: center; gap: 12px; width: 100%; justify-content: center; flex-wrap: wrap; }
+  .flow-step { background: white; border: 1px solid var(--gray-200); border-radius: 10px; padding: 14px 20px; font-size: 13px; min-width: 180px; max-width: 280px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06); transition: all 0.15s; position: relative; }
+  .flow-step:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); transform: translateY(-1px); }
+  .flow-step.entry { border-color: var(--blue); background: var(--blue-light); }
+  .flow-step.action { border-color: var(--gray-300); }
+  .flow-step.decision { border-color: var(--amber); background: var(--amber-light); border-radius: 10px; transform: rotate(0deg); }
+  .flow-step.decision::before { content: '?'; position: absolute; top: -8px; right: -8px; background: var(--amber); color: white; width: 20px; height: 20px; border-radius: 50%; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .flow-step.success { border-color: var(--green); background: var(--green-light); }
+  .flow-step.highlight { border-color: var(--red); background: var(--red-light); }
+  .flow-step.system { border-color: var(--purple); background: var(--purple-light); }
+  .flow-step .label { font-weight: 600; color: var(--gray-700); margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .flow-step .desc { color: var(--gray-600); font-size: 12px; line-height: 1.4; }
+
+  .arrow { color: var(--gray-400); font-size: 20px; flex-shrink: 0; }
+  .arrow-down { display: flex; justify-content: center; padding: 4px 0; color: var(--gray-400); font-size: 18px; }
+  .arrow-branch { display: flex; gap: 24px; align-items: flex-start; justify-content: center; width: 100%; margin: 8px 0; }
+  .branch { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; max-width: 300px; }
+  .branch-label { font-size: 11px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 12px; background: var(--gray-100); border-radius: 9999px; margin-bottom: 4px; }
+
+  /* Mockup screens */
+  .screen { background: white; border: 1px solid var(--gray-200); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin: 24px 0; }
+  .screen-bar { background: var(--gray-100); padding: 8px 16px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--gray-200); }
+  .screen-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .screen-dot.r { background: #ef4444; }
+  .screen-dot.y { background: #f59e0b; }
+  .screen-dot.g { background: #22c55e; }
+  .screen-title { margin-left: 12px; font-size: 12px; color: var(--gray-500); font-weight: 500; }
+  .screen-body { padding: 20px; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  th { background: var(--gray-50); text-align: left; padding: 10px 14px; font-weight: 600; color: var(--gray-600); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid var(--gray-200); }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--gray-100); color: var(--gray-700); }
+  tr:hover td { background: var(--gray-50); }
+
+  /* Kanban mockup */
+  .kanban { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 16px 0; }
+  .kanban-col { background: var(--gray-50); border-radius: 8px; padding: 12px; min-height: 200px; }
+  .kanban-col h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gray-500); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid var(--gray-200); }
+  .kanban-col.backlog h4 { border-bottom-color: var(--purple); color: var(--purple); }
+  .kanban-col.todo h4 { border-bottom-color: var(--blue); color: var(--blue); }
+  .kanban-col.progress h4 { border-bottom-color: var(--amber); color: var(--amber); }
+  .kanban-col.review h4 { border-bottom-color: #f97316; color: #f97316; }
+  .kanban-col.done h4 { border-bottom-color: var(--green); color: var(--green); }
+  .kcard { background: white; border: 1px solid var(--gray-200); border-radius: 8px; padding: 10px; margin-bottom: 8px; font-size: 12px; cursor: grab; transition: all 0.15s; }
+  .kcard:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); transform: translateY(-1px); }
+  .kcard .proj { font-size: 10px; font-weight: 600; color: white; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 4px; }
+  .kcard .proj.p1 { background: var(--red); }
+  .kcard .proj.p2 { background: var(--blue); }
+  .kcard .proj.p3 { background: var(--purple); }
+  .kcard .task { font-weight: 500; color: var(--gray-700); margin-bottom: 4px; }
+  .kcard .meta { display: flex; justify-content: space-between; align-items: center; color: var(--gray-400); font-size: 11px; }
+  .kcard .avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--gray-300); display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: white; }
+  .kcard .avatar.s { background: #ec4899; }
+  .kcard .avatar.t { background: var(--blue); }
+  .kcard .avatar.j { background: var(--green); }
+  .kcard .avatar.g { background: var(--amber); }
+  .kcard .avatar.none { background: var(--gray-200); border: 1px dashed var(--gray-400); color: var(--gray-400); }
+
+  /* Timesheet mockup */
+  .ts-grid { display: grid; grid-template-columns: 200px repeat(5, 1fr) 80px; gap: 1px; background: var(--gray-200); border-radius: 8px; overflow: hidden; margin: 16px 0; font-size: 13px; }
+  .ts-cell { background: white; padding: 10px; display: flex; align-items: center; justify-content: center; }
+  .ts-cell.header { background: var(--gray-50); font-weight: 600; color: var(--gray-600); font-size: 11px; text-transform: uppercase; }
+  .ts-cell.project { justify-content: flex-start; font-weight: 500; color: var(--gray-700); }
+  .ts-cell.prefilled { background: #f8f9fa; color: var(--gray-400); font-style: italic; }
+  .ts-cell.confirmed { background: white; color: var(--gray-800); font-weight: 600; }
+  .ts-cell.total { background: var(--gray-50); font-weight: 700; color: var(--gray-700); }
+  .ts-cell .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* Heatmap mockup */
+  .heatmap { display: grid; grid-template-columns: 140px repeat(8, 1fr); gap: 1px; background: var(--gray-200); border-radius: 8px; overflow: hidden; margin: 16px 0; font-size: 12px; }
+  .hm-cell { padding: 8px; display: flex; align-items: center; justify-content: center; font-weight: 500; }
+  .hm-cell.name { background: white; justify-content: flex-start; color: var(--gray-700); }
+  .hm-cell.header { background: var(--gray-50); color: var(--gray-500); font-size: 10px; font-weight: 600; }
+  .hm-cell.green { background: #dcfce7; color: #166534; }
+  .hm-cell.yellow { background: #fef9c3; color: #854d0e; }
+  .hm-cell.red { background: #fee2e2; color: #991b1b; }
+  .hm-cell.empty { background: white; color: var(--gray-300); }
+
+  /* Dashboard widgets */
+  .dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 16px 0; }
+  .widget { background: white; border: 1px solid var(--gray-200); border-radius: 10px; padding: 16px; }
+  .widget .w-label { font-size: 11px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .widget .w-value { font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 700; color: var(--gray-900); }
+  .widget .w-sub { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+
+  /* Alert banner */
+  .alert-banner { background: var(--amber-light); border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font-size: 13px; color: #92400e; }
+  .alert-banner .alert-icon { font-size: 18px; }
+  .alert-banner a { color: var(--red); font-weight: 600; text-decoration: none; }
+
+  /* Occupancy bars */
+  .occ-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--gray-100); }
+  .occ-name { width: 120px; font-size: 13px; font-weight: 500; color: var(--gray-700); display: flex; align-items: center; gap: 8px; }
+  .occ-bar-container { flex: 1; height: 24px; background: var(--gray-100); border-radius: 6px; overflow: hidden; display: flex; }
+  .occ-bar.billable { background: var(--blue); }
+  .occ-bar.internal { background: var(--gray-400); }
+  .occ-bar.available { background: transparent; }
+  .occ-pct { width: 50px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; }
+  .occ-pct.high { color: var(--red); }
+  .occ-pct.ok { color: var(--green); }
+  .occ-pct.low { color: var(--amber); }
+
+  /* Gantt mockup */
+  .gantt-container { overflow-x: auto; margin: 16px 0; }
+  .gantt { display: grid; grid-template-columns: 200px repeat(12, 1fr); gap: 1px; background: var(--gray-200); border-radius: 8px; overflow: hidden; min-width: 900px; font-size: 12px; }
+  .g-cell { background: white; padding: 8px; display: flex; align-items: center; }
+  .g-cell.header { background: var(--gray-50); color: var(--gray-500); font-weight: 600; font-size: 10px; justify-content: center; }
+  .g-cell.task-name { font-weight: 500; color: var(--gray-700); }
+  .g-bar { height: 20px; border-radius: 4px; min-width: 100%; }
+  .g-bar.critical { background: var(--red); }
+  .g-bar.normal { background: var(--blue); }
+  .g-bar.done { background: var(--green); }
+  .g-cell.has-bar { padding: 4px 2px; }
+
+  /* Invoice mockup */
+  .invoice-split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .inv-editor, .inv-preview { background: white; border: 1px solid var(--gray-200); border-radius: 10px; overflow: hidden; }
+  .inv-header { padding: 12px 16px; border-bottom: 1px solid var(--gray-200); font-size: 13px; font-weight: 600; color: var(--gray-600); display: flex; justify-content: space-between; align-items: center; }
+  .inv-body { padding: 16px; }
+
+  /* Portfolio KPIs */
+  .hero-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 16px 0; }
+  .hero-kpi { background: white; border: 1px solid var(--gray-200); border-radius: 12px; padding: 24px; text-align: center; }
+  .hero-kpi .kpi-label { font-size: 12px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; }
+  .hero-kpi .kpi-value { font-family: 'JetBrains Mono', monospace; font-size: 36px; font-weight: 700; color: var(--gray-900); margin: 8px 0; }
+  .hero-kpi .kpi-sub { font-size: 12px; color: var(--gray-400); }
+
+  /* Toggle */
+  .toggle-group { display: inline-flex; background: var(--gray-100); border-radius: 8px; padding: 3px; margin: 12px 0; }
+  .toggle-btn { padding: 6px 16px; font-size: 12px; font-weight: 500; border-radius: 6px; cursor: pointer; color: var(--gray-500); transition: all 0.15s; }
+  .toggle-btn.active { background: white; color: var(--gray-800); box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: 600; }
+
+  /* Project hierarchy */
+  .proj-list { margin: 16px 0; }
+  .proj-row { display: grid; grid-template-columns: 2fr 1fr 100px 100px 80px 100px; gap: 1px; padding: 12px 16px; border-bottom: 1px solid var(--gray-100); font-size: 13px; align-items: center; cursor: pointer; transition: background 0.1s; }
+  .proj-row:hover { background: var(--gray-50); }
+  .proj-row.header { font-weight: 600; color: var(--gray-500); font-size: 11px; text-transform: uppercase; background: var(--gray-50); border-bottom: 2px solid var(--gray-200); }
+  .proj-row .name { font-weight: 500; color: var(--gray-800); }
+  .proj-row .client { color: var(--gray-500); }
+  .status-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; display: inline-block; }
+  .status-badge.active { background: #dcfce7; color: #166534; }
+  .status-badge.planning { background: var(--blue-light); color: #1e40af; }
+  .status-badge.closing { background: var(--amber-light); color: #92400e; }
+  .tier-badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+  .tier-badge.t1 { background: var(--red-light); color: var(--red); }
+  .tier-badge.t2 { background: var(--blue-light); color: var(--blue); }
+  .tier-badge.t3 { background: var(--gray-100); color: var(--gray-500); }
+  .progress-bar { width: 100%; height: 6px; background: var(--gray-200); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; }
+  .progress-fill.healthy { background: var(--green); }
+  .progress-fill.warn { background: var(--amber); }
+
+  .expanded-card { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; margin: 8px 16px 16px; padding: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; animation: fadeIn 0.2s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Week view */
+  .week-grid { display: grid; grid-template-columns: 120px repeat(5, 1fr); gap: 1px; background: var(--gray-200); border-radius: 8px; overflow: hidden; margin: 16px 0; }
+  .wk-cell { background: white; padding: 10px; font-size: 12px; min-height: 50px; }
+  .wk-cell.name { font-weight: 500; color: var(--gray-700); display: flex; align-items: center; gap: 6px; }
+  .wk-cell.header { background: var(--gray-50); font-weight: 600; color: var(--gray-500); font-size: 11px; text-align: center; text-transform: uppercase; }
+  .wk-block { border-radius: 4px; padding: 4px 6px; font-size: 11px; font-weight: 500; margin-bottom: 3px; }
+  .wk-block.b1 { background: #fee2e2; color: #991b1b; }
+  .wk-block.b2 { background: #dbeafe; color: #1e40af; }
+  .wk-block.b3 { background: #f3e8ff; color: #6b21a8; }
+  .wk-avail { color: var(--gray-300); font-size: 11px; font-style: italic; }
+
+  /* Committee */
+  .committee-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .comm-panel { background: white; border: 1px solid var(--gray-200); border-radius: 10px; overflow: hidden; }
+  .comm-panel-header { padding: 12px 16px; border-bottom: 1px solid var(--gray-200); font-weight: 600; font-size: 13px; color: var(--gray-700); display: flex; justify-content: space-between; }
+  .comm-item { padding: 10px 16px; border-bottom: 1px solid var(--gray-100); font-size: 12px; display: flex; align-items: center; gap: 10px; cursor: grab; }
+  .comm-item:hover { background: var(--gray-50); }
+  .skill-tag { font-size: 10px; padding: 1px 6px; border-radius: 4px; background: var(--blue-light); color: var(--blue); font-weight: 500; }
+  .urgency-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .urgency-dot.urgent { background: var(--red); }
+  .urgency-dot.soon { background: var(--amber); }
+  .urgency-dot.ok { background: var(--green); }
+
+  /* Section titles */
+  .section-title { font-size: 16px; font-weight: 700; color: var(--gray-800); margin: 32px 0 8px; padding-bottom: 8px; border-bottom: 2px solid var(--gray-200); }
+  .section-desc { font-size: 13px; color: var(--gray-500); margin-bottom: 16px; line-height: 1.5; }
+
+  /* Feedback loop */
+  .loop { display: flex; align-items: center; justify-content: center; gap: 0; margin: 24px 0; flex-wrap: wrap; }
+  .loop-step { padding: 8px 14px; font-size: 11px; font-weight: 600; border-radius: 6px; color: white; }
+  .loop-arrow { padding: 0 4px; color: var(--gray-400); font-size: 16px; }
+  .loop-step:nth-child(1) { background: var(--purple); }
+  .loop-step:nth-child(3) { background: var(--blue); }
+  .loop-step:nth-child(5) { background: var(--red); }
+  .loop-step:nth-child(7) { background: var(--amber); }
+  .loop-step:nth-child(9) { background: var(--green); }
+  .loop-step:nth-child(11) { background: var(--gray-600); }
+  .loop-step:nth-child(13) { background: var(--purple); }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .dashboard { grid-template-columns: repeat(2, 1fr); }
+    .kanban { grid-template-columns: repeat(3, 1fr); }
+    .invoice-split { grid-template-columns: 1fr; }
+    .committee-layout { grid-template-columns: 1fr; }
+    .hero-kpis { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ERP — User Journey Flows</h1>
+  <span class="badge">Step 10</span>
+  <span style="color:var(--gray-400);font-size:13px;margin-left:auto;">Provencher_Roy / PRAA — UX Design Specification</span>
+</header>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-tab="0">1. Timesheet</div>
+  <div class="tab" data-tab="1">2. PM Dashboard</div>
+  <div class="tab" data-tab="2">3. Gantt</div>
+  <div class="tab" data-tab="3">4. Resources + Committee</div>
+  <div class="tab" data-tab="4">5. Invoicing</div>
+  <div class="tab" data-tab="5">6. Executive Portfolio</div>
+  <div class="tab" data-tab="6">7. Project Hierarchy</div>
+  <div class="tab" data-tab="7">8. Team Kanban</div>
+</div>
+
+<div class="content">
+
+<!-- ============================================================ -->
+<!-- JOURNEY 1: TIMESHEET -->
+<!-- ============================================================ -->
+<div class="journey active" id="j0">
+  <div class="journey-header">
+    <h2>Sophie's Weekly Timesheet</h2>
+    <div class="subtitle">From 30-minute ordeal to 30-second confirmation</div>
+    <span class="persona">Sophie — Architect (Level 1)</span>
+    <span class="innovation">Pre-fill from planned allocations</span>
+  </div>
+
+  <div class="section-title">Flow: Confirm, Don't Enter</div>
+  <div class="section-desc">Allocations from the Gantt/Heatmap pre-populate the timesheet. Sophie reviews, adjusts if needed, and confirms — shifting UX from data entry to data validation.</div>
+
+  <div class="flow">
+    <div class="flow-row">
+      <div class="flow-step entry"><div class="label">Entry</div><div class="desc">Friday notification: "Your timesheet is ready for review"</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step action"><div class="label">Load</div><div class="desc">Open timesheet — pre-filled lines from allocations (gray)</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step decision"><div class="label">Review</div><div class="desc">Are pre-filled hours correct?</div></div>
+    </div>
+    <div class="arrow-branch">
+      <div class="branch">
+        <div class="branch-label">Yes — standard week</div>
+        <div class="arrow-down">↓</div>
+        <div class="flow-step success"><div class="label">Confirm All</div><div class="desc">One click — all lines confirmed. &lt;30 seconds</div></div>
+      </div>
+      <div class="branch">
+        <div class="branch-label">No — adjustments needed</div>
+        <div class="arrow-down">↓</div>
+        <div class="flow-step action"><div class="label">Adjust</div><div class="desc">Tap cells to edit hours. Add unplanned work via "+" row</div></div>
+      </div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="flow-row">
+      <div class="flow-step decision"><div class="label">Validate</div><div class="desc">Total hours = expected? Real-time counter in header</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step success"><div class="label">Submit</div><div class="desc">Optimistic UI — instant status change. PM notified</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step system"><div class="label">Feedback Loop</div><div class="desc">Actuals feed occupancy rate + plan vs actual variance</div></div>
+    </div>
+  </div>
+
+  <div class="section-title">Screen: Pre-Filled Timesheet</div>
+  <div class="screen">
+    <div class="screen-bar">
+      <div class="screen-dot r"></div><div class="screen-dot y"></div><div class="screen-dot g"></div>
+      <span class="screen-title">ERP — My Timesheet — Week of March 2, 2026</span>
+      <span style="margin-left:auto;font-size:12px;color:var(--gray-400);">36.5h / 37.5h expected</span>
+    </div>
+    <div class="screen-body">
+      <div class="ts-grid">
+        <div class="ts-cell header">Project / Task</div>
+        <div class="ts-cell header">Mon</div>
+        <div class="ts-cell header">Tue</div>
+        <div class="ts-cell header">Wed</div>
+        <div class="ts-cell header">Thu</div>
+        <div class="ts-cell header">Fri</div>
+        <div class="ts-cell header">Total</div>
+
+        <div class="ts-cell project" style="border-left:3px solid var(--red);">Hôpital Granby — Plans Phase 4</div>
+        <div class="ts-cell confirmed"><span class="mono">8.0</span></div>
+        <div class="ts-cell confirmed"><span class="mono">6.0</span></div>
+        <div class="ts-cell confirmed"><span class="mono">4.0</span></div>
+        <div class="ts-cell prefilled"><span class="mono">4.0</span></div>
+        <div class="ts-cell prefilled"><span class="mono">4.0</span></div>
+        <div class="ts-cell total"><span class="mono">26.0</span></div>
+
+        <div class="ts-cell project" style="border-left:3px solid var(--blue);">École Rénovation — Coordination</div>
+        <div class="ts-cell prefilled"><span class="mono">—</span></div>
+        <div class="ts-cell prefilled"><span class="mono">1.5</span></div>
+        <div class="ts-cell confirmed"><span class="mono">3.5</span></div>
+        <div class="ts-cell prefilled"><span class="mono">3.5</span></div>
+        <div class="ts-cell prefilled"><span class="mono">—</span></div>
+        <div class="ts-cell total"><span class="mono">8.5</span></div>
+
+        <div class="ts-cell project" style="border-left:3px solid var(--gray-400);">Formation BIM interne</div>
+        <div class="ts-cell prefilled"><span class="mono">—</span></div>
+        <div class="ts-cell prefilled"><span class="mono">—</span></div>
+        <div class="ts-cell prefilled"><span class="mono">—</span></div>
+        <div class="ts-cell prefilled"><span class="mono">—</span></div>
+        <div class="ts-cell prefilled"><span class="mono">2.0</span></div>
+        <div class="ts-cell total"><span class="mono">2.0</span></div>
+
+        <div class="ts-cell project" style="color:var(--gray-400);font-style:italic;">+ Add unplanned work...</div>
+        <div class="ts-cell"></div><div class="ts-cell"></div><div class="ts-cell"></div><div class="ts-cell"></div><div class="ts-cell"></div><div class="ts-cell"></div>
+
+        <div class="ts-cell total" style="font-weight:700;">TOTAL</div>
+        <div class="ts-cell total"><span class="mono">8.0</span></div>
+        <div class="ts-cell total"><span class="mono">7.5</span></div>
+        <div class="ts-cell total"><span class="mono">7.5</span></div>
+        <div class="ts-cell total"><span class="mono">7.5</span></div>
+        <div class="ts-cell total"><span class="mono">6.0</span></div>
+        <div class="ts-cell total"><span class="mono" style="color:var(--amber);">36.5</span></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
+        <span style="font-size:12px;color:var(--gray-400);">Gray italic = pre-filled from allocations (click to confirm) · Black = confirmed</span>
+        <div style="display:flex;gap:8px;">
+          <button style="padding:8px 16px;border-radius:6px;border:1px solid var(--gray-300);background:white;font-size:13px;cursor:pointer;color:var(--gray-600);">Save Draft</button>
+          <button style="padding:8px 20px;border-radius:6px;border:none;background:var(--red);color:white;font-size:13px;font-weight:600;cursor:pointer;">Confirm All & Submit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Correction Flow</div>
+  <div class="flow">
+    <div class="flow-row">
+      <div class="flow-step entry"><div class="label">PM flags</div><div class="desc">Marc requests WBS phase change on Sophie's entry</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step highlight"><div class="label">Notification</div><div class="desc">Sophie sees highlighted entry with reason</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step decision"><div class="label">Accept?</div><div class="desc">Accept correction or discuss with PM</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step system"><div class="label">Audit Trail</div><div class="desc">Original preserved. Adjustment entry created. Full history.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- JOURNEY 2: PM DASHBOARD -->
+<!-- ============================================================ -->
+<div class="journey" id="j1">
+  <div class="journey-header">
+    <h2>Marc's PM Dashboard</h2>
+    <div class="subtitle">Daily situation awareness — proactive alerts + team occupancy</div>
+    <span class="persona">Marc — Senior PM (Level 2)</span>
+    <span class="innovation">Proactive alert banner + occupancy widget</span>
+  </div>
+
+  <div class="section-title">Flow: Login to Action</div>
+  <div class="flow">
+    <div class="flow-row">
+      <div class="flow-step entry"><div class="label">Login</div><div class="desc">Marc logs in — PM Dashboard is default landing</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step system"><div class="label">Parallel Load</div><div class="desc">Each widget loads independently with skeleton</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step highlight"><div class="label">Alert Banner</div><div class="desc">Proactive alerts surface problems first</div></div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="flow-row">
+      <div class="flow-step action"><div class="label">Scan KPIs</div><div class="desc">Active projects, hours, budget health, team size</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step action"><div class="label">Check Occupancy</div><div class="desc">Direct reports: billable / internal / available</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step decision"><div class="label">Action Needed?</div><div class="desc">Click alert or person to drill down</div></div>
+    </div>
+  </div>
+
+  <div class="section-title">Screen: PM Dashboard</div>
+  <div class="screen">
+    <div class="screen-bar">
+      <div class="screen-dot r"></div><div class="screen-dot y"></div><div class="screen-dot g"></div>
+      <span class="screen-title">ERP — Dashboard — Marc Tremblay, PM</span>
+    </div>
+    <div class="screen-body">
+      <!-- Alert banner -->
+      <div class="alert-banner">
+        <span class="alert-icon">⚠</span>
+        <span><strong>2 timesheets overdue</strong> · Budget at <strong>87%</strong> on Hôpital Granby · <a href="#">Catherine needs approval</a> for resource swap</span>
+        <span style="margin-left:auto;cursor:pointer;color:var(--gray-400);">✕</span>
+      </div>
+
+      <!-- KPI cards -->
+      <div class="dashboard">
+        <div class="widget">
+          <div class="w-label">Active Projects</div>
+          <div class="w-value">7</div>
+          <div class="w-sub">3 forfaitaire · 2 consortium · 2 co-dév</div>
+        </div>
+        <div class="widget">
+          <div class="w-label">Hours This Week</div>
+          <div class="w-value">284<span style="font-size:14px;color:var(--gray-400);">h</span></div>
+          <div class="w-sub">vs 310h planned <span style="color:var(--amber);">(-8.4%)</span></div>
+        </div>
+        <div class="widget">
+          <div class="w-label">Budget Health</div>
+          <div class="w-value" style="color:var(--green);">OK</div>
+          <div class="w-sub">6 healthy · <span style="color:var(--amber);">1 at risk</span></div>
+        </div>
+        <div class="widget">
+          <div class="w-label">Team Size</div>
+          <div class="w-value">12</div>
+          <div class="w-sub">8 BU MTL-C · 2 BU Laval · 2 BIM</div>
+        </div>
+      </div>
+
+      <!-- Occupancy -->
+      <div style="margin-top:20px;">
+        <div style="font-size:14px;font-weight:700;color:var(--gray-700);margin-bottom:12px;">My Team Occupancy</div>
+        <div class="occ-row">
+          <div class="occ-name"><span class="avatar s" style="width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;background:#ec4899;">S</span> Sophie L.</div>
+          <div class="occ-bar-container">
+            <div class="occ-bar billable" style="width:75%;"></div>
+            <div class="occ-bar internal" style="width:5%;"></div>
+          </div>
+          <div class="occ-pct ok">80%</div>
+        </div>
+        <div class="occ-row">
+          <div class="occ-name"><span class="avatar t" style="width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;background:var(--blue);">T</span> Thomas R.</div>
+          <div class="occ-bar-container">
+            <div class="occ-bar billable" style="width:92%;"></div>
+            <div class="occ-bar internal" style="width:3%;"></div>
+          </div>
+          <div class="occ-pct high">95%</div>
+        </div>
+        <div class="occ-row">
+          <div class="occ-name"><span class="avatar j" style="width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;background:var(--green);">J</span> Julie M.</div>
+          <div class="occ-bar-container">
+            <div class="occ-bar billable" style="width:40%;"></div>
+            <div class="occ-bar internal" style="width:10%;"></div>
+          </div>
+          <div class="occ-pct low">50%</div>
+        </div>
+        <div class="occ-row">
+          <div class="occ-name"><span class="avatar g" style="width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;background:var(--amber);">G</span> Georges P.</div>
+          <div class="occ-bar-container">
+            <div class="occ-bar billable" style="width:70%;"></div>
+            <div class="occ-bar internal" style="width:8%;"></div>
+          </div>
+          <div class="occ-pct ok">78%</div>
+        </div>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:8px;">Blue = Billable · Gray = Internal · White = Available Capacity · Thresholds per role category</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- JOURNEY 3: GANTT -->
+<!-- ============================================================ -->
+<div class="journey" id="j2">
+  <div class="journey-header">
+    <h2>Marc's Interactive Gantt</h2>
+    <div class="subtitle">Project planning with critical path, dependencies, and drag-to-reschedule</div>
+    <span class="persona">Marc — Senior PM (Level 2)</span>
+    <span class="innovation">Critical path + dependency filter + cascade rescheduling</span>
+  </div>
+
+  <div class="section-title">Flow: Plan → Adjust → Cascade</div>
+  <div class="flow">
+    <div class="flow-row">
+      <div class="flow-step entry"><div class="label">Open Project</div><div class="desc">Navigate to project page → select Gantt tab</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step system"><div class="label">Load Data</div><div class="desc">API returns tasks + dependencies + pre-calculated CPM</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step action"><div class="label">View Gantt</div><div class="desc">Timeline rendered with bars, arrows, critical path in red</div></div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="flow-row">
+      <div class="flow-step decision"><div class="label">Filter Dependencies</div><div class="desc">All / Critical Path Only / None</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step action"><div class="label">Interact</div><div class="desc">Drag bar to reschedule · Drag handle to resize · Draw arrow for dependency</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step system"><div class="label">Cascade</div><div class="desc">Dependent tasks auto-shift. Conflicts highlighted in amber.</div></div>
+    </div>
+  </div>
+
+  <div class="section-title">Screen: Gantt + Critical Path</div>
+  <div class="screen">
+    <div class="screen-bar">
+      <div class="screen-dot r"></div><div class="screen-dot y"></div><div class="screen-dot g"></div>
+      <span class="screen-title">ERP — Hôpital Granby Rénovation — Gantt</span>
+    </div>
+    <div class="screen-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="toggle-group">
+          <div class="toggle-btn">List</div>
+          <div class="toggle-btn active">Gantt</div>
+          <div class="toggle-btn">Kanban</div>
+        </div>
+        <div class="toggle-group">
+          <div class="toggle-btn">All deps</div>
+          <div class="toggle-btn active">Critical only</div>
+          <div class="toggle-btn">None</div>
+        </div>
+        <div class="toggle-group">
+          <div class="toggle-btn">Day</div>
+          <div class="toggle-btn active">Week</div>
+          <div class="toggle-btn">Month</div>
+          <div class="toggle-btn">Quarter</div>
+        </div>
+      </div>
+      <div class="gantt-container">
+        <div class="gantt">
+          <div class="g-cell header">Task</div>
+          <div class="g-cell header">S1</div><div class="g-cell header">S2</div><div class="g-cell header">S3</div><div class="g-cell header">S4</div><div class="g-cell header">S5</div><div class="g-cell header">S6</div><div class="g-cell header">S7</div><div class="g-cell header">S8</div><div class="g-cell header">S9</div><div class="g-cell header">S10</div><div class="g-cell header">S11</div><div class="g-cell header">S12</div>
+
+          <div class="g-cell task-name">1. Concept</div>
+          <div class="g-cell has-bar"><div class="g-bar done"></div></div>
+          <div class="g-cell has-bar"><div class="g-bar done"></div></div>
+          <div class="g-cell has-bar"><div class="g-bar done"></div></div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+
+          <div class="g-cell task-name" style="font-weight:700;color:var(--red);">2. Préliminaire ★</div>
+          <div class="g-cell"></div><div class="g-cell"></div>
+          <div class="g-cell has-bar"><div class="g-bar critical"></div></div>
+          <div class="g-cell has-bar"><div class="g-bar critical"></div></div>
+          <div class="g-cell has-bar"><div class="g-bar critical"></div></div>
+          <div class="g-cell has-bar"><div class="g-bar critical"></div></div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+
+          <div class="g-cell task-name">3. Coordination MEP</div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+          <div class="g-cell has-bar"><div class="g-bar normal"></div></div>
+          <div class="g-cell has-bar"><div class="g-bar normal"></div></div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+
+          <div class="g-cell task-name" style="font-weight:700;color:var(--red);">4. Plans & Devis ★</div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+          <div class="g-cell has-bar"><div class="g-bar critical"></div></div>
+          <div class="g-cell has-bar"><div class="g-bar critical"></div></div>
+          <div class="g-cell has-bar"><div class="g-bar critical"></div></div>
+          <div class="g-cell has-bar"><div class="g-bar critical"></div></div>
+          <div class="g-cell"></div><div class="g-cell"></div>
+
+          <div class="g-cell task-name">5. Modèle BIM</div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+          <div class="g-cell has-bar"><div class="g-bar normal"></div></div>
+          <div class="g-cell has-bar"><div class="g-bar normal"></div></div>
+          <div class="g-cell has-bar"><div class="g-bar normal"></div></div>
+          <div class="g-cell has-bar"><div class="g-bar normal"></div></div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+
+          <div class="g-cell task-name" style="font-weight:700;color:var(--red);">6. Surveillance ★</div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+          <div class="g-cell has-bar"><div class="g-bar critical"></div></div>
+          <div class="g-cell has-bar"><div class="g-bar critical"></div></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:8px;font-size:11px;color:var(--gray-400);">
+        <span><span style="display:inline-block;width:12px;height:12px;background:var(--red);border-radius:2px;vertical-align:middle;"></span> Critical Path</span>
+        <span><span style="display:inline-block;width:12px;height:12px;background:var(--blue);border-radius:2px;vertical-align:middle;"></span> Standard Task</span>
+        <span><span style="display:inline-block;width:12px;height:12px;background:var(--green);border-radius:2px;vertical-align:middle;"></span> Completed</span>
+        <span>★ = on critical path</span>
+        <span style="margin-left:auto;">Drag bars to reschedule · Drag handles to resize · Dependencies cascade automatically</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">View Toggle: Same Data, 3 Perspectives</div>
+  <table>
+    <tr><th>View</th><th>Best For</th><th>Shows</th></tr>
+    <tr><td><strong>List</strong></td><td>Quick status scan, bulk updates</td><td>Table with sortable columns: task, assignee, dates, status, effort</td></tr>
+    <tr><td><strong>Gantt</strong></td><td>Timeline planning, dependency management</td><td>Timeline bars, critical path, dependency arrows, zoom levels</td></tr>
+    <tr><td><strong>Kanban</strong></td><td>Daily execution tracking</td><td>Columns by status, cards per task, drag to advance</td></tr>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!-- JOURNEY 4: RESOURCES + COMMITTEE -->
+<!-- ============================================================ -->
+<div class="journey" id="j3">
+  <div class="journey-header">
+    <h2>Catherine's Resource Planning + Planning Committee</h2>
+    <div class="subtitle">From hallway conversations to data-driven resource orchestration</div>
+    <span class="persona">Catherine — Resource Planner (Level 2)</span>
+    <span class="innovation">Heatmap + Planning Committee with Meeting Mode</span>
+  </div>
+
+  <div class="section-title">Flow A: Daily Resource Heatmap</div>
+  <div class="flow">
+    <div class="flow-row">
+      <div class="flow-step entry"><div class="label">Open Heatmap</div><div class="desc">Sidebar → Resource Planning</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step system"><div class="label">Server Aggregation</div><div class="desc">Pre-computed availability across 600 projects</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step action"><div class="label">Scan Matrix</div><div class="desc">Green = available · Yellow = full · Red = over</div></div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="flow-row">
+      <div class="flow-step decision"><div class="label">Issue Found?</div><div class="desc">Overallocation, availability gap, or conflict</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step action"><div class="label">Click Cell</div><div class="desc">Red → see conflicts · Green → quick-assign modal</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step success"><div class="label">Resolve</div><div class="desc">Assign, create inter-BU loan, or escalate to committee</div></div>
+    </div>
+  </div>
+
+  <div class="section-title">Screen: Resource Heatmap</div>
+  <div class="screen">
+    <div class="screen-bar">
+      <div class="screen-dot r"></div><div class="screen-dot y"></div><div class="screen-dot g"></div>
+      <span class="screen-title">ERP — Resource Planning — Heatmap — BU Montréal-Centre</span>
+    </div>
+    <div class="screen-body">
+      <div class="heatmap">
+        <div class="hm-cell header"></div>
+        <div class="hm-cell header">S10</div><div class="hm-cell header">S11</div><div class="hm-cell header">S12</div><div class="hm-cell header">S13</div><div class="hm-cell header">S14</div><div class="hm-cell header">S15</div><div class="hm-cell header">S16</div><div class="hm-cell header">S17</div>
+
+        <div class="hm-cell name">Sophie L.</div>
+        <div class="hm-cell yellow">100%</div><div class="hm-cell yellow">100%</div><div class="hm-cell green">80%</div><div class="hm-cell green">60%</div><div class="hm-cell empty">—</div><div class="hm-cell empty">—</div><div class="hm-cell empty">—</div><div class="hm-cell empty">—</div>
+
+        <div class="hm-cell name">Thomas R.</div>
+        <div class="hm-cell red">140%</div><div class="hm-cell red">120%</div><div class="hm-cell yellow">100%</div><div class="hm-cell yellow">100%</div><div class="hm-cell yellow">100%</div><div class="hm-cell green">80%</div><div class="hm-cell green">60%</div><div class="hm-cell empty">—</div>
+
+        <div class="hm-cell name">Julie M.</div>
+        <div class="hm-cell green">50%</div><div class="hm-cell green">50%</div><div class="hm-cell green">40%</div><div class="hm-cell empty">—</div><div class="hm-cell empty">—</div><div class="hm-cell empty">—</div><div class="hm-cell empty">—</div><div class="hm-cell empty">—</div>
+
+        <div class="hm-cell name">Georges P.</div>
+        <div class="hm-cell green">80%</div><div class="hm-cell green">80%</div><div class="hm-cell yellow">100%</div><div class="hm-cell yellow">100%</div><div class="hm-cell green">60%</div><div class="hm-cell green">40%</div><div class="hm-cell empty">—</div><div class="hm-cell empty">—</div>
+
+        <div class="hm-cell name">Éric D. (BIM)</div>
+        <div class="hm-cell red">120%</div><div class="hm-cell yellow">100%</div><div class="hm-cell yellow">100%</div><div class="hm-cell green">80%</div><div class="hm-cell green">60%</div><div class="hm-cell empty">—</div><div class="hm-cell empty">—</div><div class="hm-cell empty">—</div>
+      </div>
+      <div style="font-size:11px;color:var(--gray-400);margin-top:4px;">Click any cell: Red → view conflicts · Green → quick-assign · Empty → schedule new allocation</div>
+    </div>
+  </div>
+
+  <div class="section-title">Flow B: Weekly Planning Committee</div>
+  <div class="flow">
+    <div class="flow-row">
+      <div class="flow-step entry"><div class="label">Committee Meeting</div><div class="desc">Open Planning Committee → activate Meeting Mode</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step action"><div class="label">Review Available</div><div class="desc">Left panel: employees idle soonest first</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step action"><div class="label">Review Needs</div><div class="desc">Right panel: open resource needs by project</div></div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="flow-row">
+      <div class="flow-step decision"><div class="label">Match</div><div class="desc">PMs defend needs, Catherine matches skills + availability</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step action"><div class="label">Drag to Assign</div><div class="desc">Drag employee → resource need slot</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step success"><div class="label">Log Decision</div><div class="desc">Committee decision recorded with notes + timestamp</div></div>
+    </div>
+  </div>
+
+  <div class="section-title">Screen: Planning Committee (Meeting Mode)</div>
+  <div class="screen">
+    <div class="screen-bar">
+      <div class="screen-dot r"></div><div class="screen-dot y"></div><div class="screen-dot g"></div>
+      <span class="screen-title">ERP — Planning Committee — Meeting Mode</span>
+      <span style="margin-left:auto;background:var(--red);color:white;font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;">MEETING MODE</span>
+    </div>
+    <div class="screen-body">
+      <div class="committee-layout">
+        <div class="comm-panel">
+          <div class="comm-panel-header">
+            <span>Available Employees (6)</span>
+            <span style="font-size:11px;color:var(--gray-400);">Sorted by idle soonest</span>
+          </div>
+          <div class="comm-item">
+            <div class="urgency-dot urgent"></div>
+            <div><strong>Julie M.</strong> — Architect<br><span style="font-size:11px;color:var(--gray-400);">Available now · 35h/week · BU MTL-C</span></div>
+            <div style="margin-left:auto;display:flex;gap:4px;"><span class="skill-tag">Architecture</span><span class="skill-tag">Résidentiel</span></div>
+          </div>
+          <div class="comm-item">
+            <div class="urgency-dot urgent"></div>
+            <div><strong>Marie K.</strong> — 3D Specialist<br><span style="font-size:11px;color:var(--gray-400);">Available March 10 · 35h/week · Service 3D</span></div>
+            <div style="margin-left:auto;display:flex;gap:4px;"><span class="skill-tag">3D</span><span class="skill-tag">Rendu</span></div>
+          </div>
+          <div class="comm-item">
+            <div class="urgency-dot soon"></div>
+            <div><strong>François B.</strong> — Architect<br><span style="font-size:11px;color:var(--gray-400);">Available March 17 · 20h/week · BU Laval</span></div>
+            <div style="margin-left:auto;display:flex;gap:4px;"><span class="skill-tag">Architecture</span><span class="skill-tag">Institutionnel</span></div>
+          </div>
+          <div class="comm-item">
+            <div class="urgency-dot ok"></div>
+            <div><strong>Sophie L.</strong> — Architect<br><span style="font-size:11px;color:var(--gray-400);">Available April 1 · 15h/week · BU MTL-C</span></div>
+            <div style="margin-left:auto;display:flex;gap:4px;"><span class="skill-tag">Architecture</span><span class="skill-tag">Santé</span></div>
+          </div>
+        </div>
+        <div class="comm-panel">
+          <div class="comm-panel-header">
+            <span>Open Resource Needs (4)</span>
+            <span style="font-size:11px;color:var(--gray-400);">By urgency</span>
+          </div>
+          <div class="comm-item">
+            <div class="urgency-dot urgent"></div>
+            <div><strong>Résidence St-Lambert</strong> — PM: Marc T.<br><span style="font-size:11px;color:var(--gray-400);">Need: Architect · March 3 → June 30 · 35h/week</span></div>
+            <div style="margin-left:auto;"><span class="tier-badge t2">Tier 2</span></div>
+          </div>
+          <div class="comm-item">
+            <div class="urgency-dot urgent"></div>
+            <div><strong>Hôpital Granby</strong> — PM: Marc T.<br><span style="font-size:11px;color:var(--gray-400);">Need: 3D Specialist · March 10 → April 30 · 20h/week</span></div>
+            <div style="margin-left:auto;"><span class="tier-badge t1">Tier 1</span></div>
+          </div>
+          <div class="comm-item">
+            <div class="urgency-dot soon"></div>
+            <div><strong>Bibliothèque Laval</strong> — PM: Annick D.<br><span style="font-size:11px;color:var(--gray-400);">Need: Architect · March 24 → Aug 30 · 25h/week</span></div>
+            <div style="margin-left:auto;"><span class="tier-badge t1">Tier 1</span></div>
+          </div>
+          <div class="comm-item">
+            <div class="urgency-dot ok"></div>
+            <div><strong>Signalétique CISSS</strong> — PM: Luc R.<br><span style="font-size:11px;color:var(--gray-400);">Need: Tech. architect · April 1 → May 15 · 15h/week</span></div>
+            <div style="margin-left:auto;"><span class="tier-badge t3">Tier 3</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center;font-size:12px;color:var(--gray-400);margin-top:8px;">Drag an employee from left panel → drop on a resource need to assign · Decision logged automatically</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- JOURNEY 5: INVOICING -->
+<!-- ============================================================ -->
+<div class="journey" id="j4">
+  <div class="journey-header">
+    <h2>Nathalie's Invoice Builder</h2>
+    <div class="subtitle">From 2-hour manual assembly to 45-minute review-and-send</div>
+    <span class="persona">Nathalie — Finance Specialist (Level 2)</span>
+    <span class="innovation">50/50 split screen with live PDF preview</span>
+  </div>
+
+  <div class="section-title">Flow: Build → Preview → Assemble Dossier</div>
+  <div class="flow">
+    <div class="flow-row">
+      <div class="flow-step entry"><div class="label">Select Project</div><div class="desc">Finance → Invoicing → select billable project</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step system"><div class="label">Load Template</div><div class="desc">Client-specific template auto-selected (e.g. CISSS format #3)</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step action"><div class="label">Split Screen</div><div class="desc">Left: line editor · Right: live PDF preview</div></div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="flow-row">
+      <div class="flow-step action"><div class="label">Review Lines</div><div class="desc">Pre-populated from approved timesheets + WBS phases</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step decision"><div class="label">Budget Alert?</div><div class="desc">Inline warning if invoice pushes project near budget limit</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step action"><div class="label">Assemble Dossier</div><div class="desc">Invoice + timesheet summary + sub invoices + cover letter</div></div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="flow-row">
+      <div class="flow-step success"><div class="label">Submit</div><div class="desc">PM approval → Finance validation → Export to Intact</div></div>
+    </div>
+  </div>
+
+  <div class="section-title">Screen: Invoice Split View</div>
+  <div class="screen">
+    <div class="screen-bar">
+      <div class="screen-dot r"></div><div class="screen-dot y"></div><div class="screen-dot g"></div>
+      <span class="screen-title">ERP — Invoice Builder — Hôpital Granby — February 2026</span>
+    </div>
+    <div class="screen-body">
+      <div style="background:var(--amber-light);border:1px solid #fde68a;border-radius:6px;padding:8px 12px;font-size:12px;color:#92400e;margin-bottom:12px;">
+        ⚠ This invoice brings project to <strong>87% of budget</strong> ($2.09M / $2.4M). Remaining RAF: $310K.
+      </div>
+      <div class="invoice-split">
+        <div class="inv-editor">
+          <div class="inv-header">
+            <span>Line Items Editor</span>
+            <span style="font-size:11px;color:var(--gray-400);">Template: CISSS Format #3</span>
+          </div>
+          <div class="inv-body">
+            <table>
+              <tr><th>Phase</th><th>Description</th><th style="text-align:right;">Amount</th></tr>
+              <tr><td>Phase 2</td><td>Préliminaire — Architecture</td><td style="text-align:right;" class="mono">$45,200</td></tr>
+              <tr><td>Phase 2</td><td>Préliminaire — Structure</td><td style="text-align:right;" class="mono">$12,800</td></tr>
+              <tr><td>Phase 3</td><td>Coordination MEP</td><td style="text-align:right;" class="mono">$8,400</td></tr>
+              <tr><td>—</td><td>Frais remboursables</td><td style="text-align:right;" class="mono">$1,250</td></tr>
+              <tr style="font-weight:700;"><td></td><td>Total before taxes</td><td style="text-align:right;" class="mono">$67,650</td></tr>
+            </table>
+          </div>
+        </div>
+        <div class="inv-preview">
+          <div class="inv-header">
+            <span>PDF Preview (live)</span>
+            <span style="font-size:11px;color:var(--gray-400);">Refreshes on edit</span>
+          </div>
+          <div class="inv-body" style="background:var(--gray-50);min-height:200px;display:flex;flex-direction:column;align-items:center;padding:20px;">
+            <div style="background:white;width:100%;max-width:400px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.1);font-size:11px;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:16px;">
+                <div style="font-weight:700;color:var(--red);">PROVENCHER_ROY</div>
+                <div style="text-align:right;color:var(--gray-500);font-size:10px;">Invoice #2026-0203<br>Date: 2026-02-28</div>
+              </div>
+              <div style="font-size:10px;color:var(--gray-500);margin-bottom:12px;">To: CISSS de la Montérégie-Centre<br>Project: Hôpital de Granby — Rénovation<br>PO: PO-2024-4892</div>
+              <div style="border-top:1px solid var(--gray-200);padding-top:8px;">
+                <div style="display:flex;justify-content:space-between;padding:3px 0;"><span>Préliminaire — Architecture</span><span class="mono">$45,200</span></div>
+                <div style="display:flex;justify-content:space-between;padding:3px 0;"><span>Préliminaire — Structure</span><span class="mono">$12,800</span></div>
+                <div style="display:flex;justify-content:space-between;padding:3px 0;"><span>Coordination MEP</span><span class="mono">$8,400</span></div>
+                <div style="display:flex;justify-content:space-between;padding:3px 0;"><span>Frais remboursables</span><span class="mono">$1,250</span></div>
+                <div style="border-top:1px solid var(--gray-300);margin-top:6px;padding-top:6px;display:flex;justify-content:space-between;font-weight:700;"><span>Total HT</span><span class="mono">$67,650</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- JOURNEY 6: EXECUTIVE PORTFOLIO -->
+<!-- ============================================================ -->
+<div class="journey" id="j5">
+  <div class="journey-header">
+    <h2>Pierre's Executive Portfolio</h2>
+    <div class="subtitle">Real-time firm-wide visibility with instant Realized/Projected toggle</div>
+    <span class="persona">Pierre — DG / Associate (Level 3)</span>
+    <span class="innovation">Pre-loaded dual dataset + one-click board report</span>
+  </div>
+
+  <div class="section-title">Flow: Instant Insight</div>
+  <div class="flow">
+    <div class="flow-row">
+      <div class="flow-step entry"><div class="label">Login</div><div class="desc">Executive Portfolio is default landing</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step system"><div class="label">Pre-Load</div><div class="desc">Both Realized + Projected datasets loaded in parallel</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step action"><div class="label">Hero KPIs</div><div class="desc">CA total, Margin, CA/Salary ratio — JetBrains Mono 36px</div></div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="flow-row">
+      <div class="flow-step action"><div class="label">Toggle R/P</div><div class="desc">Instant switch &lt;50ms — frontend only</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step action"><div class="label">Drill Down</div><div class="desc">Click BU bar → BU detail → project detail</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step success"><div class="label">Board Report</div><div class="desc">One-click PDF: carnet, facturation, marge, CA/salary, absentéisme</div></div>
+    </div>
+  </div>
+
+  <div class="section-title">Screen: Executive Portfolio</div>
+  <div class="screen">
+    <div class="screen-bar">
+      <div class="screen-dot r"></div><div class="screen-dot y"></div><div class="screen-dot g"></div>
+      <span class="screen-title">ERP — Executive Portfolio — Pierre Gagnon, DG</span>
+    </div>
+    <div class="screen-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div class="toggle-group">
+          <div class="toggle-btn active">Realized</div>
+          <div class="toggle-btn">Projected</div>
+        </div>
+        <button style="padding:8px 16px;border-radius:6px;border:1px solid var(--gray-300);background:white;font-size:12px;cursor:pointer;color:var(--gray-600);">Generate Board Report</button>
+      </div>
+      <div class="hero-kpis">
+        <div class="hero-kpi">
+          <div class="kpi-label">Chiffre d'Affaires</div>
+          <div class="kpi-value">$42.8<span style="font-size:18px;">M</span></div>
+          <div class="kpi-sub">YTD — <span style="color:var(--green);">+6.2% vs last year</span></div>
+        </div>
+        <div class="hero-kpi">
+          <div class="kpi-label">Marge Globale</div>
+          <div class="kpi-value">31.4<span style="font-size:18px;">%</span></div>
+          <div class="kpi-sub">Target: 30% — <span style="color:var(--green);">On track</span></div>
+        </div>
+        <div class="hero-kpi">
+          <div class="kpi-label">Ratio CA / Salaires</div>
+          <div class="kpi-value">2.65<span style="font-size:18px;">x</span></div>
+          <div class="kpi-sub">Target: 2.5x — <span style="color:var(--green);">Healthy</span></div>
+        </div>
+      </div>
+      <div style="margin-top:20px;font-size:14px;font-weight:700;color:var(--gray-700);margin-bottom:12px;">Performance par BU</div>
+      <table>
+        <tr><th>BU</th><th style="text-align:right;">CA</th><th style="text-align:right;">Marge</th><th style="text-align:right;">Ratio CA/Sal.</th><th>Couverture</th></tr>
+        <tr><td>Montréal-Centre</td><td style="text-align:right;" class="mono">$14.2M</td><td style="text-align:right;" class="mono">33.1%</td><td style="text-align:right;" class="mono" style="color:var(--green);">2.8x</td><td><span style="color:var(--green);">18 mois</span></td></tr>
+        <tr><td>Laval</td><td style="text-align:right;" class="mono">$8.1M</td><td style="text-align:right;" class="mono">29.2%</td><td style="text-align:right;" class="mono">2.4x</td><td><span style="color:var(--amber);">11 mois</span></td></tr>
+        <tr><td>Québec</td><td style="text-align:right;" class="mono">$7.6M</td><td style="text-align:right;" class="mono">31.8%</td><td style="text-align:right;" class="mono">2.7x</td><td><span style="color:var(--green);">15 mois</span></td></tr>
+        <tr><td>Montréal-Est</td><td style="text-align:right;" class="mono">$5.4M</td><td style="text-align:right;" class="mono">28.5%</td><td style="text-align:right;" class="mono" style="color:var(--amber);">2.2x</td><td><span style="color:var(--amber);">9 mois</span></td></tr>
+        <tr><td>International</td><td style="text-align:right;" class="mono">$4.8M</td><td style="text-align:right;" class="mono">35.2%</td><td style="text-align:right;" class="mono">3.1x</td><td><span style="color:var(--green);">14 mois</span></td></tr>
+        <tr><td>Rive-Sud</td><td style="text-align:right;" class="mono">$2.7M</td><td style="text-align:right;" class="mono">26.4%</td><td style="text-align:right;" class="mono" style="color:var(--red);">2.0x</td><td><span style="color:var(--red);">6 mois</span></td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- JOURNEY 7: PROJECT HIERARCHY -->
+<!-- ============================================================ -->
+<div class="journey" id="j6">
+  <div class="journey-header">
+    <h2>Project Navigation — 3-Level Hierarchy</h2>
+    <div class="subtitle">Row → Expanded Card → Full Page — progressive disclosure for all project sizes</div>
+    <span class="persona">All operational users (Level 2+)</span>
+    <span class="innovation">Client → Mandate → Project hierarchy + inline expansion</span>
+  </div>
+
+  <div class="section-title">Flow: Browse → Expand → Deep Dive</div>
+  <div class="flow">
+    <div class="flow-row">
+      <div class="flow-step entry"><div class="label">Open Projects</div><div class="desc">Sidebar → Projects list (paginated, filterable)</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step action"><div class="label">Filter</div><div class="desc">Client, Tier, Status, BU, PM</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step decision"><div class="label">Click Row</div><div class="desc">Any project row expands inline</div></div>
+    </div>
+    <div class="arrow-branch">
+      <div class="branch">
+        <div class="branch-label">Quick Check (small projects)</div>
+        <div class="arrow-down">↓</div>
+        <div class="flow-step action"><div class="label">Expanded Card</div><div class="desc">KPIs + mini-Gantt + team inline — no navigation</div></div>
+      </div>
+      <div class="branch">
+        <div class="branch-label">Deep Dive (large projects)</div>
+        <div class="arrow-down">↓</div>
+        <div class="flow-step action"><div class="label">Full Project Page</div><div class="desc">Dashboard: Gantt + Budget + Team + Invoices</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Screen: Project List with Expanded Card</div>
+  <div class="screen">
+    <div class="screen-bar">
+      <div class="screen-dot r"></div><div class="screen-dot y"></div><div class="screen-dot g"></div>
+      <span class="screen-title">ERP — Projects — Client: CISSS Montérégie-Centre</span>
+    </div>
+    <div class="screen-body">
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <div class="toggle-group">
+          <div class="toggle-btn active">All</div>
+          <div class="toggle-btn">Active</div>
+          <div class="toggle-btn">Closing</div>
+        </div>
+        <div style="margin-left:auto;font-size:12px;color:var(--gray-400);">Group by: <strong>Client</strong> · 4 projects shown</div>
+      </div>
+
+      <div class="proj-list">
+        <div class="proj-row header">
+          <span>Project</span><span>PM</span><span>Tier</span><span>Status</span><span>Progress</span><span>Budget</span>
+        </div>
+        <div class="proj-row" style="background:var(--gray-50);cursor:default;">
+          <span class="name" style="font-weight:700;font-size:14px;color:var(--gray-800);">CISSS Montérégie-Centre <span style="font-size:11px;color:var(--gray-400);font-weight:400;">(4 projects · $3.8M total)</span></span>
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="proj-row" style="background:#fef2f2;">
+          <span class="name">Hôpital de Granby — Rénovation</span>
+          <span>Marc T.</span>
+          <span><span class="tier-badge t1">T1</span></span>
+          <span><span class="status-badge active">Active</span></span>
+          <span><div class="progress-bar"><div class="progress-fill warn" style="width:42%"></div></div></span>
+          <span class="mono" style="font-size:12px;">87%</span>
+        </div>
+        <!-- Expanded card for Hôpital -->
+        <div style="padding:0;">
+          <div class="expanded-card">
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:6px;">Key Metrics</div>
+              <div style="font-size:12px;line-height:1.8;">
+                Budget: <strong class="mono">$2.09M / $2.4M</strong><br>
+                RAF: <strong class="mono">$310K</strong><br>
+                Team: <strong>12 people</strong> (2 BUs + BIM)<br>
+                Contract: Forfaitaire
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:6px;">Mini Timeline</div>
+              <div style="font-size:11px;line-height:1.6;">
+                <span style="color:var(--green);">✓</span> Concept (done)<br>
+                <span style="color:var(--red);">●</span> Préliminaire (in progress — critical)<br>
+                <span style="color:var(--gray-400);">○</span> Plans & Devis (upcoming)<br>
+                <span style="color:var(--gray-400);">○</span> Surveillance (upcoming)
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:6px;">Actions</div>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <button style="padding:6px 12px;border-radius:6px;border:none;background:var(--red);color:white;font-size:11px;cursor:pointer;font-weight:600;">Open Full Dashboard →</button>
+                <button style="padding:6px 12px;border-radius:6px;border:1px solid var(--gray-300);background:white;font-size:11px;cursor:pointer;color:var(--gray-600);">View Gantt</button>
+                <button style="padding:6px 12px;border-radius:6px;border:1px solid var(--gray-300);background:white;font-size:11px;cursor:pointer;color:var(--gray-600);">View Team Kanban</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="proj-row">
+          <span class="name">Signalétique intérieure</span>
+          <span>Luc R.</span>
+          <span><span class="tier-badge t3">T3</span></span>
+          <span><span class="status-badge active">Active</span></span>
+          <span><div class="progress-bar"><div class="progress-fill healthy" style="width:70%"></div></div></span>
+          <span class="mono" style="font-size:12px;">62%</span>
+        </div>
+        <div class="proj-row">
+          <span class="name">Aménagement temporaire urgence</span>
+          <span>Marc T.</span>
+          <span><span class="tier-badge t3">T3</span></span>
+          <span><span class="status-badge closing">Closing</span></span>
+          <span><div class="progress-bar"><div class="progress-fill healthy" style="width:95%"></div></div></span>
+          <span class="mono" style="font-size:12px;">91%</span>
+        </div>
+        <div class="proj-row">
+          <span class="name">Agrandissement Bloc opératoire</span>
+          <span>Annick D.</span>
+          <span><span class="tier-badge t2">T2</span></span>
+          <span><span class="status-badge planning">Planning</span></span>
+          <span><div class="progress-bar"><div class="progress-fill healthy" style="width:5%"></div></div></span>
+          <span class="mono" style="font-size:12px;">2%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- JOURNEY 8: TEAM KANBAN -->
+<!-- ============================================================ -->
+<div class="journey" id="j7">
+  <div class="journey-header">
+    <h2>Team Kanban — Pull-Based Execution</h2>
+    <div class="subtitle">Team-level task tracking with Pull system — tasks from Gantt, no double entry</div>
+    <span class="persona">Entire project team — PM + Members</span>
+    <span class="innovation">Pull system + Gantt↔Kanban sync + timesheet auto-feed</span>
+  </div>
+
+  <div class="section-title">Flow: Pull → Execute → Confirm</div>
+  <div class="flow">
+    <div class="flow-row">
+      <div class="flow-step entry"><div class="label">Open Team Kanban</div><div class="desc">Sidebar → "Mon Équipe" — all team projects</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step action"><div class="label">View Board</div><div class="desc">Board / Par personne / Semaine toggle</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step highlight"><div class="label">Backlog (Pull)</div><div class="desc">Prioritized tasks available for self-assignment</div></div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="flow-row">
+      <div class="flow-step action"><div class="label">Pull Task</div><div class="desc">Team member drags from backlog → auto-assigned</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step action"><div class="label">Execute</div><div class="desc">Move through: À faire → En cours → En revue → Terminé</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step system"><div class="label">Auto-Sync</div><div class="desc">Gantt updated · Timesheet pre-filled · Occupancy refreshed</div></div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="flow-row">
+      <div class="flow-step decision"><div class="label">Reassign?</div><div class="desc">Georges can take Sophie's task — drag card or "Je prends"</div></div>
+      <span class="arrow">→</span>
+      <div class="flow-step system"><div class="label">History</div><div class="desc">Reassignment logged · Gantt + timesheet updated for both</div></div>
+    </div>
+  </div>
+
+  <div class="section-title">Screen: View 1 — Kanban Board</div>
+  <div class="screen">
+    <div class="screen-bar">
+      <div class="screen-dot r"></div><div class="screen-dot y"></div><div class="screen-dot g"></div>
+      <span class="screen-title">ERP — Team Kanban — Marc's Projects</span>
+    </div>
+    <div class="screen-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="toggle-group">
+          <div class="toggle-btn active">Board</div>
+          <div class="toggle-btn">Par personne</div>
+          <div class="toggle-btn">Semaine</div>
+        </div>
+        <div style="font-size:12px;color:var(--gray-400);">All projects · 4 members · 14 tasks</div>
+      </div>
+      <div class="kanban">
+        <div class="kanban-col backlog">
+          <h4>Backlog (Pull) · 3</h4>
+          <div class="kcard">
+            <div class="proj p2">École</div>
+            <div class="task">Détails murs extérieurs</div>
+            <div class="meta"><span>16h est.</span><span class="avatar none">?</span></div>
+          </div>
+          <div class="kcard">
+            <div class="proj p3">Résidence</div>
+            <div class="task">Relevé de l'existant</div>
+            <div class="meta"><span>8h est.</span><span class="avatar none">?</span></div>
+          </div>
+          <div class="kcard">
+            <div class="proj p1">Hôpital</div>
+            <div class="task">Devis descriptif phase 4</div>
+            <div class="meta"><span>24h est.</span><span class="avatar none">?</span></div>
+          </div>
+        </div>
+        <div class="kanban-col todo">
+          <h4>À faire · 3</h4>
+          <div class="kcard">
+            <div class="proj p1">Hôpital</div>
+            <div class="task">Plans Phase 4 — niveau 2</div>
+            <div class="meta"><span>20h est.</span><span class="avatar s">SL</span></div>
+          </div>
+          <div class="kcard">
+            <div class="proj p2">École</div>
+            <div class="task">Coordination MEP</div>
+            <div class="meta"><span>12h est.</span><span class="avatar t">TR</span></div>
+          </div>
+          <div class="kcard">
+            <div class="proj p3">Résidence</div>
+            <div class="task">Esquisse concept</div>
+            <div class="meta"><span>16h est.</span><span class="avatar t">TR</span></div>
+          </div>
+        </div>
+        <div class="kanban-col progress">
+          <h4>En cours · 3</h4>
+          <div class="kcard" style="border-left:3px solid var(--red);">
+            <div class="proj p1">Hôpital</div>
+            <div class="task">Coupe transversale bloc A</div>
+            <div class="meta"><span>8h rest.</span><span class="avatar s">SL</span></div>
+          </div>
+          <div class="kcard">
+            <div class="proj p2">École</div>
+            <div class="task">Plans électricité</div>
+            <div class="meta"><span>6h rest.</span><span class="avatar t">TR</span></div>
+          </div>
+          <div class="kcard">
+            <div class="proj p1">Hôpital</div>
+            <div class="task">Modèle BIM structural</div>
+            <div class="meta"><span>12h rest.</span><span class="avatar j">JM</span></div>
+          </div>
+        </div>
+        <div class="kanban-col review">
+          <h4>En revue · 1</h4>
+          <div class="kcard">
+            <div class="proj p1">Hôpital</div>
+            <div class="task">Modèle BIM architectural</div>
+            <div class="meta"><span>Done</span><span class="avatar j">JM</span></div>
+          </div>
+        </div>
+        <div class="kanban-col done">
+          <h4>Terminé · 4</h4>
+          <div class="kcard" style="opacity:0.6;">
+            <div class="proj p3">Résidence</div>
+            <div class="task">Concept — esquisse initiale</div>
+            <div class="meta"><span>Done</span><span class="avatar t">TR</span></div>
+          </div>
+          <div class="kcard" style="opacity:0.6;">
+            <div class="proj p2">École</div>
+            <div class="task">Coordination client rev.2</div>
+            <div class="meta"><span>Done</span><span class="avatar s">SL</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--gray-400);margin-top:4px;">
+        <span style="display:inline-block;width:10px;height:10px;background:var(--red);border-radius:2px;vertical-align:middle;"></span> Hôpital ·
+        <span style="display:inline-block;width:10px;height:10px;background:var(--blue);border-radius:2px;vertical-align:middle;"></span> École ·
+        <span style="display:inline-block;width:10px;height:10px;background:var(--purple);border-radius:2px;vertical-align:middle;"></span> Résidence ·
+        Drag from Backlog to self-assign · Drag between people to reassign
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Screen: View 3 — Week View</div>
+  <div class="screen">
+    <div class="screen-bar">
+      <div class="screen-dot r"></div><div class="screen-dot y"></div><div class="screen-dot g"></div>
+      <span class="screen-title">ERP — Team Kanban — Week of March 2, 2026</span>
+    </div>
+    <div class="screen-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="toggle-group">
+          <div class="toggle-btn">Board</div>
+          <div class="toggle-btn">Par personne</div>
+          <div class="toggle-btn active">Semaine</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span style="cursor:pointer;color:var(--gray-400);">← Prev</span>
+          <span style="font-weight:600;font-size:13px;">March 2 — 6, 2026</span>
+          <span style="cursor:pointer;color:var(--gray-400);">Next →</span>
+        </div>
+      </div>
+      <div class="week-grid">
+        <div class="wk-cell header"></div>
+        <div class="wk-cell header">Monday</div>
+        <div class="wk-cell header">Tuesday</div>
+        <div class="wk-cell header">Wednesday</div>
+        <div class="wk-cell header">Thursday</div>
+        <div class="wk-cell header">Friday</div>
+
+        <div class="wk-cell name"><span class="avatar s" style="width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;background:#ec4899;">S</span> Sophie</div>
+        <div class="wk-cell"><div class="wk-block b1">Hôpital — Coupe</div></div>
+        <div class="wk-cell"><div class="wk-block b1">Hôpital — Coupe</div></div>
+        <div class="wk-cell"><div class="wk-block b1">Hôpital — Plans N2</div></div>
+        <div class="wk-cell"><div class="wk-avail">Available — pull from backlog</div></div>
+        <div class="wk-cell"><div class="wk-avail">Available — pull from backlog</div></div>
+
+        <div class="wk-cell name"><span class="avatar t" style="width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;background:var(--blue);">T</span> Thomas</div>
+        <div class="wk-cell"><div class="wk-block b2">École — Élec.</div></div>
+        <div class="wk-cell"><div class="wk-block b2">École — Coord MEP</div></div>
+        <div class="wk-cell"><div class="wk-block b3">Résidence — Esquisse</div></div>
+        <div class="wk-cell"><div class="wk-block b3">Résidence — Esquisse</div></div>
+        <div class="wk-cell"><div class="wk-block b3">Résidence — Esquisse</div></div>
+
+        <div class="wk-cell name"><span class="avatar j" style="width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;background:var(--green);">J</span> Julie</div>
+        <div class="wk-cell"><div class="wk-block b1">Hôpital — BIM</div></div>
+        <div class="wk-cell"><div class="wk-block b1">Hôpital — BIM</div></div>
+        <div class="wk-cell"><div class="wk-avail">Available</div></div>
+        <div class="wk-cell"><div class="wk-avail">Available</div></div>
+        <div class="wk-cell"><div class="wk-avail">Available</div></div>
+
+        <div class="wk-cell name"><span class="avatar g" style="width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;background:var(--amber);">G</span> Georges</div>
+        <div class="wk-cell"><div class="wk-block b1">Hôpital — Plans N2</div></div>
+        <div class="wk-cell"><div class="wk-block b1">Hôpital — Plans N2</div></div>
+        <div class="wk-cell"><div class="wk-block b1">Hôpital — Plans N2</div></div>
+        <div class="wk-cell"><div class="wk-block b2">École — Détails</div></div>
+        <div class="wk-cell"><div class="wk-block b2">École — Détails</div></div>
+      </div>
+      <div style="font-size:11px;color:var(--gray-400);margin-top:4px;">
+        Click "Available" slots to browse compatible backlog tasks · Blocks from Gantt allocations · Colors = projects
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Closed Feedback Loop</div>
+  <div class="loop">
+    <div class="loop-step">Comité planification</div>
+    <span class="loop-arrow">→</span>
+    <div class="loop-step">Allocation (Heatmap)</div>
+    <span class="loop-arrow">→</span>
+    <div class="loop-step">Tâches (Gantt)</div>
+    <span class="loop-arrow">→</span>
+    <div class="loop-step">Kanban Équipe</div>
+    <span class="loop-arrow">→</span>
+    <div class="loop-step">Timesheet pré-remplie</div>
+    <span class="loop-arrow">→</span>
+    <div class="loop-step">Taux d'occupation</div>
+    <span class="loop-arrow">→</span>
+    <div class="loop-step">Comité planification</div>
+  </div>
+</div>
+
+</div><!-- end .content -->
+
+<script>
+  // Tab switching
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.journey').forEach(j => j.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('j' + tab.dataset.tab).classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

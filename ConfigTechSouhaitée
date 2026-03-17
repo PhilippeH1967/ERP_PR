@@ -1,0 +1,12 @@
+ Composant  Technologie 
+
+Frontend  Vue 3 + TypeScript + Pinia + TailwindCSS 
+Backend  Django 5.0 + Django REST Framework 
+Base de donnees  PostgreSQL 16 
+Cache/Queue  Redis 7 
+Taches async  Celery + Celery Beat 
+Conteneurisation  Docker + Docker Compose 
+Serveur Web  Nginx (reverse proxy) 
+Documentation API  drf-spectacular (OpenAPI 3) 
+PDF  Reportlab + Matplotlib 
+Excel  openpyxl 

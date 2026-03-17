@@ -1,0 +1,2495 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP Architecture - Mockups</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-light: #dbeafe;
+            --primary-dark: #1d4ed8;
+            --success: #16a34a;
+            --success-light: #dcfce7;
+            --warning: #f59e0b;
+            --warning-light: #fef3c7;
+            --danger: #dc2626;
+            --danger-light: #fee2e2;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --radius: 8px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-100);
+            color: var(--gray-800);
+            line-height: 1.5;
+        }
+
+        /* ===== NAVIGATION MOCKUPS ===== */
+        .mockup-nav {
+            background: var(--gray-900);
+            color: white;
+            padding: 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .mockup-nav-title {
+            background: var(--primary-dark);
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .mockup-nav-tabs {
+            display: flex;
+            overflow-x: auto;
+            padding: 0 16px;
+        }
+
+        .mockup-nav-tabs button {
+            background: none;
+            border: none;
+            color: var(--gray-400);
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .mockup-nav-tabs button:hover {
+            color: white;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .mockup-nav-tabs button.active {
+            color: white;
+            border-bottom-color: var(--primary);
+        }
+
+        /* ===== MOCKUP SCREENS ===== */
+        .mockup-screen {
+            display: none;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .mockup-screen.active { display: block; }
+
+        .mockup-label {
+            background: var(--warning);
+            color: var(--gray-900);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .screen-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: var(--gray-900);
+        }
+
+        .screen-subtitle {
+            font-size: 14px;
+            color: var(--gray-500);
+            margin-bottom: 24px;
+        }
+
+        /* ===== APP SHELL ===== */
+        .app-shell {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+        }
+
+        .app-header {
+            background: white;
+            border-bottom: 1px solid var(--gray-200);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .app-header h1 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .app-sidebar {
+            width: 240px;
+            background: var(--gray-50);
+            border-right: 1px solid var(--gray-200);
+            min-height: 600px;
+            padding: 16px 0;
+        }
+
+        .app-layout {
+            display: flex;
+        }
+
+        .app-main {
+            flex: 1;
+            padding: 24px;
+        }
+
+        .sidebar-section {
+            padding: 8px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--gray-400);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .sidebar-item {
+            padding: 8px 16px 8px 24px;
+            font-size: 14px;
+            color: var(--gray-600);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.15s;
+        }
+
+        .sidebar-item:hover { background: var(--gray-200); color: var(--gray-800); }
+        .sidebar-item.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+
+        /* ===== CARDS ===== */
+        .card {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        /* ===== FORMS ===== */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 6px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--gray-300);
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.15s;
+            background: white;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .form-hint {
+            font-size: 12px;
+            color: var(--gray-400);
+            margin-top: 4px;
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-secondary { background: var(--gray-100); color: var(--gray-700); border: 1px solid var(--gray-300); }
+        .btn-secondary:hover { background: var(--gray-200); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .btn-icon { padding: 6px 8px; }
+
+        .btn-group { display: flex; gap: 8px; }
+
+        /* ===== STEPPER ===== */
+        .stepper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            gap: 0;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--gray-400);
+        }
+
+        .step.active { color: var(--primary); font-weight: 600; }
+        .step.done { color: var(--success); }
+
+        .step-number {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            background: var(--gray-200);
+            color: var(--gray-500);
+        }
+
+        .step.active .step-number { background: var(--primary); color: white; }
+        .step.done .step-number { background: var(--success); color: white; }
+
+        .step-line {
+            width: 60px;
+            height: 2px;
+            background: var(--gray-200);
+            margin: 0 8px;
+        }
+
+        .step-line.done { background: var(--success); }
+
+        /* ===== CHECKBOXES / TOGGLES ===== */
+        .checkbox-list { list-style: none; }
+
+        .checkbox-item {
+            padding: 10px 12px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .checkbox-item:hover { background: var(--gray-50); }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary);
+        }
+
+        .checkbox-item .label {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .checkbox-item .desc {
+            font-size: 12px;
+            color: var(--gray-500);
+        }
+
+        .section-divider {
+            padding: 12px 0 6px 0;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--gray-400);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-top: 1px solid var(--gray-200);
+            margin-top: 8px;
+        }
+
+        /* ===== TABLES ===== */
+        .table-wrapper { overflow-x: auto; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table th {
+            background: var(--gray-50);
+            padding: 10px 12px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            border-bottom: 2px solid var(--gray-200);
+        }
+
+        table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--gray-100);
+            font-size: 14px;
+        }
+
+        table tr:hover { background: var(--gray-50); }
+
+        /* ===== TIMESHEET GRID ===== */
+        .timesheet-grid {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .timesheet-grid th {
+            padding: 10px 8px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--gray-500);
+            background: var(--gray-50);
+            border-bottom: 2px solid var(--gray-200);
+        }
+
+        .timesheet-grid th:first-child { text-align: left; padding-left: 16px; width: 280px; }
+        .timesheet-grid th:last-child { background: var(--primary-light); color: var(--primary); }
+
+        .timesheet-grid td {
+            padding: 4px;
+            text-align: center;
+            border-bottom: 1px solid var(--gray-100);
+        }
+
+        .timesheet-grid td:first-child {
+            text-align: left;
+            padding-left: 16px;
+            font-size: 14px;
+        }
+
+        .timesheet-grid td:last-child {
+            font-weight: 700;
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .timesheet-grid .project-row td {
+            background: var(--gray-50);
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--gray-700);
+            padding: 8px;
+            padding-left: 16px;
+        }
+
+        .timesheet-grid .section-row td {
+            font-size: 11px;
+            color: var(--gray-400);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 6px 8px 4px 28px;
+            font-weight: 600;
+        }
+
+        .timesheet-grid .task-row td:first-child { padding-left: 40px; color: var(--gray-600); }
+
+        .timesheet-grid .locked td { color: var(--gray-300); }
+        .timesheet-grid .locked td:first-child { color: var(--gray-400); }
+
+        .timesheet-grid .total-row td {
+            background: var(--gray-800);
+            color: white;
+            font-weight: 700;
+            padding: 10px 8px;
+            border: none;
+        }
+
+        .timesheet-grid .total-row td:last-child {
+            background: var(--gray-900);
+            color: white;
+        }
+
+        .time-input {
+            width: 48px;
+            padding: 6px 4px;
+            text-align: center;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            font-size: 14px;
+            background: transparent;
+            transition: all 0.15s;
+        }
+
+        .time-input:hover { border-color: var(--gray-300); background: white; }
+        .time-input:focus { border-color: var(--primary); background: white; outline: none; box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
+
+        .time-input.locked {
+            color: var(--gray-300);
+            cursor: not-allowed;
+            background: var(--gray-50);
+        }
+
+        .lock-icon { color: var(--gray-300); font-size: 12px; }
+
+        /* ===== BADGES & TAGS ===== */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-green { background: var(--success-light); color: var(--success); }
+        .badge-yellow { background: var(--warning-light); color: #92400e; }
+        .badge-red { background: var(--danger-light); color: var(--danger); }
+        .badge-blue { background: var(--primary-light); color: var(--primary); }
+        .badge-gray { background: var(--gray-100); color: var(--gray-500); }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-dot.green { background: var(--success); }
+        .status-dot.yellow { background: var(--warning); }
+        .status-dot.red { background: var(--danger); }
+
+        /* ===== PROGRESS BAR ===== */
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--gray-200);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+
+        .progress-fill.green { background: var(--success); }
+        .progress-fill.yellow { background: var(--warning); }
+        .progress-fill.red { background: var(--danger); }
+        .progress-fill.blue { background: var(--primary); }
+
+        /* ===== DASHBOARD WIDGETS ===== */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+        }
+
+        .stat-card .stat-label {
+            font-size: 12px;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .stat-card .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin: 4px 0;
+        }
+
+        .stat-card .stat-detail {
+            font-size: 12px;
+            color: var(--gray-500);
+        }
+
+        .project-list-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--gray-100);
+            gap: 16px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .project-list-item:hover { background: var(--gray-50); }
+        .project-list-item:last-child { border-bottom: none; }
+
+        .project-info { flex: 1; }
+        .project-name { font-weight: 600; font-size: 14px; }
+        .project-client { font-size: 12px; color: var(--gray-500); }
+        .project-phase { font-size: 12px; }
+        .project-budget { text-align: right; min-width: 120px; }
+        .project-budget .pct { font-size: 18px; font-weight: 700; }
+        .project-budget .label { font-size: 11px; color: var(--gray-500); }
+
+        /* ===== PROFILE GRID ===== */
+        .profile-grid {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .profile-grid th {
+            padding: 10px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--gray-500);
+            background: var(--gray-50);
+            border-bottom: 2px solid var(--gray-200);
+            text-align: center;
+        }
+
+        .profile-grid th:first-child { text-align: left; width: 200px; }
+        .profile-grid th:nth-child(2) { text-align: left; width: 200px; }
+
+        .profile-grid td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--gray-100);
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .profile-grid td:first-child { text-align: left; font-weight: 500; }
+        .profile-grid td:nth-child(2) { text-align: left; }
+
+        .profile-grid .phase-header td {
+            background: var(--gray-50);
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--gray-700);
+            padding: 10px 12px;
+        }
+
+        .profile-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .profile-tag.assigned {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        .avatar-sm {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--gray-300);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .avatar-sm.real { background: var(--success); }
+        .avatar-sm.virtual { background: var(--primary); }
+
+        .hours-input {
+            width: 60px;
+            padding: 4px 8px;
+            text-align: center;
+            border: 1px solid var(--gray-200);
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .hours-input:focus { border-color: var(--primary); outline: none; }
+
+        /* ===== LOCK BUTTON ===== */
+        .lock-btn {
+            background: none;
+            border: 1px solid var(--gray-200);
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.15s;
+        }
+
+        .lock-btn:hover { background: var(--danger-light); border-color: var(--danger); }
+        .lock-btn.locked { background: var(--danger-light); border-color: var(--danger); }
+
+        /* ===== COMPLETION BAR ===== */
+        .completion-banner {
+            background: var(--warning-light);
+            border: 1px solid #fbbf24;
+            border-radius: var(--radius);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .completion-banner .text { font-size: 13px; font-weight: 500; flex: 1; }
+
+        /* ===== ASSIGNMENT MODAL ===== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.show { display: flex; }
+
+        .modal {
+            background: white;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            width: 480px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-header h3 { font-size: 16px; font-weight: 700; }
+
+        .modal-body { padding: 24px; }
+        .modal-footer { padding: 16px 24px; border-top: 1px solid var(--gray-200); display: flex; justify-content: flex-end; gap: 8px; }
+
+        .employee-option {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .employee-option:hover { border-color: var(--primary); background: var(--primary-light); }
+        .employee-option.selected { border-color: var(--primary); background: var(--primary-light); }
+
+        .employee-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .employee-name { font-weight: 600; font-size: 14px; }
+        .employee-role { font-size: 12px; color: var(--gray-500); }
+        .employee-avail { font-size: 12px; color: var(--success); margin-left: auto; }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .form-row { grid-template-columns: 1fr; }
+            .dashboard-grid { grid-template-columns: 1fr; }
+            .app-sidebar { display: none; }
+        }
+
+        /* ===== ANIMATIONS ===== */
+        .fade-in { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<!-- ===== NAVIGATION ===== -->
+<nav class="mockup-nav">
+    <div class="mockup-nav-title">
+        <span>&#9670;</span> ERP Architecture - Maquettes interactives
+    </div>
+    <div class="mockup-nav-tabs">
+        <button class="active" onclick="showScreen('dashboard')">Tableau de bord PM</button>
+        <button onclick="showScreen('create1')">Nouveau projet (1/2)</button>
+        <button onclick="showScreen('create2')">Nouveau projet (2/2)</button>
+        <button onclick="showScreen('profiles')">Profils virtuels</button>
+        <button onclick="showScreen('assign')">Affectation ressources</button>
+        <button onclick="showScreen('timesheet')">Feuille de temps</button>
+        <button onclick="showScreen('blocking')">Blocage phases</button>
+        <button onclick="showScreen('billing')">Preparation facture</button>
+        <button onclick="showScreen('suppliers')">Fournisseurs</button>
+    </div>
+</nav>
+
+<!-- ========================================= -->
+<!-- SCREEN 1: TABLEAU DE BORD PM              -->
+<!-- ========================================= -->
+<div id="screen-dashboard" class="mockup-screen active fade-in">
+    <span class="mockup-label">Mockup 1/7</span>
+    <h2 class="screen-title">Tableau de bord - Chef de projet</h2>
+    <p class="screen-subtitle">Vue d'ensemble de tous les projets actifs du PM, accessible en un coup d'oeil</p>
+
+    <div class="dashboard-grid">
+        <div class="stat-card">
+            <div class="stat-label">Projets actifs</div>
+            <div class="stat-value">7</div>
+            <div class="stat-detail">2 en concept, 3 en exécution, 2 en surveillance</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Heures cette semaine</div>
+            <div class="stat-value">1 240h</div>
+            <div class="stat-detail">Budget hebdo: 1 350h <span class="badge badge-green">92%</span></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Alertes</div>
+            <div class="stat-value" style="color: var(--warning);">3</div>
+            <div class="stat-detail">1 budget critique, 2 affectations manquantes</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Mes projets</h3>
+            <button class="btn btn-primary btn-sm" onclick="showScreen('create1')">+ Nouveau projet</button>
+        </div>
+
+        <div class="project-list-item">
+            <span class="status-dot green"></span>
+            <div class="project-info">
+                <div class="project-name">Centre sportif Laval</div>
+                <div class="project-client">Ville de Laval</div>
+            </div>
+            <div class="project-phase"><span class="badge badge-blue">Concept</span></div>
+            <div class="project-budget">
+                <div class="pct" style="color: var(--success);">34%</div>
+                <div class="label">du budget utilisé</div>
+                <div class="progress-bar" style="width:100px"><div class="progress-fill green" style="width:34%"></div></div>
+            </div>
+        </div>
+
+        <div class="project-list-item">
+            <span class="status-dot yellow"></span>
+            <div class="project-info">
+                <div class="project-name">Bibliothèque Rosemont</div>
+                <div class="project-client">Arrondissement Rosemont</div>
+            </div>
+            <div class="project-phase"><span class="badge badge-blue">Définitif</span></div>
+            <div class="project-budget">
+                <div class="pct" style="color: var(--warning);">78%</div>
+                <div class="label">du budget utilisé</div>
+                <div class="progress-bar" style="width:100px"><div class="progress-fill yellow" style="width:78%"></div></div>
+            </div>
+        </div>
+
+        <div class="project-list-item">
+            <span class="status-dot red"></span>
+            <div class="project-info">
+                <div class="project-name">Agrandissement Hôpital Ste-Justine</div>
+                <div class="project-client">MSSS</div>
+            </div>
+            <div class="project-phase"><span class="badge badge-blue">Préliminaire</span></div>
+            <div class="project-budget">
+                <div class="pct" style="color: var(--danger);">95%</div>
+                <div class="label">du budget utilisé</div>
+                <div class="progress-bar" style="width:100px"><div class="progress-fill red" style="width:95%"></div></div>
+            </div>
+        </div>
+
+        <div class="project-list-item">
+            <span class="status-dot green"></span>
+            <div class="project-info">
+                <div class="project-name">Pavillon universitaire McGill</div>
+                <div class="project-client">Université McGill</div>
+            </div>
+            <div class="project-phase"><span class="badge badge-blue">Appel d'offres</span></div>
+            <div class="project-budget">
+                <div class="pct" style="color: var(--success);">52%</div>
+                <div class="label">du budget utilisé</div>
+                <div class="progress-bar" style="width:100px"><div class="progress-fill green" style="width:52%"></div></div>
+            </div>
+        </div>
+
+        <div class="project-list-item">
+            <span class="status-dot green"></span>
+            <div class="project-info">
+                <div class="project-name">Complexe résidentiel Griffintown</div>
+                <div class="project-client">Devimco</div>
+            </div>
+            <div class="project-phase"><span class="badge badge-gray">Surveillance</span></div>
+            <div class="project-budget">
+                <div class="pct" style="color: var(--success);">61%</div>
+                <div class="label">du budget utilisé</div>
+                <div class="progress-bar" style="width:100px"><div class="progress-fill green" style="width:61%"></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================= -->
+<!-- SCREEN 2: CREATION PROJET - ETAPE 1       -->
+<!-- ========================================= -->
+<div id="screen-create1" class="mockup-screen fade-in">
+    <span class="mockup-label">Mockup 2/7</span>
+    <h2 class="screen-title">Nouveau projet</h2>
+    <p class="screen-subtitle">Informations de base - 30 secondes pour démarrer</p>
+
+    <div class="app-shell">
+        <div class="stepper">
+            <div class="step active">
+                <span class="step-number">1</span>
+                <span>Informations</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step">
+                <span class="step-number">2</span>
+                <span>Structure</span>
+            </div>
+        </div>
+
+        <div style="max-width: 560px; margin: 0 auto; padding: 0 24px 40px;">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Nom du projet</label>
+                    <input type="text" value="Centre sportif Laval" />
+                </div>
+                <div class="form-group">
+                    <label>Numéro de projet</label>
+                    <input type="text" value="2026-047" />
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Client</label>
+                    <input type="text" value="Ville de Laval" />
+                </div>
+                <div class="form-group">
+                    <label>Mode contractuel</label>
+                    <select>
+                        <option selected>Forfaitaire</option>
+                        <option>Cost Plus</option>
+                        <option>IPD / Alliance</option>
+                        <option>Pain/Gain (GMP)</option>
+                        <option>Co-développement</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Coût de construction estimé</label>
+                    <input type="text" value="45 000 000 $" />
+                    <div class="form-hint">Informatif seulement - ne sert pas au calcul des honoraires</div>
+                </div>
+                <div class="form-group">
+                    <label>Modèle de projet</label>
+                    <select>
+                        <option selected>Standard - Architecture</option>
+                        <option>Petit projet</option>
+                        <option>Projet majeur</option>
+                        <option>Personnalisé</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; margin-top: 24px;">
+                <button class="btn btn-primary" onclick="showScreen('create2')">Suivant &rarr;</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================= -->
+<!-- SCREEN 3: CREATION PROJET - ETAPE 2       -->
+<!-- ========================================= -->
+<div id="screen-create2" class="mockup-screen fade-in">
+    <span class="mockup-label">Mockup 3/7</span>
+    <h2 class="screen-title">Nouveau projet</h2>
+    <p class="screen-subtitle">Structure du projet - cochez les phases et services nécessaires</p>
+
+    <div class="app-shell">
+        <div class="stepper">
+            <div class="step done">
+                <span class="step-number">&#10003;</span>
+                <span>Informations</span>
+            </div>
+            <div class="step-line done"></div>
+            <div class="step active">
+                <span class="step-number">2</span>
+                <span>Structure</span>
+            </div>
+        </div>
+
+        <div style="max-width: 600px; margin: 0 auto; padding: 0 24px 40px;">
+            <div style="background: var(--primary-light); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: var(--primary-dark);">
+                <strong>Modèle :</strong> Standard - Architecture &nbsp;|&nbsp; <strong>Mode :</strong> Forfaitaire &nbsp;|&nbsp; <strong>Client :</strong> Ville de Laval
+            </div>
+
+            <h4 style="font-size: 14px; margin-bottom: 12px; color: var(--gray-700);">Phases de réalisation</h4>
+            <ul class="checkbox-list">
+                <li class="checkbox-item"><input type="checkbox" checked /><div><div class="label">Étude préparatoire</div><div class="desc">Analyse de faisabilité et programmation</div></div></li>
+                <li class="checkbox-item"><input type="checkbox" checked /><div><div class="label">Concept</div><div class="desc">Parti architectural et options</div></div></li>
+                <li class="checkbox-item"><input type="checkbox" checked /><div><div class="label">Préliminaire</div><div class="desc">Développement de la solution retenue</div></div></li>
+                <li class="checkbox-item"><input type="checkbox" checked /><div><div class="label">Définitif</div><div class="desc">Plans et détails finaux</div></div></li>
+                <li class="checkbox-item"><input type="checkbox" checked /><div><div class="label">Appel d'offres</div><div class="desc">Documents contractuels de construction</div></div></li>
+                <li class="checkbox-item"><input type="checkbox" checked /><div><div class="label">Surveillance</div><div class="desc">Suivi de chantier</div></div></li>
+            </ul>
+
+            <div class="section-divider">Services support</div>
+            <ul class="checkbox-list">
+                <li class="checkbox-item"><input type="checkbox" checked /><div><div class="label">Gestion de projet</div><div class="desc">Coordination et administration</div></div></li>
+                <li class="checkbox-item"><input type="checkbox" checked /><div><div class="label">BIM</div><div class="desc">Modélisation de l'information du bâtiment</div></div></li>
+                <li class="checkbox-item"><input type="checkbox" /><div><div class="label">3D / Visualisation</div><div class="desc">Rendus et animations</div></div></li>
+                <li class="checkbox-item"><input type="checkbox" /><div><div class="label">Paysage</div><div class="desc">Aménagement paysager</div></div></li>
+                <li class="checkbox-item"><input type="checkbox" /><div><div class="label">Design</div><div class="desc">Design intérieur</div></div></li>
+            </ul>
+
+            <div style="display: flex; justify-content: space-between; margin-top: 24px;">
+                <button class="btn btn-secondary" onclick="showScreen('create1')">&larr; Retour</button>
+                <button class="btn btn-success" onclick="showScreen('profiles')">&#10003; Créer le projet</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================= -->
+<!-- SCREEN 4: PROFILS VIRTUELS                -->
+<!-- ========================================= -->
+<div id="screen-profiles" class="mockup-screen fade-in">
+    <span class="mockup-label">Mockup 4/7</span>
+    <h2 class="screen-title">Centre sportif Laval - Profils virtuels</h2>
+    <p class="screen-subtitle">Positionnez les profils et heures budgétées par tâche. Complétez maintenant ou plus tard.</p>
+
+    <div class="completion-banner">
+        <span style="font-size: 20px;">&#9888;&#65039;</span>
+        <div class="text">Projet configuré à <strong>40%</strong> - Les profils virtuels n'ont pas encore été positionnés sur toutes les phases</div>
+        <div class="progress-bar" style="width: 120px;"><div class="progress-fill yellow" style="width: 40%;"></div></div>
+    </div>
+
+    <div class="app-shell">
+        <div style="padding: 16px 24px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between;">
+            <h3 style="font-size: 16px; font-weight: 600;">Grille des profils par tâche</h3>
+            <div class="btn-group">
+                <button class="btn btn-secondary btn-sm">Appliquer le modèle type</button>
+                <button class="btn btn-primary btn-sm">+ Ajouter un profil</button>
+            </div>
+        </div>
+        <div class="table-wrapper" style="padding: 0;">
+            <table class="profile-grid">
+                <thead>
+                    <tr>
+                        <th>Tâche</th>
+                        <th>Profil virtuel</th>
+                        <th>Heures</th>
+                        <th>Taux/h</th>
+                        <th>Coût estimé</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="phase-header"><td colspan="6">&#9654; Phases de réalisation</td></tr>
+
+                    <tr>
+                        <td rowspan="2">Étude préparatoire</td>
+                        <td><span class="avatar-sm virtual">CC</span> Chargé de conception</td>
+                        <td><input class="hours-input" value="80" /></td>
+                        <td>145 $</td>
+                        <td><strong>11 600 $</strong></td>
+                        <td><button class="btn btn-sm btn-secondary">&#x2715;</button></td>
+                    </tr>
+                    <tr>
+                        <td><span class="avatar-sm virtual">AS</span> Architecte senior</td>
+                        <td><input class="hours-input" value="120" /></td>
+                        <td>165 $</td>
+                        <td><strong>19 800 $</strong></td>
+                        <td><button class="btn btn-sm btn-secondary">&#x2715;</button></td>
+                    </tr>
+
+                    <tr>
+                        <td rowspan="3">Concept</td>
+                        <td><span class="avatar-sm virtual">CC</span> Chargé de conception</td>
+                        <td><input class="hours-input" value="100" /></td>
+                        <td>145 $</td>
+                        <td><strong>14 500 $</strong></td>
+                        <td><button class="btn btn-sm btn-secondary">&#x2715;</button></td>
+                    </tr>
+                    <tr>
+                        <td><span class="avatar-sm virtual">AS</span> Architecte senior</td>
+                        <td><input class="hours-input" value="200" /></td>
+                        <td>165 $</td>
+                        <td><strong>33 000 $</strong></td>
+                        <td><button class="btn btn-sm btn-secondary">&#x2715;</button></td>
+                    </tr>
+                    <tr>
+                        <td><span class="avatar-sm virtual">AI</span> Architecte intermédiaire</td>
+                        <td><input class="hours-input" value="150" /></td>
+                        <td>125 $</td>
+                        <td><strong>18 750 $</strong></td>
+                        <td><button class="btn btn-sm btn-secondary">&#x2715;</button></td>
+                    </tr>
+
+                    <tr>
+                        <td rowspan="2">Préliminaire</td>
+                        <td><span class="avatar-sm virtual">AI</span> Architecte intermédiaire</td>
+                        <td><input class="hours-input" value="180" /></td>
+                        <td>125 $</td>
+                        <td><strong>22 500 $</strong></td>
+                        <td><button class="btn btn-sm btn-secondary">&#x2715;</button></td>
+                    </tr>
+                    <tr>
+                        <td><span class="avatar-sm virtual">TS</span> Technologue senior</td>
+                        <td><input class="hours-input" value="250" /></td>
+                        <td>105 $</td>
+                        <td><strong>26 250 $</strong></td>
+                        <td><button class="btn btn-sm btn-secondary">&#x2715;</button></td>
+                    </tr>
+
+                    <tr>
+                        <td rowspan="2">Définitif</td>
+                        <td><span class="avatar-sm virtual">TS</span> Technologue senior</td>
+                        <td><input class="hours-input" value="350" /></td>
+                        <td>105 $</td>
+                        <td><strong>36 750 $</strong></td>
+                        <td><button class="btn btn-sm btn-secondary">&#x2715;</button></td>
+                    </tr>
+                    <tr>
+                        <td><span class="avatar-sm virtual">TI</span> Technologue intermédiaire</td>
+                        <td><input class="hours-input" value="300" /></td>
+                        <td>85 $</td>
+                        <td><strong>25 500 $</strong></td>
+                        <td><button class="btn btn-sm btn-secondary">&#x2715;</button></td>
+                    </tr>
+
+                    <tr>
+                        <td>Appel d'offres</td>
+                        <td><span class="avatar-sm virtual">CE</span> Chargé d'exécution</td>
+                        <td><input class="hours-input" value="120" /></td>
+                        <td>135 $</td>
+                        <td><strong>16 200 $</strong></td>
+                        <td><button class="btn btn-sm btn-secondary">&#x2715;</button></td>
+                    </tr>
+
+                    <tr>
+                        <td>Surveillance</td>
+                        <td><span class="avatar-sm virtual">CE</span> Chargé d'exécution</td>
+                        <td><input class="hours-input" value="200" /></td>
+                        <td>135 $</td>
+                        <td><strong>27 000 $</strong></td>
+                        <td><button class="btn btn-sm btn-secondary">&#x2715;</button></td>
+                    </tr>
+
+                    <tr class="phase-header"><td colspan="6">&#9654; Services support</td></tr>
+                    <tr>
+                        <td>Gestion de projet</td>
+                        <td><span class="avatar-sm virtual">CP</span> Chargé de projet</td>
+                        <td><input class="hours-input" value="350" /></td>
+                        <td>155 $</td>
+                        <td><strong>54 250 $</strong></td>
+                        <td><button class="btn btn-sm btn-secondary">&#x2715;</button></td>
+                    </tr>
+                    <tr>
+                        <td>BIM</td>
+                        <td><span class="avatar-sm virtual">BM</span> Spécialiste BIM</td>
+                        <td><input class="hours-input" value="180" /></td>
+                        <td>110 $</td>
+                        <td><strong>19 800 $</strong></td>
+                        <td><button class="btn btn-sm btn-secondary">&#x2715;</button></td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr style="background: var(--gray-800); color: white;">
+                        <td style="font-weight: 700;" colspan="2">TOTAL</td>
+                        <td style="font-weight: 700; text-align: center; color: white;">2 580 h</td>
+                        <td></td>
+                        <td style="font-weight: 700; color: white;">325 900 $</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================= -->
+<!-- SCREEN 5: AFFECTATION RESSOURCES          -->
+<!-- ========================================= -->
+<div id="screen-assign" class="mockup-screen fade-in">
+    <span class="mockup-label">Mockup 5/7</span>
+    <h2 class="screen-title">Centre sportif Laval - Affectation des ressources</h2>
+    <p class="screen-subtitle">Affectez un ou plusieurs employés par profil. Cliquez pour affecter, ajustez la répartition en %.</p>
+
+    <div class="app-shell">
+        <div style="padding: 16px 24px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between;">
+            <h3 style="font-size: 16px; font-weight: 600;">Équipe du projet</h3>
+            <div>
+                <span class="badge badge-green" style="margin-right: 8px;">6 affectés</span>
+                <span class="badge badge-yellow">3 virtuels restants</span>
+            </div>
+        </div>
+        <div class="table-wrapper" style="padding: 0;">
+            <table class="profile-grid">
+                <thead>
+                    <tr>
+                        <th>Tâche</th>
+                        <th>Profil prévu</th>
+                        <th>Ressources affectées</th>
+                        <th style="text-align:center;">Heures totales</th>
+                        <th style="text-align:center;">Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="phase-header"><td colspan="5">&#9654; Étude préparatoire</td></tr>
+                    <tr>
+                        <td></td>
+                        <td>Chargé de conception</td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span class="avatar-sm real">ML</span>
+                                <div><div style="font-weight:600; font-size:13px;">Marie Leclerc</div><div style="font-size:11px; color:var(--gray-500);">100% &mdash; 80h</div></div>
+                            </div>
+                            <div style="margin-top:6px;"><button class="btn btn-secondary btn-sm" style="font-size:11px; padding:3px 8px;">+ Ajouter une personne</button></div>
+                        </td>
+                        <td style="text-align:center;">80h</td>
+                        <td style="text-align:center;"><span class="badge badge-green">Complet</span></td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td>Architecte senior</td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span class="avatar-sm real">PT</span>
+                                <div><div style="font-weight:600; font-size:13px;">Pierre Tremblay</div><div style="font-size:11px; color:var(--gray-500);">100% &mdash; 120h</div></div>
+                            </div>
+                            <div style="margin-top:6px;"><button class="btn btn-secondary btn-sm" style="font-size:11px; padding:3px 8px;">+ Ajouter une personne</button></div>
+                        </td>
+                        <td style="text-align:center;">120h</td>
+                        <td style="text-align:center;"><span class="badge badge-green">Complet</span></td>
+                    </tr>
+
+                    <tr class="phase-header"><td colspan="5">&#9654; Concept</td></tr>
+                    <tr>
+                        <td></td>
+                        <td>Chargé de conception</td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span class="avatar-sm real">ML</span>
+                                <div><div style="font-weight:600; font-size:13px;">Marie Leclerc</div><div style="font-size:11px; color:var(--gray-500);">100% &mdash; 100h</div></div>
+                            </div>
+                            <div style="margin-top:6px;"><button class="btn btn-secondary btn-sm" style="font-size:11px; padding:3px 8px;">+ Ajouter une personne</button></div>
+                        </td>
+                        <td style="text-align:center;">100h</td>
+                        <td style="text-align:center;"><span class="badge badge-green">Complet</span></td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td>Architecte senior</td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span class="avatar-sm real">PT</span>
+                                <div><div style="font-weight:600; font-size:13px;">Pierre Tremblay</div><div style="font-size:11px; color:var(--gray-500);">100% &mdash; 200h</div></div>
+                            </div>
+                            <div style="margin-top:6px;"><button class="btn btn-secondary btn-sm" style="font-size:11px; padding:3px 8px;">+ Ajouter une personne</button></div>
+                        </td>
+                        <td style="text-align:center;">200h</td>
+                        <td style="text-align:center;"><span class="badge badge-green">Complet</span></td>
+                    </tr>
+
+                    <!-- EXEMPLE MULTI-AFFECTATION avec répartition % -->
+                    <tr>
+                        <td></td>
+                        <td>Architecte intermédiaire</td>
+                        <td>
+                            <!-- Personne 1 -->
+                            <div style="display:flex; align-items:center; gap:8px; padding:4px 8px; background:var(--success-light); border-radius:6px;">
+                                <span class="avatar-sm real">SG</span>
+                                <div style="flex:1;"><div style="font-weight:600; font-size:13px;">Sophie Gagnon</div><div style="font-size:11px; color:var(--gray-500);">Arch. intermédiaire</div></div>
+                                <div style="display:flex; align-items:center; gap:4px;">
+                                    <input class="hours-input" value="60" style="width:40px; font-size:12px; padding:2px 4px;" />
+                                    <span style="font-size:11px; color:var(--gray-500);">%</span>
+                                </div>
+                                <div style="font-size:12px; font-weight:600; color:var(--gray-700); min-width:40px; text-align:right;">90h</div>
+                                <button class="btn btn-sm btn-secondary" style="padding:2px 6px; font-size:10px;">&#x2715;</button>
+                            </div>
+                            <!-- Personne 2 -->
+                            <div style="display:flex; align-items:center; gap:8px; padding:4px 8px; background:var(--success-light); border-radius:6px; margin-top:4px;">
+                                <span class="avatar-sm real">JB</span>
+                                <div style="flex:1;"><div style="font-weight:600; font-size:13px;">Jean Beaulieu</div><div style="font-size:11px; color:var(--gray-500);">Arch. intermédiaire</div></div>
+                                <div style="display:flex; align-items:center; gap:4px;">
+                                    <input class="hours-input" value="40" style="width:40px; font-size:12px; padding:2px 4px;" />
+                                    <span style="font-size:11px; color:var(--gray-500);">%</span>
+                                </div>
+                                <div style="font-size:12px; font-weight:600; color:var(--gray-700); min-width:40px; text-align:right;">60h</div>
+                                <button class="btn btn-sm btn-secondary" style="padding:2px 6px; font-size:10px;">&#x2715;</button>
+                            </div>
+                            <!-- Indicateur total -->
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:6px; padding:0 8px;">
+                                <button class="btn btn-secondary btn-sm" onclick="document.getElementById('assign-modal').classList.add('show')" style="font-size:11px; padding:3px 8px;">+ Ajouter une personne</button>
+                                <span style="font-size:11px; font-weight:600; color:var(--success);">&#10003; 100% couvert</span>
+                            </div>
+                        </td>
+                        <td style="text-align:center;">150h</td>
+                        <td style="text-align:center;"><span class="badge badge-green">Complet</span></td>
+                    </tr>
+
+                    <tr class="phase-header"><td colspan="5">&#9654; Préliminaire</td></tr>
+                    <!-- EXEMPLE PARTIELLEMENT AFFECTÉ -->
+                    <tr>
+                        <td></td>
+                        <td>Architecte intermédiaire</td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:8px; padding:4px 8px; background:var(--success-light); border-radius:6px;">
+                                <span class="avatar-sm real">SG</span>
+                                <div style="flex:1;"><div style="font-weight:600; font-size:13px;">Sophie Gagnon</div><div style="font-size:11px; color:var(--gray-500);">Arch. intermédiaire</div></div>
+                                <div style="display:flex; align-items:center; gap:4px;">
+                                    <input class="hours-input" value="50" style="width:40px; font-size:12px; padding:2px 4px;" />
+                                    <span style="font-size:11px; color:var(--gray-500);">%</span>
+                                </div>
+                                <div style="font-size:12px; font-weight:600; color:var(--gray-700); min-width:40px; text-align:right;">90h</div>
+                                <button class="btn btn-sm btn-secondary" style="padding:2px 6px; font-size:10px;">&#x2715;</button>
+                            </div>
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:6px; padding:0 8px;">
+                                <button class="btn btn-secondary btn-sm" style="font-size:11px; padding:3px 8px;">+ Ajouter une personne</button>
+                                <span style="font-size:11px; font-weight:600; color:var(--warning);">&#9888; 50% couvert &mdash; 90h restantes</span>
+                            </div>
+                        </td>
+                        <td style="text-align:center;">180h</td>
+                        <td style="text-align:center;"><span class="badge badge-yellow">Partiel</span></td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td>Technologue senior</td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm" style="font-size:12px;">&#128100; Affecter un ou plusieurs employés</button>
+                        </td>
+                        <td style="text-align:center;">250h</td>
+                        <td style="text-align:center;"><span class="badge badge-yellow">Virtuel</span></td>
+                    </tr>
+
+                    <tr class="phase-header"><td colspan="5">&#9654; Services support</td></tr>
+                    <tr>
+                        <td>Gestion de projet</td>
+                        <td>Chargé de projet</td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm" style="font-size:12px;">&#128100; Affecter un ou plusieurs employés</button>
+                        </td>
+                        <td style="text-align:center;">350h</td>
+                        <td style="text-align:center;"><span class="badge badge-yellow">Virtuel</span></td>
+                    </tr>
+                    <tr>
+                        <td>BIM</td>
+                        <td>Spécialiste BIM</td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm" style="font-size:12px;">&#128100; Affecter un ou plusieurs employés</button>
+                        </td>
+                        <td style="text-align:center;">180h</td>
+                        <td style="text-align:center;"><span class="badge badge-yellow">Virtuel</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- MODAL AFFECTATION MULTI-EMPLOYÉS -->
+    <div id="assign-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('show')">
+        <div class="modal" style="width:560px;">
+            <div class="modal-header">
+                <div>
+                    <h3>Affecter : Architecte intermédiaire</h3>
+                    <div style="font-size:12px; color:var(--gray-500); margin-top:2px;">Phase Concept &mdash; 150h budgétées &mdash; Sélection multiple possible</div>
+                </div>
+                <button class="btn btn-icon btn-secondary" onclick="document.getElementById('assign-modal').classList.remove('show')">&#x2715;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label>Rechercher un employé</label>
+                    <input type="text" placeholder="Nom, titre ou profil..." />
+                </div>
+
+                <!-- SECTION PROFIL CORRESPONDANT -->
+                <div style="font-size:11px; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; padding-bottom:4px; border-bottom:2px solid var(--primary-light);">
+                    &#9733; Profil correspondant &mdash; Architecte intermédiaire
+                </div>
+
+                <div class="employee-option selected" style="border-color:var(--primary);">
+                    <input type="checkbox" checked style="width:18px; height:18px; accent-color:var(--primary);" />
+                    <div class="employee-avatar">SG</div>
+                    <div style="flex:1;">
+                        <div class="employee-name">Sophie Gagnon</div>
+                        <div class="employee-role">Architecte intermédiaire &mdash; 5 ans exp.</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="employee-avail">68% dispo</div>
+                        <div style="display:flex; align-items:center; gap:4px; margin-top:4px;">
+                            <input class="hours-input" value="60" style="width:40px; font-size:12px; padding:2px 4px;" />
+                            <span style="font-size:11px; color:var(--gray-500);">%</span>
+                            <span style="font-size:11px; color:var(--gray-600); font-weight:600;">=90h</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="employee-option selected" style="border-color:var(--primary);">
+                    <input type="checkbox" checked style="width:18px; height:18px; accent-color:var(--primary);" />
+                    <div class="employee-avatar">JB</div>
+                    <div style="flex:1;">
+                        <div class="employee-name">Jean Beaulieu</div>
+                        <div class="employee-role">Architecte intermédiaire &mdash; 7 ans exp.</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="employee-avail">45% dispo</div>
+                        <div style="display:flex; align-items:center; gap:4px; margin-top:4px;">
+                            <input class="hours-input" value="40" style="width:40px; font-size:12px; padding:2px 4px;" />
+                            <span style="font-size:11px; color:var(--gray-500);">%</span>
+                            <span style="font-size:11px; color:var(--gray-600); font-weight:600;">=60h</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION PROFILS SIMILAIRES -->
+                <div style="font-size:11px; font-weight:700; color:var(--warning); text-transform:uppercase; letter-spacing:0.5px; margin:16px 0 8px; padding-bottom:4px; border-bottom:2px solid var(--warning-light);">
+                    Profils similaires
+                </div>
+
+                <div class="employee-option">
+                    <input type="checkbox" style="width:18px; height:18px; accent-color:var(--primary);" />
+                    <div class="employee-avatar" style="background:var(--warning);">AR</div>
+                    <div style="flex:1;">
+                        <div class="employee-name">Anne Roy</div>
+                        <div class="employee-role">Architecte junior &mdash; 2 ans exp.</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="employee-avail">82% dispo</div>
+                    </div>
+                </div>
+
+                <div class="employee-option">
+                    <input type="checkbox" style="width:18px; height:18px; accent-color:var(--primary);" />
+                    <div class="employee-avatar" style="background:var(--success);">LM</div>
+                    <div style="flex:1;">
+                        <div class="employee-name">Luc Moreau</div>
+                        <div class="employee-role">Architecte senior &mdash; 12 ans exp.</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="employee-avail">30% dispo</div>
+                    </div>
+                </div>
+
+                <!-- SECTION AUTRES EMPLOYÉS -->
+                <div style="font-size:11px; font-weight:700; color:var(--gray-400); text-transform:uppercase; letter-spacing:0.5px; margin:16px 0 8px; padding-bottom:4px; border-bottom:2px solid var(--gray-200);">
+                    Autres employés
+                </div>
+
+                <div class="employee-option">
+                    <input type="checkbox" style="width:18px; height:18px; accent-color:var(--primary);" />
+                    <div class="employee-avatar" style="background:var(--gray-400);">NP</div>
+                    <div style="flex:1;">
+                        <div class="employee-name">Nathalie Pelletier</div>
+                        <div class="employee-role">Technologue senior &mdash; 9 ans exp.</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="employee-avail">55% dispo</div>
+                    </div>
+                </div>
+
+                <div class="employee-option">
+                    <input type="checkbox" style="width:18px; height:18px; accent-color:var(--primary);" />
+                    <div class="employee-avatar" style="background:var(--gray-400);">FC</div>
+                    <div style="flex:1;">
+                        <div class="employee-name">François Côté</div>
+                        <div class="employee-role">Chargé de conception &mdash; 8 ans exp.</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="employee-avail">20% dispo</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RÉSUMÉ AFFECTATION -->
+            <div style="padding:12px 24px; background:var(--gray-50); border-top:1px solid var(--gray-200);">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                    <span style="font-size:13px; font-weight:600;">Répartition actuelle</span>
+                    <span style="font-size:13px; font-weight:700; color:var(--success);">&#10003; 100% couvert (150h)</span>
+                </div>
+                <div style="display:flex; gap:4px; height:8px; border-radius:4px; overflow:hidden;">
+                    <div style="width:60%; background:var(--primary);" title="Sophie Gagnon 60%"></div>
+                    <div style="width:40%; background:#60a5fa;" title="Jean Beaulieu 40%"></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:4px;">
+                    <span style="font-size:11px; color:var(--gray-500);">S. Gagnon : 60% (90h)</span>
+                    <span style="font-size:11px; color:var(--gray-500);">J. Beaulieu : 40% (60h)</span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="document.getElementById('assign-modal').classList.remove('show')">Annuler</button>
+                <button class="btn btn-primary" onclick="document.getElementById('assign-modal').classList.remove('show')">Confirmer l'affectation (2 personnes)</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================= -->
+<!-- SCREEN 6: FEUILLE DE TEMPS                -->
+<!-- ========================================= -->
+<div id="screen-timesheet" class="mockup-screen fade-in">
+    <span class="mockup-label">Mockup 6/7</span>
+    <h2 class="screen-title">Feuille de temps - Pierre Tremblay</h2>
+    <p class="screen-subtitle">Semaine du 2 au 6 mars 2026 - Seuls les projets et phases autorisés apparaissent</p>
+
+    <div class="app-shell">
+        <div style="padding: 16px 24px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="employee-avatar" style="width:40px;height:40px;font-size:16px;">PT</div>
+                <div>
+                    <div style="font-weight: 700;">Pierre Tremblay</div>
+                    <div style="font-size: 12px; color: var(--gray-500);">Architecte senior</div>
+                </div>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-secondary btn-sm">&larr; Sem. préc.</button>
+                <button class="btn btn-secondary btn-sm" style="font-weight:700;">2 - 6 mars 2026</button>
+                <button class="btn btn-secondary btn-sm">Sem. suiv. &rarr;</button>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="timesheet-grid">
+                <thead>
+                    <tr>
+                        <th>Projet / Tâche</th>
+                        <th>Lun 2</th>
+                        <th>Mar 3</th>
+                        <th>Mer 4</th>
+                        <th>Jeu 5</th>
+                        <th>Ven 6</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Projet 1 -->
+                    <tr class="project-row"><td colspan="7">&#128193; Centre sportif Laval</td></tr>
+                    <tr class="section-row"><td colspan="7">Phases</td></tr>
+                    <tr class="task-row">
+                        <td>Concept</td>
+                        <td><input class="time-input" value="3" /></td>
+                        <td><input class="time-input" value="4" /></td>
+                        <td><input class="time-input" value="" placeholder="&mdash;" /></td>
+                        <td><input class="time-input" value="2" /></td>
+                        <td><input class="time-input" value="" placeholder="&mdash;" /></td>
+                        <td><strong>9.0</strong></td>
+                    </tr>
+                    <tr class="task-row locked">
+                        <td>&#128274; Étude préparatoire</td>
+                        <td><input class="time-input locked" value="" disabled /></td>
+                        <td><input class="time-input locked" value="" disabled /></td>
+                        <td><input class="time-input locked" value="" disabled /></td>
+                        <td><input class="time-input locked" value="" disabled /></td>
+                        <td><input class="time-input locked" value="" disabled /></td>
+                        <td style="color: var(--gray-300);">0.0</td>
+                    </tr>
+
+                    <!-- Projet 2 -->
+                    <tr class="project-row"><td colspan="7">&#128193; Bibliothèque Rosemont</td></tr>
+                    <tr class="section-row"><td colspan="7">Phases</td></tr>
+                    <tr class="task-row">
+                        <td>Définitif</td>
+                        <td><input class="time-input" value="2" /></td>
+                        <td><input class="time-input" value="2" /></td>
+                        <td><input class="time-input" value="4" /></td>
+                        <td><input class="time-input" value="3" /></td>
+                        <td><input class="time-input" value="4" /></td>
+                        <td><strong>15.0</strong></td>
+                    </tr>
+
+                    <!-- Projet 3 -->
+                    <tr class="project-row"><td colspan="7">&#128193; Pavillon McGill</td></tr>
+                    <tr class="section-row"><td colspan="7">Phases</td></tr>
+                    <tr class="task-row">
+                        <td>Appel d'offres</td>
+                        <td><input class="time-input" value="2.5" /></td>
+                        <td><input class="time-input" value="1.5" /></td>
+                        <td><input class="time-input" value="3.5" /></td>
+                        <td><input class="time-input" value="2.5" /></td>
+                        <td><input class="time-input" value="3.5" /></td>
+                        <td><strong>13.5</strong></td>
+                    </tr>
+                    <tr class="section-row"><td colspan="7">Support</td></tr>
+                    <tr class="task-row">
+                        <td>Gestion de projet</td>
+                        <td><input class="time-input" value="0.5" /></td>
+                        <td><input class="time-input" value="0.5" /></td>
+                        <td><input class="time-input" value="0.5" /></td>
+                        <td><input class="time-input" value="0.5" /></td>
+                        <td><input class="time-input" value="0.5" /></td>
+                        <td><strong>2.5</strong></td>
+                    </tr>
+
+                    <!-- TOTAL -->
+                    <tr class="total-row">
+                        <td>TOTAL</td>
+                        <td>8.0</td>
+                        <td>8.0</td>
+                        <td>8.0</td>
+                        <td>8.0</td>
+                        <td>8.0</td>
+                        <td>40.0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="padding: 16px 24px; border-top: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between;">
+            <div style="font-size: 13px; color: var(--gray-500);">
+                &#128274; <em>Étude préparatoire</em> — Phase bloquée par le chargé de projet
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-secondary">Sauvegarder brouillon</button>
+                <button class="btn btn-primary">Soumettre la semaine</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================= -->
+<!-- SCREEN 7: BLOCAGE PHASES                  -->
+<!-- ========================================= -->
+<div id="screen-blocking" class="mockup-screen fade-in">
+    <span class="mockup-label">Mockup 7/7</span>
+    <h2 class="screen-title">Centre sportif Laval - Gestion des accès</h2>
+    <p class="screen-subtitle">Contrôlez qui peut saisir du temps sur chaque tâche. Un clic pour bloquer ou débloquer.</p>
+
+    <div class="app-shell">
+        <div style="padding: 16px 24px; border-bottom: 1px solid var(--gray-200);">
+            <h3 style="font-size: 16px; font-weight: 600;">Contrôle des phases et services</h3>
+        </div>
+        <div class="table-wrapper" style="padding: 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th style="padding: 10px 16px; text-align:left; background:var(--gray-50); font-size:12px; color:var(--gray-500); border-bottom: 2px solid var(--gray-200);">Tâche</th>
+                        <th style="padding: 10px 16px; text-align:center; background:var(--gray-50); font-size:12px; color:var(--gray-500); border-bottom: 2px solid var(--gray-200);">Statut</th>
+                        <th style="padding: 10px 16px; text-align:left; background:var(--gray-50); font-size:12px; color:var(--gray-500); border-bottom: 2px solid var(--gray-200);">Ressources affectées</th>
+                        <th style="padding: 10px 16px; text-align:center; background:var(--gray-50); font-size:12px; color:var(--gray-500); border-bottom: 2px solid var(--gray-200);">Heures saisies</th>
+                        <th style="padding: 10px 16px; text-align:center; background:var(--gray-50); font-size:12px; color:var(--gray-500); border-bottom: 2px solid var(--gray-200);">Budget</th>
+                        <th style="padding: 10px 16px; text-align:center; background:var(--gray-50); font-size:12px; color:var(--gray-500); border-bottom: 2px solid var(--gray-200);">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="background: var(--danger-light);">
+                        <td style="padding: 12px 16px; font-weight:600;">&#128274; Étude préparatoire</td>
+                        <td style="text-align:center;"><span class="badge badge-red">Bloquée</span></td>
+                        <td>
+                            <span style="font-size:13px;">M. Leclerc, P. Tremblay</span>
+                        </td>
+                        <td style="text-align:center;">195h / 200h</td>
+                        <td style="text-align:center;">
+                            <div class="progress-bar" style="width:80px; display:inline-block;"><div class="progress-fill red" style="width:97%"></div></div>
+                            <div style="font-size:11px; color:var(--danger);">97%</div>
+                        </td>
+                        <td style="text-align:center;">
+                            <button class="btn btn-sm btn-success">&#128275; Débloquer</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 16px; font-weight:600;">&#128994; Concept</td>
+                        <td style="text-align:center;"><span class="badge badge-green">Ouverte</span></td>
+                        <td><span style="font-size:13px;">M. Leclerc, P. Tremblay, S. Gagnon</span></td>
+                        <td style="text-align:center;">156h / 450h</td>
+                        <td style="text-align:center;">
+                            <div class="progress-bar" style="width:80px; display:inline-block;"><div class="progress-fill green" style="width:34%"></div></div>
+                            <div style="font-size:11px; color:var(--gray-500);">34%</div>
+                        </td>
+                        <td style="text-align:center;">
+                            <button class="btn btn-sm btn-danger">&#128274; Bloquer</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 16px; font-weight:600;">&#128994; Préliminaire</td>
+                        <td style="text-align:center;"><span class="badge badge-green">Ouverte</span></td>
+                        <td><span style="font-size:13px; color:var(--gray-400);">Profils virtuels seulement</span></td>
+                        <td style="text-align:center;">0h / 430h</td>
+                        <td style="text-align:center;">
+                            <div class="progress-bar" style="width:80px; display:inline-block;"><div class="progress-fill blue" style="width:0%"></div></div>
+                            <div style="font-size:11px; color:var(--gray-500);">0%</div>
+                        </td>
+                        <td style="text-align:center;">
+                            <button class="btn btn-sm btn-danger">&#128274; Bloquer</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 16px; font-weight:600;">&#128994; Définitif</td>
+                        <td style="text-align:center;"><span class="badge badge-green">Ouverte</span></td>
+                        <td><span style="font-size:13px; color:var(--gray-400);">Profils virtuels seulement</span></td>
+                        <td style="text-align:center;">0h / 650h</td>
+                        <td style="text-align:center;">
+                            <div class="progress-bar" style="width:80px; display:inline-block;"><div class="progress-fill blue" style="width:0%"></div></div>
+                            <div style="font-size:11px; color:var(--gray-500);">0%</div>
+                        </td>
+                        <td style="text-align:center;">
+                            <button class="btn btn-sm btn-danger">&#128274; Bloquer</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 16px; font-weight:600;">&#128994; Appel d'offres</td>
+                        <td style="text-align:center;"><span class="badge badge-green">Ouverte</span></td>
+                        <td><span style="font-size:13px; color:var(--gray-400);">Profils virtuels seulement</span></td>
+                        <td style="text-align:center;">0h / 120h</td>
+                        <td style="text-align:center;">
+                            <div class="progress-bar" style="width:80px; display:inline-block;"><div class="progress-fill blue" style="width:0%"></div></div>
+                            <div style="font-size:11px; color:var(--gray-500);">0%</div>
+                        </td>
+                        <td style="text-align:center;">
+                            <button class="btn btn-sm btn-danger">&#128274; Bloquer</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 16px; font-weight:600;">&#128994; Surveillance</td>
+                        <td style="text-align:center;"><span class="badge badge-green">Ouverte</span></td>
+                        <td><span style="font-size:13px; color:var(--gray-400);">Profils virtuels seulement</span></td>
+                        <td style="text-align:center;">0h / 200h</td>
+                        <td style="text-align:center;">
+                            <div class="progress-bar" style="width:80px; display:inline-block;"><div class="progress-fill blue" style="width:0%"></div></div>
+                            <div style="font-size:11px; color:var(--gray-500);">0%</div>
+                        </td>
+                        <td style="text-align:center;">
+                            <button class="btn btn-sm btn-danger">&#128274; Bloquer</button>
+                        </td>
+                    </tr>
+                    <tr style="border-top: 2px solid var(--gray-200);">
+                        <td style="padding: 12px 16px; font-weight:600;">&#128994; Gestion de projet</td>
+                        <td style="text-align:center;"><span class="badge badge-green">Ouverte</span></td>
+                        <td><span style="font-size:13px; color:var(--gray-400);">Profils virtuels seulement</span></td>
+                        <td style="text-align:center;">0h / 350h</td>
+                        <td style="text-align:center;">
+                            <div class="progress-bar" style="width:80px; display:inline-block;"><div class="progress-fill blue" style="width:0%"></div></div>
+                            <div style="font-size:11px; color:var(--gray-500);">0%</div>
+                        </td>
+                        <td style="text-align:center;">
+                            <button class="btn btn-sm btn-danger">&#128274; Bloquer</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 16px; font-weight:600;">&#128994; BIM</td>
+                        <td style="text-align:center;"><span class="badge badge-green">Ouverte</span></td>
+                        <td><span style="font-size:13px; color:var(--gray-400);">Profils virtuels seulement</span></td>
+                        <td style="text-align:center;">0h / 180h</td>
+                        <td style="text-align:center;">
+                            <div class="progress-bar" style="width:80px; display:inline-block;"><div class="progress-fill blue" style="width:0%"></div></div>
+                            <div style="font-size:11px; color:var(--gray-500);">0%</div>
+                        </td>
+                        <td style="text-align:center;">
+                            <button class="btn btn-sm btn-danger">&#128274; Bloquer</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="padding: 20px 24px; border-top: 1px solid var(--gray-200);">
+            <h4 style="font-size: 14px; margin-bottom: 12px;">Blocage individuel - Phase Concept</h4>
+            <p style="font-size: 13px; color: var(--gray-500); margin-bottom: 12px;">Bloquer une personne spécifique sans fermer la phase pour les autres :</p>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px 12px; border-bottom: 1px solid var(--gray-100);">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="avatar-sm real">ML</span>
+                            <span style="font-size:14px;">Marie Leclerc</span>
+                        </div>
+                    </td>
+                    <td style="padding: 8px 12px; border-bottom: 1px solid var(--gray-100); text-align: center;">
+                        <span class="badge badge-green">Peut saisir</span>
+                    </td>
+                    <td style="padding: 8px 12px; border-bottom: 1px solid var(--gray-100); text-align: center; font-size: 13px;">48h saisies</td>
+                    <td style="padding: 8px 12px; border-bottom: 1px solid var(--gray-100); text-align: center;">
+                        <button class="btn btn-sm btn-secondary">&#128274; Bloquer</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 12px; border-bottom: 1px solid var(--gray-100);">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="avatar-sm real">PT</span>
+                            <span style="font-size:14px;">Pierre Tremblay</span>
+                        </div>
+                    </td>
+                    <td style="padding: 8px 12px; border-bottom: 1px solid var(--gray-100); text-align: center;">
+                        <span class="badge badge-green">Peut saisir</span>
+                    </td>
+                    <td style="padding: 8px 12px; border-bottom: 1px solid var(--gray-100); text-align: center; font-size: 13px;">72h saisies</td>
+                    <td style="padding: 8px 12px; border-bottom: 1px solid var(--gray-100); text-align: center;">
+                        <button class="btn btn-sm btn-secondary">&#128274; Bloquer</button>
+                    </td>
+                </tr>
+                <tr style="background: var(--danger-light);">
+                    <td style="padding: 8px 12px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="avatar-sm" style="background:var(--danger);">SG</span>
+                            <span style="font-size:14px;">Sophie Gagnon</span>
+                        </div>
+                    </td>
+                    <td style="padding: 8px 12px; text-align: center;">
+                        <span class="badge badge-red">Bloquée</span>
+                    </td>
+                    <td style="padding: 8px 12px; text-align: center; font-size: 13px;">36h saisies</td>
+                    <td style="padding: 8px 12px; text-align: center;">
+                        <button class="btn btn-sm btn-success">&#128275; Débloquer</button>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================= -->
+<!-- SCREEN 8: PREPARATION FACTURE             -->
+<!-- ========================================= -->
+<div id="screen-billing" class="mockup-screen fade-in">
+    <span class="mockup-label">Mockup 8/8</span>
+    <h2 class="screen-title">Preparation facture - Centre sportif Laval</h2>
+    <p class="screen-subtitle">Mars 2026 — Saisissez les montants a facturer ce mois. Les alertes couleur signalent les ecarts.</p>
+
+    <div class="app-shell">
+        <div style="padding: 16px 24px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between;">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <h3 style="font-size: 16px; font-weight: 600;">Facture mensuelle</h3>
+                <div class="btn-group">
+                    <button class="btn btn-secondary btn-sm">&larr; Fev. 2026</button>
+                    <button class="btn btn-secondary btn-sm" style="font-weight:700;">Mars 2026</button>
+                    <button class="btn btn-secondary btn-sm">Avr. 2026 &rarr;</button>
+                </div>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-secondary btn-sm">Exporter PDF</button>
+                <button class="btn btn-primary btn-sm">Valider la facture</button>
+            </div>
+        </div>
+
+        <!-- RATIO CA/SALAIRE - BANDEAU GLOBAL -->
+        <div style="padding:16px 24px; border-bottom:1px solid var(--gray-200); display:flex; gap:24px; align-items:stretch;">
+            <div style="flex:1; background:var(--gray-50); border-radius:8px; padding:14px 20px; border:1px solid var(--gray-200);">
+                <div style="font-size:11px; font-weight:600; color:var(--gray-400); text-transform:uppercase; letter-spacing:0.5px;">Ratio CA / Salaire — Avant facturation</div>
+                <div style="display:flex; align-items:baseline; gap:12px; margin-top:6px;">
+                    <span style="font-size:28px; font-weight:800; color:var(--gray-800);">2.45</span>
+                    <div style="font-size:12px; color:var(--gray-500); line-height:1.4;">
+                        CA facture : 126 920 $<br>
+                        Salaires imputes : 51 800 $
+                    </div>
+                </div>
+            </div>
+            <div style="flex:1; background:var(--primary-light); border-radius:8px; padding:14px 20px; border:1px solid #93c5fd;">
+                <div style="font-size:11px; font-weight:600; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px;">Ratio CA / Salaire — Apres facturation</div>
+                <div style="display:flex; align-items:baseline; gap:12px; margin-top:6px;">
+                    <span style="font-size:28px; font-weight:800; color:var(--primary);">2.72</span>
+                    <div style="font-size:12px; color:var(--primary-dark); line-height:1.4;">
+                        CA projete : 189 031 $<br>
+                        Salaires imputes : 69 500 $
+                    </div>
+                    <span class="badge badge-green" style="font-size:11px;">&#9650; +0.27</span>
+                </div>
+            </div>
+            <div style="flex:0.6; background:var(--gray-50); border-radius:8px; padding:14px 20px; border:1px solid var(--gray-200); display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                <div style="font-size:11px; font-weight:600; color:var(--gray-400); text-transform:uppercase;">Cible firme</div>
+                <span style="font-size:28px; font-weight:800; color:var(--gray-600);">2.80</span>
+                <div style="font-size:11px; color:var(--gray-400);">ratio minimum vise</div>
+            </div>
+        </div>
+
+        <div class="table-wrapper" style="padding: 0;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                    <tr>
+                        <th style="padding:10px 12px; text-align:left; background:var(--gray-50); font-size:11px; color:var(--gray-500); border-bottom:2px solid var(--gray-200); min-width:180px;">Livrable</th>
+                        <th style="padding:10px 12px; text-align:right; background:var(--gray-50); font-size:11px; color:var(--gray-500); border-bottom:2px solid var(--gray-200);">Montant total</th>
+                        <th style="padding:10px 12px; text-align:right; background:var(--gray-50); font-size:11px; color:var(--gray-500); border-bottom:2px solid var(--gray-200);">Facture a ce jour</th>
+                        <th style="padding:10px 12px; text-align:center; background:var(--gray-50); font-size:11px; color:var(--gray-500); border-bottom:2px solid var(--gray-200);">% Avanc. facturation</th>
+                        <th style="padding:10px 12px; text-align:center; background:var(--gray-50); font-size:11px; color:var(--gray-500); border-bottom:2px solid var(--gray-200);">% Avanc. heures<br><span style="font-weight:400; font-style:italic;">/ Fact. fournisseurs</span></th>
+                        <th style="padding:10px 12px; text-align:right; background:var(--primary-light); font-size:11px; color:var(--primary); border-bottom:2px solid var(--primary); font-weight:700; min-width:130px;">Facturer ce mois</th>
+                        <th style="padding:10px 12px; text-align:center; background:var(--gray-50); font-size:11px; color:var(--gray-500); border-bottom:2px solid var(--gray-200);">% Apres facturation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- SECTION HONORAIRES FORFAIT -->
+                    <tr>
+                        <td colspan="7" style="padding:10px 12px; background:var(--gray-100); font-weight:700; font-size:12px; color:var(--gray-600); text-transform:uppercase; letter-spacing:0.5px;">
+                            Honoraires — Forfait
+                        </td>
+                    </tr>
+                    <!-- Etudes : % heures (65%) > % facturation (50%) = ALERTE ROUGE -->
+                    <tr style="background: #fef2f2;">
+                        <td style="padding:10px 12px; font-weight:500;">
+                            Etudes
+                            <div style="font-size:11px; color:var(--gray-400);">Et. prep. + Concept</div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:right;">45 000 $</td>
+                        <td style="padding:10px 12px; text-align:right;">22 500 $</td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <div>50%</div>
+                            <div class="progress-bar" style="width:60px; display:inline-block;"><div class="progress-fill blue" style="width:50%"></div></div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <div style="color:var(--danger); font-weight:700;">65% &#9888;</div>
+                            <div class="progress-bar" style="width:60px; display:inline-block;"><div class="progress-fill red" style="width:65%"></div></div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:right; background:rgba(37,99,235,0.05);">
+                            <input class="hours-input" value="13 500" style="width:90px; text-align:right; font-weight:700; font-size:14px;" /> $
+                        </td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <span style="font-weight:700;">80%</span>
+                        </td>
+                    </tr>
+                    <!-- Plans : heures 12% mais 0% facture = ALERTE ATTENTION -->
+                    <tr style="background: #fffbeb;">
+                        <td style="padding:10px 12px; font-weight:500;">
+                            Plans
+                            <div style="font-size:11px; color:var(--gray-400);">Prelim. + Definitif</div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:right;">120 000 $</td>
+                        <td style="padding:10px 12px; text-align:right;">0 $</td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <div>0%</div>
+                            <div class="progress-bar" style="width:60px; display:inline-block;"><div class="progress-fill blue" style="width:0%"></div></div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <div style="color:var(--warning); font-weight:600;">12% &#9888;</div>
+                            <div class="progress-bar" style="width:60px; display:inline-block;"><div class="progress-fill yellow" style="width:12%"></div></div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:right; background:rgba(37,99,235,0.05);">
+                            <input class="hours-input" value="0" style="width:90px; text-align:right; font-weight:700; font-size:14px;" /> $
+                        </td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <span>0%</span>
+                        </td>
+                    </tr>
+                    <!-- BIM : 40% heures vs 30% facture = leger ecart -->
+                    <tr>
+                        <td style="padding:10px 12px; font-weight:500;">
+                            BIM
+                            <div style="font-size:11px; color:var(--gray-400);">Service support</div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:right;">30 000 $</td>
+                        <td style="padding:10px 12px; text-align:right;">9 000 $</td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <div>30%</div>
+                            <div class="progress-bar" style="width:60px; display:inline-block;"><div class="progress-fill blue" style="width:30%"></div></div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <div>40%</div>
+                            <div class="progress-bar" style="width:60px; display:inline-block;"><div class="progress-fill blue" style="width:40%"></div></div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:right; background:rgba(37,99,235,0.05);">
+                            <input class="hours-input" value="6 000" style="width:90px; text-align:right; font-weight:700; font-size:14px;" /> $
+                        </td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <span style="font-weight:700;">50%</span>
+                        </td>
+                    </tr>
+
+                    <!-- SECTION HONORAIRES HORAIRE -->
+                    <tr>
+                        <td colspan="7" style="padding:10px 12px; background:var(--gray-100); font-weight:700; font-size:12px; color:var(--gray-600); text-transform:uppercase; letter-spacing:0.5px;">
+                            Honoraires — Horaire
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 12px; font-weight:500;">
+                            Appel d'offres
+                            <div style="font-size:11px; color:var(--gray-400);">Budget max : 35 000 $</div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:right;">35 000 $</td>
+                        <td style="padding:10px 12px; text-align:right;">0 $</td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <div>0%</div>
+                            <div class="progress-bar" style="width:60px; display:inline-block;"><div class="progress-fill blue" style="width:0%"></div></div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:center; color:var(--gray-300);">n/a</td>
+                        <td style="padding:10px 12px; text-align:right; background:rgba(37,99,235,0.05);">
+                            <input class="hours-input" value="0" style="width:90px; text-align:right; font-weight:700; font-size:14px;" /> $
+                        </td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <span>0%</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 12px; font-weight:500;">
+                            Surveillance
+                            <div style="font-size:11px; color:var(--gray-400);">Budget max : 80 000 $ | Auto: 48h ce mois</div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:right;">80 000 $</td>
+                        <td style="padding:10px 12px; text-align:right;">28 400 $</td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <div>35.5%</div>
+                            <div class="progress-bar" style="width:60px; display:inline-block;"><div class="progress-fill blue" style="width:35.5%"></div></div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:center; color:var(--gray-300);">n/a</td>
+                        <td style="padding:10px 12px; text-align:right; background:rgba(37,99,235,0.05);">
+                            <input class="hours-input" value="12 880" style="width:90px; text-align:right; font-weight:700; font-size:14px;" /> $
+                            <div style="font-size:10px; color:var(--gray-400);">pre-calcule</div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <span style="font-weight:700;">51.6%</span>
+                        </td>
+                    </tr>
+
+                    <!-- SECTION SOUS-TRAITANTS -->
+                    <tr>
+                        <td colspan="7" style="padding:10px 12px; background:var(--gray-100); font-weight:700; font-size:12px; color:var(--gray-600); text-transform:uppercase; letter-spacing:0.5px;">
+                            Sous-traitants refacturables
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 12px; font-weight:500;">
+                            Ing. structure
+                            <div style="font-size:11px; color:var(--gray-400);">Groupe SMI | Majoration 10%</div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:right;">132 000 $</td>
+                        <td style="padding:10px 12px; text-align:right;">52 800 $</td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <div>40%</div>
+                            <div class="progress-bar" style="width:60px; display:inline-block;"><div class="progress-fill blue" style="width:40%"></div></div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <div style="font-weight:600;">66 000 $</div>
+                            <div style="font-size:10px; color:var(--gray-500);">factures recues</div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:right; background:rgba(37,99,235,0.05);">
+                            <input class="hours-input" value="19 800" style="width:90px; text-align:right; font-weight:700; font-size:14px;" /> $
+                            <div style="font-size:10px; color:var(--gray-400);">18 000 + 10%</div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <span style="font-weight:700;">55%</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 12px; font-weight:500;">
+                            Ing. mecanique
+                            <div style="font-size:11px; color:var(--gray-400);">BPA | Majoration 10%</div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:right;">104 500 $</td>
+                        <td style="padding:10px 12px; text-align:right;">20 900 $</td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <div>20%</div>
+                            <div class="progress-bar" style="width:60px; display:inline-block;"><div class="progress-fill blue" style="width:20%"></div></div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <div style="font-weight:600;">28 500 $</div>
+                            <div style="font-size:10px; color:var(--gray-500);">factures recues</div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:right; background:rgba(37,99,235,0.05);">
+                            <input class="hours-input" value="13 200" style="width:90px; text-align:right; font-weight:700; font-size:14px;" /> $
+                            <div style="font-size:10px; color:var(--gray-400);">12 000 + 10%</div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <span style="font-weight:700;">32.6%</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 12px; font-weight:500;">
+                            Ing. electrique
+                            <div style="font-size:11px; color:var(--gray-400);">Bouthillette Parizeau | Majoration 10%</div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:right;">93 500 $</td>
+                        <td style="padding:10px 12px; text-align:right;">0 $</td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <div>0%</div>
+                            <div class="progress-bar" style="width:60px; display:inline-block;"><div class="progress-fill blue" style="width:0%"></div></div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <div style="font-weight:600; color:var(--gray-400);">0 $</div>
+                            <div style="font-size:10px; color:var(--gray-400);">factures recues</div>
+                        </td>
+                        <td style="padding:10px 12px; text-align:right; background:rgba(37,99,235,0.05);">
+                            <input class="hours-input" value="0" style="width:90px; text-align:right; font-weight:700; font-size:14px;" /> $
+                        </td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <span>0%</span>
+                        </td>
+                    </tr>
+
+                    <!-- TOTAUX -->
+                    <tr style="background: var(--gray-50); border-top: 2px solid var(--gray-300);">
+                        <td style="padding:12px; font-weight:700;">Sous-total</td>
+                        <td style="padding:12px; text-align:right; font-weight:700;">640 000 $</td>
+                        <td style="padding:12px; text-align:right; font-weight:700;">133 600 $</td>
+                        <td style="padding:12px; text-align:center; font-weight:700;">20.9%</td>
+                        <td style="padding:12px;"></td>
+                        <td style="padding:12px; text-align:right; font-weight:700; background:rgba(37,99,235,0.08); font-size:15px;">65 380 $</td>
+                        <td style="padding:12px; text-align:center; font-weight:700;">31.1%</td>
+                    </tr>
+                    <tr style="background: var(--gray-50);">
+                        <td style="padding:8px 12px; color:var(--gray-500);">Retenue contractuelle 5%</td>
+                        <td style="padding:8px 12px;"></td>
+                        <td style="padding:8px 12px; text-align:right; color:var(--danger);">-6 680 $</td>
+                        <td style="padding:8px 12px;"></td>
+                        <td style="padding:8px 12px;"></td>
+                        <td style="padding:8px 12px; text-align:right; color:var(--danger); background:rgba(37,99,235,0.08);">-3 269 $</td>
+                        <td style="padding:8px 12px;"></td>
+                    </tr>
+                    <tr style="background: var(--gray-800); color: white;">
+                        <td style="padding:14px 12px; font-weight:700; font-size:14px;">MONTANT A FACTURER</td>
+                        <td style="padding:14px 12px;"></td>
+                        <td style="padding:14px 12px; text-align:right; font-weight:700; font-size:14px;">126 920 $</td>
+                        <td style="padding:14px 12px;"></td>
+                        <td style="padding:14px 12px;"></td>
+                        <td style="padding:14px 12px; text-align:right; font-weight:700; font-size:16px; color:#93c5fd;">62 111 $</td>
+                        <td style="padding:14px 12px;"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- LEGENDE -->
+        <div style="padding: 16px 24px; border-top: 1px solid var(--gray-200); display: flex; gap: 24px; flex-wrap: wrap;">
+            <div style="display:flex; align-items:center; gap:6px; font-size:12px;">
+                <span style="width:12px; height:12px; background:#fef2f2; border:1px solid #fca5a5; border-radius:2px; display:inline-block;"></span>
+                % heures > % facturation + 10pts (surproduction)
+            </div>
+            <div style="display:flex; align-items:center; gap:6px; font-size:12px;">
+                <span style="width:12px; height:12px; background:#fffbeb; border:1px solid #fcd34d; border-radius:2px; display:inline-block;"></span>
+                Heures > 0 mais rien facture
+            </div>
+            <div style="display:flex; align-items:center; gap:6px; font-size:12px;">
+                <span style="width:12px; height:12px; background:#f0fdf4; border:1px solid #86efac; border-radius:2px; display:inline-block;"></span>
+                Facturation en avance sur les heures
+            </div>
+            <div style="display:flex; align-items:center; gap:6px; font-size:12px;">
+                <span style="font-size:10px; color:var(--gray-400);">pre-calcule</span>
+                = Montant genere automatiquement (phases horaires et sous-traitants)
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================= -->
+<!-- SCREEN 9: GESTION FOURNISSEURS PROJET     -->
+<!-- ========================================= -->
+<div id="screen-suppliers" class="mockup-screen fade-in">
+    <span class="mockup-label">Mockup 9/9</span>
+    <h2 class="screen-title">Centre sportif Laval - Sous-traitants et fournisseurs</h2>
+    <p class="screen-subtitle">Suivi des factures recues, bons a payer et paiements par sous-traitant</p>
+
+    <div class="app-shell">
+        <!-- EN-TETE AVEC RESUME GLOBAL -->
+        <div style="padding:16px 24px; border-bottom:1px solid var(--gray-200);">
+            <div style="display:flex; gap:16px; margin-bottom:0;">
+                <div style="flex:1; background:var(--gray-50); border-radius:8px; padding:12px 16px; border:1px solid var(--gray-200);">
+                    <div style="font-size:11px; font-weight:600; color:var(--gray-400); text-transform:uppercase;">Budget total sous-traitants</div>
+                    <div style="font-size:22px; font-weight:800; margin-top:2px;">385 000 $</div>
+                </div>
+                <div style="flex:1; background:var(--gray-50); border-radius:8px; padding:12px 16px; border:1px solid var(--gray-200);">
+                    <div style="font-size:11px; font-weight:600; color:var(--gray-400); text-transform:uppercase;">Factures recues</div>
+                    <div style="font-size:22px; font-weight:800; margin-top:2px;">94 500 $</div>
+                    <div style="font-size:11px; color:var(--gray-500);">24.5% du budget</div>
+                </div>
+                <div style="flex:1; background:var(--warning-light); border-radius:8px; padding:12px 16px; border:1px solid #fcd34d;">
+                    <div style="font-size:11px; font-weight:600; color:#92400e; text-transform:uppercase;">Autorise non paye</div>
+                    <div style="font-size:22px; font-weight:800; color:#92400e; margin-top:2px;">33 000 $</div>
+                    <div style="font-size:11px; color:#92400e;">3 factures en attente</div>
+                </div>
+                <div style="flex:1; background:var(--success-light); border-radius:8px; padding:12px 16px; border:1px solid #86efac;">
+                    <div style="font-size:11px; font-weight:600; color:var(--success); text-transform:uppercase;">Total paye</div>
+                    <div style="font-size:22px; font-weight:800; color:var(--success); margin-top:2px;">48 000 $</div>
+                    <div style="font-size:11px; color:var(--success);">12.5% du budget</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LISTE DES SOUS-TRAITANTS (ACCORDEONS) -->
+        <div style="padding:16px 24px;">
+
+            <!-- FOURNISSEUR 1 : ING. STRUCTURE — OUVERT -->
+            <div style="border:1px solid var(--gray-200); border-radius:8px; margin-bottom:16px; overflow:hidden;">
+                <!-- Header fournisseur -->
+                <div style="padding:14px 20px; background:var(--gray-50); display:flex; align-items:center; justify-content:space-between; cursor:pointer; border-bottom:1px solid var(--gray-200);">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="font-size:18px;">&#9660;</span>
+                        <div>
+                            <div style="font-weight:700; font-size:15px;">Ing. en structure — Groupe SMI</div>
+                            <div style="font-size:12px; color:var(--gray-500);">Budget : 120 000 $ | Majoration client : 10%</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:16px; align-items:center;">
+                        <div style="text-align:center;">
+                            <div style="font-size:11px; color:var(--gray-400);">Recu</div>
+                            <div style="font-weight:700;">81 000 $</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:11px; color:var(--gray-400);">Autorise</div>
+                            <div style="font-weight:700; color:#92400e;">66 000 $</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:11px; color:var(--gray-400);">Paye</div>
+                            <div style="font-weight:700; color:var(--success);">48 000 $</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:11px; color:var(--gray-400);">Restant</div>
+                            <div style="font-weight:700;">39 000 $</div>
+                        </div>
+                        <div class="progress-bar" style="width:100px;"><div class="progress-fill yellow" style="width:67.5%;"></div></div>
+                    </div>
+                </div>
+
+                <!-- Table factures -->
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                        <tr>
+                            <th style="padding:8px 16px; text-align:left; background:white; font-size:11px; color:var(--gray-400); border-bottom:1px solid var(--gray-200);"># Facture</th>
+                            <th style="padding:8px 12px; text-align:left; background:white; font-size:11px; color:var(--gray-400); border-bottom:1px solid var(--gray-200);">Date recue</th>
+                            <th style="padding:8px 12px; text-align:right; background:white; font-size:11px; color:var(--gray-400); border-bottom:1px solid var(--gray-200);">Montant</th>
+                            <th style="padding:8px 12px; text-align:center; background:white; font-size:11px; color:var(--gray-400); border-bottom:1px solid var(--gray-200);">Statut</th>
+                            <th style="padding:8px 12px; text-align:left; background:white; font-size:11px; color:var(--gray-400); border-bottom:1px solid var(--gray-200);">Autorise par</th>
+                            <th style="padding:8px 12px; text-align:left; background:white; font-size:11px; color:var(--gray-400); border-bottom:1px solid var(--gray-200);">Date paiement</th>
+                            <th style="padding:8px 12px; text-align:center; background:white; font-size:11px; color:var(--gray-400); border-bottom:1px solid var(--gray-200);">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Facture PAYEE -->
+                        <tr>
+                            <td style="padding:10px 16px; border-bottom:1px solid var(--gray-100);">
+                                <span style="font-weight:600;">SMI-2025-41</span>
+                            </td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100);">15 jan 2026</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100); text-align:right; font-weight:600;">24 000 $</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100); text-align:center;">
+                                <span class="badge badge-green">&#10003; Payee</span>
+                            </td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100); font-size:12px;">P. Haumesser — 18 jan</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100); font-size:12px;">25 jan 2026</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100); text-align:center; color:var(--gray-300);">—</td>
+                        </tr>
+                        <!-- Facture PAYEE -->
+                        <tr>
+                            <td style="padding:10px 16px; border-bottom:1px solid var(--gray-100);">
+                                <span style="font-weight:600;">SMI-2025-52</span>
+                            </td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100);">12 fev 2026</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100); text-align:right; font-weight:600;">24 000 $</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100); text-align:center;">
+                                <span class="badge badge-green">&#10003; Payee</span>
+                            </td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100); font-size:12px;">P. Haumesser — 15 fev</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100); font-size:12px;">22 fev 2026</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100); text-align:center; color:var(--gray-300);">—</td>
+                        </tr>
+                        <!-- Facture AUTORISEE NON PAYEE -->
+                        <tr style="background:var(--warning-light);">
+                            <td style="padding:10px 16px; border-bottom:1px solid #fcd34d;">
+                                <span style="font-weight:600;">SMI-2026-08</span>
+                            </td>
+                            <td style="padding:10px 12px; border-bottom:1px solid #fcd34d;">10 mar 2026</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid #fcd34d; text-align:right; font-weight:600;">18 000 $</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid #fcd34d; text-align:center;">
+                                <span class="badge badge-yellow">&#9203; Autorisee</span>
+                            </td>
+                            <td style="padding:10px 12px; border-bottom:1px solid #fcd34d; font-size:12px;">P. Haumesser — 15 mar</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid #fcd34d; font-size:12px; color:var(--gray-400); font-style:italic;">En attente de paiement</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid #fcd34d; text-align:center;">
+                                <button class="btn btn-sm btn-success" style="font-size:11px;">Marquer payee</button>
+                            </td>
+                        </tr>
+                        <!-- Facture RECUE NON AUTORISEE -->
+                        <tr style="background:#eff6ff;">
+                            <td style="padding:10px 16px; border-bottom:1px solid var(--gray-200);">
+                                <span style="font-weight:600;">SMI-2026-15</span>
+                            </td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-200);">28 mar 2026</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-200); text-align:right; font-weight:600;">15 000 $</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-200); text-align:center;">
+                                <span class="badge badge-blue">&#9679; Recue</span>
+                            </td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-200); font-size:12px; color:var(--gray-400); font-style:italic;">—</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-200); font-size:12px; color:var(--gray-400);">—</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-200); text-align:center;">
+                                <button class="btn btn-sm btn-primary" style="font-size:11px;">&#10003; Autoriser</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr style="background:var(--gray-50);">
+                            <td colspan="2" style="padding:10px 16px; font-weight:700; font-size:12px;">Total Groupe SMI</td>
+                            <td style="padding:10px 12px; text-align:right; font-weight:700;">81 000 $</td>
+                            <td colspan="4" style="padding:10px 12px; font-size:12px;">
+                                <span style="color:var(--success); font-weight:600;">Paye: 48 000 $</span> &nbsp;|&nbsp;
+                                <span style="color:#92400e; font-weight:600;">Autorise: 18 000 $</span> &nbsp;|&nbsp;
+                                <span style="color:var(--primary); font-weight:600;">Recue: 15 000 $</span>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <!-- Bouton ajouter facture -->
+                <div style="padding:10px 20px; background:white; border-top:1px solid var(--gray-100);">
+                    <button class="btn btn-secondary btn-sm" style="font-size:12px;">+ Ajouter une facture de Groupe SMI</button>
+                </div>
+            </div>
+
+            <!-- FOURNISSEUR 2 : ING. MECANIQUE — FERME -->
+            <div style="border:1px solid var(--gray-200); border-radius:8px; margin-bottom:16px; overflow:hidden;">
+                <div style="padding:14px 20px; background:var(--gray-50); display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="font-size:18px; color:var(--gray-400);">&#9654;</span>
+                        <div>
+                            <div style="font-weight:700; font-size:15px;">Ing. mecanique — BPA</div>
+                            <div style="font-size:12px; color:var(--gray-500);">Budget : 95 000 $ | Majoration client : 10%</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:16px; align-items:center;">
+                        <div style="text-align:center;">
+                            <div style="font-size:11px; color:var(--gray-400);">Recu</div>
+                            <div style="font-weight:700;">28 500 $</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:11px; color:var(--gray-400);">Autorise</div>
+                            <div style="font-weight:700; color:#92400e;">28 500 $</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:11px; color:var(--gray-400);">Paye</div>
+                            <div style="font-weight:700; color:var(--success);">13 500 $</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:11px; color:var(--gray-400);">Restant</div>
+                            <div style="font-weight:700;">66 500 $</div>
+                        </div>
+                        <div class="progress-bar" style="width:100px;"><div class="progress-fill blue" style="width:30%;"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FOURNISSEUR 3 : ING. ELECTRIQUE — FERME, RIEN RECU -->
+            <div style="border:1px solid var(--gray-200); border-radius:8px; margin-bottom:16px; overflow:hidden;">
+                <div style="padding:14px 20px; background:var(--gray-50); display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="font-size:18px; color:var(--gray-400);">&#9654;</span>
+                        <div>
+                            <div style="font-weight:700; font-size:15px;">Ing. electrique — Bouthillette Parizeau</div>
+                            <div style="font-size:12px; color:var(--gray-500);">Budget : 85 000 $ | Majoration client : 10%</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:16px; align-items:center;">
+                        <div style="text-align:center;">
+                            <div style="font-size:11px; color:var(--gray-400);">Recu</div>
+                            <div style="font-weight:700; color:var(--gray-300);">0 $</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:11px; color:var(--gray-400);">Autorise</div>
+                            <div style="font-weight:700; color:var(--gray-300);">0 $</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:11px; color:var(--gray-400);">Paye</div>
+                            <div style="font-weight:700; color:var(--gray-300);">0 $</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:11px; color:var(--gray-400);">Restant</div>
+                            <div style="font-weight:700;">85 000 $</div>
+                        </div>
+                        <div class="progress-bar" style="width:100px;"><div class="progress-fill blue" style="width:0%;"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FOURNISSEUR 4 : CONSULTANT LEED — ABSORBE -->
+            <div style="border:1px solid var(--gray-200); border-radius:8px; margin-bottom:16px; overflow:hidden;">
+                <div style="padding:14px 20px; background:var(--gray-50); display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="font-size:18px; color:var(--gray-400);">&#9654;</span>
+                        <div>
+                            <div style="font-weight:700; font-size:15px;">Consultant LEED — Vertima</div>
+                            <div style="font-size:12px; color:var(--gray-500);">Budget : 25 000 $ | <span style="color:var(--danger); font-weight:600;">Non refacturable (absorbe)</span></div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:16px; align-items:center;">
+                        <div style="text-align:center;">
+                            <div style="font-size:11px; color:var(--gray-400);">Recu</div>
+                            <div style="font-weight:700;">8 500 $</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:11px; color:var(--gray-400);">Autorise</div>
+                            <div style="font-weight:700; color:#92400e;">8 500 $</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:11px; color:var(--gray-400);">Paye</div>
+                            <div style="font-weight:700; color:var(--success);">0 $</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:11px; color:var(--gray-400);">Restant</div>
+                            <div style="font-weight:700;">16 500 $</div>
+                        </div>
+                        <div class="progress-bar" style="width:100px;"><div class="progress-fill red" style="width:34%;"></div></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- RAPPORT PAIEMENTS A EFFECTUER -->
+        <div style="padding:0 24px 24px;">
+            <div style="border:2px solid #fcd34d; border-radius:8px; overflow:hidden;">
+                <div style="padding:14px 20px; background:var(--warning-light); display:flex; align-items:center; justify-content:space-between;">
+                    <div>
+                        <div style="font-weight:700; font-size:15px; color:#92400e;">&#9888; Paiements a effectuer</div>
+                        <div style="font-size:12px; color:#92400e;">Factures autorisees en attente de paiement — tous sous-traitants</div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-secondary btn-sm">Exporter</button>
+                        <button class="btn btn-primary btn-sm">Marquer les payes</button>
+                    </div>
+                </div>
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                        <tr>
+                            <th style="padding:8px 16px; text-align:left; background:white; font-size:11px; color:var(--gray-400); border-bottom:1px solid var(--gray-200);">
+                                <input type="checkbox" style="width:16px; height:16px; accent-color:var(--primary);" />
+                            </th>
+                            <th style="padding:8px 12px; text-align:left; background:white; font-size:11px; color:var(--gray-400); border-bottom:1px solid var(--gray-200);">Fournisseur</th>
+                            <th style="padding:8px 12px; text-align:left; background:white; font-size:11px; color:var(--gray-400); border-bottom:1px solid var(--gray-200);"># Facture</th>
+                            <th style="padding:8px 12px; text-align:left; background:white; font-size:11px; color:var(--gray-400); border-bottom:1px solid var(--gray-200);">Projet</th>
+                            <th style="padding:8px 12px; text-align:left; background:white; font-size:11px; color:var(--gray-400); border-bottom:1px solid var(--gray-200);">Autorise le</th>
+                            <th style="padding:8px 12px; text-align:right; background:white; font-size:11px; color:var(--gray-400); border-bottom:1px solid var(--gray-200);">Montant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="padding:10px 16px; border-bottom:1px solid var(--gray-100);">
+                                <input type="checkbox" checked style="width:16px; height:16px; accent-color:var(--primary);" />
+                            </td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100); font-weight:600;">Groupe SMI</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100);">SMI-2026-08</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100);">Centre sportif Laval</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100);">15 mar 2026</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100); text-align:right; font-weight:700;">18 000 $</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:10px 16px; border-bottom:1px solid var(--gray-100);">
+                                <input type="checkbox" checked style="width:16px; height:16px; accent-color:var(--primary);" />
+                            </td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100); font-weight:600;">BPA</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100);">BPA-2026-09</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100);">Centre sportif Laval</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100);">12 mar 2026</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100); text-align:right; font-weight:700;">15 000 $</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:10px 16px; border-bottom:1px solid var(--gray-100);">
+                                <input type="checkbox" style="width:16px; height:16px; accent-color:var(--primary);" />
+                            </td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100); font-weight:600;">Vertima</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100);">VER-2026-03</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100);">Centre sportif Laval</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100);">20 mar 2026</td>
+                            <td style="padding:10px 12px; border-bottom:1px solid var(--gray-100); text-align:right; font-weight:700;">8 500 $</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr style="background:var(--gray-800); color:white;">
+                            <td colspan="5" style="padding:12px 16px; font-weight:700;">TOTAL A PAYER (2 selectionnes)</td>
+                            <td style="padding:12px 12px; text-align:right; font-weight:700; font-size:16px;">33 000 $</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showScreen(id) {
+        // Hide all screens
+        document.querySelectorAll('.mockup-screen').forEach(s => s.classList.remove('active'));
+        // Show target
+        const target = document.getElementById('screen-' + id);
+        if (target) {
+            target.classList.add('active');
+            target.classList.remove('fade-in');
+            void target.offsetWidth; // trigger reflow
+            target.classList.add('fade-in');
+        }
+        // Update nav
+        document.querySelectorAll('.mockup-nav-tabs button').forEach((btn, i) => {
+            btn.classList.remove('active');
+        });
+        const screens = ['dashboard','create1','create2','profiles','assign','timesheet','blocking','billing','suppliers'];
+        const idx = screens.indexOf(id);
+        if (idx >= 0) {
+            document.querySelectorAll('.mockup-nav-tabs button')[idx].classList.add('active');
+        }
+    }
+</script>
+
+</body>
+</html>

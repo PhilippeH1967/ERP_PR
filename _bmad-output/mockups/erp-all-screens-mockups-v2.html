@@ -1,0 +1,2593 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PR | ERP — Toutes les maquettes</title>
+    <style>
+        :root {
+            --primary: #2563EB;
+            --primary-light: #DBEAFE;
+            --primary-dark: #1D4ED8;
+            --success: #16A34A;
+            --success-light: #DCFCE7;
+            --success-dark: #15803D;
+            --warning: #D97706;
+            --warning-light: #FEF3C7;
+            --danger: #DC2626;
+            --danger-light: #FEE2E2;
+            --gray-50: #F9FAFB;
+            --gray-100: #F3F4F6;
+            --gray-200: #E5E7EB;
+            --gray-300: #D1D5DB;
+            --gray-400: #9CA3AF;
+            --gray-500: #6B7280;
+            --gray-600: #4B5563;
+            --gray-700: #374151;
+            --gray-800: #1F2937;
+            --gray-900: #111827;
+            --radius: 8px;
+            --radius-sm: 4px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+            --font-mono: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        /* ===== MOCKUP NAV BAR ===== */
+        .mockup-nav {
+            background: var(--gray-900);
+            position: sticky;
+            top: 0;
+            z-index: 9999;
+            box-shadow: var(--shadow-lg);
+        }
+        .mockup-nav-title {
+            background: var(--primary-dark);
+            padding: 10px 24px;
+            font-size: 13px;
+            font-weight: 700;
+            color: white;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .mockup-nav-groups {
+            display: flex;
+            overflow-x: auto;
+            padding: 0 12px;
+            gap: 0;
+        }
+        .nav-group {
+            display: flex;
+            align-items: stretch;
+            border-right: 1px solid var(--gray-700);
+        }
+        .nav-group:last-child { border-right: none; }
+        .nav-group-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 6px 12px 0 12px;
+            white-space: nowrap;
+            align-self: flex-start;
+        }
+        .nav-group-buttons {
+            display: flex;
+        }
+        .nav-group-wrapper {
+            display: flex;
+            flex-direction: column;
+        }
+        .nav-btn {
+            background: none;
+            border: none;
+            color: var(--gray-400);
+            padding: 10px 14px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        .nav-btn:hover { color: white; background: rgba(255,255,255,0.05); }
+        .nav-btn.active { color: white; border-bottom-color: var(--primary); }
+
+        /* ===== APP SHELL ===== */
+        .app-shell {
+            display: none;
+            background: var(--gray-50);
+            min-height: calc(100vh - 90px);
+        }
+        .app-shell.active { display: flex; }
+        .app-topbar {
+            background: white;
+            border-bottom: 1px solid var(--gray-200);
+            padding: 0 24px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 72px;
+            z-index: 100;
+        }
+        .topbar-left { display: flex; align-items: center; gap: 16px; }
+        .topbar-logo { font-size: 18px; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; }
+        .topbar-logo span { color: var(--gray-400); font-weight: 400; }
+        .topbar-search {
+            padding: 8px 12px 8px 36px;
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            font-size: 13px;
+            width: 280px;
+            background: var(--gray-50) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%239CA3AF' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E") no-repeat 12px center;
+        }
+        .topbar-right { display: flex; align-items: center; gap: 16px; }
+        .topbar-bell {
+            position: relative;
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .topbar-bell .bell-badge {
+            position: absolute; top: -2px; right: -2px;
+            background: var(--danger);
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .topbar-avatar {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .app-body { display: flex; flex: 1; width: 100%; }
+        .sidebar {
+            width: 240px;
+            min-width: 240px;
+            background: var(--gray-100);
+            border-right: 1px solid var(--gray-200);
+            padding: 16px 0;
+            min-height: calc(100vh - 128px);
+        }
+        .sidebar-section-label {
+            padding: 12px 20px 4px;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--gray-400);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .sidebar-item {
+            padding: 9px 20px 9px 28px;
+            font-size: 14px;
+            color: var(--gray-600);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.15s;
+        }
+        .sidebar-item:hover { background: var(--gray-200); color: var(--gray-800); }
+        .sidebar-item.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+        .sidebar-icon { width: 18px; text-align: center; font-size: 15px; }
+        .main-content { flex: 1; padding: 24px; overflow-x: auto; }
+
+        /* ===== CARDS ===== */
+        .card {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .card-title { font-size: 16px; font-weight: 600; color: var(--gray-800); }
+
+        /* ===== KPI CARDS ===== */
+        .kpi-grid { display: grid; gap: 16px; margin-bottom: 24px; }
+        .kpi-grid-4 { grid-template-columns: repeat(4, 1fr); }
+        .kpi-grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .kpi-grid-6 { grid-template-columns: repeat(3, 1fr); }
+        .kpi-card {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+        }
+        .kpi-label {
+            font-size: 12px;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            margin-bottom: 4px;
+        }
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            color: var(--gray-900);
+        }
+        .kpi-value.sm { font-size: 22px; }
+        .kpi-detail { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+        .kpi-trend-up { color: var(--success); font-size: 12px; font-weight: 600; }
+        .kpi-trend-down { color: var(--danger); font-size: 12px; font-weight: 600; }
+
+        /* ===== TABLES ===== */
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        table th {
+            background: var(--gray-50);
+            padding: 10px 12px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            border-bottom: 2px solid var(--gray-200);
+        }
+        table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--gray-100);
+            font-size: 14px;
+        }
+        table tr:hover { background: var(--gray-50); }
+        .mono { font-family: var(--font-mono); font-size: 13px; }
+        .text-right { text-align: right; }
+
+        /* ===== BADGES ===== */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-green { background: var(--success-light); color: var(--success); }
+        .badge-green-dark { background: #065F46; color: white; }
+        .badge-amber { background: var(--warning-light); color: #92400E; }
+        .badge-red { background: var(--danger-light); color: var(--danger); }
+        .badge-blue { background: var(--primary-light); color: var(--primary); }
+        .badge-gray { background: var(--gray-100); color: var(--gray-500); }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+        .dot-green { background: var(--success); }
+        .dot-amber { background: var(--warning); }
+        .dot-red { background: var(--danger); }
+        .dot-gray { background: var(--gray-400); }
+        .dot-blue { background: var(--primary); }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-ghost { background: transparent; color: var(--gray-600); border: 1px solid var(--gray-300); }
+        .btn-ghost:hover { background: var(--gray-100); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-sm { padding: 6px 14px; font-size: 12px; }
+        .btn-group { display: flex; gap: 8px; }
+
+        /* ===== FORMS ===== */
+        .form-group { margin-bottom: 20px; }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 6px;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--gray-300);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: inherit;
+            background: white;
+            transition: border-color 0.15s;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+        }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+        .form-hint { font-size: 12px; color: var(--gray-400); margin-top: 4px; }
+
+        /* ===== STEPPER ===== */
+        .stepper { display: flex; align-items: center; justify-content: center; padding: 20px; gap: 0; }
+        .step { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--gray-400); }
+        .step.active { color: var(--primary); font-weight: 600; }
+        .step.done { color: var(--success); }
+        .step-num {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700;
+            background: var(--gray-200); color: var(--gray-500);
+        }
+        .step.active .step-num { background: var(--primary); color: white; }
+        .step.done .step-num { background: var(--success); color: white; }
+        .step-line { width: 60px; height: 2px; background: var(--gray-200); margin: 0 8px; }
+        .step-line.done { background: var(--success); }
+
+        /* ===== PROGRESS BAR ===== */
+        .progress-bar { width: 100%; height: 6px; background: var(--gray-200); border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+        .progress-fill.blue { background: var(--primary); }
+        .progress-fill.green { background: var(--success); }
+        .progress-fill.amber { background: var(--warning); }
+        .progress-fill.red { background: var(--danger); }
+
+        /* ===== BUDGET BAR ===== */
+        .budget-bar-wrapper { display: flex; align-items: center; gap: 8px; }
+        .budget-bar { width: 80px; height: 6px; background: var(--gray-200); border-radius: 3px; overflow: hidden; }
+        .budget-bar-fill { height: 100%; border-radius: 3px; }
+        .budget-pct { font-size: 12px; font-family: var(--font-mono); color: var(--gray-600); min-width: 32px; }
+
+        /* ===== TIMESHEET ===== */
+        .ts-grid { width: 100%; border-collapse: collapse; }
+        .ts-grid th {
+            padding: 10px 6px; text-align: center; font-size: 11px; font-weight: 600;
+            color: var(--gray-500); background: var(--gray-50); border-bottom: 2px solid var(--gray-200);
+        }
+        .ts-grid th:first-child { text-align: left; padding-left: 16px; width: 260px; }
+        .ts-grid th.total-col { background: var(--primary-light); color: var(--primary); }
+        .ts-grid td { padding: 4px; text-align: center; border-bottom: 1px solid var(--gray-100); }
+        .ts-grid td:first-child { text-align: left; padding-left: 16px; font-size: 14px; }
+        .ts-grid td.total-col { font-weight: 700; color: var(--primary); background: #EFF6FF; }
+        .ts-grid .project-header td { background: var(--gray-50); font-weight: 600; font-size: 13px; color: var(--gray-700); padding: 8px 6px 8px 16px; }
+        .ts-grid .phase-row td:first-child { padding-left: 32px; color: var(--gray-600); }
+        .ts-grid .total-row td { background: var(--gray-800); color: white; font-weight: 700; padding: 10px 6px; border: none; }
+        .ts-grid .total-row td.total-col { background: var(--gray-900); color: white; }
+        .ts-input {
+            width: 44px; padding: 6px 2px; text-align: center;
+            border: 1px solid transparent; border-radius: var(--radius-sm);
+            font-size: 13px; font-family: var(--font-mono); background: transparent;
+            transition: all 0.15s;
+        }
+        .ts-input:hover { border-color: var(--gray-300); background: white; }
+        .ts-input:focus { border-color: var(--primary); background: white; outline: none; box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
+        .ts-input.locked { color: var(--gray-300); cursor: not-allowed; background: var(--gray-50); }
+        .ts-grid .section-row td { font-size: 11px; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 8px 4px 28px; font-weight: 600; text-align: left; border-bottom: 1px solid var(--gray-100); }
+        .ts-grid .task-row td:first-child { padding-left: 40px; color: var(--gray-600); }
+        .ts-grid .locked td { color: var(--gray-300); }
+        .ts-grid .locked td:first-child { color: var(--gray-400); }
+        .ts-grid .total-row td:last-child { background: var(--gray-900); color: white; }
+        .employee-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; }
+        .section-divider { font-size: 12px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; margin: 20px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--gray-200); }
+        .checkbox-list { list-style: none; padding: 0; margin: 0; }
+        .checkbox-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
+        .checkbox-item:last-child { border-bottom: none; }
+        .checkbox-item input[type="checkbox"] { margin-top: 3px; }
+        .checkbox-item .label { font-size: 14px; font-weight: 600; color: var(--gray-700); }
+        .checkbox-item .desc { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+
+        /* ===== FILTER BAR ===== */
+        .filter-bar {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 16px;
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 16px;
+        }
+        .filter-bar input, .filter-bar select {
+            padding: 8px 12px;
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            background: white;
+        }
+        .filter-bar input { width: 220px; }
+        .filter-bar .spacer { flex: 1; }
+
+        /* ===== PILL TOGGLE ===== */
+        .pill-toggle {
+            display: inline-flex;
+            background: var(--gray-100);
+            border-radius: 20px;
+            padding: 3px;
+        }
+        .pill-toggle button {
+            padding: 6px 16px;
+            border: none;
+            border-radius: 18px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            background: transparent;
+            color: var(--gray-500);
+            transition: all 0.2s;
+        }
+        .pill-toggle button.active {
+            background: white;
+            color: var(--gray-800);
+            box-shadow: var(--shadow);
+            font-weight: 600;
+        }
+
+        /* ===== KANBAN ===== */
+        .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        .kanban-col { background: var(--gray-50); border-radius: var(--radius); padding: 12px; min-height: 200px; }
+        .kanban-col-title {
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.3px; color: var(--gray-500); margin-bottom: 12px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .kanban-col-count {
+            background: var(--gray-200); border-radius: 10px; padding: 1px 8px;
+            font-size: 11px; font-weight: 700;
+        }
+        .kanban-card {
+            background: white; border-radius: 6px; padding: 12px;
+            box-shadow: var(--shadow); margin-bottom: 8px; cursor: pointer;
+            border-left: 3px solid var(--gray-300);
+            transition: box-shadow 0.15s;
+        }
+        .kanban-card:hover { box-shadow: var(--shadow-md); }
+        .kanban-card-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+        .kanban-card-sub { font-size: 11px; color: var(--gray-500); }
+        .kanban-card-meta { font-size: 11px; color: var(--gray-400); margin-top: 8px; display: flex; justify-content: space-between; }
+
+        /* ===== WORKFLOW ===== */
+        .workflow { display: flex; align-items: center; gap: 0; margin: 16px 0; }
+        .workflow-step {
+            padding: 8px 16px; font-size: 12px; font-weight: 600;
+            background: var(--gray-100); color: var(--gray-500);
+            position: relative;
+        }
+        .workflow-step:first-child { border-radius: 6px 0 0 6px; }
+        .workflow-step:last-child { border-radius: 0 6px 6px 0; }
+        .workflow-step.active { background: var(--primary); color: white; }
+        .workflow-step.done { background: var(--success-light); color: var(--success); }
+        .workflow-arrow { font-size: 16px; color: var(--gray-300); margin: 0 -2px; z-index: 1; }
+
+        /* ===== UPLOAD ZONE ===== */
+        .upload-zone {
+            border: 2px dashed var(--gray-300);
+            border-radius: var(--radius);
+            padding: 24px;
+            text-align: center;
+            color: var(--gray-400);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .upload-zone:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+
+        /* ===== TABS ===== */
+        .tab-bar { display: flex; gap: 0; border-bottom: 2px solid var(--gray-200); margin-bottom: 20px; }
+        .tab-item {
+            padding: 10px 20px; font-size: 14px; font-weight: 500;
+            color: var(--gray-500); cursor: pointer;
+            border-bottom: 2px solid transparent; margin-bottom: -2px;
+            transition: all 0.15s;
+        }
+        .tab-item:hover { color: var(--gray-700); }
+        .tab-item.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+        /* ===== BREADCRUMB ===== */
+        .breadcrumb { font-size: 13px; color: var(--gray-400); margin-bottom: 8px; }
+        .breadcrumb a { color: var(--primary); text-decoration: none; }
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        /* ===== MISC ===== */
+        .section-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; color: var(--gray-900); }
+        .section-subtitle { font-size: 13px; color: var(--gray-500); margin-bottom: 20px; }
+        .action-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 16px; border-bottom: 1px solid var(--gray-100);
+            cursor: pointer; transition: background 0.15s;
+        }
+        .action-item:hover { background: var(--gray-50); }
+        .action-item:last-child { border-bottom: none; }
+        .action-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .action-text { flex: 1; font-size: 14px; }
+        .action-date { font-size: 12px; color: var(--gray-400); white-space: nowrap; }
+        .ratio-banner {
+            padding: 12px 20px; border-radius: var(--radius);
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 16px; font-weight: 600;
+        }
+        .page-header { margin-bottom: 24px; }
+        .page-header h1 { font-size: 22px; font-weight: 700; }
+        .page-header .subtitle { font-size: 13px; color: var(--gray-500); }
+        .preview-box {
+            background: var(--gray-50); border: 1px solid var(--gray-200);
+            border-radius: var(--radius); padding: 16px;
+            font-size: 13px; color: var(--gray-600);
+            margin-top: 8px;
+        }
+        .delegation-preview {
+            background: var(--primary-light); border: 1px solid var(--primary);
+            border-radius: var(--radius); padding: 16px;
+            font-size: 14px; color: var(--primary-dark);
+        }
+        .consortium-info {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            padding: 20px; margin-bottom: 16px;
+        }
+        .member-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--gray-100); }
+        .member-row:last-child { border-bottom: none; }
+        .member-avatar {
+            width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700; color: white;
+        }
+        .member-info { flex: 1; }
+        .member-name { font-weight: 600; font-size: 14px; }
+        .member-coeff { font-size: 12px; color: var(--gray-500); }
+        .checkbox-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 0; font-size: 14px;
+        }
+        .checkbox-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); }
+
+        @media (max-width: 1024px) {
+            .kpi-grid-4 { grid-template-columns: repeat(2, 1fr); }
+            .kpi-grid-6 { grid-template-columns: repeat(2, 1fr); }
+            .kanban { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .form-row { grid-template-columns: 1fr; }
+            .kpi-grid-4 { grid-template-columns: 1fr; }
+        }
+
+        /* ===== PM DASHBOARD - DIRECTION A STYLES ===== */
+        .kpi-sparkline { margin-top: 8px; height: 30px; display: flex; align-items: flex-end; gap: 2px; }
+        .spark-bar { width: 8px; background: var(--primary-light); border-radius: 2px 2px 0 0; transition: background 0.2s; }
+        .spark-bar:last-child { background: var(--primary); }
+        .pm-budget-bar { width: 120px; height: 8px; background: var(--gray-200); border-radius: 4px; overflow: hidden; display: inline-flex; }
+        .pm-budget-fill { height: 100%; border-radius: 4px; }
+        .pm-budget-fill.green { background: var(--success); }
+        .pm-budget-fill.amber { background: var(--warning); }
+        .pm-budget-fill.red { background: var(--danger); }
+        .pm-data-table { width: 100%; background: white; border: 1px solid var(--gray-200); border-radius: 8px; overflow: hidden; }
+        .pm-data-table th { font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-500); padding: 10px 16px; text-align: left; background: var(--gray-50); border-bottom: 1px solid var(--gray-200); }
+        .pm-data-table td { padding: 10px 16px; border-bottom: 1px solid var(--gray-100); font-size: 14px; }
+        .pm-data-table tr:hover { background: var(--gray-50); cursor: pointer; }
+        .pm-data-table tr:last-child td { border-bottom: none; }
+        .pm-two-col { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; margin-bottom: 24px; }
+        .chart-placeholder { background: white; border: 1px solid var(--gray-200); border-radius: 8px; padding: 20px; min-height: 260px; display: flex; flex-direction: column; }
+        .chart-bars { display: flex; align-items: flex-end; gap: 12px; flex: 1; padding-top: 20px; }
+        .chart-col { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 4px; }
+        .chart-bar-group { display: flex; gap: 3px; align-items: flex-end; width: 100%; justify-content: center; }
+        .chart-bar { width: 16px; border-radius: 3px 3px 0 0; }
+        .chart-bar.realized { background: var(--primary); }
+        .chart-bar.projected { background: var(--primary-light); }
+        .chart-month { font-size: 11px; color: var(--gray-400); }
+        .notif-list { background: white; border-radius: 8px; border: 1px solid var(--gray-200); overflow: hidden; margin-bottom: 24px; }
+        .notif-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--gray-100); font-size: 13px; cursor: pointer; transition: background 0.15s; }
+        .notif-item:hover { background: var(--gray-50); }
+        .notif-item:last-child { border-bottom: none; }
+        .notif-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .notif-dot.blue { background: var(--primary); }
+        .notif-dot.orange { background: var(--warning); }
+        .notif-dot.nred { background: var(--danger); }
+        .notif-time { margin-left: auto; font-size: 11px; color: var(--gray-400); white-space: nowrap; }
+        .pm-ts-section { margin-top: 32px; padding-top: 24px; border-top: 2px solid var(--gray-200); }
+        .pm-ts-grid { width: 100%; background: white; border: 1px solid var(--gray-200); border-radius: 8px; border-collapse: separate; border-spacing: 0; overflow: hidden; }
+        .pm-ts-grid th { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-500); padding: 8px 10px; background: var(--gray-50); border-bottom: 1px solid var(--gray-200); text-align: center; }
+        .pm-ts-grid th:first-child { text-align: left; width: 260px; }
+        .pm-ts-grid td { padding: 6px 8px; border-bottom: 1px solid var(--gray-100); text-align: center; }
+        .pm-ts-grid td:first-child { text-align: left; font-size: 13px; padding-left: 12px; }
+        .pm-ts-grid tr:last-child td { border-bottom: none; }
+        .pm-ts-input { width: 44px; padding: 4px; text-align: center; border: 1px solid var(--gray-200); border-radius: 4px; font-family: var(--font-mono); font-size: 13px; }
+        .pm-ts-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
+        .pm-ts-total { font-family: var(--font-mono); font-weight: 600; font-size: 13px; }
+        .pm-ts-phase { font-size: 11px; color: var(--gray-400); }
+        .pm-ts-progress { margin-top: 12px; display: flex; align-items: center; gap: 12px; }
+        .pm-ts-progress-bar { flex: 1; height: 8px; background: var(--gray-200); border-radius: 4px; overflow: hidden; }
+        .pm-ts-progress-fill { height: 100%; background: var(--primary); border-radius: 4px; }
+        .pm-ts-progress-label { font-size: 12px; color: var(--gray-500); }
+        .pm-ts-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+    </style>
+</head>
+<body>
+
+<!-- ===== MOCKUP NAVIGATION ===== -->
+<nav class="mockup-nav">
+    <div class="mockup-nav-title">&#9670; PR | ERP — Toutes les maquettes</div>
+    <div class="mockup-nav-groups">
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Tableaux de bord</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn active" onclick="showScreen('pm-dashboard')">PM Dashboard</button>
+                    <button class="nav-btn" onclick="showScreen('dir-dashboard')">Direction</button>
+                </div>
+            </div>
+        </div>
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Projets</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn" onclick="showScreen('project-list')">Liste</button>
+                    <button class="nav-btn" onclick="showScreen('project-create1')">Cr&eacute;ation 1/2</button>
+                    <button class="nav-btn" onclick="showScreen('project-create2')">Cr&eacute;ation 2/2</button>
+                    <button class="nav-btn" onclick="showScreen('project-detail')">D&eacute;tail</button>
+                </div>
+            </div>
+        </div>
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Temps & D&eacute;penses</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn" onclick="showScreen('timesheet')">Feuille de temps</button>
+                    <button class="nav-btn" onclick="showScreen('expenses')">D&eacute;penses</button>
+                </div>
+            </div>
+        </div>
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Facturation</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn" onclick="showScreen('invoice-list')">Factures</button>
+                    <button class="nav-btn" onclick="showScreen('invoice-prep')">Pr&eacute;paration</button>
+                </div>
+            </div>
+        </div>
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Autres</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn" onclick="showScreen('suppliers')">Fournisseurs</button>
+                    <button class="nav-btn" onclick="showScreen('proposals')">Offres</button>
+                    <button class="nav-btn" onclick="showScreen('consortium')">Consortium</button>
+                    <button class="nav-btn" onclick="showScreen('settings')">Param&egrave;tres</button>
+                    <button class="nav-btn" onclick="showScreen('delegation')">D&eacute;l&eacute;gation</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- ============================================================ -->
+<!-- SCREEN 1: PM DASHBOARD                                        -->
+<!-- ============================================================ -->
+<div id="screen-pm-dashboard" class="app-shell active">
+    <div style="width:100%">
+        <div class="app-topbar">
+            <div class="topbar-left">
+                <div class="topbar-logo">PR <span>|</span> ERP</div>
+                <input class="topbar-search" type="text" placeholder="Rechercher projets, clients...">
+            </div>
+            <div class="topbar-right">
+                <div class="topbar-bell">&#128276;<div class="bell-badge">5</div></div>
+                <div class="topbar-avatar">PH</div>
+            </div>
+        </div>
+        <div class="app-body">
+            <div class="sidebar">
+                <div class="sidebar-section-label">Navigation</div>
+                <div class="sidebar-item active"><span class="sidebar-icon">&#9632;</span> Tableau de bord</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9654;</span> Projets</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128339;</span> Feuilles de temps</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128196;</span> Facturation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> D&eacute;penses</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Fournisseurs</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Offres de services</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Consortiums</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Param&egrave;tres</div>
+            </div>
+            <div class="main-content">
+                <div class="breadcrumb"><a href="#">Accueil</a> &rsaquo; Tableau de bord</div>
+                <div class="section-title">Tableau de bord &mdash; Chef de projet</div>
+                <div class="section-subtitle">Vue d'ensemble de vos projets et indicateurs</div>
+
+                <!-- KPI Row with Sparklines -->
+                <div class="kpi-grid kpi-grid-4">
+                    <div class="kpi-card">
+                        <div class="kpi-label">Heures consomm&eacute;es ce mois</div>
+                        <div class="kpi-value">1,240h</div>
+                        <div class="kpi-detail"><span class="kpi-trend-up">&#9650; +8%</span> vs mois pr&eacute;c.</div>
+                        <div class="kpi-sparkline"><div class="spark-bar" style="height:40%"></div><div class="spark-bar" style="height:55%"></div><div class="spark-bar" style="height:45%"></div><div class="spark-bar" style="height:60%"></div><div class="spark-bar" style="height:70%"></div><div class="spark-bar" style="height:85%"></div></div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Ratio CA / Salaires</div>
+                        <div class="kpi-value">2.85</div>
+                        <div class="kpi-detail"><span class="kpi-trend-up">&#9650; +0.15</span> vs mois pr&eacute;c.</div>
+                        <div class="kpi-sparkline"><div class="spark-bar" style="height:60%"></div><div class="spark-bar" style="height:55%"></div><div class="spark-bar" style="height:65%"></div><div class="spark-bar" style="height:58%"></div><div class="spark-bar" style="height:72%"></div><div class="spark-bar" style="height:80%"></div></div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Taux de facturation</div>
+                        <div class="kpi-value">78%</div>
+                        <div class="kpi-detail"><span class="kpi-trend-down">&#9660; -3%</span> vs objectif</div>
+                        <div class="kpi-sparkline"><div class="spark-bar" style="height:80%"></div><div class="spark-bar" style="height:75%"></div><div class="spark-bar" style="height:82%"></div><div class="spark-bar" style="height:70%"></div><div class="spark-bar" style="height:68%"></div><div class="spark-bar" style="height:65%"></div></div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Marge moyenne</div>
+                        <div class="kpi-value">34%</div>
+                        <div class="kpi-detail"><span class="kpi-trend-up">&#9650; +2%</span> vs T3</div>
+                        <div class="kpi-sparkline"><div class="spark-bar" style="height:50%"></div><div class="spark-bar" style="height:55%"></div><div class="spark-bar" style="height:52%"></div><div class="spark-bar" style="height:60%"></div><div class="spark-bar" style="height:65%"></div><div class="spark-bar" style="height:70%"></div></div>
+                    </div>
+                </div>
+
+                <!-- Two-column: Project Health + Budget Chart -->
+                <div class="pm-two-col">
+                    <div>
+                        <div class="section-title" style="font-size:16px">Sant&eacute; des projets</div>
+                        <table class="pm-data-table">
+                            <thead><tr>
+                                <th>Projet</th><th>Chef de projet</th><th>Budget</th><th>Statut</th>
+                            </tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Centre Vid&eacute;otron &mdash; Phase 2</strong></td>
+                                    <td>J-F. Tremblay</td>
+                                    <td><div class="pm-budget-bar"><div class="pm-budget-fill green" style="width:55%"></div></div> <span class="mono" style="font-size:12px">55%</span></td>
+                                    <td><span class="status-dot dot-green"></span>En sant&eacute;</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Biblioth&egrave;que Nationale &mdash; Agrandissement</strong></td>
+                                    <td>Marie Lavoie</td>
+                                    <td><div class="pm-budget-bar"><div class="pm-budget-fill amber" style="width:82%"></div></div> <span class="mono" style="font-size:12px">82%</span></td>
+                                    <td><span class="status-dot dot-amber"></span>&Agrave; risque</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Tour Deloitte &mdash; R&eacute;novation</strong></td>
+                                    <td>Pierre Gagnon</td>
+                                    <td><div class="pm-budget-bar"><div class="pm-budget-fill red" style="width:96%"></div></div> <span class="mono" style="font-size:12px">96%</span></td>
+                                    <td><span class="status-dot dot-red"></span>Critique</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Complexe Aquatique Laval</strong></td>
+                                    <td>Sophie B&eacute;langer</td>
+                                    <td><div class="pm-budget-bar"><div class="pm-budget-fill green" style="width:38%"></div></div> <span class="mono" style="font-size:12px">38%</span></td>
+                                    <td><span class="status-dot dot-green"></span>En sant&eacute;</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>R&eacute;sidence &Eacute;tudiante UdeM</strong></td>
+                                    <td>J-F. Tremblay</td>
+                                    <td><div class="pm-budget-bar"><div class="pm-budget-fill green" style="width:62%"></div></div> <span class="mono" style="font-size:12px">62%</span></td>
+                                    <td><span class="status-dot dot-green"></span>En sant&eacute;</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <div class="section-title" style="font-size:16px">Budget r&eacute;alis&eacute; vs projet&eacute;</div>
+                        <div class="chart-placeholder">
+                            <div class="chart-bars">
+                                <div class="chart-col"><div class="chart-bar-group"><div class="chart-bar realized" style="height:80px"></div><div class="chart-bar projected" style="height:95px"></div></div><div class="chart-month">Oct</div></div>
+                                <div class="chart-col"><div class="chart-bar-group"><div class="chart-bar realized" style="height:90px"></div><div class="chart-bar projected" style="height:100px"></div></div><div class="chart-month">Nov</div></div>
+                                <div class="chart-col"><div class="chart-bar-group"><div class="chart-bar realized" style="height:105px"></div><div class="chart-bar projected" style="height:100px"></div></div><div class="chart-month">D&eacute;c</div></div>
+                                <div class="chart-col"><div class="chart-bar-group"><div class="chart-bar realized" style="height:85px"></div><div class="chart-bar projected" style="height:105px"></div></div><div class="chart-month">Jan</div></div>
+                                <div class="chart-col"><div class="chart-bar-group"><div class="chart-bar realized" style="height:110px"></div><div class="chart-bar projected" style="height:105px"></div></div><div class="chart-month">F&eacute;v</div></div>
+                                <div class="chart-col"><div class="chart-bar-group"><div class="chart-bar realized" style="height:60px"></div><div class="chart-bar projected" style="height:110px"></div></div><div class="chart-month">Mars</div></div>
+                            </div>
+                            <div style="display:flex;gap:16px;margin-top:12px;font-size:11px;color:var(--gray-400)">
+                                <span><span style="display:inline-block;width:10px;height:10px;background:var(--primary);border-radius:2px;margin-right:4px"></span>R&eacute;alis&eacute;</span>
+                                <span><span style="display:inline-block;width:10px;height:10px;background:var(--primary-light);border-radius:2px;margin-right:4px"></span>Projet&eacute;</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions requises -->
+                <div class="section-title" style="font-size:16px">Actions requises</div>
+                <div class="notif-list">
+                    <div class="notif-item"><div class="notif-dot blue"></div><strong>3 feuilles de temps</strong>&nbsp;en attente d'approbation<span class="notif-time">il y a 2h</span></div>
+                    <div class="notif-item"><div class="notif-dot orange"></div>Facture <strong>Biblioth&egrave;que Nationale</strong> &mdash; pr&ecirc;te pour r&eacute;vision<span class="notif-time">il y a 4h</span></div>
+                    <div class="notif-item"><div class="notif-dot nred"></div><strong>Tour Deloitte</strong> &mdash; budget &agrave; 96%, action requise<span class="notif-time">hier</span></div>
+                    <div class="notif-item"><div class="notif-dot blue"></div>Rapport de d&eacute;penses de <strong>Sophie B&eacute;langer</strong> &agrave; approuver<span class="notif-time">hier</span></div>
+                    <div class="notif-item"><div class="notif-dot orange"></div>Offre <strong>Mus&eacute;e des Beaux-Arts</strong> &mdash; date limite dans 5 jours<span class="notif-time">2 mars</span></div>
+                </div>
+
+                <!-- Feuille de temps intégrée -->
+                <div class="pm-ts-section">
+                    <div class="section-title" style="font-size:16px">Feuille de temps &mdash; Semaine du 3 mars 2026</div>
+                    <table class="pm-ts-grid">
+                        <thead><tr>
+                            <th>Projet / Phase</th><th>Lun</th><th>Mar</th><th>Mer</th><th>Jeu</th><th>Ven</th><th>Sam</th><th>Dim</th><th>Total</th>
+                        </tr></thead>
+                        <tbody>
+                            <tr>
+                                <td>Centre Vid&eacute;otron &mdash; Phase 2<br><span class="pm-ts-phase">Architecture &mdash; Plans &amp; devis</span></td>
+                                <td><input class="pm-ts-input" value="4.0"></td><td><input class="pm-ts-input" value="3.5"></td><td><input class="pm-ts-input" value="4.0"></td><td><input class="pm-ts-input" value="2.0"></td><td><input class="pm-ts-input" value="4.0"></td><td><input class="pm-ts-input" value=""></td><td><input class="pm-ts-input" value=""></td>
+                                <td class="pm-ts-total">17.5</td>
+                            </tr>
+                            <tr>
+                                <td>Biblioth&egrave;que Nationale<br><span class="pm-ts-phase">Structure &mdash; Coordination</span></td>
+                                <td><input class="pm-ts-input" value="3.5"></td><td><input class="pm-ts-input" value="4.0"></td><td><input class="pm-ts-input" value="3.5"></td><td><input class="pm-ts-input" value="4.0"></td><td><input class="pm-ts-input" value=""></td><td><input class="pm-ts-input" value=""></td><td><input class="pm-ts-input" value=""></td>
+                                <td class="pm-ts-total">15.0</td>
+                            </tr>
+                            <tr>
+                                <td>Administration interne<br><span class="pm-ts-phase">R&eacute;unions &amp; formation</span></td>
+                                <td><input class="pm-ts-input" value="0.5"></td><td><input class="pm-ts-input" value="0.5"></td><td><input class="pm-ts-input" value="0.5"></td><td><input class="pm-ts-input" value="2.0"></td><td><input class="pm-ts-input" value=""></td><td><input class="pm-ts-input" value=""></td><td><input class="pm-ts-input" value=""></td>
+                                <td class="pm-ts-total">3.5</td>
+                            </tr>
+                            <tr style="background:var(--gray-50);font-weight:600">
+                                <td>Total quotidien</td>
+                                <td class="pm-ts-total">8.0</td><td class="pm-ts-total">8.0</td><td class="pm-ts-total">8.0</td><td class="pm-ts-total">8.0</td><td class="pm-ts-total">4.0</td><td class="pm-ts-total">0</td><td class="pm-ts-total">0</td>
+                                <td class="pm-ts-total" style="color:var(--primary)">36.0</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="pm-ts-progress"><div class="pm-ts-progress-bar"><div class="pm-ts-progress-fill" style="width:90%"></div></div><span class="pm-ts-progress-label"><span class="mono">36.0</span> / 40.0 heures</span></div>
+                    <div class="pm-ts-footer"><button class="btn btn-ghost btn-sm">Sauvegarder brouillon</button><button class="btn btn-primary btn-sm">Soumettre la semaine</button></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 2: DIRECTOR DASHBOARD                                  -->
+<!-- ============================================================ -->
+<div id="screen-dir-dashboard" class="app-shell">
+    <div style="width:100%">
+        <div class="app-topbar">
+            <div class="topbar-left">
+                <div class="topbar-logo">PR <span>|</span> ERP</div>
+                <input class="topbar-search" type="text" placeholder="Rechercher projets, clients...">
+            </div>
+            <div class="topbar-right">
+                <div class="topbar-bell">&#128276;<div class="bell-badge">5</div></div>
+                <div class="topbar-avatar">PH</div>
+            </div>
+        </div>
+        <div class="app-body">
+            <div class="sidebar">
+                <div class="sidebar-section-label">Navigation</div>
+                <div class="sidebar-item active"><span class="sidebar-icon">&#9632;</span> Tableau de bord</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9654;</span> Projets</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128339;</span> Feuilles de temps</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128196;</span> Facturation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> D&eacute;penses</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Fournisseurs</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Offres de services</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Consortiums</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Param&egrave;tres</div>
+            </div>
+            <div class="main-content">
+                <div class="section-title">Tableau de bord Direction</div>
+                <div class="section-subtitle">Indicateurs globaux de performance de la firme</div>
+
+                <div class="kpi-grid kpi-grid-6">
+                    <div class="kpi-card">
+                        <div class="kpi-label">CA total</div>
+                        <div class="kpi-value sm">$8.6M</div>
+                        <div class="kpi-detail"><span class="kpi-trend-up">&#9650; 8%</span> vs ann&eacute;e pr&eacute;c&eacute;dente</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Marge globale</div>
+                        <div class="kpi-value sm">32%</div>
+                        <div class="kpi-detail">Cible: 30%</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Taux d'utilisation</div>
+                        <div class="kpi-value sm">74%</div>
+                        <div class="kpi-detail"><span class="kpi-trend-down">&#9660; 3%</span> vs trimestre pr&eacute;c.</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Projets actifs</div>
+                        <div class="kpi-value sm">24</div>
+                        <div class="kpi-detail">6 en phase finale</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Factures impay&eacute;es</div>
+                        <div class="kpi-value sm" style="color:var(--danger)">$420K</div>
+                        <div class="kpi-detail">12 factures, moy. 38 jours</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Ratio CA / Salaires</div>
+                        <div class="kpi-value sm">2.72</div>
+                        <div class="kpi-detail">Cible: 2.75 <span class="kpi-trend-down">&#9660;</span></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Performance par unit&eacute; d'affaires</div>
+                        <button class="btn btn-ghost btn-sm">Exporter</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead><tr>
+                                <th>Unit&eacute; d'affaires</th><th class="text-right">CA</th><th class="text-right">Marge %</th><th class="text-right">Utilisation %</th><th class="text-right">Nb projets</th><th>Tendance</th>
+                            </tr></thead>
+                            <tbody>
+                                <tr><td style="font-weight:600">Architecture</td><td class="mono text-right">$4.2M</td><td class="mono text-right">34%</td><td class="mono text-right">78%</td><td class="mono text-right">14</td><td><span class="kpi-trend-up">&#9650; 5%</span></td></tr>
+                                <tr><td style="font-weight:600">Urbanisme</td><td class="mono text-right">$2.8M</td><td class="mono text-right">29%</td><td class="mono text-right">71%</td><td class="mono text-right">6</td><td><span class="kpi-trend-up">&#9650; 2%</span></td></tr>
+                                <tr><td style="font-weight:600">Design int&eacute;rieur</td><td class="mono text-right">$1.6M</td><td class="mono text-right">38%</td><td class="mono text-right">82%</td><td class="mono text-right">4</td><td><span class="kpi-trend-up">&#9650; 11%</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 3: PROJECT LIST                                        -->
+<!-- ============================================================ -->
+<div id="screen-project-list" class="app-shell">
+    <div style="width:100%">
+        <div class="app-topbar">
+            <div class="topbar-left"><div class="topbar-logo">PR <span>|</span> ERP</div><input class="topbar-search" type="text" placeholder="Rechercher projets, clients..."></div>
+            <div class="topbar-right"><div class="topbar-bell">&#128276;<div class="bell-badge">5</div></div><div class="topbar-avatar">PH</div></div>
+        </div>
+        <div class="app-body">
+            <div class="sidebar">
+                <div class="sidebar-section-label">Navigation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9632;</span> Tableau de bord</div>
+                <div class="sidebar-item active"><span class="sidebar-icon">&#9654;</span> Projets</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128339;</span> Feuilles de temps</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128196;</span> Facturation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> D&eacute;penses</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Fournisseurs</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Offres de services</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Consortiums</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Param&egrave;tres</div>
+            </div>
+            <div class="main-content">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                    <div>
+                        <div class="section-title">Projets</div>
+                        <div class="section-subtitle">24 projets au total</div>
+                    </div>
+                    <button class="btn btn-primary">+ Nouveau projet</button>
+                </div>
+
+                <div class="filter-bar">
+                    <input type="text" placeholder="Rechercher un projet...">
+                    <select>
+                        <option>Statut: Tous</option><option>Actif</option><option>Termin&eacute;</option><option>En pause</option>
+                    </select>
+                    <select>
+                        <option>BU: Toutes</option><option>Architecture</option><option>Urbanisme</option><option>Design int&eacute;rieur</option>
+                    </select>
+                    <div class="spacer"></div>
+                    <button class="btn btn-ghost btn-sm">Exporter</button>
+                </div>
+
+                <div class="card" style="padding:0; overflow:hidden;">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead><tr>
+                                <th>Projet</th><th>Client</th><th>Chef de projet</th><th>BU</th><th>Budget</th><th>Statut</th><th>Derni&egrave;re activit&eacute;</th>
+                            </tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td style="font-weight:600">Centre Vid&eacute;otron Ph.2</td><td>Ville de Qu&eacute;bec</td><td>Pierre Haumesser</td><td>Architecture</td>
+                                    <td><div class="budget-bar-wrapper"><div class="budget-bar"><div class="budget-bar-fill" style="width:55%;background:var(--success)"></div></div><span class="budget-pct">55%</span></div></td>
+                                    <td><span class="status-dot dot-green"></span>Actif</td><td style="color:var(--gray-500);font-size:13px">Aujourd'hui</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600">Biblioth&egrave;que Nationale</td><td>BAnQ</td><td>Marie Lavoie</td><td>Architecture</td>
+                                    <td><div class="budget-bar-wrapper"><div class="budget-bar"><div class="budget-bar-fill" style="width:72%;background:var(--warning)"></div></div><span class="budget-pct">72%</span></div></td>
+                                    <td><span class="status-dot dot-green"></span>Actif</td><td style="color:var(--gray-500);font-size:13px">Hier</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600">Tour Deloitte</td><td>Deloitte Canada</td><td>J-F Tremblay</td><td>Architecture</td>
+                                    <td><div class="budget-bar-wrapper"><div class="budget-bar"><div class="budget-bar-fill" style="width:38%;background:var(--success)"></div></div><span class="budget-pct">38%</span></div></td>
+                                    <td><span class="status-dot dot-green"></span>Actif</td><td style="color:var(--gray-500);font-size:13px">2 mars</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600">Campus MIL Phase 3</td><td>UdeM</td><td>Pierre Haumesser</td><td>Architecture</td>
+                                    <td><div class="budget-bar-wrapper"><div class="budget-bar"><div class="budget-bar-fill" style="width:88%;background:var(--danger)"></div></div><span class="budget-pct">88%</span></div></td>
+                                    <td><span class="status-dot dot-amber"></span>Attention</td><td style="color:var(--gray-500);font-size:13px">1 mars</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600">Complexe Aquatique</td><td>Ville Laval</td><td>Sophie Chen</td><td>Architecture</td>
+                                    <td><div class="budget-bar-wrapper"><div class="budget-bar"><div class="budget-bar-fill" style="width:62%;background:var(--success)"></div></div><span class="budget-pct">62%</span></div></td>
+                                    <td><span class="status-dot dot-green"></span>Actif</td><td style="color:var(--gray-500);font-size:13px">28 f&eacute;v</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600">Plan directeur St-Laurent</td><td>Arr. St-Laurent</td><td>Marc-Andr&eacute; Roy</td><td>Urbanisme</td>
+                                    <td><div class="budget-bar-wrapper"><div class="budget-bar"><div class="budget-bar-fill" style="width:95%;background:var(--success)"></div></div><span class="budget-pct">95%</span></div></td>
+                                    <td><span class="status-dot dot-blue"></span>Termin&eacute;</td><td style="color:var(--gray-500);font-size:13px">15 f&eacute;v</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600">R&eacute;sidence &Eacute;tudiante McGill</td><td>Universit&eacute; McGill</td><td>Marie Lavoie</td><td>Design int&eacute;rieur</td>
+                                    <td><div class="budget-bar-wrapper"><div class="budget-bar"><div class="budget-bar-fill" style="width:15%;background:var(--primary)"></div></div><span class="budget-pct">15%</span></div></td>
+                                    <td><span class="status-dot dot-green"></span>Actif</td><td style="color:var(--gray-500);font-size:13px">3 mars</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600">Parc industriel Mirabel</td><td>Ville Mirabel</td><td>J-F Tremblay</td><td>Urbanisme</td>
+                                    <td><div class="budget-bar-wrapper"><div class="budget-bar"><div class="budget-bar-fill" style="width:45%;background:var(--success)"></div></div><span class="budget-pct">45%</span></div></td>
+                                    <td><span class="status-dot dot-gray"></span>En pause</td><td style="color:var(--gray-500);font-size:13px">10 f&eacute;v</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 4: PROJECT CREATION STEP 1                             -->
+<!-- ============================================================ -->
+<div id="screen-project-create1" class="app-shell">
+    <div style="width:100%">
+        <div class="app-topbar">
+            <div class="topbar-left"><div class="topbar-logo">PR <span>|</span> ERP</div><input class="topbar-search" type="text" placeholder="Rechercher projets, clients..."></div>
+            <div class="topbar-right"><div class="topbar-bell">&#128276;<div class="bell-badge">5</div></div><div class="topbar-avatar">PH</div></div>
+        </div>
+        <div class="app-body">
+            <div class="sidebar">
+                <div class="sidebar-section-label">Navigation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9632;</span> Tableau de bord</div>
+                <div class="sidebar-item active"><span class="sidebar-icon">&#9654;</span> Projets</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128339;</span> Feuilles de temps</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128196;</span> Facturation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> D&eacute;penses</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Fournisseurs</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Offres de services</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Consortiums</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Param&egrave;tres</div>
+            </div>
+            <div class="main-content">
+                <div class="breadcrumb"><a href="#">Projets</a> / Nouveau projet</div>
+                <div class="section-title">Nouveau projet</div>
+                <div class="section-subtitle">&Eacute;tape 1 de 2 &mdash; Informations g&eacute;n&eacute;rales</div>
+
+                <div class="stepper">
+                    <div class="step active"><div class="step-num">1</div> Informations g&eacute;n&eacute;rales</div>
+                    <div class="step-line"></div>
+                    <div class="step"><div class="step-num">2</div> Phases, &eacute;quipe &amp; budget</div>
+                </div>
+
+                <div class="card" style="max-width:720px; margin:0 auto;">
+                    <div class="form-row" style="margin-bottom:20px;">
+                        <div class="form-group">
+                            <label>Code projet</label>
+                            <input type="text" placeholder="PRJ-2026-XXX" value="PRJ-2026-025">
+                            <div class="form-hint">G&eacute;n&eacute;r&eacute; automatiquement, modifiable</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Nom du projet</label>
+                            <input type="text" placeholder="Nom du projet">
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-bottom:20px;">
+                        <div class="form-group">
+                            <label>Client</label>
+                            <select>
+                                <option>S&eacute;lectionner un client...</option>
+                                <option>Ville de Qu&eacute;bec</option><option>BAnQ</option><option>Deloitte Canada</option><option>UdeM</option><option>Ville Laval</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Unit&eacute; d'affaires</label>
+                            <select>
+                                <option>S&eacute;lectionner...</option>
+                                <option>Architecture</option><option>Urbanisme</option><option>Design int&eacute;rieur</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-bottom:20px;">
+                        <div class="form-group">
+                            <label>Mode contractuel</label>
+                            <select>
+                                <option selected>Forfaitaire</option>
+                                <option>Cost Plus</option>
+                                <option>IPD / Alliance</option>
+                                <option>Pain/Gain (GMP)</option>
+                                <option>Co-d&eacute;veloppement</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Co&ucirc;t de construction estim&eacute;</label>
+                            <input type="text" value="45 000 000 $">
+                            <div class="form-hint">Informatif seulement &mdash; ne sert pas au calcul des honoraires</div>
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-bottom:20px;">
+                        <div class="form-group">
+                            <label>Date de d&eacute;but</label>
+                            <input type="date" value="2026-03-15">
+                        </div>
+                        <div class="form-group">
+                            <label>Date de fin estim&eacute;e</label>
+                            <input type="date" value="2027-06-30">
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-bottom:20px;">
+                        <div class="form-group">
+                            <label>Mod&egrave;le de projet</label>
+                            <select>
+                                <option>Aucun mod&egrave;le</option>
+                                <option selected>B&acirc;timent institutionnel (5 phases)</option>
+                                <option>R&eacute;sidentiel multifamilial</option>
+                                <option>Am&eacute;nagement int&eacute;rieur</option>
+                                <option>Plan directeur urbanisme</option>
+                            </select>
+                            <div class="form-hint">Un mod&egrave;le pr&eacute;-remplit les phases et disciplines</div>
+                        </div>
+                        <div class="form-group" style="display:flex; align-items:center; padding-top:20px;">
+                            <input type="checkbox" id="consortium-check" style="margin-right:8px;">
+                            <label for="consortium-check" style="margin-bottom:0;font-weight:500;">Projet en consortium</label>
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:24px; padding-top:16px; border-top:1px solid var(--gray-200);">
+                        <button class="btn btn-ghost">Annuler</button>
+                        <button class="btn btn-primary">Suivant &#8594;</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 5: PROJECT CREATION STEP 2                             -->
+<!-- ============================================================ -->
+<div id="screen-project-create2" class="app-shell">
+    <div style="width:100%">
+        <div class="app-topbar">
+            <div class="topbar-left"><div class="topbar-logo">PR <span>|</span> ERP</div><input class="topbar-search" type="text" placeholder="Rechercher projets, clients..."></div>
+            <div class="topbar-right"><div class="topbar-bell">&#128276;<div class="bell-badge">5</div></div><div class="topbar-avatar">PH</div></div>
+        </div>
+        <div class="app-body">
+            <div class="sidebar">
+                <div class="sidebar-section-label">Navigation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9632;</span> Tableau de bord</div>
+                <div class="sidebar-item active"><span class="sidebar-icon">&#9654;</span> Projets</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128339;</span> Feuilles de temps</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128196;</span> Facturation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> D&eacute;penses</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Fournisseurs</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Offres de services</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Consortiums</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Param&egrave;tres</div>
+            </div>
+            <div class="main-content">
+                <div class="breadcrumb"><a href="#">Projets</a> / Nouveau projet</div>
+                <div class="section-title">Nouveau projet</div>
+                <div class="section-subtitle">&Eacute;tape 2 de 2 &mdash; Phases, &eacute;quipe &amp; budget</div>
+
+                <div class="stepper">
+                    <div class="step done"><div class="step-num">&#10003;</div> Informations g&eacute;n&eacute;rales</div>
+                    <div class="step-line done"></div>
+                    <div class="step active"><div class="step-num">2</div> Phases, &eacute;quipe &amp; budget</div>
+                </div>
+
+                <!-- Bandeau récapitulatif étape 1 -->
+                <div style="background:var(--primary-light); border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:13px; color:var(--primary-dark);">
+                    <strong>Mod&egrave;le :</strong> B&acirc;timent institutionnel (5 phases) &nbsp;|&nbsp; <strong>Mode :</strong> Forfaitaire &nbsp;|&nbsp; <strong>Client :</strong> Ville de Laval &nbsp;|&nbsp; <strong>Co&ucirc;t construction :</strong> 45 M$
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Phases du projet</div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead><tr>
+                                <th>Phase</th><th>Discipline</th><th>Mode de facturation</th><th class="text-right">Budget</th><th style="width:40px"></th>
+                            </tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td><input type="text" value="Concept" style="border:1px solid var(--gray-200);border-radius:4px;padding:6px 10px;font-size:13px;width:180px;"></td>
+                                    <td><select style="padding:6px 10px;border:1px solid var(--gray-200);border-radius:4px;font-size:13px;"><option>Architecture</option><option>Structure</option><option>MEP</option><option>&Eacute;lectrique</option></select></td>
+                                    <td><select style="padding:6px 10px;border:1px solid var(--gray-200);border-radius:4px;font-size:13px;"><option>Forfaitaire</option><option>Horaire</option></select></td>
+                                    <td class="text-right"><input type="text" value="$120,000" style="border:1px solid var(--gray-200);border-radius:4px;padding:6px 10px;font-size:13px;font-family:var(--font-mono);width:120px;text-align:right;"></td>
+                                    <td style="color:var(--gray-400);cursor:pointer;text-align:center;">&#10005;</td>
+                                </tr>
+                                <tr>
+                                    <td><input type="text" value="Pr&eacute;liminaire" style="border:1px solid var(--gray-200);border-radius:4px;padding:6px 10px;font-size:13px;width:180px;"></td>
+                                    <td><select style="padding:6px 10px;border:1px solid var(--gray-200);border-radius:4px;font-size:13px;"><option>Architecture</option><option>Structure</option><option>MEP</option><option>&Eacute;lectrique</option></select></td>
+                                    <td><select style="padding:6px 10px;border:1px solid var(--gray-200);border-radius:4px;font-size:13px;"><option>Forfaitaire</option><option>Horaire</option></select></td>
+                                    <td class="text-right"><input type="text" value="$200,000" style="border:1px solid var(--gray-200);border-radius:4px;padding:6px 10px;font-size:13px;font-family:var(--font-mono);width:120px;text-align:right;"></td>
+                                    <td style="color:var(--gray-400);cursor:pointer;text-align:center;">&#10005;</td>
+                                </tr>
+                                <tr>
+                                    <td><input type="text" value="D&eacute;finitif" style="border:1px solid var(--gray-200);border-radius:4px;padding:6px 10px;font-size:13px;width:180px;"></td>
+                                    <td><select style="padding:6px 10px;border:1px solid var(--gray-200);border-radius:4px;font-size:13px;"><option selected>Structure</option><option>Architecture</option><option>MEP</option><option>&Eacute;lectrique</option></select></td>
+                                    <td><select style="padding:6px 10px;border:1px solid var(--gray-200);border-radius:4px;font-size:13px;"><option>Forfaitaire</option><option selected>Horaire</option></select></td>
+                                    <td class="text-right"><input type="text" value="$350,000" style="border:1px solid var(--gray-200);border-radius:4px;padding:6px 10px;font-size:13px;font-family:var(--font-mono);width:120px;text-align:right;"></td>
+                                    <td style="color:var(--gray-400);cursor:pointer;text-align:center;">&#10005;</td>
+                                </tr>
+                                <tr>
+                                    <td><input type="text" value="Surveillance" style="border:1px solid var(--gray-200);border-radius:4px;padding:6px 10px;font-size:13px;width:180px;"></td>
+                                    <td><select style="padding:6px 10px;border:1px solid var(--gray-200);border-radius:4px;font-size:13px;"><option>Architecture</option><option>Structure</option><option selected>MEP</option><option>&Eacute;lectrique</option></select></td>
+                                    <td><select style="padding:6px 10px;border:1px solid var(--gray-200);border-radius:4px;font-size:13px;"><option>Forfaitaire</option><option selected>Horaire</option></select></td>
+                                    <td class="text-right"><input type="text" value="$180,000" style="border:1px solid var(--gray-200);border-radius:4px;padding:6px 10px;font-size:13px;font-family:var(--font-mono);width:120px;text-align:right;"></td>
+                                    <td style="color:var(--gray-400);cursor:pointer;text-align:center;">&#10005;</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top:12px;">
+                        <button class="btn btn-ghost btn-sm">+ Ajouter une phase</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header"><div class="card-title">&Eacute;quipe</div></div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Chef de projet (CP)</label>
+                            <select><option>Pierre Haumesser</option><option>Marie Lavoie</option><option>J-F Tremblay</option><option>Sophie Chen</option></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Directeur de projet</label>
+                            <select><option>Marc-Andr&eacute; Roy</option><option>Pierre Haumesser</option><option>Isabelle Gagnon</option></select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Taux de facturation</div></div>
+                    <div style="display:flex; align-items:center; gap:16px;">
+                        <button class="btn btn-ghost">&#128196; Importer les taux (Excel)</button>
+                        <span style="color:var(--gray-400);font-size:13px;">ou</span>
+                        <a href="#" style="color:var(--primary);font-size:14px;text-decoration:none;font-weight:500;">Saisie manuelle</a>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="section-divider" style="margin-top:0;">Services support</div>
+                    <ul class="checkbox-list">
+                        <li class="checkbox-item"><input type="checkbox" checked><div><div class="label">Gestion de projet</div><div class="desc">Coordination et administration</div></div></li>
+                        <li class="checkbox-item"><input type="checkbox" checked><div><div class="label">BIM</div><div class="desc">Mod&eacute;lisation de l'information du b&acirc;timent</div></div></li>
+                        <li class="checkbox-item"><input type="checkbox"><div><div class="label">3D / Visualisation</div><div class="desc">Rendus et animations</div></div></li>
+                        <li class="checkbox-item"><input type="checkbox"><div><div class="label">Paysage</div><div class="desc">Am&eacute;nagement paysager</div></div></li>
+                        <li class="checkbox-item"><input type="checkbox"><div><div class="label">Design</div><div class="desc">Design int&eacute;rieur</div></div></li>
+                    </ul>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:8px;">
+                    <button class="btn btn-ghost">&#8592; Retour</button>
+                    <button class="btn btn-primary">Cr&eacute;er le projet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 6: PROJECT DETAIL                                      -->
+<!-- ============================================================ -->
+<div id="screen-project-detail" class="app-shell">
+    <div style="width:100%">
+        <div class="app-topbar">
+            <div class="topbar-left"><div class="topbar-logo">PR <span>|</span> ERP</div><input class="topbar-search" type="text" placeholder="Rechercher projets, clients..."></div>
+            <div class="topbar-right"><div class="topbar-bell">&#128276;<div class="bell-badge">5</div></div><div class="topbar-avatar">PH</div></div>
+        </div>
+        <div class="app-body">
+            <div class="sidebar">
+                <div class="sidebar-section-label">Navigation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9632;</span> Tableau de bord</div>
+                <div class="sidebar-item active"><span class="sidebar-icon">&#9654;</span> Projets</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128339;</span> Feuilles de temps</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128196;</span> Facturation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> D&eacute;penses</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Fournisseurs</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Offres de services</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Consortiums</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Param&egrave;tres</div>
+            </div>
+            <div class="main-content">
+                <div class="breadcrumb"><a href="#">Projets</a> / Centre Vid&eacute;otron &mdash; Phase 2</div>
+                <div class="page-header" style="display:flex; align-items:center; gap:16px;">
+                    <div style="flex:1;">
+                        <h1 style="font-size:22px;font-weight:700;">Centre Vid&eacute;otron &mdash; Phase 2</h1>
+                        <div class="subtitle" style="font-size:13px;color:var(--gray-500);">Ville de Qu&eacute;bec &bull; PRJ-2024-018 &bull; Architecture</div>
+                    </div>
+                    <span class="badge badge-green" style="font-size:13px;padding:4px 14px;">Actif</span>
+                </div>
+
+                <div class="tab-bar">
+                    <div class="tab-item active">Vue d'ensemble</div>
+                    <div class="tab-item">Temps</div>
+                    <div class="tab-item">Budget</div>
+                    <div class="tab-item">Factures</div>
+                    <div class="tab-item">&Eacute;quipe</div>
+                </div>
+
+                <div class="kpi-grid kpi-grid-4">
+                    <div class="kpi-card">
+                        <div class="kpi-label">Budget consomm&eacute;</div>
+                        <div class="kpi-value sm" style="font-size:20px;">$660K <span style="font-size:14px;color:var(--gray-400);font-weight:400;">/ $1.2M</span></div>
+                        <div style="margin-top:8px;"><div class="progress-bar"><div class="progress-fill green" style="width:55%"></div></div></div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Heures</div>
+                        <div class="kpi-value sm" style="font-size:20px;">4 200 <span style="font-size:14px;color:var(--gray-400);font-weight:400;">/ 7 600h</span></div>
+                        <div style="margin-top:8px;"><div class="progress-bar"><div class="progress-fill blue" style="width:55%"></div></div></div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Ratio CA / Salaires</div>
+                        <div class="kpi-value sm">2.91</div>
+                        <div class="kpi-detail">Cible: 2.75</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Marge</div>
+                        <div class="kpi-value sm">36%</div>
+                        <div class="kpi-detail"><span class="kpi-trend-up">&#9650; 2%</span> vs pr&eacute;vision</div>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:2fr 1fr; gap:16px;">
+                    <div class="card">
+                        <div class="card-header"><div class="card-title">Phases</div></div>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead><tr><th>Phase</th><th class="text-right">Budget</th><th>Avanc.</th><th>Statut</th></tr></thead>
+                                <tbody>
+                                    <tr><td style="font-weight:500">Concept</td><td class="mono text-right">$120K</td><td><div class="budget-bar-wrapper"><div class="budget-bar"><div class="budget-bar-fill" style="width:100%;background:var(--success)"></div></div><span class="budget-pct">100%</span></div></td><td><span class="badge badge-green">Termin&eacute;</span></td></tr>
+                                    <tr><td style="font-weight:500">Pr&eacute;liminaire</td><td class="mono text-right">$200K</td><td><div class="budget-bar-wrapper"><div class="budget-bar"><div class="budget-bar-fill" style="width:100%;background:var(--success)"></div></div><span class="budget-pct">100%</span></div></td><td><span class="badge badge-green">Termin&eacute;</span></td></tr>
+                                    <tr><td style="font-weight:500">D&eacute;finitif</td><td class="mono text-right">$350K</td><td><div class="budget-bar-wrapper"><div class="budget-bar"><div class="budget-bar-fill" style="width:65%;background:var(--primary)"></div></div><span class="budget-pct">65%</span></div></td><td><span class="badge badge-blue">En cours</span></td></tr>
+                                    <tr><td style="font-weight:500">Plans &amp; devis</td><td class="mono text-right">$350K</td><td><div class="budget-bar-wrapper"><div class="budget-bar"><div class="budget-bar-fill" style="width:10%;background:var(--gray-400)"></div></div><span class="budget-pct">10%</span></div></td><td><span class="badge badge-gray">Planifi&eacute;</span></td></tr>
+                                    <tr><td style="font-weight:500">Surveillance</td><td class="mono text-right">$180K</td><td><div class="budget-bar-wrapper"><div class="budget-bar"><div class="budget-bar-fill" style="width:0%;background:var(--gray-300)"></div></div><span class="budget-pct">0%</span></div></td><td><span class="badge badge-gray">Planifi&eacute;</span></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header"><div class="card-title">Activit&eacute; r&eacute;cente</div></div>
+                        <div class="action-item"><div class="action-dot" style="background:var(--primary)"></div><div class="action-text" style="font-size:13px;">Facture #1052 cr&eacute;&eacute;e</div><div class="action-date">3 mars</div></div>
+                        <div class="action-item"><div class="action-dot" style="background:var(--success)"></div><div class="action-text" style="font-size:13px;">Phase Pr&eacute;liminaire termin&eacute;e</div><div class="action-date">28 f&eacute;v</div></div>
+                        <div class="action-item"><div class="action-dot" style="background:var(--warning)"></div><div class="action-text" style="font-size:13px;">D&eacute;passement heures D&eacute;finitif 5%</div><div class="action-date">25 f&eacute;v</div></div>
+                        <div class="action-item"><div class="action-dot" style="background:var(--gray-400)"></div><div class="action-text" style="font-size:13px;">Sophie Chen ajout&eacute;e &agrave; l'&eacute;quipe</div><div class="action-date">20 f&eacute;v</div></div>
+                        <div class="action-item"><div class="action-dot" style="background:var(--primary)"></div><div class="action-text" style="font-size:13px;">Facture #1048 pay&eacute;e</div><div class="action-date">18 f&eacute;v</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 7: TIMESHEET                                           -->
+<!-- ============================================================ -->
+<div id="screen-timesheet" class="app-shell">
+    <div style="width:100%">
+        <div class="app-topbar">
+            <div class="topbar-left"><div class="topbar-logo">PR <span>|</span> ERP</div><input class="topbar-search" type="text" placeholder="Rechercher projets, clients..."></div>
+            <div class="topbar-right"><div class="topbar-bell">&#128276;<div class="bell-badge">5</div></div><div class="topbar-avatar">PH</div></div>
+        </div>
+        <div class="app-body">
+            <div class="sidebar">
+                <div class="sidebar-section-label">Navigation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9632;</span> Tableau de bord</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9654;</span> Projets</div>
+                <div class="sidebar-item active"><span class="sidebar-icon">&#128339;</span> Feuilles de temps</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128196;</span> Facturation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> D&eacute;penses</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Fournisseurs</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Offres de services</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Consortiums</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Param&egrave;tres</div>
+            </div>
+            <div class="main-content">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                    <div class="section-title">Feuille de temps</div>
+                    <span class="badge badge-gray" style="font-size:12px;padding:4px 12px;">Brouillon</span>
+                </div>
+
+                <!-- En-tête employé + Navigation semaine -->
+                <div class="card" style="padding:16px 20px; margin-bottom:16px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div class="employee-avatar">PH</div>
+                            <div>
+                                <div style="font-weight:700;">Philippe Haumesser</div>
+                                <div style="font-size:12px; color:var(--gray-500);">Charg&eacute; de projet senior</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:4px;">
+                            <button class="btn btn-ghost" style="padding:6px 12px; font-size:12px;">&larr; Sem. pr&eacute;c.</button>
+                            <button class="btn btn-ghost" style="padding:6px 12px; font-size:12px; font-weight:700;">2 &ndash; 8 mars 2026</button>
+                            <button class="btn btn-ghost" style="padding:6px 12px; font-size:12px;">Sem. suiv. &rarr;</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Barre progression -->
+                <div class="card" style="padding:12px 20px; margin-bottom:16px; display:flex; align-items:center; gap:16px;">
+                    <span style="font-size:13px; font-weight:600; color:var(--gray-700);">Progression:</span>
+                    <div style="flex:1;">
+                        <div class="progress-bar" style="height:8px;">
+                            <div class="progress-fill blue" style="width:90%"></div>
+                        </div>
+                    </div>
+                    <span class="mono" style="font-size:14px; font-weight:700; color:var(--primary);">36 / 40 heures</span>
+                </div>
+
+                <!-- Grille feuille de temps -->
+                <div class="card" style="padding:0; overflow:hidden;">
+                    <table class="ts-grid">
+                        <thead>
+                            <tr>
+                                <th>Projet / T&acirc;che</th>
+                                <th>Lun 2</th><th>Mar 3</th><th>Mer 4</th><th>Jeu 5</th><th>Ven 6</th><th>Sam 7</th><th>Dim 8</th>
+                                <th class="total-col">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Projet 1 : Centre Vidéotron -->
+                            <tr class="project-header"><td colspan="9">&#128193; Centre Vid&eacute;otron Ph.2 &mdash; Ville de Qu&eacute;bec</td></tr>
+                            <tr class="section-row"><td colspan="9">Phases</td></tr>
+                            <tr class="task-row">
+                                <td>D&eacute;finitif &mdash; Architecture</td>
+                                <td><input class="ts-input" value="4"></td>
+                                <td><input class="ts-input" value="3"></td>
+                                <td><input class="ts-input" value="4"></td>
+                                <td><input class="ts-input" value="2"></td>
+                                <td><input class="ts-input" value="3"></td>
+                                <td><input class="ts-input" value=""></td>
+                                <td><input class="ts-input" value=""></td>
+                                <td class="total-col mono">16</td>
+                            </tr>
+                            <tr class="task-row locked">
+                                <td>&#128274; &Eacute;tude pr&eacute;paratoire</td>
+                                <td><input class="ts-input locked" value="" disabled></td>
+                                <td><input class="ts-input locked" value="" disabled></td>
+                                <td><input class="ts-input locked" value="" disabled></td>
+                                <td><input class="ts-input locked" value="" disabled></td>
+                                <td><input class="ts-input locked" value="" disabled></td>
+                                <td><input class="ts-input locked" value="" disabled></td>
+                                <td><input class="ts-input locked" value="" disabled></td>
+                                <td class="total-col mono" style="color:var(--gray-300);">0</td>
+                            </tr>
+                            <tr class="section-row"><td colspan="9">Support</td></tr>
+                            <tr class="task-row">
+                                <td>Gestion de projet</td>
+                                <td><input class="ts-input" value="0.5"></td>
+                                <td><input class="ts-input" value="0.5"></td>
+                                <td><input class="ts-input" value=""></td>
+                                <td><input class="ts-input" value="0.5"></td>
+                                <td><input class="ts-input" value=""></td>
+                                <td><input class="ts-input" value=""></td>
+                                <td><input class="ts-input" value=""></td>
+                                <td class="total-col mono">1.5</td>
+                            </tr>
+
+                            <!-- Projet 2 : Bibliothèque Nationale -->
+                            <tr class="project-header"><td colspan="9">&#128193; Biblioth&egrave;que Nationale &mdash; BAnQ</td></tr>
+                            <tr class="section-row"><td colspan="9">Phases</td></tr>
+                            <tr class="task-row">
+                                <td>Pr&eacute;liminaire &mdash; Architecture</td>
+                                <td><input class="ts-input" value="2"></td>
+                                <td><input class="ts-input" value="3"></td>
+                                <td><input class="ts-input" value="2"></td>
+                                <td><input class="ts-input" value="3"></td>
+                                <td><input class="ts-input" value="2"></td>
+                                <td><input class="ts-input" value=""></td>
+                                <td><input class="ts-input" value=""></td>
+                                <td class="total-col mono">12</td>
+                            </tr>
+
+                            <!-- Projet 3 : Campus MIL -->
+                            <tr class="project-header"><td colspan="9">&#128193; Campus MIL Phase 3 &mdash; UdeM</td></tr>
+                            <tr class="section-row"><td colspan="9">Phases</td></tr>
+                            <tr class="task-row">
+                                <td>Surveillance &mdash; Structure</td>
+                                <td><input class="ts-input" value="1"></td>
+                                <td><input class="ts-input" value="1.5"></td>
+                                <td><input class="ts-input" value="1"></td>
+                                <td><input class="ts-input" value="0.5"></td>
+                                <td><input class="ts-input" value="2"></td>
+                                <td><input class="ts-input" value=""></td>
+                                <td><input class="ts-input" value=""></td>
+                                <td class="total-col mono">6</td>
+                            </tr>
+                            <tr class="section-row"><td colspan="9">Support</td></tr>
+                            <tr class="task-row">
+                                <td>BIM / Coordination</td>
+                                <td><input class="ts-input" value="0.5"></td>
+                                <td><input class="ts-input" value=""></td>
+                                <td><input class="ts-input" value=""></td>
+                                <td><input class="ts-input" value=""></td>
+                                <td><input class="ts-input" value=""></td>
+                                <td><input class="ts-input" value=""></td>
+                                <td><input class="ts-input" value=""></td>
+                                <td class="total-col mono">0.5</td>
+                            </tr>
+
+                            <!-- Total -->
+                            <tr class="total-row">
+                                <td>TOTAL</td>
+                                <td class="mono">8</td><td class="mono">8</td><td class="mono">7</td><td class="mono">6</td><td class="mono">7</td><td class="mono">0</td><td class="mono">0</td>
+                                <td class="total-col mono">36</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pied de page : note blocage + actions -->
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-top:16px;">
+                    <div style="font-size:13px; color:var(--gray-500);">
+                        &#128274; <em>&Eacute;tude pr&eacute;paratoire</em> &mdash; Phase bloqu&eacute;e par le charg&eacute; de projet
+                    </div>
+                    <div style="display:flex; gap:12px;">
+                        <button class="btn btn-ghost">Sauvegarder brouillon</button>
+                        <button class="btn btn-primary">Soumettre la semaine</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 8: EXPENSE REPORT                                      -->
+<!-- ============================================================ -->
+<div id="screen-expenses" class="app-shell">
+    <div style="width:100%">
+        <div class="app-topbar">
+            <div class="topbar-left"><div class="topbar-logo">PR <span>|</span> ERP</div><input class="topbar-search" type="text" placeholder="Rechercher projets, clients..."></div>
+            <div class="topbar-right"><div class="topbar-bell">&#128276;<div class="bell-badge">5</div></div><div class="topbar-avatar">PH</div></div>
+        </div>
+        <div class="app-body">
+            <div class="sidebar">
+                <div class="sidebar-section-label">Navigation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9632;</span> Tableau de bord</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9654;</span> Projets</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128339;</span> Feuilles de temps</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128196;</span> Facturation</div>
+                <div class="sidebar-item active"><span class="sidebar-icon">&#128179;</span> D&eacute;penses</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Fournisseurs</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Offres de services</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Consortiums</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Param&egrave;tres</div>
+            </div>
+            <div class="main-content">
+                <div class="section-title">Rapport de d&eacute;penses</div>
+                <div class="section-subtitle">Soumettre et consulter vos d&eacute;penses professionnelles</div>
+
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Nouveau rapport de d&eacute;penses</div></div>
+                    <div class="form-row" style="margin-bottom:20px;">
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="date" value="2026-03-04">
+                        </div>
+                        <div class="form-group">
+                            <label>Montant</label>
+                            <input type="text" placeholder="$0.00" style="font-family:var(--font-mono);">
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-bottom:20px;">
+                        <div class="form-group">
+                            <label>Cat&eacute;gorie</label>
+                            <select>
+                                <option>S&eacute;lectionner...</option>
+                                <option>Transport</option><option>Repas</option><option>Fournitures</option><option>H&eacute;bergement</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Projet</label>
+                            <select>
+                                <option>S&eacute;lectionner un projet...</option>
+                                <option>Centre Vid&eacute;otron Ph.2</option><option>Biblioth&egrave;que Nationale</option><option>Campus MIL Phase 3</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea rows="2" placeholder="D&eacute;crivez la d&eacute;pense..." style="resize:vertical;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Re&ccedil;u</label>
+                        <div class="upload-zone">
+                            &#128206; T&eacute;l&eacute;charger le re&ccedil;u (PDF, JPG)
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end;">
+                        <button class="btn btn-primary">Ajouter la d&eacute;pense</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header"><div class="card-title">D&eacute;penses r&eacute;centes</div></div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead><tr><th>Date</th><th>Projet</th><th>Cat&eacute;gorie</th><th>Description</th><th class="text-right">Montant</th><th>Statut</th></tr></thead>
+                            <tbody>
+                                <tr><td>3 mars</td><td>Centre Vid&eacute;otron Ph.2</td><td>Transport</td><td>Taxi chantier Qu&eacute;bec</td><td class="mono text-right">$85.50</td><td><span class="badge badge-amber">En attente</span></td></tr>
+                                <tr><td>1 mars</td><td>Biblioth&egrave;que Nationale</td><td>Repas</td><td>D&icirc;ner r&eacute;union client</td><td class="mono text-right">$62.30</td><td><span class="badge badge-amber">En attente</span></td></tr>
+                                <tr><td>26 f&eacute;v</td><td>Campus MIL Phase 3</td><td>Fournitures</td><td>Impression plans A1</td><td class="mono text-right">$124.00</td><td><span class="badge badge-green">Approuv&eacute;e</span></td></tr>
+                                <tr><td>20 f&eacute;v</td><td>Centre Vid&eacute;otron Ph.2</td><td>H&eacute;bergement</td><td>H&ocirc;tel Qu&eacute;bec (2 nuits)</td><td class="mono text-right">$340.00</td><td><span class="badge badge-green">Approuv&eacute;e</span></td></tr>
+                            </tbody>
+                            <tfoot>
+                                <tr style="background:var(--gray-50);font-weight:700;">
+                                    <td colspan="4" style="text-align:right;">Total</td>
+                                    <td class="mono text-right">$611.80</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 9: INVOICE LIST                                        -->
+<!-- ============================================================ -->
+<div id="screen-invoice-list" class="app-shell">
+    <div style="width:100%">
+        <div class="app-topbar">
+            <div class="topbar-left"><div class="topbar-logo">PR <span>|</span> ERP</div><input class="topbar-search" type="text" placeholder="Rechercher projets, clients..."></div>
+            <div class="topbar-right"><div class="topbar-bell">&#128276;<div class="bell-badge">5</div></div><div class="topbar-avatar">PH</div></div>
+        </div>
+        <div class="app-body">
+            <div class="sidebar">
+                <div class="sidebar-section-label">Navigation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9632;</span> Tableau de bord</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9654;</span> Projets</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128339;</span> Feuilles de temps</div>
+                <div class="sidebar-item active"><span class="sidebar-icon">&#128196;</span> Facturation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> D&eacute;penses</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Fournisseurs</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Offres de services</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Consortiums</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Param&egrave;tres</div>
+            </div>
+            <div class="main-content">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                    <div>
+                        <div class="section-title">Facturation</div>
+                        <div class="section-subtitle">Gestion et suivi des factures</div>
+                    </div>
+                    <button class="btn btn-primary">+ Nouvelle facture</button>
+                </div>
+
+                <div class="filter-bar">
+                    <input type="text" placeholder="Rechercher une facture...">
+                    <select>
+                        <option>Statut: Tous</option><option>Brouillon</option><option>En approbation</option><option>Approuv&eacute;e</option><option>Envoy&eacute;e</option><option>Pay&eacute;e</option>
+                    </select>
+                    <select>
+                        <option>P&eacute;riode: Toutes</option><option>Ce mois</option><option>Dernier mois</option><option>Ce trimestre</option>
+                    </select>
+                    <div class="spacer"></div>
+                </div>
+
+                <div class="card" style="padding:0; overflow:hidden;">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead><tr>
+                                <th>No facture</th><th>Projet</th><th>Client</th><th class="text-right">Montant</th><th>Statut</th><th>Date</th><th>Actions</th>
+                            </tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td class="mono" style="font-weight:600">FAC-1052</td><td>Centre Vid&eacute;otron Ph.2</td><td>Ville de Qu&eacute;bec</td>
+                                    <td class="mono text-right">$84,500.00</td>
+                                    <td><span class="badge badge-gray">Brouillon</span></td>
+                                    <td style="color:var(--gray-500);font-size:13px">3 mars 2026</td>
+                                    <td><button class="btn btn-ghost btn-sm">Modifier</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono" style="font-weight:600">FAC-1051</td><td>Biblioth&egrave;que Nationale</td><td>BAnQ</td>
+                                    <td class="mono text-right">$126,750.00</td>
+                                    <td><span class="badge badge-amber">En approbation</span></td>
+                                    <td style="color:var(--gray-500);font-size:13px">28 f&eacute;v 2026</td>
+                                    <td><button class="btn btn-ghost btn-sm">Voir</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono" style="font-weight:600">FAC-1050</td><td>Tour Deloitte</td><td>Deloitte Canada</td>
+                                    <td class="mono text-right">$67,200.00</td>
+                                    <td><span class="badge badge-green">Approuv&eacute;e</span></td>
+                                    <td style="color:var(--gray-500);font-size:13px">25 f&eacute;v 2026</td>
+                                    <td><button class="btn btn-ghost btn-sm">Envoyer</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono" style="font-weight:600">FAC-1049</td><td>Campus MIL Phase 3</td><td>UdeM</td>
+                                    <td class="mono text-right">$215,000.00</td>
+                                    <td><span class="badge badge-blue">Envoy&eacute;e</span></td>
+                                    <td style="color:var(--gray-500);font-size:13px">20 f&eacute;v 2026</td>
+                                    <td><button class="btn btn-ghost btn-sm">Voir</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono" style="font-weight:600">FAC-1048</td><td>Centre Vid&eacute;otron Ph.2</td><td>Ville de Qu&eacute;bec</td>
+                                    <td class="mono text-right">$78,350.00</td>
+                                    <td><span class="badge badge-green-dark" style="background:#065F46;color:white;">Pay&eacute;e</span></td>
+                                    <td style="color:var(--gray-500);font-size:13px">15 f&eacute;v 2026</td>
+                                    <td><button class="btn btn-ghost btn-sm">Voir</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono" style="font-weight:600">FAC-1047</td><td>Complexe Aquatique</td><td>Ville Laval</td>
+                                    <td class="mono text-right">$42,800.00</td>
+                                    <td><span class="badge badge-amber">En approbation</span></td>
+                                    <td style="color:var(--gray-500);font-size:13px">12 f&eacute;v 2026</td>
+                                    <td><button class="btn btn-ghost btn-sm">Voir</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 10: INVOICE PREPARATION (FR30 - 7 columns)             -->
+<!-- ============================================================ -->
+<div id="screen-invoice-prep" class="app-shell">
+    <div style="width:100%">
+        <div class="app-topbar">
+            <div class="topbar-left"><div class="topbar-logo">PR <span>|</span> ERP</div><input class="topbar-search" type="text" placeholder="Rechercher projets, clients..."></div>
+            <div class="topbar-right"><div class="topbar-bell">&#128276;<div class="bell-badge">5</div></div><div class="topbar-avatar">PH</div></div>
+        </div>
+        <div class="app-body">
+            <div class="sidebar">
+                <div class="sidebar-section-label">Navigation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9632;</span> Tableau de bord</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9654;</span> Projets</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128339;</span> Feuilles de temps</div>
+                <div class="sidebar-item active"><span class="sidebar-icon">&#128196;</span> Facturation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> D&eacute;penses</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Fournisseurs</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Offres de services</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Consortiums</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Param&egrave;tres</div>
+            </div>
+            <div class="main-content">
+                <div class="breadcrumb"><a href="#">Facturation</a> / Pr&eacute;paration de facture</div>
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                    <div>
+                        <div class="section-title">Pr&eacute;paration de facture &mdash; Biblioth&egrave;que Nationale</div>
+                        <div class="section-subtitle">BAnQ &bull; FAC-1051 &bull; Mars 2026</div>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn btn-ghost btn-sm">&#8592; F&eacute;v. 2026</button>
+                        <button class="btn btn-ghost btn-sm" style="font-weight:700;">Mars 2026</button>
+                        <button class="btn btn-ghost btn-sm">Avr. 2026 &#8594;</button>
+                    </div>
+                </div>
+
+                <!-- DOUBLE RATIO CA/SALAIRE BANNER -->
+                <div style="display:flex; gap:16px; margin-bottom:20px;">
+                    <div style="flex:1; background:var(--gray-50); border-radius:8px; padding:14px 20px; border:1px solid var(--gray-200);">
+                        <div style="font-size:11px; font-weight:600; color:var(--gray-400); text-transform:uppercase; letter-spacing:0.5px;">Ratio CA / Salaire &mdash; Avant facturation</div>
+                        <div style="display:flex; align-items:baseline; gap:12px; margin-top:6px;">
+                            <span class="mono" style="font-size:28px; font-weight:800; color:var(--gray-800);">2.45</span>
+                            <div style="font-size:12px; color:var(--gray-500); line-height:1.4;">CA factur&eacute;: $126,920<br>Salaires imput&eacute;s: $51,800</div>
+                        </div>
+                    </div>
+                    <div style="flex:1; background:var(--primary-light); border-radius:8px; padding:14px 20px; border:1px solid #93c5fd;">
+                        <div style="font-size:11px; font-weight:600; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px;">Ratio CA / Salaire &mdash; Apr&egrave;s facturation</div>
+                        <div style="display:flex; align-items:baseline; gap:12px; margin-top:6px;">
+                            <span class="mono" style="font-size:28px; font-weight:800; color:var(--primary);">2.72</span>
+                            <div style="font-size:12px; color:var(--primary-dark); line-height:1.4;">CA projet&eacute;: $189,031<br>Salaires imput&eacute;s: $69,500</div>
+                            <span class="badge badge-green" style="font-size:11px;">&#9650; +0.27</span>
+                        </div>
+                    </div>
+                    <div style="flex:0.6; background:var(--gray-50); border-radius:8px; padding:14px 20px; border:1px solid var(--gray-200); display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                        <div style="font-size:11px; font-weight:600; color:var(--gray-400); text-transform:uppercase;">Cible firme</div>
+                        <span class="mono" style="font-size:28px; font-weight:800; color:var(--gray-600);">2.80</span>
+                        <div style="font-size:11px; color:var(--gray-400);">ratio minimum vis&eacute;</div>
+                    </div>
+                </div>
+
+                <!-- BILLING TABLE WITH SECTIONS -->
+                <div class="card" style="padding:0; overflow:hidden;">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead><tr>
+                                <th style="min-width:180px;">Livrable</th>
+                                <th class="text-right">Montant total</th>
+                                <th class="text-right">Factur&eacute; &agrave; ce jour</th>
+                                <th class="text-right">% avanc. facturation</th>
+                                <th class="text-right">% avanc. heures</th>
+                                <th class="text-right" style="background:var(--primary-light);color:var(--primary);font-weight:700;min-width:130px;">Facturer ce mois</th>
+                                <th class="text-right">% apr&egrave;s facturation</th>
+                            </tr></thead>
+                            <tbody>
+                                <!-- SECTION HONORAIRES FORFAIT -->
+                                <tr><td colspan="7" style="padding:10px 12px; background:var(--gray-100); font-weight:700; font-size:12px; color:var(--gray-600); text-transform:uppercase; letter-spacing:0.5px;">Honoraires &mdash; Forfait</td></tr>
+                                <!-- Architecture: heures (65%) > facturation (50%) = ALERTE ROUGE -->
+                                <tr style="background:#fef2f2;">
+                                    <td style="font-weight:600">Architecture<div style="font-size:11px;color:var(--gray-400);">Concept + Pr&eacute;liminaire</div></td>
+                                    <td class="mono text-right">$480,000</td>
+                                    <td class="mono text-right">$240,000</td>
+                                    <td class="text-right"><div class="mono">50.0%</div><div class="progress-bar" style="width:60px;display:inline-block;"><div class="progress-fill blue" style="width:50%"></div></div></td>
+                                    <td class="text-right"><div class="mono" style="color:var(--danger);font-weight:700;">65.0% &#9888;</div><div class="progress-bar" style="width:60px;display:inline-block;"><div class="progress-fill red" style="width:65%"></div></div></td>
+                                    <td class="text-right" style="background:rgba(37,99,235,0.05);"><input type="text" value="$48,000" style="width:100px;padding:6px 10px;border:1px solid var(--gray-200);border-radius:4px;font-family:var(--font-mono);font-size:14px;text-align:right;font-weight:700;"></td>
+                                    <td class="mono text-right" style="font-weight:600;">60.0%</td>
+                                </tr>
+                                <!-- Structure: normal -->
+                                <tr>
+                                    <td style="font-weight:600">Structure<div style="font-size:11px;color:var(--gray-400);">D&eacute;finitif</div></td>
+                                    <td class="mono text-right">$280,000</td>
+                                    <td class="mono text-right">$168,000</td>
+                                    <td class="text-right"><div class="mono">60.0%</div><div class="progress-bar" style="width:60px;display:inline-block;"><div class="progress-fill blue" style="width:60%"></div></div></td>
+                                    <td class="text-right"><div class="mono">58.0%</div><div class="progress-bar" style="width:60px;display:inline-block;"><div class="progress-fill blue" style="width:58%"></div></div></td>
+                                    <td class="text-right" style="background:rgba(37,99,235,0.05);"><input type="text" value="$28,000" style="width:100px;padding:6px 10px;border:1px solid var(--gray-200);border-radius:4px;font-family:var(--font-mono);font-size:14px;text-align:right;font-weight:700;"></td>
+                                    <td class="mono text-right" style="font-weight:600;">70.0%</td>
+                                </tr>
+                                <!-- BIM: heures > 0 mais 0% facturé = ALERTE AMBRE -->
+                                <tr style="background:#fffbeb;">
+                                    <td style="font-weight:600">BIM<div style="font-size:11px;color:var(--gray-400);">Service support</div></td>
+                                    <td class="mono text-right">$60,000</td>
+                                    <td class="mono text-right">$18,000</td>
+                                    <td class="text-right"><div class="mono">30.0%</div><div class="progress-bar" style="width:60px;display:inline-block;"><div class="progress-fill blue" style="width:30%"></div></div></td>
+                                    <td class="text-right"><div class="mono" style="color:var(--warning);font-weight:600;">45.0% &#9888;</div><div class="progress-bar" style="width:60px;display:inline-block;"><div class="progress-fill amber" style="width:45%"></div></div></td>
+                                    <td class="text-right" style="background:rgba(37,99,235,0.05);"><input type="text" value="$12,000" style="width:100px;padding:6px 10px;border:1px solid var(--gray-200);border-radius:4px;font-family:var(--font-mono);font-size:14px;text-align:right;font-weight:700;"></td>
+                                    <td class="mono text-right" style="font-weight:600;">50.0%</td>
+                                </tr>
+
+                                <!-- SECTION HONORAIRES HORAIRE -->
+                                <tr><td colspan="7" style="padding:10px 12px; background:var(--gray-100); font-weight:700; font-size:12px; color:var(--gray-600); text-transform:uppercase; letter-spacing:0.5px;">Honoraires &mdash; Horaire</td></tr>
+                                <tr>
+                                    <td style="font-weight:600">Surveillance<div style="font-size:11px;color:var(--gray-400);">Budget max: $80,000 | Auto: 48h ce mois</div></td>
+                                    <td class="mono text-right">$80,000</td>
+                                    <td class="mono text-right">$28,400</td>
+                                    <td class="text-right"><div class="mono">35.5%</div><div class="progress-bar" style="width:60px;display:inline-block;"><div class="progress-fill blue" style="width:35.5%"></div></div></td>
+                                    <td class="text-right" style="color:var(--gray-400);">n/a</td>
+                                    <td class="text-right" style="background:rgba(37,99,235,0.05);"><input type="text" value="$12,880" style="width:100px;padding:6px 10px;border:1px solid var(--gray-200);border-radius:4px;font-family:var(--font-mono);font-size:14px;text-align:right;font-weight:700;"><div style="font-size:10px;color:var(--gray-400);">pr&eacute;-calcul&eacute;</div></td>
+                                    <td class="mono text-right" style="font-weight:600;">51.6%</td>
+                                </tr>
+
+                                <!-- SECTION SOUS-TRAITANTS -->
+                                <tr><td colspan="7" style="padding:10px 12px; background:var(--gray-100); font-weight:700; font-size:12px; color:var(--gray-600); text-transform:uppercase; letter-spacing:0.5px;">Sous-traitants refacturables</td></tr>
+                                <tr>
+                                    <td style="font-weight:600">Ing. structure<div style="font-size:11px;color:var(--gray-400);">SDK Structures | Majoration 10%</div></td>
+                                    <td class="mono text-right">$132,000</td>
+                                    <td class="mono text-right">$52,800</td>
+                                    <td class="text-right"><div class="mono">40.0%</div><div class="progress-bar" style="width:60px;display:inline-block;"><div class="progress-fill blue" style="width:40%"></div></div></td>
+                                    <td class="text-right"><div style="font-weight:600;">$66,000</div><div style="font-size:10px;color:var(--gray-500);">factures re&ccedil;ues</div></td>
+                                    <td class="text-right" style="background:rgba(37,99,235,0.05);"><input type="text" value="$19,800" style="width:100px;padding:6px 10px;border:1px solid var(--gray-200);border-radius:4px;font-family:var(--font-mono);font-size:14px;text-align:right;font-weight:700;"><div style="font-size:10px;color:var(--gray-400);">$18,000 + 10%</div></td>
+                                    <td class="mono text-right" style="font-weight:600;">55.0%</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600">Ing. m&eacute;canique<div style="font-size:11px;color:var(--gray-400);">BPA Ing&eacute;nieurs | Majoration 10%</div></td>
+                                    <td class="mono text-right">$104,500</td>
+                                    <td class="mono text-right">$20,900</td>
+                                    <td class="text-right"><div class="mono">20.0%</div><div class="progress-bar" style="width:60px;display:inline-block;"><div class="progress-fill blue" style="width:20%"></div></div></td>
+                                    <td class="text-right"><div style="font-weight:600;">$28,500</div><div style="font-size:10px;color:var(--gray-500);">factures re&ccedil;ues</div></td>
+                                    <td class="text-right" style="background:rgba(37,99,235,0.05);"><input type="text" value="$13,200" style="width:100px;padding:6px 10px;border:1px solid var(--gray-200);border-radius:4px;font-family:var(--font-mono);font-size:14px;text-align:right;font-weight:700;"><div style="font-size:10px;color:var(--gray-400);">$12,000 + 10%</div></td>
+                                    <td class="mono text-right" style="font-weight:600;">32.6%</td>
+                                </tr>
+
+                                <!-- TOTAUX -->
+                                <tr style="background:var(--gray-50); border-top:2px solid var(--gray-300);">
+                                    <td style="font-weight:700;">Sous-total</td>
+                                    <td class="mono text-right" style="font-weight:700;">$1,136,500</td>
+                                    <td class="mono text-right" style="font-weight:700;">$528,100</td>
+                                    <td class="mono text-right" style="font-weight:700;">46.5%</td>
+                                    <td></td>
+                                    <td class="mono text-right" style="font-weight:700;background:rgba(37,99,235,0.08);font-size:15px;">$133,880</td>
+                                    <td class="mono text-right" style="font-weight:700;">58.3%</td>
+                                </tr>
+                                <tr style="background:var(--gray-50);">
+                                    <td style="color:var(--gray-500);">Retenue contractuelle 5%</td>
+                                    <td></td>
+                                    <td class="mono text-right" style="color:var(--danger);">-$26,405</td>
+                                    <td></td><td></td>
+                                    <td class="mono text-right" style="color:var(--danger);background:rgba(37,99,235,0.08);">-$6,694</td>
+                                    <td></td>
+                                </tr>
+                            </tbody>
+                            <tfoot>
+                                <tr style="background:var(--gray-800);color:white;font-weight:700;">
+                                    <td style="color:white;font-size:14px;">MONTANT &Agrave; FACTURER</td>
+                                    <td></td>
+                                    <td class="mono text-right" style="color:white;font-size:14px;">$501,695</td>
+                                    <td></td><td></td>
+                                    <td class="mono text-right" style="color:#93c5fd;font-size:16px;">$127,186</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- LEGEND -->
+                <div style="display:flex; gap:24px; flex-wrap:wrap; margin:12px 0 20px; font-size:12px; color:var(--gray-500);">
+                    <div style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:2px;display:inline-block;"></span> % heures &gt; % facturation +10pts (surproduction)</div>
+                    <div style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;background:#fffbeb;border:1px solid #fcd34d;border-radius:2px;display:inline-block;"></span> Heures &gt; 0 mais rien factur&eacute;</div>
+                    <div style="display:flex;align-items:center;gap:6px;"><span style="font-size:10px;color:var(--gray-400);">pr&eacute;-calcul&eacute;</span> = Montant g&eacute;n&eacute;r&eacute; automatiquement</div>
+                </div>
+
+                <!-- WORKFLOW -->
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Flux d'approbation</div></div>
+                    <div class="workflow">
+                        <div class="workflow-step active">Brouillon</div>
+                        <div class="workflow-arrow">&#9654;</div>
+                        <div class="workflow-step">CP Approuv&eacute;</div>
+                        <div class="workflow-arrow">&#9654;</div>
+                        <div class="workflow-step">Directeur Approuv&eacute;</div>
+                        <div class="workflow-arrow">&#9654;</div>
+                        <div class="workflow-step">Pr&ecirc;te</div>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:8px;">
+                    <button class="btn btn-ghost">Exporter PDF</button>
+                    <button class="btn btn-ghost">Sync Intact</button>
+                    <button class="btn btn-primary">Envoyer pour approbation</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 11: SUPPLIERS / SUBCONTRACTORS                         -->
+<!-- ============================================================ -->
+<div id="screen-suppliers" class="app-shell">
+    <div style="width:100%">
+        <div class="app-topbar">
+            <div class="topbar-left"><div class="topbar-logo">PR <span>|</span> ERP</div><input class="topbar-search" type="text" placeholder="Rechercher projets, clients..."></div>
+            <div class="topbar-right"><div class="topbar-bell">&#128276;<div class="bell-badge">5</div></div><div class="topbar-avatar">PH</div></div>
+        </div>
+        <div class="app-body">
+            <div class="sidebar">
+                <div class="sidebar-section-label">Navigation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9632;</span> Tableau de bord</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9654;</span> Projets</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128339;</span> Feuilles de temps</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128196;</span> Facturation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> D&eacute;penses</div>
+                <div class="sidebar-item active"><span class="sidebar-icon">&#128101;</span> Fournisseurs</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Offres de services</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Consortiums</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Param&egrave;tres</div>
+            </div>
+            <div class="main-content">
+                <div class="section-title">Fournisseurs et sous-traitants</div>
+                <div class="section-subtitle">Centre Vid&eacute;otron Ph.2 &mdash; Suivi des factures par fournisseur</div>
+
+                <!-- KPI SUMMARY CARDS -->
+                <div class="kpi-grid kpi-grid-4" style="margin-bottom:20px;">
+                    <div class="kpi-card">
+                        <div class="kpi-label">Budget total sous-traitants</div>
+                        <div class="kpi-value sm">$385K</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Factures re&ccedil;ues</div>
+                        <div class="kpi-value sm">$94,500</div>
+                        <div class="kpi-detail">24.5% du budget</div>
+                    </div>
+                    <div class="kpi-card" style="border-left:3px solid var(--warning);">
+                        <div class="kpi-label">Autoris&eacute; non pay&eacute;</div>
+                        <div class="kpi-value sm" style="color:var(--warning);">$33,000</div>
+                        <div class="kpi-detail">3 factures en attente</div>
+                    </div>
+                    <div class="kpi-card" style="border-left:3px solid var(--success);">
+                        <div class="kpi-label">Total pay&eacute;</div>
+                        <div class="kpi-value sm" style="color:var(--success);">$48,000</div>
+                        <div class="kpi-detail">12.5% du budget</div>
+                    </div>
+                </div>
+
+                <!-- FOURNISSEUR 1: SDK STRUCTURES — OUVERT (ACCORDION) -->
+                <div class="card" style="padding:0; overflow:hidden; margin-bottom:16px;">
+                    <div style="padding:14px 20px; background:var(--gray-50); display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--gray-200);">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <span style="font-size:16px;">&#9660;</span>
+                            <div>
+                                <div style="font-weight:700; font-size:15px;">Ing. en structure &mdash; SDK Structures Inc.</div>
+                                <div style="font-size:12px; color:var(--gray-500);">Budget: $120,000 | Majoration client: 10%</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:16px; align-items:center;">
+                            <div style="text-align:center;"><div style="font-size:11px;color:var(--gray-400);">Re&ccedil;u</div><div style="font-weight:700;">$81,000</div></div>
+                            <div style="text-align:center;"><div style="font-size:11px;color:var(--gray-400);">Autoris&eacute;</div><div style="font-weight:700;color:#92400E;">$66,000</div></div>
+                            <div style="text-align:center;"><div style="font-size:11px;color:var(--gray-400);">Pay&eacute;</div><div style="font-weight:700;color:var(--success);">$48,000</div></div>
+                            <div style="text-align:center;"><div style="font-size:11px;color:var(--gray-400);">Restant</div><div style="font-weight:700;">$39,000</div></div>
+                            <div class="progress-bar" style="width:100px;"><div class="progress-fill amber" style="width:67.5%;"></div></div>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead><tr>
+                                <th>No facture</th><th>Date re&ccedil;ue</th><th class="text-right">Montant</th><th>Statut</th><th>Autoris&eacute; par</th><th>Date paiement</th><th>Action</th>
+                            </tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td class="mono" style="font-weight:600">SMI-2025-41</td><td style="font-size:13px">15 jan 2026</td><td class="mono text-right" style="font-weight:600">$24,000</td>
+                                    <td><span class="badge badge-green-dark" style="background:#065F46;color:white;">Pay&eacute;e</span></td>
+                                    <td style="font-size:12px">P. Haumesser &mdash; 18 jan</td><td style="font-size:12px">25 jan 2026</td><td style="color:var(--gray-300);">&mdash;</td>
+                                </tr>
+                                <tr>
+                                    <td class="mono" style="font-weight:600">SMI-2025-52</td><td style="font-size:13px">12 f&eacute;v 2026</td><td class="mono text-right" style="font-weight:600">$24,000</td>
+                                    <td><span class="badge badge-green-dark" style="background:#065F46;color:white;">Pay&eacute;e</span></td>
+                                    <td style="font-size:12px">P. Haumesser &mdash; 15 f&eacute;v</td><td style="font-size:12px">22 f&eacute;v 2026</td><td style="color:var(--gray-300);">&mdash;</td>
+                                </tr>
+                                <tr style="background:var(--warning-light);">
+                                    <td class="mono" style="font-weight:600">SMI-2026-08</td><td style="font-size:13px">10 mars 2026</td><td class="mono text-right" style="font-weight:600">$18,000</td>
+                                    <td><span class="badge badge-amber">Autoris&eacute;e</span></td>
+                                    <td style="font-size:12px">P. Haumesser &mdash; 15 mars</td><td style="font-size:12px;color:var(--gray-400);font-style:italic;">En attente</td>
+                                    <td><button class="btn btn-success btn-sm" style="font-size:11px;">Marquer pay&eacute;e</button></td>
+                                </tr>
+                                <tr style="background:var(--primary-light);">
+                                    <td class="mono" style="font-weight:600">SMI-2026-15</td><td style="font-size:13px">28 mars 2026</td><td class="mono text-right" style="font-weight:600">$15,000</td>
+                                    <td><span class="badge badge-blue">Re&ccedil;ue</span></td>
+                                    <td style="font-size:12px;color:var(--gray-400);">&mdash;</td><td style="font-size:12px;color:var(--gray-400);">&mdash;</td>
+                                    <td><button class="btn btn-primary btn-sm" style="font-size:11px;">Autoriser</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="padding:10px 20px; border-top:1px solid var(--gray-100);">
+                        <button class="btn btn-ghost btn-sm" style="font-size:12px;">+ Ajouter une facture de SDK Structures</button>
+                    </div>
+                </div>
+
+                <!-- FOURNISSEUR 2: BPA — FERMÉ -->
+                <div class="card" style="padding:0; overflow:hidden; margin-bottom:16px;">
+                    <div style="padding:14px 20px; background:var(--gray-50); display:flex; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <span style="font-size:16px;color:var(--gray-400);">&#9654;</span>
+                            <div>
+                                <div style="font-weight:700; font-size:15px;">Ing. m&eacute;canique &mdash; BPA Ing&eacute;nieurs</div>
+                                <div style="font-size:12px; color:var(--gray-500);">Budget: $95,000 | Majoration client: 10%</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:16px; align-items:center;">
+                            <div style="text-align:center;"><div style="font-size:11px;color:var(--gray-400);">Re&ccedil;u</div><div style="font-weight:700;">$28,500</div></div>
+                            <div style="text-align:center;"><div style="font-size:11px;color:var(--gray-400);">Autoris&eacute;</div><div style="font-weight:700;color:#92400E;">$28,500</div></div>
+                            <div style="text-align:center;"><div style="font-size:11px;color:var(--gray-400);">Pay&eacute;</div><div style="font-weight:700;color:var(--success);">$13,500</div></div>
+                            <div style="text-align:center;"><div style="font-size:11px;color:var(--gray-400);">Restant</div><div style="font-weight:700;">$66,500</div></div>
+                            <div class="progress-bar" style="width:100px;"><div class="progress-fill blue" style="width:30%;"></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FOURNISSEUR 3: ÉLECTRA — FERMÉ -->
+                <div class="card" style="padding:0; overflow:hidden; margin-bottom:16px;">
+                    <div style="padding:14px 20px; background:var(--gray-50); display:flex; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <span style="font-size:16px;color:var(--gray-400);">&#9654;</span>
+                            <div>
+                                <div style="font-weight:700; font-size:15px;">Ing. &eacute;lectrique &mdash; &Eacute;lectra Solutions</div>
+                                <div style="font-size:12px; color:var(--gray-500);">Budget: $85,000 | Majoration client: 10%</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:16px; align-items:center;">
+                            <div style="text-align:center;"><div style="font-size:11px;color:var(--gray-400);">Re&ccedil;u</div><div style="font-weight:700;color:var(--gray-300);">$0</div></div>
+                            <div style="text-align:center;"><div style="font-size:11px;color:var(--gray-400);">Autoris&eacute;</div><div style="font-weight:700;color:var(--gray-300);">$0</div></div>
+                            <div style="text-align:center;"><div style="font-size:11px;color:var(--gray-400);">Pay&eacute;</div><div style="font-weight:700;color:var(--gray-300);">$0</div></div>
+                            <div style="text-align:center;"><div style="font-size:11px;color:var(--gray-400);">Restant</div><div style="font-weight:700;">$85,000</div></div>
+                            <div class="progress-bar" style="width:100px;"><div class="progress-fill blue" style="width:0%;"></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FOURNISSEUR 4: CONSULTANT LEED — NON REFACTURABLE -->
+                <div class="card" style="padding:0; overflow:hidden; margin-bottom:20px;">
+                    <div style="padding:14px 20px; background:var(--gray-50); display:flex; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <span style="font-size:16px;color:var(--gray-400);">&#9654;</span>
+                            <div>
+                                <div style="font-weight:700; font-size:15px;">Consultant LEED &mdash; Vertima</div>
+                                <div style="font-size:12px; color:var(--gray-500);">Budget: $25,000 | <span style="color:var(--danger);font-weight:600;">Non refacturable (absorb&eacute;)</span></div>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:16px; align-items:center;">
+                            <div style="text-align:center;"><div style="font-size:11px;color:var(--gray-400);">Re&ccedil;u</div><div style="font-weight:700;">$8,500</div></div>
+                            <div style="text-align:center;"><div style="font-size:11px;color:var(--gray-400);">Autoris&eacute;</div><div style="font-weight:700;color:#92400E;">$8,500</div></div>
+                            <div style="text-align:center;"><div style="font-size:11px;color:var(--gray-400);">Pay&eacute;</div><div style="font-weight:700;color:var(--gray-300);">$0</div></div>
+                            <div style="text-align:center;"><div style="font-size:11px;color:var(--gray-400);">Restant</div><div style="font-weight:700;">$16,500</div></div>
+                            <div class="progress-bar" style="width:100px;"><div class="progress-fill red" style="width:34%;"></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PAIEMENTS À EFFECTUER -->
+                <div class="card" style="padding:0; overflow:hidden; border:2px solid var(--warning);">
+                    <div style="padding:14px 20px; background:var(--warning-light); display:flex; align-items:center; justify-content:space-between;">
+                        <div>
+                            <div style="font-weight:700; font-size:15px; color:#92400E;">&#9888; Paiements &agrave; effectuer</div>
+                            <div style="font-size:12px; color:#92400E;">Factures autoris&eacute;es en attente de paiement</div>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-ghost btn-sm">Exporter</button>
+                            <button class="btn btn-primary btn-sm">Marquer les pay&eacute;s</button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead><tr>
+                                <th style="width:40px;"></th><th>Fournisseur</th><th>No facture</th><th>Projet</th><th>Autoris&eacute; le</th><th class="text-right">Montant</th>
+                            </tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td><input type="checkbox" checked style="width:16px;height:16px;accent-color:var(--primary);"></td>
+                                    <td style="font-weight:600">SDK Structures</td><td class="mono">SMI-2026-08</td><td>Centre Vid&eacute;otron Ph.2</td><td style="font-size:13px">15 mars 2026</td><td class="mono text-right" style="font-weight:700;">$18,000</td>
+                                </tr>
+                                <tr>
+                                    <td><input type="checkbox" checked style="width:16px;height:16px;accent-color:var(--primary);"></td>
+                                    <td style="font-weight:600">BPA Ing&eacute;nieurs</td><td class="mono">BPA-2026-09</td><td>Centre Vid&eacute;otron Ph.2</td><td style="font-size:13px">12 mars 2026</td><td class="mono text-right" style="font-weight:700;">$15,000</td>
+                                </tr>
+                            </tbody>
+                            <tfoot>
+                                <tr style="background:var(--gray-800);color:white;font-weight:700;">
+                                    <td colspan="5" style="color:white;">TOTAL &Agrave; PAYER (2 s&eacute;lectionn&eacute;s)</td>
+                                    <td class="mono text-right" style="color:white;font-size:16px;">$33,000</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 12: PROPOSALS PIPELINE                                 -->
+<!-- ============================================================ -->
+<div id="screen-proposals" class="app-shell">
+    <div style="width:100%">
+        <div class="app-topbar">
+            <div class="topbar-left"><div class="topbar-logo">PR <span>|</span> ERP</div><input class="topbar-search" type="text" placeholder="Rechercher projets, clients..."></div>
+            <div class="topbar-right"><div class="topbar-bell">&#128276;<div class="bell-badge">5</div></div><div class="topbar-avatar">PH</div></div>
+        </div>
+        <div class="app-body">
+            <div class="sidebar">
+                <div class="sidebar-section-label">Navigation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9632;</span> Tableau de bord</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9654;</span> Projets</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128339;</span> Feuilles de temps</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128196;</span> Facturation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> D&eacute;penses</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Fournisseurs</div>
+                <div class="sidebar-item active"><span class="sidebar-icon">&#128203;</span> Offres de services</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Consortiums</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Param&egrave;tres</div>
+            </div>
+            <div class="main-content">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                    <div>
+                        <div class="section-title">Offres de services</div>
+                        <div class="section-subtitle">Pipeline des propositions</div>
+                    </div>
+                    <button class="btn btn-primary">+ Nouvelle offre</button>
+                </div>
+
+                <div class="kanban">
+                    <div class="kanban-col">
+                        <div class="kanban-col-title">En cours <span class="kanban-col-count">2</span></div>
+                        <div class="kanban-card" style="border-left-color:var(--primary);">
+                            <div class="kanban-card-title">Agrandissement HEC</div>
+                            <div class="kanban-card-sub">HEC Montr&eacute;al</div>
+                            <div class="kanban-card-meta"><span>Budget: $1.8M</span><span>15 mars</span></div>
+                        </div>
+                        <div class="kanban-card" style="border-left-color:var(--primary);">
+                            <div class="kanban-card-title">Centre sportif Longueuil</div>
+                            <div class="kanban-card-sub">Ville de Longueuil</div>
+                            <div class="kanban-card-meta"><span>Budget: $650K</span><span>22 mars</span></div>
+                        </div>
+                    </div>
+                    <div class="kanban-col">
+                        <div class="kanban-col-title">Soumise <span class="kanban-col-count">2</span></div>
+                        <div class="kanban-card" style="border-left-color:var(--warning);">
+                            <div class="kanban-card-title">Pavillon des sciences UQAM</div>
+                            <div class="kanban-card-sub">UQAM</div>
+                            <div class="kanban-card-meta"><span>Budget: $3.2M</span><span>Soumis 20 f&eacute;v</span></div>
+                        </div>
+                        <div class="kanban-card" style="border-left-color:var(--warning);">
+                            <div class="kanban-card-title">Passerelle pi&eacute;tonne Vieux-Port</div>
+                            <div class="kanban-card-sub">Soci&eacute;t&eacute; du Vieux-Port</div>
+                            <div class="kanban-card-meta"><span>Budget: $420K</span><span>Soumis 5 f&eacute;v</span></div>
+                        </div>
+                    </div>
+                    <div class="kanban-col">
+                        <div class="kanban-col-title">Gagn&eacute;e <span class="kanban-col-count">1</span></div>
+                        <div class="kanban-card" style="border-left-color:var(--success);">
+                            <div class="kanban-card-title">R&eacute;sidence &eacute;tudiante McGill</div>
+                            <div class="kanban-card-sub">Universit&eacute; McGill</div>
+                            <div class="kanban-card-meta"><span>Budget: $2.1M</span><span>Gagn&eacute;e 25 f&eacute;v</span></div>
+                        </div>
+                    </div>
+                    <div class="kanban-col">
+                        <div class="kanban-col-title">Perdue <span class="kanban-col-count">1</span></div>
+                        <div class="kanban-card" style="border-left-color:var(--danger);">
+                            <div class="kanban-card-title">Centre communautaire Verdun</div>
+                            <div class="kanban-card-sub">Arr. Verdun</div>
+                            <div class="kanban-card-meta"><span>Budget: $580K</span><span>Perdue 10 f&eacute;v</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 13: CONSORTIUM VIEW                                    -->
+<!-- ============================================================ -->
+<div id="screen-consortium" class="app-shell">
+    <div style="width:100%">
+        <div class="app-topbar">
+            <div class="topbar-left"><div class="topbar-logo">PR <span>|</span> ERP</div><input class="topbar-search" type="text" placeholder="Rechercher projets, clients..."></div>
+            <div class="topbar-right"><div class="topbar-bell">&#128276;<div class="bell-badge">5</div></div><div class="topbar-avatar">PH</div></div>
+        </div>
+        <div class="app-body">
+            <div class="sidebar">
+                <div class="sidebar-section-label">Navigation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9632;</span> Tableau de bord</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9654;</span> Projets</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128339;</span> Feuilles de temps</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128196;</span> Facturation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> D&eacute;penses</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Fournisseurs</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Offres de services</div>
+                <div class="sidebar-item active"><span class="sidebar-icon">&#127970;</span> Consortiums</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Param&egrave;tres</div>
+            </div>
+            <div class="main-content">
+                <div class="section-title">Consortiums</div>
+                <div class="section-subtitle">Gestion des projets en consortium</div>
+
+                <div style="margin-bottom:20px;">
+                    <div class="pill-toggle">
+                        <button class="active">Vue Provencher</button>
+                        <button>Vue Consortium</button>
+                    </div>
+                </div>
+
+                <div class="consortium-info">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                        <div>
+                            <div style="font-size:18px; font-weight:700;">Consortium M&eacute;tro &mdash; Phase 3</div>
+                            <div style="font-size:13px; color:var(--gray-500);">3 membres &bull; Cr&eacute;&eacute; le 15 janv. 2025</div>
+                        </div>
+                        <span class="badge badge-blue" style="font-size:13px;padding:4px 14px;">Actif</span>
+                    </div>
+                    <div style="font-size:13px; font-weight:600; color:var(--gray-500); text-transform:uppercase; letter-spacing:0.3px; margin-bottom:8px;">Membres du consortium</div>
+                    <div class="member-row">
+                        <div class="member-avatar" style="background:var(--primary);">PR</div>
+                        <div class="member-info"><div class="member-name">Provencher Roy (mandataire)</div><div class="member-coeff">Coefficient: 45%</div></div>
+                        <span class="badge badge-blue">Mandataire</span>
+                    </div>
+                    <div class="member-row">
+                        <div class="member-avatar" style="background:var(--success);">LM</div>
+                        <div class="member-info"><div class="member-name">Lemay Architectes</div><div class="member-coeff">Coefficient: 35%</div></div>
+                    </div>
+                    <div class="member-row">
+                        <div class="member-avatar" style="background:var(--warning);">NA</div>
+                        <div class="member-info"><div class="member-name">NFOE Architectes</div><div class="member-coeff">Coefficient: 20%</div></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Projets li&eacute;s au consortium</div></div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead><tr>
+                                <th>Projet</th><th>Phase</th><th class="text-right">Budget total</th><th class="text-right">Part Provencher</th><th>Statut</th>
+                            </tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td style="font-weight:600">Station Edouard-Montpetit</td><td>Plans &amp; devis</td>
+                                    <td class="mono text-right">$4,200,000</td><td class="mono text-right">$1,890,000</td>
+                                    <td><span class="badge badge-blue">En cours</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600">Station Universit&eacute;-de-Montr&eacute;al</td><td>D&eacute;finitif</td>
+                                    <td class="mono text-right">$3,800,000</td><td class="mono text-right">$1,710,000</td>
+                                    <td><span class="badge badge-blue">En cours</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600">Station Outremont</td><td>Concept</td>
+                                    <td class="mono text-right">$2,900,000</td><td class="mono text-right">$1,305,000</td>
+                                    <td><span class="badge badge-green">En cours</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header"><div class="card-title">R&eacute;sum&eacute; financier</div></div>
+                    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:20px;">
+                        <div>
+                            <div style="font-size:12px; color:var(--gray-500); text-transform:uppercase; font-weight:600;">Revenu client total</div>
+                            <div class="mono" style="font-size:22px; font-weight:700; margin-top:4px;">$10,900,000</div>
+                        </div>
+                        <div>
+                            <div style="font-size:12px; color:var(--gray-500); text-transform:uppercase; font-weight:600;">Part Provencher (45%)</div>
+                            <div class="mono" style="font-size:22px; font-weight:700; margin-top:4px; color:var(--primary);">$4,905,000</div>
+                        </div>
+                        <div>
+                            <div style="font-size:12px; color:var(--gray-500); text-transform:uppercase; font-weight:600;">Profit estim&eacute; Provencher</div>
+                            <div class="mono" style="font-size:22px; font-weight:700; margin-top:4px; color:var(--success);">$1,618,650</div>
+                            <div style="font-size:12px; color:var(--gray-500);">Marge: 33%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 14: SETTINGS                                           -->
+<!-- ============================================================ -->
+<div id="screen-settings" class="app-shell">
+    <div style="width:100%">
+        <div class="app-topbar">
+            <div class="topbar-left"><div class="topbar-logo">PR <span>|</span> ERP</div><input class="topbar-search" type="text" placeholder="Rechercher projets, clients..."></div>
+            <div class="topbar-right"><div class="topbar-bell">&#128276;<div class="bell-badge">5</div></div><div class="topbar-avatar">PH</div></div>
+        </div>
+        <div class="app-body">
+            <div class="sidebar">
+                <div class="sidebar-section-label">Navigation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9632;</span> Tableau de bord</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9654;</span> Projets</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128339;</span> Feuilles de temps</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128196;</span> Facturation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> D&eacute;penses</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Fournisseurs</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Offres de services</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Consortiums</div>
+                <div class="sidebar-item active"><span class="sidebar-icon">&#9881;</span> Param&egrave;tres</div>
+            </div>
+            <div class="main-content">
+                <div class="section-title">Param&egrave;tres</div>
+                <div class="section-subtitle">Configuration du syst&egrave;me</div>
+
+                <div class="tab-bar">
+                    <div class="tab-item active">Organisation</div>
+                    <div class="tab-item">R&egrave;gles RH</div>
+                    <div class="tab-item">Facturation</div>
+                    <div class="tab-item">Int&eacute;grations</div>
+                    <div class="tab-item">Syst&egrave;me</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Param&egrave;tres r&eacute;gionaux</div></div>
+                    <div class="form-row" style="margin-bottom:20px;">
+                        <div class="form-group">
+                            <label>Pays</label>
+                            <select><option selected>Canada</option><option>France</option><option>&Eacute;tats-Unis</option></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Devise</label>
+                            <select><option selected>CAD ($)</option><option>EUR</option><option>USD ($)</option></select>
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-bottom:20px;">
+                        <div class="form-group">
+                            <label>Format de date</label>
+                            <select><option selected>YYYY-MM-DD</option><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Fuseau horaire</label>
+                            <select><option selected>Am&eacute;rique/Montr&eacute;al (EST)</option><option>Am&eacute;rique/Toronto (EST)</option><option>Europe/Paris (CET)</option></select>
+                        </div>
+                    </div>
+                    <div class="form-group" style="max-width:350px;">
+                        <label>Premier jour de la semaine</label>
+                        <select><option selected>Lundi</option><option>Dimanche</option></select>
+                    </div>
+                    <div class="preview-box">
+                        <strong>Aper&ccedil;u:</strong> Les montants s'afficheront: <span class="mono" style="font-weight:600;">$10,200.50</span> &bull; Les dates: <span class="mono" style="font-weight:600;">2026-03-04</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Semaine de travail</div></div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Heures standard par semaine</label>
+                            <input type="number" value="40">
+                        </div>
+                        <div class="form-group">
+                            <label>Seuil heures suppl&eacute;mentaires</label>
+                            <input type="number" value="40">
+                            <div class="form-hint">Les heures au-del&agrave; de ce seuil seront signal&eacute;es</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:8px;">
+                    <button class="btn btn-ghost">Annuler</button>
+                    <button class="btn btn-primary">Sauvegarder</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 15: DELEGATION MANAGEMENT                              -->
+<!-- ============================================================ -->
+<div id="screen-delegation" class="app-shell">
+    <div style="width:100%">
+        <div class="app-topbar">
+            <div class="topbar-left"><div class="topbar-logo">PR <span>|</span> ERP</div><input class="topbar-search" type="text" placeholder="Rechercher projets, clients..."></div>
+            <div class="topbar-right"><div class="topbar-bell">&#128276;<div class="bell-badge">5</div></div><div class="topbar-avatar">PH</div></div>
+        </div>
+        <div class="app-body">
+            <div class="sidebar">
+                <div class="sidebar-section-label">Navigation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9632;</span> Tableau de bord</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#9654;</span> Projets</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128339;</span> Feuilles de temps</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128196;</span> Facturation</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128179;</span> D&eacute;penses</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Fournisseurs</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Offres de services</div>
+                <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Consortiums</div>
+                <div class="sidebar-item active"><span class="sidebar-icon">&#9881;</span> Param&egrave;tres</div>
+            </div>
+            <div class="main-content">
+                <div class="breadcrumb"><a href="#">Param&egrave;tres</a> / D&eacute;l&eacute;gation</div>
+                <div class="section-title">Gestion des d&eacute;l&eacute;gations</div>
+                <div class="section-subtitle">D&eacute;l&eacute;guer temporairement vos responsabilit&eacute;s</div>
+
+                <div class="card">
+                    <div class="card-header"><div class="card-title">D&eacute;l&eacute;gations actives</div></div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead><tr><th>D&eacute;l&eacute;gu&eacute;</th><th>Projets</th><th>Modules</th><th>P&eacute;riode</th><th>Statut</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td style="font-weight:600">Marie Lavoie</td>
+                                    <td>Centre Vid&eacute;otron Ph.2</td>
+                                    <td><span class="badge badge-blue" style="margin-right:4px;">Feuilles de temps</span><span class="badge badge-blue">Facturation</span></td>
+                                    <td style="font-size:13px;">3 &ndash; 14 mars 2026</td>
+                                    <td><span class="badge badge-green">Active</span></td>
+                                    <td><button class="btn btn-ghost btn-sm" style="color:var(--danger);">R&eacute;voquer</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Cr&eacute;er une d&eacute;l&eacute;gation</div></div>
+                    <div class="form-row" style="margin-bottom:20px;">
+                        <div class="form-group">
+                            <label>D&eacute;l&eacute;gu&eacute;</label>
+                            <select>
+                                <option>S&eacute;lectionner un coll&egrave;gue...</option>
+                                <option>Marie Lavoie</option><option>J-F Tremblay</option><option>Sophie Chen</option><option>Marc-Andr&eacute; Roy</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Projets</label>
+                            <select multiple style="height:80px;">
+                                <option>Centre Vid&eacute;otron Ph.2</option>
+                                <option>Biblioth&egrave;que Nationale</option>
+                                <option>Campus MIL Phase 3</option>
+                                <option>Tour Deloitte</option>
+                                <option>Complexe Aquatique</option>
+                            </select>
+                            <div class="form-hint">Maintenez Ctrl/Cmd pour s&eacute;lection multiple</div>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:20px;">
+                        <label>Modules</label>
+                        <div style="display:flex; gap:20px; flex-wrap:wrap;">
+                            <div class="checkbox-row"><input type="checkbox" id="mod-ts" checked><label for="mod-ts" style="margin:0;font-weight:400;">Feuilles de temps</label></div>
+                            <div class="checkbox-row"><input type="checkbox" id="mod-inv"><label for="mod-inv" style="margin:0;font-weight:400;">Facturation</label></div>
+                            <div class="checkbox-row"><input type="checkbox" id="mod-exp"><label for="mod-exp" style="margin:0;font-weight:400;">D&eacute;penses</label></div>
+                            <div class="checkbox-row"><input type="checkbox" id="mod-prj"><label for="mod-prj" style="margin:0;font-weight:400;">Projets (lecture seule)</label></div>
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-bottom:20px;">
+                        <div class="form-group">
+                            <label>Date de d&eacute;but</label>
+                            <input type="date" value="2026-03-10">
+                        </div>
+                        <div class="form-group">
+                            <label>Date de fin</label>
+                            <input type="date" value="2026-03-21">
+                        </div>
+                    </div>
+
+                    <div class="delegation-preview">
+                        <strong>Aper&ccedil;u:</strong> Jean-Fran&ccedil;ois Tremblay &#8594; Marie Lavoie, Projets: Centre Vid&eacute;otron, P&eacute;riode: 3&ndash;14 mars 2026
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px;">
+                        <button class="btn btn-ghost">Annuler</button>
+                        <button class="btn btn-primary">Cr&eacute;er la d&eacute;l&eacute;gation</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- JAVASCRIPT                                                    -->
+<!-- ============================================================ -->
+<script>
+    function showScreen(screenId) {
+        // Hide all screens
+        document.querySelectorAll('.app-shell').forEach(function(el) {
+            el.classList.remove('active');
+        });
+        // Deactivate all nav buttons
+        document.querySelectorAll('.nav-btn').forEach(function(el) {
+            el.classList.remove('active');
+        });
+        // Show selected screen
+        var screen = document.getElementById('screen-' + screenId);
+        if (screen) {
+            screen.classList.add('active');
+        }
+        // Activate the clicked button
+        event.target.classList.add('active');
+    }
+
+    // Pill toggle behavior
+    document.querySelectorAll('.pill-toggle').forEach(function(toggle) {
+        toggle.querySelectorAll('button').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                toggle.querySelectorAll('button').forEach(function(b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+            });
+        });
+    });
+
+    // Tab bar click behavior (non-functional, just visual)
+    document.querySelectorAll('.tab-bar').forEach(function(bar) {
+        bar.querySelectorAll('.tab-item').forEach(function(tab) {
+            tab.addEventListener('click', function() {
+                bar.querySelectorAll('.tab-item').forEach(function(t) { t.classList.remove('active'); });
+                tab.classList.add('active');
+            });
+        });
+    });
+
+    // Sidebar item click behavior (visual only)
+    document.querySelectorAll('.sidebar').forEach(function(sidebar) {
+        sidebar.querySelectorAll('.sidebar-item').forEach(function(item) {
+            item.addEventListener('click', function() {
+                sidebar.querySelectorAll('.sidebar-item').forEach(function(i) { i.classList.remove('active'); });
+                item.classList.add('active');
+            });
+        });
+    });
+</script>
+
+</body>
+</html>

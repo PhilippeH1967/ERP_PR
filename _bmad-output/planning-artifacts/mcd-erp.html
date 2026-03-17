@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ERP — Modèle Conceptuel de Données</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; color: #1e293b; }
+    header { background: #1e3a5f; color: white; padding: 24px 32px; }
+    header h1 { font-size: 1.5rem; font-weight: 600; }
+    header p { font-size: 0.875rem; color: #94a3b8; margin-top: 4px; }
+    .container { max-width: 1440px; margin: 0 auto; padding: 24px; }
+    .legend { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 24px; margin-bottom: 24px; }
+    .legend h3 { font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 8px; }
+    .legend-items { display: flex; gap: 24px; flex-wrap: wrap; font-size: 0.8rem; }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+    .domain { background: white; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 24px; overflow: hidden; }
+    .domain-header { padding: 16px 24px; border-bottom: 1px solid #e2e8f0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .domain-header h2 { font-size: 1.1rem; font-weight: 600; }
+    .domain-header .badge { font-size: 0.75rem; background: #e2e8f0; color: #475569; padding: 2px 10px; border-radius: 12px; }
+    .domain-body { padding: 16px; overflow-x: auto; }
+    .domain-desc { font-size: 0.8rem; color: #64748b; padding: 0 24px 12px; }
+    nav { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 24px; margin-bottom: 24px; }
+    nav h3 { font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 8px; }
+    nav ul { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; }
+    nav a { display: inline-block; padding: 4px 12px; background: #f1f5f9; color: #1e3a5f; text-decoration: none; border-radius: 6px; font-size: 0.8rem; font-weight: 500; transition: background 0.2s; }
+    nav a:hover { background: #1e3a5f; color: white; }
+    .overview { background: white; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 24px; overflow: hidden; }
+    .overview-header { padding: 16px 24px; border-bottom: 1px solid #e2e8f0; }
+    .overview-header h2 { font-size: 1.1rem; font-weight: 600; }
+    .overview-body { padding: 16px; overflow-x: auto; }
+    footer { text-align: center; padding: 24px; font-size: 0.75rem; color: #94a3b8; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>ERP Professional Services — Modèle Conceptuel de Données</h1>
+  <p>Architecture complète : 14 apps Django, 45+ entités, PostgreSQL 16 + RLS multi-tenant</p>
+</header>
+
+<div class="container">
+
+  <nav>
+    <h3>Navigation par domaine</h3>
+    <ul>
+      <li><a href="#overview">Vue d'ensemble</a></li>
+      <li><a href="#core">Core & Multi-Tenancy</a></li>
+      <li><a href="#hr">Employés & RBAC</a></li>
+      <li><a href="#projects">Projets & WBS</a></li>
+      <li><a href="#time">Feuilles de temps</a></li>
+      <li><a href="#billing">Facturation & Paiements</a></li>
+      <li><a href="#expenses">Dépenses</a></li>
+      <li><a href="#suppliers">Sous-traitants</a></li>
+      <li><a href="#proposals">Propositions de services</a></li>
+      <li><a href="#consortiums">Consortiums</a></li>
+      <li><a href="#clients">Clients</a></li>
+      <li><a href="#notifications">Notifications</a></li>
+      <li><a href="#dataops">Import/Export</a></li>
+    </ul>
+  </nav>
+
+  <div class="legend">
+    <h3>Légende</h3>
+    <div class="legend-items">
+      <div class="legend-item"><div class="legend-dot" style="background:#1e3a5f"></div> PK = Clé primaire</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#2d5a8e"></div> FK = Clé étrangère</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#16a34a"></div> Decimal = Montants financiers (string en JSON)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#d97706"></div> Enum = Choix prédéfinis</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#dc2626"></div> AuditMixin = django-simple-history</div>
+      <div class="legend-item">||--o{ = Un-à-Plusieurs</div>
+      <div class="legend-item">}o--o{ = Plusieurs-à-Plusieurs</div>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- VUE D'ENSEMBLE -->
+  <!-- ============================================ -->
+  <div class="overview" id="overview">
+    <div class="overview-header"><h2>Vue d'ensemble — Relations inter-domaines</h2></div>
+    <div class="overview-body">
+      <pre class="mermaid">
+erDiagram
+    TENANT ||--o{ PROJECT : "isole"
+    TENANT ||--o{ EMPLOYEE : "isole"
+    TENANT ||--o{ CLIENT : "isole"
+
+    CLIENT ||--o{ PROJECT : "commande"
+    CLIENT ||--o{ PROPOSAL : "prospect"
+    CLIENT ||--o{ CONSORTIUM : "donneur_ouvrage"
+
+    EMPLOYEE ||--o{ PROJECT_ROLE : "a_roles"
+    EMPLOYEE ||--o{ TIME_ENTRY : "saisit"
+    EMPLOYEE ||--o{ EXPENSE_REPORT : "soumet"
+    EMPLOYEE ||--o{ DELEGATION : "delegue"
+
+    PROJECT ||--o{ PHASE : "contient"
+    PROJECT ||--o{ TIME_ENTRY : "recoit_heures"
+    PROJECT ||--o{ INVOICE : "facture"
+    PROJECT ||--o{ ST_INVOICE : "recoit_st"
+    PROJECT ||--o{ AMENDMENT : "modifie"
+    PROJECT ||--o{ EXPENSE_REPORT : "impute"
+
+    PHASE ||--o{ WBS_ELEMENT : "decompose"
+    PHASE ||--o{ FINANCIAL_PHASE : "regroupe"
+
+    INVOICE ||--o{ INVOICE_LINE : "detail"
+    INVOICE ||--o{ PAYMENT : "recoit"
+    INVOICE ||--o{ CREDIT_NOTE : "ajuste"
+    INVOICE ||--o{ HOLDBACK : "retient"
+
+    EXTERNAL_ORG ||--o{ ST_INVOICE : "fournit"
+    EXTERNAL_ORG ||--o{ CONSORTIUM_MEMBER : "participe"
+    EXTERNAL_ORG ||--o{ COMPETITOR_TRACKING : "concurrence"
+
+    CONSORTIUM ||--o{ CONSORTIUM_MEMBER : "regroupe"
+    CONSORTIUM ||--o{ CONSORTIUM_PROJECT : "gere"
+    CONSORTIUM ||--o{ PROFIT_DISTRIBUTION : "distribue"
+
+    PROPOSAL }o--|| CLIENT : "pour"
+    PROPOSAL }o--o{ EMPLOYEE : "equipe"
+    PROPOSAL }o--|| PROJECT : "converti_en"
+      </pre>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- CORE & MULTI-TENANCY -->
+  <!-- ============================================ -->
+  <div class="domain" id="core">
+    <div class="domain-header">
+      <h2>Core & Multi-Tenancy</h2>
+      <span class="badge">apps.core</span>
+    </div>
+    <p class="domain-desc">Classes de base héritées par toutes les entités. PostgreSQL RLS pour l'isolation multi-tenant.</p>
+    <div class="domain-body">
+      <pre class="mermaid">
+erDiagram
+    TENANT {
+        bigint id PK
+        string name
+        string slug
+        boolean is_active
+        datetime created_at
+    }
+
+    TENANT_SCOPED_MODEL {
+        bigint tenant_id FK "RLS policy"
+    }
+
+    VERSIONED_MODEL {
+        int version "optimistic locking"
+    }
+
+    AUDIT_MIXIN {
+        bigint history_user FK
+        datetime history_date
+        string history_change_reason
+        bigint history_delegation_id FK
+    }
+
+    TENANT ||--o{ TENANT_SCOPED_MODEL : "isole via RLS"
+    TENANT_SCOPED_MODEL ||--|| VERSIONED_MODEL : "hérite (financier)"
+    VERSIONED_MODEL ||--|| AUDIT_MIXIN : "hérite (financier)"
+      </pre>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- EMPLOYES & RBAC -->
+  <!-- ============================================ -->
+  <div class="domain" id="hr">
+    <div class="domain-header">
+      <h2>Employés, Rôles & Délégation</h2>
+      <span class="badge">apps.employees</span>
+    </div>
+    <p class="domain-desc">8 rôles RBAC, assignation par projet, système de délégation avec audit.</p>
+    <div class="domain-body">
+      <pre class="mermaid">
+erDiagram
+    EMPLOYEE {
+        bigint id PK
+        bigint tenant_id FK
+        string first_name
+        string last_name
+        string email UK
+        string language_pref "fr|en"
+        bigint bu_id FK "Business Unit"
+        bigint position_profile_id FK
+        decimal internal_cost_rate "visible Finance only"
+        decimal salary_cost "RLS protected"
+        boolean is_active
+    }
+
+    POSITION_PROFILE {
+        bigint id PK
+        bigint tenant_id FK
+        string name "31 archetypes"
+        decimal standard_hourly_rate
+        string description
+    }
+
+    PROJECT_ROLE {
+        bigint id PK
+        bigint user_id FK
+        bigint project_id FK
+        string role "EMPLOYEE|PM|PROJECT_DIRECTOR|BU_DIRECTOR|FINANCE|DEPT_ASSISTANT|PROPOSAL_MANAGER|ADMIN"
+    }
+
+    DELEGATION {
+        bigint id PK
+        bigint tenant_id FK
+        bigint delegator_id FK
+        bigint delegate_id FK
+        bigint project_id FK
+        json permissions "array of scopes"
+        date start_date
+        date end_date
+        boolean is_active
+    }
+
+    EMPLOYEE ||--o{ PROJECT_ROLE : "a_roles"
+    EMPLOYEE ||--|| POSITION_PROFILE : "profil"
+    EMPLOYEE ||--o{ DELEGATION : "delegue_a"
+    EMPLOYEE ||--o{ DELEGATION : "recoit_de"
+      </pre>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- PROJETS & WBS -->
+  <!-- ============================================ -->
+  <div class="domain" id="projects">
+    <div class="domain-header">
+      <h2>Projets, Phases & Structure WBS</h2>
+      <span class="badge">apps.projects</span>
+    </div>
+    <p class="domain-desc">Projets avec wizard 4 étapes, double couche réalisation/financière, WBS avec libellés client.</p>
+    <div class="domain-body">
+      <pre class="mermaid">
+erDiagram
+    PROJECT {
+        bigint id PK
+        bigint tenant_id FK
+        string project_code "PRJ-YYYY-NNN"
+        string name
+        bigint client_id FK
+        bigint template_id FK
+        string contract_type "forfaitaire|consortium|co-dev"
+        decimal contract_value
+        string status "active|completed|on_hold|cancelled"
+        bigint pm_id FK "Chef de projet"
+        bigint associe_en_charge_id FK "Associé en charge"
+        bigint invoice_approver_id FK "Chargé de contrat"
+        bigint bu_director_id FK
+        bigint entity_id FK "Entité juridique"
+        bigint consortium_id FK "nullable"
+        boolean is_internal
+        boolean is_consortium_flag
+        date start_date
+        date end_date
+    }
+
+    PROJECT_TEMPLATE {
+        bigint id PK
+        bigint tenant_id FK
+        string name
+        string contract_type
+        json default_phases
+    }
+
+    PHASE {
+        bigint id PK
+        bigint tenant_id FK
+        bigint project_id FK
+        int phase_number
+        string name "libellé interne"
+        string libelle_client "libellé client"
+        string phase_type "sequential|transversal"
+        boolean is_support_service
+        boolean is_mandatory
+        boolean is_blocked
+        date start_date
+        date end_date
+        decimal budget_hours
+        decimal budget_costs
+    }
+
+    WBS_ELEMENT {
+        bigint id PK
+        bigint tenant_id FK
+        bigint phase_id FK
+        bigint parent_id FK "nullable, hiérarchie"
+        string code "libellé interne"
+        string client_label "libellé client FR7"
+        int level "1=tâche 2=sous-tâche"
+        boolean is_billable
+        decimal budget_hours
+        decimal budget_costs
+    }
+
+    FINANCIAL_PHASE {
+        bigint id PK
+        bigint tenant_id FK
+        bigint project_id FK
+        string label "libellé facturation"
+        string billing_mode "fixed_price|hourly"
+    }
+
+    PHASE_FINANCIAL_PHASE {
+        bigint phase_id FK
+        bigint financial_phase_id FK
+    }
+
+    VIRTUAL_PROFILE_ASSIGNMENT {
+        bigint id PK
+        bigint phase_id FK
+        bigint position_profile_id FK
+        decimal percentage "0-100"
+        int priority_tier "1|2|3"
+    }
+
+    EMPLOYEE_ASSIGNMENT {
+        bigint id PK
+        bigint employee_id FK
+        bigint project_id FK
+        bigint phase_id FK
+        decimal percentage "0-100"
+        date start_date
+        date end_date
+    }
+
+    AMENDMENT {
+        bigint id PK
+        bigint tenant_id FK
+        bigint project_id FK
+        int amendment_number
+        string description
+        decimal impact_on_contract_value
+        string status "draft|pm_approved|associate_approved|active"
+        int version "optimistic lock"
+        datetime created_at
+    }
+
+    RATE_GRID {
+        bigint id PK
+        bigint project_id FK
+        bigint employee_id FK
+        decimal internal_cost_rate
+        decimal contractual_client_rate
+    }
+
+    PROJECT ||--o{ PHASE : "contient"
+    PROJECT ||--|| PROJECT_TEMPLATE : "créé_depuis"
+    PROJECT ||--o{ FINANCIAL_PHASE : "couche_financière"
+    PROJECT ||--o{ AMENDMENT : "avenants"
+    PROJECT ||--o{ EMPLOYEE_ASSIGNMENT : "affecte"
+    PROJECT ||--o{ RATE_GRID : "grille_taux"
+    PHASE ||--o{ WBS_ELEMENT : "décompose"
+    PHASE ||--o{ VIRTUAL_PROFILE_ASSIGNMENT : "profils_virtuels"
+    PHASE ||--o{ EMPLOYEE_ASSIGNMENT : "employés"
+    PHASE ||--o{ PHASE_FINANCIAL_PHASE : "regroupe"
+    FINANCIAL_PHASE ||--o{ PHASE_FINANCIAL_PHASE : "regroupe"
+      </pre>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- FEUILLES DE TEMPS -->
+  <!-- ============================================ -->
+  <div class="domain" id="time">
+    <div class="domain-header">
+      <h2>Feuilles de temps & Approbation</h2>
+      <span class="badge">apps.time_entries</span>
+    </div>
+    <p class="domain-desc">Grille hebdomadaire, approbation 2 niveaux, blocage phase/personne, correction Finance.</p>
+    <div class="domain-body">
+      <pre class="mermaid">
+erDiagram
+    TIME_ENTRY {
+        bigint id PK
+        bigint tenant_id FK
+        bigint employee_id FK
+        bigint project_id FK
+        bigint phase_id FK
+        bigint wbs_element_id FK "nullable"
+        date entry_date
+        decimal hours "Decimal 5,2"
+        string notes "nullable"
+        string status "draft|submitted|approved|validated"
+        int version "optimistic lock"
+        boolean corrected_by_finance
+        decimal original_hours "nullable, avant correction"
+        string correction_justification "nullable"
+    }
+
+    WEEKLY_APPROVAL {
+        bigint id PK
+        bigint tenant_id FK
+        bigint employee_id FK
+        date week_start
+        date week_end
+        string status "draft|submitted|level1_approved|level2_approved"
+        bigint first_approver_id FK "PM"
+        bigint second_approver_id FK "Finance"
+        datetime submitted_at
+        datetime level1_approved_at
+        datetime level2_approved_at
+    }
+
+    TIMESHEET_LOCK {
+        bigint id PK
+        bigint tenant_id FK
+        bigint phase_id FK
+        bigint employee_id FK "nullable = phase-wide"
+        string lock_type "phase|person"
+        bigint locked_by FK
+        datetime locked_at
+    }
+
+    PERIOD_UNLOCK {
+        bigint id PK
+        bigint tenant_id FK
+        date period_start
+        date period_end
+        bigint requested_by FK
+        bigint approved_by FK
+        string status "pending|approved|denied"
+        string justification
+    }
+
+    TIME_ENTRY }o--|| WEEKLY_APPROVAL : "dans_semaine"
+    TIMESHEET_LOCK ||--o{ TIME_ENTRY : "bloque"
+      </pre>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- FACTURATION & PAIEMENTS -->
+  <!-- ============================================ -->
+  <div class="domain" id="billing">
+    <div class="domain-header">
+      <h2>Facturation, Paiements & Retenues</h2>
+      <span class="badge">apps.billing</span>
+    </div>
+    <p class="domain-desc">Écran 7 colonnes, templates par client, avoirs, allocations, retenues, relances automatisées.</p>
+    <div class="domain-body">
+      <pre class="mermaid">
+erDiagram
+    INVOICE {
+        bigint id PK
+        bigint tenant_id FK
+        bigint project_id FK
+        bigint client_id FK
+        string invoice_number "PROV-xxxx puis définitif"
+        string status "draft|submitted|approved|sent|paid"
+        decimal total_amount "Decimal 12,2"
+        bigint submitted_by_id FK
+        bigint approved_by_id FK
+        bigint template_id FK
+        int version "optimistic lock"
+        date date_created
+        date date_sent
+        date date_paid
+    }
+
+    INVOICE_LINE {
+        bigint id PK
+        bigint tenant_id FK
+        bigint invoice_id FK
+        bigint financial_phase_id FK
+        string deliverable_name
+        decimal total_contract_amount
+        decimal invoiced_to_date
+        decimal pct_billing_advancement "Decimal 5,2"
+        decimal pct_hours_advancement "Decimal 5,2"
+        decimal amount_to_bill "editable FR29"
+        decimal pct_after_billing "Decimal 5,2"
+        string line_type "forfait|horaire|st|depense"
+    }
+
+    CREDIT_NOTE {
+        bigint id PK
+        bigint tenant_id FK
+        bigint invoice_id FK "nullable"
+        bigint project_id FK
+        string credit_note_number "NC-xxxx"
+        decimal amount
+        string reason
+        string status "draft|submitted|approved|sent"
+        int version
+    }
+
+    PAYMENT {
+        bigint id PK
+        bigint tenant_id FK
+        bigint invoice_id FK
+        decimal amount "partiel possible"
+        date payment_date
+        string reference "cheque, virement"
+        int version
+    }
+
+    PAYMENT_ALLOCATION {
+        bigint id PK
+        bigint payment_id FK
+        bigint invoice_id FK
+        decimal allocated_amount
+    }
+
+    HOLDBACK {
+        bigint id PK
+        bigint tenant_id FK
+        bigint project_id FK
+        bigint invoice_id FK
+        decimal percentage_rate
+        decimal accumulated
+        decimal released
+        decimal remaining "accumulated - released"
+        string status
+        int version
+    }
+
+    WRITE_OFF {
+        bigint id PK
+        bigint tenant_id FK
+        bigint invoice_id FK
+        decimal amount
+        string reason
+        string status
+        int version
+    }
+
+    INVOICE_TEMPLATE {
+        bigint id PK
+        bigint tenant_id FK
+        string name "10+ formats"
+        json template_config
+    }
+
+    CLIENT_LABEL {
+        bigint id PK
+        bigint tenant_id FK
+        bigint project_id FK
+        json label_mappings "WBS interne to client"
+    }
+
+    DUNNING_LEVEL {
+        bigint id PK
+        bigint tenant_id FK
+        int level "1-3"
+        int days_overdue
+        text email_template
+    }
+
+    DUNNING_ACTION {
+        bigint id PK
+        bigint tenant_id FK
+        bigint invoice_id FK
+        bigint dunning_level_id FK
+        datetime sent_at
+    }
+
+    BILLING_DOSSIER {
+        bigint id PK
+        bigint tenant_id FK
+        bigint project_id FK
+        bigint invoice_id FK
+        string status "generating|ready"
+        string file_url
+    }
+
+    INVOICE ||--o{ INVOICE_LINE : "lignes"
+    INVOICE ||--o{ CREDIT_NOTE : "avoirs"
+    INVOICE ||--o{ PAYMENT : "paiements"
+    INVOICE ||--o{ HOLDBACK : "retenues"
+    INVOICE ||--o{ WRITE_OFF : "radiations"
+    INVOICE ||--o{ DUNNING_ACTION : "relances"
+    INVOICE }o--|| INVOICE_TEMPLATE : "format"
+    PAYMENT ||--o{ PAYMENT_ALLOCATION : "ventile"
+    DUNNING_LEVEL ||--o{ DUNNING_ACTION : "declenche"
+      </pre>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- DEPENSES -->
+  <!-- ============================================ -->
+  <div class="domain" id="expenses">
+    <div class="domain-header">
+      <h2>Gestion des dépenses</h2>
+      <span class="badge">apps.expenses</span>
+    </div>
+    <p class="domain-desc">Approbation 4 rôles, catégories configurables, refacturable client, export Intacct.</p>
+    <div class="domain-body">
+      <pre class="mermaid">
+erDiagram
+    EXPENSE_REPORT {
+        bigint id PK
+        bigint tenant_id FK
+        bigint employee_id FK
+        bigint project_id FK "nullable"
+        string status "submitted|pm_approved|finance_validated|paid|reversed|rejected"
+        int version
+        datetime submitted_at
+    }
+
+    EXPENSE_LINE {
+        bigint id PK
+        bigint tenant_id FK
+        bigint expense_report_id FK
+        bigint category_id FK
+        date expense_date
+        decimal amount "Decimal 12,2"
+        string description
+        string receipt_path "attachment"
+        boolean is_refacturable
+        decimal refacturable_markup_pct "nullable"
+        string tax_type "HT|TPS|TVQ"
+    }
+
+    EXPENSE_CATEGORY {
+        bigint id PK
+        bigint tenant_id FK
+        string name
+        boolean is_refacturable_default
+        boolean requires_receipt
+        string gl_account
+    }
+
+    EXPENSE_APPROVAL {
+        bigint id PK
+        bigint tenant_id FK
+        bigint expense_report_id FK
+        bigint approved_by FK
+        string role_level "submitter|manager|finance_analyst|finance"
+        string status "approved|rejected"
+        string rejection_reason "nullable"
+        datetime date
+    }
+
+    EXPENSE_REPORT ||--o{ EXPENSE_LINE : "lignes"
+    EXPENSE_REPORT ||--o{ EXPENSE_APPROVAL : "approbations"
+    EXPENSE_LINE }o--|| EXPENSE_CATEGORY : "catégorie"
+      </pre>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- SOUS-TRAITANTS -->
+  <!-- ============================================ -->
+  <div class="domain" id="suppliers">
+    <div class="domain-header">
+      <h2>Sous-traitants & Fournisseurs</h2>
+      <span class="badge">apps.suppliers</span>
+    </div>
+    <p class="domain-desc">Registre partagé, factures ST, paiements partiels, litiges, retenues, notes de crédit.</p>
+    <div class="domain-body">
+      <pre class="mermaid">
+erDiagram
+    EXTERNAL_ORGANIZATION {
+        bigint id PK
+        bigint tenant_id FK
+        string legal_name
+        string neq "no entreprise Quebec"
+        string address
+        string type_tags "st|partner|competitor"
+        string deduplication_key
+        boolean is_active
+    }
+
+    ST_INVOICE {
+        bigint id PK
+        bigint tenant_id FK
+        bigint project_id FK
+        bigint supplier_id FK
+        string invoice_number
+        date invoice_date
+        decimal amount "Decimal 12,2"
+        string source "manual|api"
+        string status "received|authorized|paid|disputed|credited"
+        decimal internal_fees
+        decimal refacturable
+        decimal absorbed
+        int version
+    }
+
+    ST_PAYMENT {
+        bigint id PK
+        bigint tenant_id FK
+        bigint st_invoice_id FK
+        decimal amount "partiel possible"
+        date payment_date
+        string status
+        int version
+    }
+
+    ST_CREDIT_NOTE {
+        bigint id PK
+        bigint tenant_id FK
+        bigint st_invoice_id FK "nullable"
+        bigint supplier_id FK
+        decimal amount
+        string status
+        int version
+    }
+
+    ST_DISPUTE {
+        bigint id PK
+        bigint tenant_id FK
+        bigint st_invoice_id FK
+        string description
+        string status "open|resolved|escalated"
+        date expected_resolution
+        int version
+    }
+
+    ST_HOLDBACK {
+        bigint id PK
+        bigint tenant_id FK
+        bigint project_id FK
+        bigint supplier_id FK
+        decimal percentage_rate
+        decimal accumulated
+        decimal released
+        decimal remaining
+        string status
+        int version
+    }
+
+    EXTERNAL_ORGANIZATION ||--o{ ST_INVOICE : "facture"
+    EXTERNAL_ORGANIZATION ||--o{ ST_HOLDBACK : "retenue"
+    ST_INVOICE ||--o{ ST_PAYMENT : "paiements"
+    ST_INVOICE ||--o{ ST_CREDIT_NOTE : "avoirs"
+    ST_INVOICE ||--o{ ST_DISPUTE : "litiges"
+      </pre>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- PROPOSITIONS -->
+  <!-- ============================================ -->
+  <div class="domain" id="proposals">
+    <div class="domain-header">
+      <h2>Propositions de services</h2>
+      <span class="badge">apps.proposals</span>
+    </div>
+    <p class="domain-desc">Pipeline d'opportunités, équipe, suivi concurrence, conversion en projet.</p>
+    <div class="domain-body">
+      <pre class="mermaid">
+erDiagram
+    PROPOSAL {
+        bigint id PK
+        bigint tenant_id FK
+        string proposal_code "OFF-YYYY-NNN"
+        string title
+        bigint client_id FK
+        bigint sales_rep_id FK
+        date deadline
+        decimal budget_hours
+        decimal budget_amount
+        string status "en_cours|soumise|gagnee|perdue|abandonnee|convertie"
+        bigint converted_project_id FK "nullable"
+        datetime conversion_date "nullable"
+    }
+
+    PROPOSAL_TEAM {
+        bigint id PK
+        bigint proposal_id FK
+        bigint employee_id FK
+        string role
+        decimal estimated_hours
+    }
+
+    PROPOSAL_CHECKLIST {
+        bigint id PK
+        bigint proposal_id FK
+        string item
+        boolean is_completed
+        int order
+    }
+
+    COMPETITOR_TRACKING {
+        bigint id PK
+        bigint proposal_id FK
+        bigint competitor_id FK "ExternalOrganization"
+        string notes
+    }
+
+    PROPOSAL ||--o{ PROPOSAL_TEAM : "equipe"
+    PROPOSAL ||--o{ PROPOSAL_CHECKLIST : "checklist"
+    PROPOSAL ||--o{ COMPETITOR_TRACKING : "concurrents"
+      </pre>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- CONSORTIUMS -->
+  <!-- ============================================ -->
+  <div class="domain" id="consortiums">
+    <div class="domain-header">
+      <h2>Consortiums & Distribution des profits</h2>
+      <span class="badge">apps.consortiums</span>
+    </div>
+    <p class="domain-desc">Double perspective financière (consortium vs Provencher), taux membres, trésorerie, fiscalité.</p>
+    <div class="domain-body">
+      <pre class="mermaid">
+erDiagram
+    CONSORTIUM {
+        bigint id PK
+        bigint tenant_id FK
+        string name
+        bigint client_id FK "donneur ouvrage"
+        string contract_reference
+        string provencher_role "mandataire|partner"
+    }
+
+    CONSORTIUM_MEMBER {
+        bigint id PK
+        bigint consortium_id FK
+        bigint organization_id FK "ExternalOrganization"
+        string role "mandataire|partner"
+        decimal coefficient_pct "total = 100%"
+    }
+
+    CONSORTIUM_PROJECT {
+        bigint id PK
+        bigint consortium_id FK
+        bigint project_id FK
+    }
+
+    MEMBER_RATE {
+        bigint id PK
+        bigint tenant_id FK
+        bigint consortium_id FK
+        bigint member_id FK
+        decimal associate_rate "taux horaire fixe"
+        decimal employee_rate_multiplier "salaire x multiplicateur"
+    }
+
+    PROFIT_DISTRIBUTION {
+        bigint id PK
+        bigint tenant_id FK
+        bigint consortium_id FK
+        bigint member_id FK
+        decimal profit_share_pct "Decimal 5,2"
+        decimal amount "Decimal 12,2"
+        string status "draft|recorded|paid"
+        string measurement_mode "hours|facturation|coefficient"
+        int version
+    }
+
+    TREASURY_ENTRY {
+        bigint id PK
+        bigint tenant_id FK
+        bigint consortium_id FK
+        date entry_date
+        decimal amount
+        string type "inflow|outflow"
+        string description
+    }
+
+    TAX_DECLARATION {
+        bigint id PK
+        bigint tenant_id FK
+        bigint consortium_id FK
+        string fiscal_period
+        decimal tps_rate
+        decimal tvq_rate
+        string status "draft|submitted|accepted"
+        int version
+    }
+
+    PARTNER_INVOICE {
+        bigint id PK
+        bigint tenant_id FK
+        bigint consortium_id FK
+        bigint partner_id FK
+        bigint project_id FK "nullable"
+        decimal amount
+        string source "manual|api"
+        string status "draft|recorded|processed"
+    }
+
+    CONSORTIUM ||--o{ CONSORTIUM_MEMBER : "membres"
+    CONSORTIUM ||--o{ CONSORTIUM_PROJECT : "projets"
+    CONSORTIUM ||--o{ MEMBER_RATE : "taux"
+    CONSORTIUM ||--o{ PROFIT_DISTRIBUTION : "distributions"
+    CONSORTIUM ||--o{ TREASURY_ENTRY : "tresorerie"
+    CONSORTIUM ||--o{ TAX_DECLARATION : "fiscalite"
+    CONSORTIUM ||--o{ PARTNER_INVOICE : "factures_partenaires"
+    CONSORTIUM_MEMBER ||--o{ PROFIT_DISTRIBUTION : "recoit"
+    CONSORTIUM_MEMBER ||--o{ MEMBER_RATE : "tarife"
+      </pre>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- CLIENTS -->
+  <!-- ============================================ -->
+  <div class="domain" id="clients">
+    <div class="domain-header">
+      <h2>Clients & Contacts</h2>
+      <span class="badge">apps.clients</span>
+    </div>
+    <p class="domain-desc">Interface 5 onglets, détection doublons, historique financier, groupes clients.</p>
+    <div class="domain-body">
+      <pre class="mermaid">
+erDiagram
+    CLIENT {
+        bigint id PK
+        bigint tenant_id FK
+        string legal_name
+        string alias "unique, recherche"
+        string type "corporate|government|institutional"
+        string status "active|inactive"
+    }
+
+    CONTACT {
+        bigint id PK
+        bigint tenant_id FK
+        bigint client_id FK
+        string name
+        string title
+        string email
+        string phone
+    }
+
+    CLIENT_ADDRESS {
+        bigint id PK
+        bigint tenant_id FK
+        bigint client_id FK
+        string address_line1
+        string address_line2
+        string city
+        string province
+        string postal_code
+        string country "default: Canada"
+        string address_type "billing|shipping"
+    }
+
+    CLIENT_GROUP {
+        bigint id PK
+        bigint tenant_id FK
+        string name
+    }
+
+    CLIENT_GROUP_MEMBERSHIP {
+        bigint client_id FK
+        bigint group_id FK
+    }
+
+    CLIENT ||--o{ CONTACT : "contacts"
+    CLIENT ||--o{ CLIENT_ADDRESS : "adresses"
+    CLIENT ||--o{ CLIENT_GROUP_MEMBERSHIP : "groupes"
+    CLIENT_GROUP ||--o{ CLIENT_GROUP_MEMBERSHIP : "membres"
+      </pre>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- NOTIFICATIONS -->
+  <!-- ============================================ -->
+  <div class="domain" id="notifications">
+    <div class="domain-header">
+      <h2>Notifications & Présence</h2>
+      <span class="badge">apps.notifications</span>
+    </div>
+    <div class="domain-body">
+      <pre class="mermaid">
+erDiagram
+    NOTIFICATION {
+        bigint id PK
+        bigint tenant_id FK
+        bigint user_id FK
+        string notification_type "approval_required|invoice_sent|timesheet_reminder"
+        text message
+        datetime read_at "nullable"
+        datetime created_at
+    }
+
+    NOTIFICATION_PREFERENCE {
+        bigint id PK
+        bigint tenant_id FK
+        bigint user_id FK "unique"
+        boolean email_enabled
+        json subscribed_categories
+    }
+
+    NOTIFICATION }o--|| NOTIFICATION_PREFERENCE : "filtre"
+      </pre>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- IMPORT/EXPORT -->
+  <!-- ============================================ -->
+  <div class="domain" id="dataops">
+    <div class="domain-header">
+      <h2>Import/Export & Opérations</h2>
+      <span class="badge">apps.data_ops</span>
+    </div>
+    <div class="domain-body">
+      <pre class="mermaid">
+erDiagram
+    IMPORT_JOB {
+        bigint id PK
+        bigint tenant_id FK
+        string import_type "consortium|timesheet|changepoint"
+        string file_path
+        string status "pending|processing|completed|failed"
+        bigint created_by FK
+        datetime created_at
+        datetime completed_at
+        text error_message "nullable"
+    }
+
+    EXPORT_JOB {
+        bigint id PK
+        bigint tenant_id FK
+        string export_type "invoices|timesheets|expenses|intacct"
+        string format "csv|excel|pdf"
+        string status "pending|processing|completed|failed"
+        bigint created_by FK
+        string file_url "nullable"
+        datetime created_at
+    }
+
+    OPERATIONS_LOG {
+        bigint id PK
+        bigint tenant_id FK
+        string operation_type "import|export|archival|purge"
+        string source_table
+        int record_count
+        bigint performed_by FK
+        datetime performed_at
+        json details
+    }
+      </pre>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <p>ERP Professional Services — Modèle Conceptuel de Données — Généré le 2026-03-17</p>
+  <p>14 apps Django · 45+ entités · PostgreSQL 16 + RLS multi-tenant · Django 6.0.3</p>
+</footer>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'neutral',
+    er: {
+      diagramPadding: 20,
+      layoutDirection: 'TB',
+      minEntityWidth: 120,
+      minEntityHeight: 40,
+      entityPadding: 15,
+      useMaxWidth: true
+    },
+    themeVariables: {
+      primaryColor: '#1e3a5f',
+      primaryTextColor: '#1e293b',
+      primaryBorderColor: '#94a3b8',
+      lineColor: '#64748b',
+      secondaryColor: '#f1f5f9',
+      tertiaryColor: '#f8fafc'
+    }
+  });
+</script>
+
+</body>
+</html>
