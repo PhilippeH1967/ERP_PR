@@ -97,6 +97,18 @@ const router = createRouter({
           name: 'st-invoices',
           component: () => import('@/features/suppliers/views/STInvoiceList.vue'),
         },
+        // Delegation
+        {
+          path: 'delegations',
+          name: 'delegations',
+          component: () => import('@/features/delegation/views/DelegationList.vue'),
+        },
+        // Admin
+        {
+          path: 'admin',
+          name: 'admin',
+          component: () => import('@/features/admin/views/AdminHub.vue'),
+        },
       ],
     },
   ],

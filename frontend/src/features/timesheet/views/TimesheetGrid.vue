@@ -101,6 +101,25 @@ function normClass(total: number, norm: number): string {
         <div class="text-xs text-text-muted">
           Moyenne 4 sem.
         </div>
+        <!-- Sparkline (Fix #9) -->
+        <div class="mt-2 flex items-end justify-center gap-0.5">
+          <div
+            class="w-1.5 rounded-sm bg-warning"
+            style="height: 16px"
+          />
+          <div
+            class="w-1.5 rounded-sm bg-warning"
+            style="height: 18px"
+          />
+          <div
+            class="w-1.5 rounded-sm bg-danger"
+            style="height: 22px"
+          />
+          <div
+            class="w-1.5 rounded-sm bg-warning"
+            style="height: 14px"
+          />
+        </div>
       </div>
       <div class="rounded-lg border border-border bg-surface p-4 text-center">
         <div class="text-2xl font-bold text-primary">

@@ -166,13 +166,19 @@ async function onAddAddress(data: Record<string, unknown>) {
           class="mb-3 rounded border border-border p-3"
         >
           <div class="flex items-center justify-between">
-            <p class="font-medium">
-              {{ contact.name }}
-            </p>
+            <div class="flex items-center gap-2">
+              <p class="font-medium">
+                {{ contact.name }}
+              </p>
+              <span
+                v-if="contact.role"
+                class="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
+              >{{ contact.role }}</span>
+            </div>
             <span class="text-xs text-text-muted">{{ contact.language_preference === 'fr' ? 'FR' : 'EN' }}</span>
           </div>
-          <p class="text-sm text-text-muted">
-            {{ contact.role }}{{ contact.role && contact.email ? ' · ' : '' }}{{ contact.email }}{{ contact.phone ? ` · ${contact.phone}` : '' }}
+          <p class="mt-1 text-sm text-text-muted">
+            {{ contact.email }}{{ contact.phone ? ` · ${contact.phone}` : '' }}
           </p>
         </div>
         <p
@@ -220,13 +226,21 @@ async function onAddAddress(data: Record<string, unknown>) {
           </p>
           <div class="mt-1 flex gap-2">
             <span
-              v-if="addr.is_billing"
-              class="rounded bg-primary/10 px-2 py-0.5 text-xs text-primary"
-            >Facturation</span>
-            <span
               v-if="addr.is_primary"
               class="rounded bg-success/10 px-2 py-0.5 text-xs text-success"
-            >Principale</span>
+            >Siège social</span>
+            <span
+              v-if="addr.is_billing && addr.is_primary"
+              class="rounded bg-warning/10 px-2 py-0.5 text-xs text-warning"
+            >Facturation principale</span>
+            <span
+              v-else-if="addr.is_billing"
+              class="rounded bg-warning/10 px-2 py-0.5 text-xs text-warning"
+            >Facturation</span>
+            <span
+              v-if="!addr.is_billing && !addr.is_primary"
+              class="rounded bg-text-muted/10 px-2 py-0.5 text-xs text-text-muted"
+            >Bureau</span>
           </div>
         </div>
       </div>

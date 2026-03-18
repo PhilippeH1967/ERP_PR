@@ -23,14 +23,93 @@ onMounted(async () => {
   <div>
     <div class="mb-6 flex items-center justify-between">
       <h1 class="text-2xl font-semibold text-text">
-        Dépenses
+        Mes dépenses
       </h1>
-      <button
-        class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
-        @click="showCreateForm = true"
-      >
-        + Nouvelle dépense
-      </button>
+      <div class="flex gap-2">
+        <button class="rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-muted hover:bg-surface-alt">
+          Depuis un modèle
+        </button>
+        <button
+          class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
+          @click="showCreateForm = true"
+        >
+          + Nouvelle dépense
+        </button>
+      </div>
+    </div>
+
+    <!-- KPI Cards (Fix #3) -->
+    <div class="mb-6 grid grid-cols-4 gap-4">
+      <div class="rounded-lg border border-border bg-surface p-4 text-center">
+        <div class="text-2xl font-bold text-warning">
+          {{ reports.filter(r => r.status === 'SUBMITTED').length }}
+        </div>
+        <div class="text-xs text-text-muted">
+          En cours
+        </div>
+      </div>
+      <div class="rounded-lg border border-border bg-surface p-4 text-center">
+        <div class="text-2xl font-bold text-primary">
+          {{ reports.filter(r => r.status === 'PM_APPROVED').length }}
+        </div>
+        <div class="text-xs text-text-muted">
+          Soumises
+        </div>
+      </div>
+      <div class="rounded-lg border border-border bg-surface p-4 text-center">
+        <div class="text-2xl font-bold text-success">
+          {{ reports.filter(r => r.status === 'PAID').length }}
+        </div>
+        <div class="text-xs text-text-muted">
+          Approuvées
+        </div>
+      </div>
+      <div class="rounded-lg border border-border bg-surface p-4 text-center">
+        <div class="font-mono text-2xl font-bold text-text">
+          {{ fmt.currency(reports.reduce((s, r) => s + parseFloat(r.total_amount || '0'), 0).toString()) }}
+        </div>
+        <div class="text-xs text-text-muted">
+          Total ce mois
+        </div>
+      </div>
+    </div>
+
+    <!-- Reminder banner -->
+    <div class="mb-4 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-primary">
+      Rappel : une pièce justificative (photo ou PDF) est obligatoire pour chaque dépense.
+    </div>
+
+    <!-- Templates section (Fix #5) -->
+    <div class="mb-6">
+      <h3 class="mb-3 text-sm font-medium text-text-muted">
+        Modèles fréquents
+      </h3>
+      <div class="flex gap-3">
+        <div class="cursor-pointer rounded-lg border border-border bg-surface p-3 text-center hover:border-primary/30">
+          <div class="text-lg">
+            🚕
+          </div>
+          <div class="mt-1 text-xs font-medium">
+            Taxi
+          </div>
+        </div>
+        <div class="cursor-pointer rounded-lg border border-border bg-surface p-3 text-center hover:border-primary/30">
+          <div class="text-lg">
+            🍽️
+          </div>
+          <div class="mt-1 text-xs font-medium">
+            Repas client
+          </div>
+        </div>
+        <div class="cursor-pointer rounded-lg border border-border bg-surface p-3 text-center hover:border-primary/30">
+          <div class="text-lg">
+            🅿️
+          </div>
+          <div class="mt-1 text-xs font-medium">
+            Stationnement
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="rounded-lg border border-border bg-surface">

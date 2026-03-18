@@ -104,6 +104,28 @@ async function onSubmit() {
         />
       </div>
 
+      <!-- Receipt upload (Fix #4) -->
+      <div>
+        <label class="text-xs font-medium text-text-muted">Pièce justificative *</label>
+        <div class="mt-1 rounded-lg border-2 border-dashed border-border p-6 text-center hover:border-primary/30">
+          <input
+            type="file"
+            accept="image/*,.pdf"
+            class="hidden"
+            @change="(e) => { /* handle file */ }"
+          >
+          <div class="text-2xl text-text-muted">
+            📎
+          </div>
+          <p class="mt-2 text-sm text-text-muted">
+            Glissez un fichier ou cliquez pour sélectionner
+          </p>
+          <p class="text-xs text-text-muted">
+            PDF, JPG, PNG — max 10 Mo
+          </p>
+        </div>
+      </div>
+
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="text-xs font-medium text-text-muted">Taxes</label>
