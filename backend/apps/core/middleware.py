@@ -14,17 +14,20 @@ logger = structlog.get_logger()
 # Paths exempt from tenant context requirement
 TENANT_EXEMPT_PATHS = (
     "/api/v1/health/",
+    "/api/v1/auth/",
     "/api/schema/",
     "/admin/",
+    "/accounts/",
 )
 
 
 class TenantMiddleware:
     """
-    Extract tenant_id from request and set PostgreSQL session variable.
+    Extract tenant_id from JWT claims or X-Tenant-Id header.
 
-    Current: reads X-Tenant-Id header (development/testing).
-    Story 1.3 will switch to JWT claim extraction.
+    Priority:
+    1. JWT token payload (via simplejwt — decoded by DRF before views)
+    2. X-Tenant-Id header (development/testing fallback)
     """
 
     def __init__(self, get_response):
@@ -37,12 +40,14 @@ class TenantMiddleware:
             request.tenant = None
             return self.get_response(request)
 
-        # Extract tenant_id from header (Story 1.3 will use JWT)
-        tenant_id = request.headers.get("X-Tenant-Id")
+        # Try to extract tenant_id from JWT token
+        tenant_id = self._extract_tenant_from_jwt(request)
+
+        # Fallback to X-Tenant-Id header (development/testing)
+        if tenant_id is None:
+            tenant_id = request.headers.get("X-Tenant-Id")
 
         if not tenant_id:
-            # Allow unauthenticated requests to pass through
-            # (DRF permission classes will handle auth enforcement)
             request.tenant_id = None
             request.tenant = None
             return self.get_response(request)
@@ -54,7 +59,7 @@ class TenantMiddleware:
                 {
                     "error": {
                         "code": "INVALID_TENANT",
-                        "message": "X-Tenant-Id must be a valid integer",
+                        "message": "Tenant ID must be a valid integer",
                         "details": [],
                     }
                 },
@@ -88,3 +93,18 @@ class TenantMiddleware:
         logger.bind(tenant_id=tenant_id)
 
         return self.get_response(request)
+
+    def _extract_tenant_from_jwt(self, request):
+        """Decode JWT from Authorization header to extract tenant_id claim."""
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return None
+
+        token_str = auth_header[7:]  # Strip "Bearer "
+        try:
+            from rest_framework_simplejwt.tokens import AccessToken
+
+            token = AccessToken(token_str, verify=False)  # Verify happens in DRF
+            return token.get("tenant_id")
+        except Exception:
+            return None

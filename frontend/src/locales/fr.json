@@ -2,5 +2,10 @@
   "app": {
     "name": "ERP - Services Professionnels",
     "loading": "Chargement..."
+  },
+  "auth": {
+    "login": "Se connecter",
+    "logout": "Se d\u00e9connecter",
+    "sso_unavailable": "Le service d'authentification est temporairement indisponible. Veuillez r\u00e9essayer dans quelques instants."
   }
 }

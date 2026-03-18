@@ -6,6 +6,7 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 import structlog
@@ -40,6 +41,11 @@ THIRD_PARTY_APPS = [
     "drf_spectacular",
     "django_filters",
     "simple_history",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.openid_connect",
+    "rest_framework_simplejwt",
 ]
 
 LOCAL_APPS = [
@@ -58,6 +64,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
 ]
 
@@ -134,6 +141,7 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.MultiPartParser",
     ],
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
@@ -216,3 +224,52 @@ if SENTRY_DSN:
 # CORS — defaults closed; opened per-environment in local.py
 CORS_ALLOWED_ORIGINS = []
 CORS_ALLOW_CREDENTIALS = True
+
+# django-allauth configuration
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+ACCOUNT_EMAIL_VERIFICATION = "none"  # SSO handles verification
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
+LOGIN_REDIRECT_URL = "/"
+ACCOUNT_LOGOUT_REDIRECT_URL = "/"
+
+# Microsoft Entra ID OIDC provider
+_entra_client_id = os.environ.get("ENTRA_CLIENT_ID", "")
+_entra_tenant_id = os.environ.get("ENTRA_TENANT_ID", "")
+_entra_client_secret = os.environ.get("ENTRA_CLIENT_SECRET", "")
+SOCIALACCOUNT_PROVIDERS = {}
+if _entra_client_id and _entra_tenant_id:
+    SOCIALACCOUNT_PROVIDERS = {
+        "openid_connect": {
+            "APPS": [
+                {
+                    "provider_id": "entra",
+                    "name": "Microsoft Entra ID",
+                    "client_id": _entra_client_id,
+                    "secret": _entra_client_secret,
+                    "settings": {
+                        "server_url": (
+                            f"https://login.microsoftonline.com/{_entra_tenant_id}/v2.0"
+                        ),
+                    },
+                }
+            ]
+        }
+    }
+
+# djangorestframework-simplejwt configuration
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "TOKEN_OBTAIN_SERIALIZER": "apps.core.auth.CustomTokenObtainPairSerializer",
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+}

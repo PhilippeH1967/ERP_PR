@@ -5,6 +5,9 @@ from django.urls import path
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework_simplejwt.views import TokenVerifyView
+
+from apps.core.auth import CustomTokenObtainPairView, CustomTokenRefreshView
 
 
 @api_view(["GET"])
@@ -27,7 +30,6 @@ def health_check(request):
     checks = {}
     healthy = True
 
-    # Database check
     try:
         connection.ensure_connection()
         checks["database"] = "ok"
@@ -35,7 +37,6 @@ def health_check(request):
         checks["database"] = "error"
         healthy = False
 
-    # Redis/cache check
     try:
         from django.core.cache import cache
 
@@ -59,4 +60,8 @@ def health_check(request):
 urlpatterns = [
     path("", api_root, name="api-root"),
     path("health/", health_check, name="health-check"),
+    # JWT Authentication endpoints
+    path("auth/token/", CustomTokenObtainPairView.as_view(), name="token-obtain"),
+    path("auth/token/refresh/", CustomTokenRefreshView.as_view(), name="token-refresh"),
+    path("auth/token/verify/", TokenVerifyView.as_view(), name="token-verify"),
 ]

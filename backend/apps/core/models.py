@@ -5,6 +5,7 @@ All tenant-scoped models inherit TenantScopedModel for RLS isolation.
 Financial models additionally inherit VersionedModel and add HistoricalRecords().
 """
 
+from django.conf import settings
 from django.db import models
 
 
@@ -89,6 +90,28 @@ class VersionedModel(models.Model):
 #   class Invoice(TenantScopedModel, VersionedModel):
 #       amount = models.DecimalField(max_digits=12, decimal_places=2)
 #       history = HistoricalRecords()
+
+
+class UserTenantAssociation(models.Model):
+    """Links a Django User to a Tenant. Created on first SSO login."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="tenant_association",
+    )
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="user_associations",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "core_user_tenant"
+
+    def __str__(self):
+        return f"{self.user} → {self.tenant}"
 
 
 class SampleTenantModel(TenantScopedModel, VersionedModel):

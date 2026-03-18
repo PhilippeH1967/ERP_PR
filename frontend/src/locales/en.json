@@ -2,5 +2,10 @@
   "app": {
     "name": "ERP - Professional Services",
     "loading": "Loading..."
+  },
+  "auth": {
+    "login": "Sign in",
+    "logout": "Sign out",
+    "sso_unavailable": "The authentication service is temporarily unavailable. Please try again shortly."
   }
 }
