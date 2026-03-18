@@ -16,18 +16,16 @@
 #   - ready-for-dev: Story file created in stories folder
 #   - in-progress: Developer actively working on implementation
 #   - review: Ready for code review (via Dev's code-review workflow)
-#   - done: Story completed
+#   - done: Story completed (backend + frontend + tests)
 #
 # Retrospective Status:
 #   - optional: Can be completed but not required
 #   - done: Retrospective has been completed
 #
-# WORKFLOW NOTES:
-# ===============
-# - Epic transitions to 'in-progress' automatically when first story is created
-# - Stories can be worked in parallel if team capacity allows
-# - SM typically creates next story after previous one is 'done' to incorporate learnings
-# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# AUDIT NOTE (2026-03-18):
+# Stories marked in-progress have backend API complete but frontend
+# views/forms are missing or incomplete. Priority order for frontend
+# completion follows epic sequence.
 
 generated: 2026-03-17
 project: ERP
@@ -38,7 +36,7 @@ story_location: _bmad-output/implementation-artifacts
 development_status:
   # === MVP-1: Operational Foundation ===
 
-  # Epic 1: Foundation & Platform Setup (6 stories)
+  # Epic 1: Foundation & Platform Setup (6 stories) — FULLY DONE
   epic-1: done
   1-1-project-scaffolding-docker-infrastructure: done
   1-2-core-models-multi-tenancy-audit-trail: done
@@ -49,88 +47,88 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: Client & Organization Management (4 stories)
-  epic-2: done
-  2-1-client-crud-5-tab-interface: done
-  2-2-client-duplicate-detection-alias-search: done
-  2-3-client-financial-history-project-linking: done
-  2-4-external-organizations-registry: done
+  epic-2: in-progress
+  2-1-client-crud-5-tab-interface: in-progress        # Missing: create/edit forms
+  2-2-client-duplicate-detection-alias-search: in-progress  # Missing: duplicate detection modal
+  2-3-client-financial-history-project-linking: in-progress  # Missing: financial history view
+  2-4-external-organizations-registry: in-progress    # Missing: create/edit form
   epic-2-retrospective: optional
 
   # Epic 3: Project Creation & Management (10 stories)
-  epic-3: done
-  3-1-project-model-template-system: done
-  3-2-project-wizard-step-1-metadata: done
-  3-3-project-wizard-step-2-budget: done
-  3-4-project-wizard-step-3-resources-planning: done
-  3-5-project-wizard-step-4-subcontractors-confirmation: done
-  3-6-virtual-to-real-resource-assignment: done
-  3-7-wbs-management-dual-labels: done
-  3-8-project-dashboard-health-indicators: done
+  epic-3: in-progress
+  3-1-project-model-template-system: in-progress      # Missing: template selection UI
+  3-2-project-wizard-step-1-metadata: in-progress     # Missing: ProjectWizard.vue
+  3-3-project-wizard-step-2-budget: in-progress       # Missing: budget editor
+  3-4-project-wizard-step-3-resources-planning: in-progress  # Missing: resources/Gantt
+  3-5-project-wizard-step-4-subcontractors-confirmation: in-progress  # Missing: ST config
+  3-6-virtual-to-real-resource-assignment: in-progress  # Missing: assignment modal
+  3-7-wbs-management-dual-labels: in-progress         # Missing: WBS tree view
+  3-8-project-dashboard-health-indicators: in-progress  # Missing: health cards
   3-9-internal-projects-personnel-lending: done
   3-10-project-lifecycle-leadership-management: done
   epic-3-retrospective: optional
 
   # Epic 4: Time Tracking & Approval (6 stories)
-  epic-4: done
-  4-1-weekly-timesheet-entry-grid: done
+  epic-4: in-progress
+  4-1-weekly-timesheet-entry-grid: done               # Backend + frontend grid conforme mockup
   4-2-timesheet-draft-submit-favorites: done
   4-3-phase-person-blocking: done
-  4-4-two-level-timesheet-approval: done
-  4-5-finance-second-level-approval-corrections: done
+  4-4-two-level-timesheet-approval: in-progress       # Missing: ApprovalQueue.vue
+  4-5-finance-second-level-approval-corrections: in-progress  # Missing: correction UI
   4-6-automated-timesheet-reminders: done
   epic-4-retrospective: optional
 
   # Epic 5: Invoicing & Financial Layer (8 stories)
-  epic-5: done
+  epic-5: in-progress
   5-1-financial-phases-dual-rate-configuration: done
-  5-2-7-column-invoice-preparation-screen: done
-  5-3-ca-salary-ratio-banner-visual-alerts: done
+  5-2-7-column-invoice-preparation-screen: in-progress  # Missing: InvoicePrep editable
+  5-3-ca-salary-ratio-banner-visual-alerts: in-progress  # Missing: ratio banner
   5-4-invoice-templates-client-labels: done
-  5-5-billing-dossier-assembly: done
-  5-6-invoice-approval-workflow-status-tracking: done
-  5-7-payment-recording-aging-holdback-tracking: done
+  5-5-billing-dossier-assembly: in-progress           # Missing: dossier assembly UI
+  5-6-invoice-approval-workflow-status-tracking: in-progress  # Missing: status tracker
+  5-7-payment-recording-aging-holdback-tracking: in-progress  # Missing: payment UI
   5-8-non-billable-tracking-intact-export: done
   epic-5-retrospective: optional
 
   # Epic 6: Expense Management (4 stories)
-  epic-6: done
-  6-1-expense-report-creation-receipt-upload: done
+  epic-6: in-progress
+  6-1-expense-report-creation-receipt-upload: in-progress  # Missing: create form
   6-2-expense-categories-project-configuration: done
-  6-3-4-role-expense-approval-workflow: done
+  6-3-4-role-expense-approval-workflow: in-progress    # Missing: approval UI
   6-4-expense-reporting-intact-export: done
   epic-6-retrospective: optional
 
   # Epic 7: Supplier Payment Tracking (3 stories)
-  epic-7: done
-  7-1-st-invoice-entry-pm-authorization: done
-  7-2-payment-execution-validation: done
-  7-3-cross-project-payment-reports: done
+  epic-7: in-progress
+  7-1-st-invoice-entry-pm-authorization: in-progress   # Missing: ST invoice form
+  7-2-payment-execution-validation: in-progress        # Missing: payment UI
+  7-3-cross-project-payment-reports: in-progress       # Missing: reports view
   epic-7-retrospective: optional
 
   # Epic 8: Dashboards, Notifications & Actions (4 stories)
-  epic-8: done
+  epic-8: in-progress
   8-1-role-based-dashboards: done
-  8-2-pm-financial-kpis-hours-reports: done
-  8-3-system-health-admin-metrics: done
-  8-4-notification-center-actions-requises: done
+  8-2-pm-financial-kpis-hours-reports: in-progress     # Missing: PM dashboard tab
+  8-3-system-health-admin-metrics: in-progress         # Missing: admin panel
+  8-4-notification-center-actions-requises: in-progress  # Missing: NotificationCenter
   epic-8-retrospective: optional
 
   # Epic 9: Delegation & Access (3 stories)
-  epic-9: done
-  9-1-delegation-creation-scope-management: done
+  epic-9: in-progress
+  9-1-delegation-creation-scope-management: in-progress  # Missing: DelegationCard.vue
   9-2-delegated-actions-audit-trail: done
   9-3-department-assistant-delegation: done
   epic-9-retrospective: optional
 
   # Epic 10: Configuration & Regional Settings (2 stories)
-  epic-10: done
-  10-1-hr-labor-rules-overtime-configuration: done
+  epic-10: in-progress
+  10-1-hr-labor-rules-overtime-configuration: in-progress  # Missing: ConfigPanel.vue
   10-2-expense-policies-business-configuration: done
   epic-10-retrospective: optional
 
   # Epic 11: ChangePoint Data Migration (3 stories)
-  epic-11: done
-  11-1-changepoint-data-import: done
+  epic-11: in-progress
+  11-1-changepoint-data-import: in-progress            # Missing: ImportWizard.vue
   11-2-migration-validation-reconciliation: done
   11-3-parallel-run-period: done
   epic-11-retrospective: optional
