@@ -2,9 +2,11 @@
 import { onMounted, ref } from 'vue'
 import { supplierApi } from '../api/supplierApi'
 import type { ExternalOrganization } from '../types/supplier.types'
+import OrgCreateModal from '../components/OrgCreateModal.vue'
 
 const organizations = ref<ExternalOrganization[]>([])
 const search = ref('')
+const showCreateModal = ref(false)
 
 onMounted(async () => {
   const response = await supplierApi.listOrganizations()
@@ -23,7 +25,10 @@ async function onSearch() {
       <h1 class="text-2xl font-semibold text-text">
         Organisations externes
       </h1>
-      <button class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white">
+      <button
+        class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
+        @click="showCreateModal = true"
+      >
         + Nouvelle organisation
       </button>
     </div>
@@ -84,5 +89,11 @@ async function onSearch() {
         </tbody>
       </table>
     </div>
+
+    <OrgCreateModal
+      :open="showCreateModal"
+      @close="showCreateModal = false"
+      @created="onSearch"
+    />
   </div>
 </template>

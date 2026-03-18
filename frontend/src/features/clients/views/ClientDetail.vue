@@ -1,28 +1,69 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { useLocale } from '@/shared/composables/useLocale'
+import { clientApi } from '../api/clientApi'
 import { useClientStore } from '../stores/useClientStore'
 import EditableField from '../components/EditableField.vue'
 import ContactForm from '../components/ContactForm.vue'
 import AddressForm from '../components/AddressForm.vue'
 
 const route = useRoute()
+const router = useRouter()
 const store = useClientStore()
+const { fmt } = useLocale()
 const activeTab = ref('identification')
 const showContactForm = ref(false)
 const showAddressForm = ref(false)
+
+interface FinancialData {
+  total_ca: string
+  total_paid: string
+  invoices_outstanding: string
+  projects_count: number
+  aging: { '0_30': string; '31_60': string; '61_90': string; '90_plus': string }
+}
+
+interface LinkedProject {
+  id: number
+  code: string
+  name: string
+  status: string
+  client_name: string
+}
+
+const financial = ref<FinancialData | null>(null)
+const linkedProjects = ref<LinkedProject[]>([])
 
 const tabs = [
   { key: 'identification', label: 'Identification' },
   { key: 'contacts', label: 'Contacts' },
   { key: 'addresses', label: 'Adresses' },
+  { key: 'financial', label: 'Financier' },
   { key: 'billing', label: 'Paramètres facturation' },
   { key: 'crm', label: 'CRM' },
 ]
 
 const clientId = Number(route.params.id)
 
-onMounted(() => store.fetchClient(clientId))
+onMounted(async () => {
+  await store.fetchClient(clientId)
+  // Fetch financial data
+  try {
+    const resp = await clientApi.financialSummary(clientId)
+    financial.value = resp.data?.data || resp.data
+  } catch {
+    financial.value = null
+  }
+  // Fetch linked projects
+  try {
+    const { default: apiClient } = await import('@/plugins/axios')
+    const resp = await apiClient.get('projects/', { params: { client: String(clientId) } })
+    linkedProjects.value = resp.data?.data || resp.data || []
+  } catch {
+    linkedProjects.value = []
+  }
+})
 
 function saveField(field: string, value: string | number) {
   store.updateClient(clientId, { [field]: value })
@@ -188,6 +229,132 @@ async function onAddAddress(data: Record<string, unknown>) {
             >Principale</span>
           </div>
         </div>
+      </div>
+
+      <!-- Financial History -->
+      <div v-if="activeTab === 'financial'">
+        <div
+          v-if="financial"
+          class="space-y-6"
+        >
+          <!-- KPI Cards -->
+          <div class="grid grid-cols-4 gap-4">
+            <div class="rounded-lg border border-border p-4 text-center">
+              <div class="text-2xl font-bold font-mono text-text">
+                {{ fmt.currency(financial.total_ca) }}
+              </div>
+              <div class="text-xs text-text-muted">
+                CA total
+              </div>
+            </div>
+            <div class="rounded-lg border border-border p-4 text-center">
+              <div class="text-2xl font-bold font-mono text-success">
+                {{ fmt.currency(financial.total_paid) }}
+              </div>
+              <div class="text-xs text-text-muted">
+                Total payé
+              </div>
+            </div>
+            <div class="rounded-lg border border-border p-4 text-center">
+              <div class="text-2xl font-bold font-mono text-danger">
+                {{ fmt.currency(financial.invoices_outstanding) }}
+              </div>
+              <div class="text-xs text-text-muted">
+                Impayé
+              </div>
+            </div>
+            <div class="rounded-lg border border-border p-4 text-center">
+              <div class="text-2xl font-bold text-text">
+                {{ financial.projects_count }}
+              </div>
+              <div class="text-xs text-text-muted">
+                Projets
+              </div>
+            </div>
+          </div>
+
+          <!-- Aging Analysis -->
+          <div>
+            <h3 class="mb-3 text-sm font-medium uppercase text-text-muted">
+              Ancienneté des créances
+            </h3>
+            <div class="grid grid-cols-4 gap-3">
+              <div class="rounded border border-success/30 bg-success/5 p-3 text-center">
+                <div class="font-mono text-lg font-bold text-success">
+                  {{ fmt.currency(financial.aging['0_30']) }}
+                </div>
+                <div class="text-xs text-text-muted">
+                  0-30 jours
+                </div>
+              </div>
+              <div class="rounded border border-warning/30 bg-warning/5 p-3 text-center">
+                <div class="font-mono text-lg font-bold text-warning">
+                  {{ fmt.currency(financial.aging['31_60']) }}
+                </div>
+                <div class="text-xs text-text-muted">
+                  31-60 jours
+                </div>
+              </div>
+              <div class="rounded border border-warning/30 bg-warning/5 p-3 text-center">
+                <div class="font-mono text-lg font-bold text-warning">
+                  {{ fmt.currency(financial.aging['61_90']) }}
+                </div>
+                <div class="text-xs text-text-muted">
+                  61-90 jours
+                </div>
+              </div>
+              <div class="rounded border border-danger/30 bg-danger/5 p-3 text-center">
+                <div class="font-mono text-lg font-bold text-danger">
+                  {{ fmt.currency(financial.aging['90_plus']) }}
+                </div>
+                <div class="text-xs text-text-muted">
+                  90+ jours
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Linked Projects -->
+          <div>
+            <h3 class="mb-3 text-sm font-medium uppercase text-text-muted">
+              Projets liés
+            </h3>
+            <div
+              v-if="linkedProjects.length"
+              class="space-y-2"
+            >
+              <div
+                v-for="project in linkedProjects"
+                :key="project.id"
+                class="flex cursor-pointer items-center justify-between rounded border border-border p-3 hover:bg-surface-alt"
+                @click="router.push(`/projects/${project.id}`)"
+              >
+                <div>
+                  <span class="font-mono text-xs text-text-muted">{{ project.code }}</span>
+                  <span class="ml-2 text-sm font-medium">{{ project.name }}</span>
+                </div>
+                <span
+                  class="rounded-full px-2 py-0.5 text-xs"
+                  :class="project.status === 'ACTIVE' ? 'bg-success/10 text-success' : 'bg-text-muted/10 text-text-muted'"
+                >
+                  {{ project.status }}
+                </span>
+              </div>
+            </div>
+            <p
+              v-else
+              class="text-sm text-text-muted"
+            >
+              Aucun projet lié
+            </p>
+          </div>
+        </div>
+        <p
+          v-else
+          class="text-sm text-text-muted"
+        >
+          Chargement des données financières...
+        </p>
       </div>
 
       <!-- Billing (inline edit) -->

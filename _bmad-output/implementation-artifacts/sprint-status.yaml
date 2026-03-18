@@ -47,11 +47,11 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: Client & Organization Management (4 stories)
-  epic-2: in-progress
+  epic-2: done
   2-1-client-crud-5-tab-interface: done
   2-2-client-duplicate-detection-alias-search: done
-  2-3-client-financial-history-project-linking: in-progress  # Missing: financial history view
-  2-4-external-organizations-registry: in-progress    # Missing: create/edit form
+  2-3-client-financial-history-project-linking: done
+  2-4-external-organizations-registry: done
   epic-2-retrospective: optional
 
   # Epic 3: Project Creation & Management (10 stories)
