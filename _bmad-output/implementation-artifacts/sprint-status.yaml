@@ -108,9 +108,9 @@ development_status:
   # Epic 8: Dashboards, Notifications & Actions (4 stories)
   epic-8: done
   8-1-role-based-dashboards: done
-  8-2-pm-financial-kpis-hours-reports: done              # Backend KPI service ready
-  8-3-system-health-admin-metrics: done                  # Backend endpoint ready
-  8-4-notification-center-actions-requises: done         # NotificationCenter.vue
+  8-2-pm-financial-kpis-hours-reports: done              # Backend ready. +GAP11: PM hours reports detail view (FR74) → MVP-1.5
+  8-3-system-health-admin-metrics: done                  # Backend ready. +GAP12: Admin metrics detail (FR75) → MVP-1.5
+  8-4-notification-center-actions-requises: done         # UI basique. +GAP13: Écran dédié +GAP14: Actions urgence +GAP15: Preferences UI → MVP-1.5
   epic-8-retrospective: optional
 
   # Epic 9: Delegation & Access (3 stories)
@@ -146,9 +146,9 @@ development_status:
   # Epic 13: Service Proposals (4 stories)
   epic-13: backlog
   13-1-proposal-creation-team-assignment: backlog
-  13-2-proposal-lifecycle-pipeline-dashboard: backlog
+  13-2-proposal-lifecycle-pipeline-dashboard: backlog     # +GAP16: Win/Loss tracking status UI
   13-3-proposal-time-tracking: backlog
-  13-4-proposal-to-project-conversion-reporting: backlog
+  13-4-proposal-to-project-conversion-reporting: backlog  # +GAP17: Conversion rate KPI +GAP18: Cost per proposal metric
   epic-13-retrospective: optional
 
   # Epic 14: Billing Extended (4 stories)
@@ -172,9 +172,9 @@ development_status:
   16-1-consortium-entity-member-configuration: backlog
   16-2-dual-financial-perspective: backlog
   16-3-partner-invoicing-st-consortium: backlog
-  16-4-basic-profit-distribution: backlog
+  16-4-basic-profit-distribution: backlog              # NOTE: Profit-sharing rules avancées (clauses, modes mesure) → MVP-2 Epic 18
   16-5-consortium-invoicing-financial-synthesis: backlog
-  16-6-bu-director-consortium-dashboard: backlog
+  16-6-bu-director-consortium-dashboard: backlog       # +GAP19: Écran dashboard BU Director consortium (FR63)
   epic-16-retrospective: optional
 
   # Epic 17: Multi-Currency, Data Operations & Extended Features (4 stories)
