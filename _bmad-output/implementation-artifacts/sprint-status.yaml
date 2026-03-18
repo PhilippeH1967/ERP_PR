@@ -61,7 +61,7 @@ development_status:
   3-3-project-wizard-step-2-budget: done               # Phase budget editor in wizard step 2
   3-4-project-wizard-step-3-resources-planning: done   # Resources info step (assign after creation)
   3-5-project-wizard-step-4-subcontractors-confirmation: done  # Confirmation summary step
-  3-6-virtual-to-real-resource-assignment: in-progress  # Missing: 3-tier assignment modal
+  3-6-virtual-to-real-resource-assignment: done           # AssignmentModal.vue + Team tab
   3-7-wbs-management-dual-labels: done                 # WBS tree in ProjectDetail
   3-8-project-dashboard-health-indicators: done        # Health KPIs + budget bar in overview
   3-9-internal-projects-personnel-lending: done

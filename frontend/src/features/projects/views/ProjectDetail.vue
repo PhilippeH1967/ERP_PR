@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useLocale } from '@/shared/composables/useLocale'
 import { projectApi } from '../api/projectApi'
 import { useProjectStore } from '../stores/useProjectStore'
+import AssignmentModal from '../components/AssignmentModal.vue'
 
 const route = useRoute()
 const store = useProjectStore()
@@ -37,6 +38,31 @@ const tabs = [
   { key: 'budget', label: 'Budget' },
 ]
 
+interface Assignment {
+  id: number
+  employee: number
+  phase: number | null
+  percentage: string
+  start_date: string | null
+  end_date: string | null
+}
+
+const assignments = ref<Assignment[]>([])
+const showAssignModal = ref(false)
+const assignPhaseId = ref<number | null>(null)
+const assignPhaseName = ref('')
+
+function openAssignModal(phaseId: number | null, phaseName: string) {
+  assignPhaseId.value = phaseId
+  assignPhaseName.value = phaseName
+  showAssignModal.value = true
+}
+
+async function onAssigned() {
+  const resp = await projectApi.listAssignments(projectId)
+  assignments.value = resp.data?.data || resp.data || []
+}
+
 const statusColors: Record<string, string> = {
   ACTIVE: 'bg-success/10 text-success',
   ON_HOLD: 'bg-warning/10 text-warning',
@@ -61,6 +87,13 @@ onMounted(async () => {
     wbsTree.value = resp.data?.data || resp.data || []
   } catch {
     wbsTree.value = []
+  }
+  // Fetch assignments
+  try {
+    const resp = await projectApi.listAssignments(projectId)
+    assignments.value = resp.data?.data || resp.data || []
+  } catch {
+    assignments.value = []
   }
 })
 </script>
@@ -212,6 +245,9 @@ onMounted(async () => {
               <th class="px-4 py-3 text-right font-mono">
                 Heures
               </th>
+              <th class="px-4 py-3 text-right">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -234,6 +270,14 @@ onMounted(async () => {
               </td>
               <td class="px-4 py-3 text-right font-mono">
                 {{ fmt.hours(phase.budgeted_hours) }}
+              </td>
+              <td class="px-4 py-3 text-right">
+                <button
+                  class="rounded bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/20"
+                  @click="openAssignModal(phase.id, phase.name)"
+                >
+                  Affecter
+                </button>
               </td>
             </tr>
           </tbody>
@@ -287,9 +331,43 @@ onMounted(async () => {
       <!-- Team -->
       <div
         v-if="activeTab === 'team'"
-        class="rounded-lg border border-border bg-surface p-6 text-text-muted"
+        class="rounded-lg border border-border bg-surface"
       >
-        L'affectation des ressources sera disponible prochainement.
+        <div
+          v-if="assignments.length"
+          class="divide-y divide-border"
+        >
+          <div
+            v-for="a in assignments"
+            :key="a.id"
+            class="flex items-center justify-between px-4 py-3"
+          >
+            <div>
+              <span class="text-sm font-medium">Employé #{{ a.employee }}</span>
+              <span
+                v-if="a.phase"
+                class="ml-2 text-xs text-text-muted"
+              >Phase #{{ a.phase }}</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                {{ a.percentage }}%
+              </span>
+              <span
+                v-if="a.start_date"
+                class="text-xs text-text-muted"
+              >
+                {{ a.start_date }} → {{ a.end_date || '...' }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <p
+          v-else
+          class="p-6 text-sm text-text-muted"
+        >
+          Aucune affectation — utilisez le bouton "Affecter" dans l'onglet Phases
+        </p>
       </div>
 
       <!-- Budget -->
@@ -338,5 +416,14 @@ onMounted(async () => {
         </p>
       </div>
     </div>
+
+    <AssignmentModal
+      :open="showAssignModal"
+      :project-id="projectId"
+      :phase-id="assignPhaseId"
+      :phase-name="assignPhaseName"
+      @close="showAssignModal = false"
+      @assigned="onAssigned"
+    />
   </div>
 </template>

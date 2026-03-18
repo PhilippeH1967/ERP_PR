@@ -36,4 +36,6 @@ export const projectApi = {
 
   // Assignments
   listAssignments: (projectId: number) => apiClient.get(`${BASE}/${projectId}/assignments/`),
+  createAssignment: (projectId: number, data: Record<string, unknown>) =>
+    apiClient.post(`${BASE}/${projectId}/assignments/`, data),
 }

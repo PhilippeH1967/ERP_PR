@@ -3,37 +3,37 @@
 Status: done
 
 ## Story
-As a project manager, I want to assign real employees to project phases with percentage allocation, So that resource planning reflects actual team commitments and availability.
+
+As a **PM**,
+I want to assign real employees to project phases via a selection modal,
+So that my team is assigned and can start entering time.
 
 ## Acceptance Criteria
-- EmployeeAssignment links employee (User FK) to project and phase (nullable FK)
-- percentage field (DecimalField, max_digits=5, decimal_places=2) defaults to 100%
-- Assignment supports date range (start_date, end_date) for time-bounded allocation
-- Assignments are tenant-scoped
-- CRUD available at /api/v1/projects/{pk}/assignments/
+
+1. **Given** a project with phases **When** I click "Affecter" on a phase **Then** a modal opens for employee selection
+2. **And** I can assign with a percentage (0-100%) and date range
+3. **And** Assignment calls POST /api/v1/projects/{id}/assignments/
+4. **And** Assigned employees appear in the Team tab of ProjectDetail
 
 ## Tasks / Subtasks
-- [x] Define EmployeeAssignment with employee FK (CASCADE), project FK (CASCADE), phase FK (CASCADE, nullable)
-- [x] Add percentage field with 100% default
-- [x] Add start_date and end_date fields
-- [x] Extend TenantScopedModel for multi-tenant support
-- [x] Create EmployeeAssignmentSerializer with all fields
-- [x] Create EmployeeAssignmentViewSet filtering by project_pk
-- [x] Wire perform_create to set project and tenant from URL
+
+### Backend (DONE)
+- [x] EmployeeAssignment model (employee, project, phase, percentage, start/end dates)
+- [x] EmployeeAssignmentViewSet nested under /projects/{id}/assignments/
+
+### Frontend
+- [ ] F1: Create AssignmentModal.vue — employee search + percentage + dates
+- [ ] F2: Add "Affecter" button on phase rows in ProjectDetail
+- [ ] F3: Team tab shows assigned employees fetched from API
+- [ ] F4: ESLint 0 errors
 
 ## Dev Agent Record
 ### Agent Model Used
 Claude Opus 4.6 (1M context)
-### Completion Notes List
-- EmployeeAssignment model with percentage-based allocation per phase
-- Phase FK nullable to support project-level assignments without specific phase
-- ViewSet auto-sets project and tenant from URL kwargs in perform_create
-- Supports time-bounded assignments via start_date/end_date
 ### Change Log
-- 2026-03-18: Implemented as part of Epic 3 batch
+- 2026-03-18: Backend implemented as part of Epic 3 batch
+- 2026-03-18: Frontend tasks added after audit
 ### File List
 - backend/apps/projects/models.py (EmployeeAssignment)
-- backend/apps/projects/serializers.py (EmployeeAssignmentSerializer)
-- backend/apps/projects/views.py (EmployeeAssignmentViewSet)
-- backend/apps/projects/urls.py (nested assignments route)
-- backend/apps/projects/migrations/0001_initial.py
+- backend/apps/projects/serializers.py
+- backend/apps/projects/views.py
