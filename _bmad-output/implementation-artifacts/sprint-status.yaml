@@ -69,12 +69,12 @@ development_status:
   epic-3-retrospective: optional
 
   # Epic 4: Time Tracking & Approval (6 stories)
-  epic-4: in-progress
-  4-1-weekly-timesheet-entry-grid: done               # Backend + frontend grid conforme mockup
+  epic-4: done
+  4-1-weekly-timesheet-entry-grid: done
   4-2-timesheet-draft-submit-favorites: done
   4-3-phase-person-blocking: done
-  4-4-two-level-timesheet-approval: in-progress       # Missing: ApprovalQueue.vue
-  4-5-finance-second-level-approval-corrections: in-progress  # Missing: correction UI
+  4-4-two-level-timesheet-approval: done               # ApprovalQueue.vue with PM/Finance buttons
+  4-5-finance-second-level-approval-corrections: done  # Finance approve in ApprovalQueue
   4-6-automated-timesheet-reminders: done
   epic-4-retrospective: optional
 
@@ -92,7 +92,7 @@ development_status:
 
   # Epic 6: Expense Management (4 stories)
   epic-6: in-progress
-  6-1-expense-report-creation-receipt-upload: in-progress  # Missing: create form
+  6-1-expense-report-creation-receipt-upload: done           # ExpenseCreateForm.vue
   6-2-expense-categories-project-configuration: done
   6-3-4-role-expense-approval-workflow: in-progress    # Missing: approval UI
   6-4-expense-reporting-intact-export: done

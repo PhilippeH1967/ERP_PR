@@ -3,9 +3,11 @@ import { onMounted, ref } from 'vue'
 import { useLocale } from '@/shared/composables/useLocale'
 import { expenseApi } from '../api/expenseApi'
 import type { ExpenseReport } from '../types/expense.types'
+import ExpenseCreateForm from '../components/ExpenseCreateForm.vue'
 
 const { fmt } = useLocale()
 const reports = ref<ExpenseReport[]>([])
+const showCreateForm = ref(false)
 
 onMounted(async () => {
   try {
@@ -23,7 +25,10 @@ onMounted(async () => {
       <h1 class="text-2xl font-semibold text-text">
         Dépenses
       </h1>
-      <button class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white">
+      <button
+        class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
+        @click="showCreateForm = true"
+      >
         + Nouvelle dépense
       </button>
     </div>
@@ -70,5 +75,11 @@ onMounted(async () => {
         </tbody>
       </table>
     </div>
+
+    <ExpenseCreateForm
+      :open="showCreateForm"
+      @close="showCreateForm = false"
+      @created="$router.go(0)"
+    />
   </div>
 </template>

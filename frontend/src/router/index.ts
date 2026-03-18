@@ -54,6 +54,11 @@ const router = createRouter({
           name: 'timesheets',
           component: () => import('@/features/timesheet/views/TimesheetGrid.vue'),
         },
+        {
+          path: 'approvals',
+          name: 'approvals',
+          component: () => import('@/features/timesheet/views/ApprovalQueue.vue'),
+        },
         // Billing
         {
           path: 'billing',
