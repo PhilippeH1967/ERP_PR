@@ -13,6 +13,62 @@ from rest_framework.response import Response
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "import_templates")
 
 IMPORT_TYPES = [
+    # Reference data (import first)
+    {
+        "key": "ref_profils_poste",
+        "label": "Profils de poste",
+        "description": "31 archetypes (Architecte, Urbaniste, Designer...)",
+        "file": "R1_profils_poste.xlsx",
+        "order": 0.1,
+        "icon": "🎓",
+        "category": "reference",
+    },
+    {
+        "key": "ref_categories_depenses",
+        "label": "Catégories de dépenses",
+        "description": "Transport, Repas, Hébergement, Fournitures... avec codes GL",
+        "file": "R2_categories_depenses.xlsx",
+        "order": 0.2,
+        "icon": "🏷️",
+        "category": "reference",
+    },
+    {
+        "key": "ref_templates_projet",
+        "label": "Templates de projet",
+        "description": "1 par type contrat avec phases pré-configurées",
+        "file": "R3_templates_projet.xlsx",
+        "order": 0.3,
+        "icon": "📋",
+        "category": "reference",
+    },
+    {
+        "key": "ref_templates_facture",
+        "label": "Templates de facture",
+        "description": "Formats de facture (Standard, Ville, Fédéral...)",
+        "file": "R4_templates_facture.xlsx",
+        "order": 0.4,
+        "icon": "🧾",
+        "category": "reference",
+    },
+    {
+        "key": "ref_niveaux_relance",
+        "label": "Niveaux de relance",
+        "description": "3 niveaux : 30j courtois, 60j rappel, 90j mise en demeure",
+        "file": "R5_niveaux_relance.xlsx",
+        "order": 0.5,
+        "icon": "📨",
+        "category": "reference",
+    },
+    {
+        "key": "ref_unites_affaires",
+        "label": "Unités d'affaires",
+        "description": "Architecture, Design, Urbanisme, etc.",
+        "file": "R6_unites_affaires.xlsx",
+        "order": 0.6,
+        "icon": "🏗️",
+        "category": "reference",
+    },
+    # Transactional data
     {
         "key": "employes",
         "label": "Employés",
@@ -20,6 +76,7 @@ IMPORT_TYPES = [
         "file": "01_employes.xlsx",
         "order": 1,
         "icon": "👥",
+        "category": "data",
     },
     {
         "key": "clients",
@@ -28,6 +85,7 @@ IMPORT_TYPES = [
         "file": "02_clients.xlsx",
         "order": 2,
         "icon": "🏢",
+        "category": "data",
     },
     {
         "key": "sous_traitants",
@@ -36,6 +94,7 @@ IMPORT_TYPES = [
         "file": "05_sous_traitants.xlsx",
         "order": 3,
         "icon": "🤝",
+        "category": "data",
     },
     {
         "key": "projets",
@@ -44,6 +103,7 @@ IMPORT_TYPES = [
         "file": "03_projets.xlsx",
         "order": 4,
         "icon": "📁",
+        "category": "data",
     },
     {
         "key": "feuilles_de_temps",
@@ -52,6 +112,7 @@ IMPORT_TYPES = [
         "file": "04_feuilles_de_temps.xlsx",
         "order": 5,
         "icon": "⏱️",
+        "category": "data",
     },
 ]
 

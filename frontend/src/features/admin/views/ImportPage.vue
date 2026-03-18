@@ -81,10 +81,71 @@ async function uploadFile(key: string, event: Event) {
       </p>
     </div>
 
-    <!-- Import cards -->
+    <!-- Reference data section -->
+    <h2 class="mb-3 mt-2 text-lg font-semibold text-text">
+      Données de référence
+    </h2>
+    <p class="mb-4 text-xs text-text-muted">
+      À importer en premier — configuration de base de l'application.
+    </p>
+
+    <div class="mb-8 space-y-4">
+      <div
+        v-for="imp in importTypes.filter((t: ImportType & { category?: string }) => (t as { category?: string }).category === 'reference')"
+        :key="imp.key"
+        class="rounded-lg border border-primary/20 bg-primary/5 p-6"
+      >
+        <div class="flex items-start justify-between">
+          <div class="flex items-start gap-4">
+            <span class="text-3xl">{{ imp.icon }}</span>
+            <div>
+              <h3 class="text-sm font-semibold text-primary">
+                {{ imp.label }}
+              </h3>
+              <p class="mt-0.5 text-xs text-text-muted">
+                {{ imp.description }}
+              </p>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button
+              class="rounded-md border border-border bg-surface px-4 py-2 text-xs font-medium text-text-muted hover:bg-surface-alt"
+              @click="downloadTemplate(imp.key, imp.file)"
+            >
+              📥 Template
+            </button>
+            <label class="cursor-pointer rounded-md bg-primary px-4 py-2 text-xs font-medium text-white hover:bg-primary-light">
+              📤 Importer
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                class="hidden"
+                @change="(e) => uploadFile(imp.key, e)"
+              >
+            </label>
+          </div>
+        </div>
+        <div
+          v-if="uploadStatus[imp.key]"
+          class="mt-3 rounded p-3 text-xs"
+          :class="uploadStatus[imp.key].error ? 'bg-danger/10 text-danger' : 'bg-success/10 text-success'"
+        >
+          <pre class="whitespace-pre-wrap font-mono">{{ uploadStatus[imp.key].message }}</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transactional data section -->
+    <h2 class="mb-3 text-lg font-semibold text-text">
+      Données ChangePoint
+    </h2>
+    <p class="mb-4 text-xs text-text-muted">
+      Données transactionnelles — importer après les données de référence.
+    </p>
+
     <div class="space-y-4">
       <div
-        v-for="imp in importTypes"
+        v-for="imp in importTypes.filter((t: ImportType & { category?: string }) => (t as { category?: string }).category !== 'reference')"
         :key="imp.key"
         class="rounded-lg border border-border bg-surface p-6"
       >

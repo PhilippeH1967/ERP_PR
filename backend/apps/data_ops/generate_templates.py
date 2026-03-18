@@ -339,9 +339,156 @@ def create_suppliers():
     print("✓ 05_sous_traitants.xlsx")
 
 
+def create_ref_profils_poste():
+    wb = Workbook()
+    add_instructions(wb, [
+        "RÉFÉRENCE — PROFILS DE POSTE",
+        "",
+        "• Un profil par ligne (31 archetypes dans l'architecture)",
+        "• Exemples: Architecte, Urbaniste, Designer intérieur, Ingénieur MEP...",
+        "• hourly_rate: taux horaire standard pour le profil (optionnel)",
+    ])
+    ws = wb.create_sheet("Profils")
+    headers = ["name *", "description", "standard_hourly_rate"]
+    for col, h in enumerate(headers, 1):
+        ws.cell(row=1, column=col, value=h)
+    style_header(ws, len(headers))
+    for col, val in enumerate(["Architecte", "Architecte principal — conception", 95.00], 1):
+        ws.cell(row=2, column=col, value=val)
+    style_example(ws, len(headers))
+    wb.save(os.path.join(OUTPUT_DIR, "R1_profils_poste.xlsx"))
+    print("✓ R1_profils_poste.xlsx")
+
+
+def create_ref_categories_depenses():
+    wb = Workbook()
+    add_instructions(wb, [
+        "RÉFÉRENCE — CATÉGORIES DE DÉPENSES",
+        "",
+        "• Une catégorie par ligne",
+        "• gl_account: code comptable GL (optionnel)",
+        "• is_refacturable_default: oui/non — la dépense est-elle refacturable au client par défaut?",
+        "• requires_receipt: oui/non — pièce justificative obligatoire?",
+    ])
+    ws = wb.create_sheet("Categories")
+    headers = ["name *", "gl_account", "is_refacturable_default", "requires_receipt"]
+    for col, h in enumerate(headers, 1):
+        ws.cell(row=1, column=col, value=h)
+    style_header(ws, len(headers))
+    for col, val in enumerate(["Transport — Taxi/Uber", "6210", "oui", "oui"], 1):
+        ws.cell(row=2, column=col, value=val)
+    style_example(ws, len(headers))
+    wb.save(os.path.join(OUTPUT_DIR, "R2_categories_depenses.xlsx"))
+    print("✓ R2_categories_depenses.xlsx")
+
+
+def create_ref_templates_projet():
+    wb = Workbook()
+    add_instructions(wb, [
+        "RÉFÉRENCE — TEMPLATES DE PROJET",
+        "",
+        "• Onglet 'Templates' : un template par ligne",
+        "• Onglet 'Phases_Template' : phases pré-configurées liées par template_code",
+        "• contract_type: FORFAITAIRE, CONSORTIUM, CO_DEV, CONCEPTION_CONSTRUCTION",
+        "• phase type: REALIZATION, SUPPORT",
+        "• billing_mode: FORFAIT, HORAIRE",
+    ])
+    ws = wb.create_sheet("Templates")
+    headers = ["template_code *", "name *", "contract_type *", "description"]
+    for col, h in enumerate(headers, 1):
+        ws.cell(row=1, column=col, value=h)
+    style_header(ws, len(headers))
+    for col, val in enumerate(["TPL-FORFAIT", "Forfaitaire — Standard", "FORFAITAIRE", "Phases séquentielles standard"], 1):
+        ws.cell(row=2, column=col, value=val)
+    style_example(ws, len(headers))
+
+    ws2 = wb.create_sheet("Phases_Template")
+    headers2 = ["template_code *", "name *", "client_label", "phase_type", "billing_mode", "is_mandatory"]
+    for col, h in enumerate(headers2, 1):
+        ws2.cell(row=1, column=col, value=h)
+    style_header(ws2, len(headers2))
+    for col, val in enumerate(["TPL-FORFAIT", "Concept", "Phase conceptuelle", "REALIZATION", "FORFAIT", "non"], 1):
+        ws2.cell(row=2, column=col, value=val)
+    style_example(ws2, len(headers2))
+    wb.save(os.path.join(OUTPUT_DIR, "R3_templates_projet.xlsx"))
+    print("✓ R3_templates_projet.xlsx")
+
+
+def create_ref_templates_facture():
+    wb = Workbook()
+    add_instructions(wb, [
+        "RÉFÉRENCE — TEMPLATES DE FACTURE",
+        "",
+        "• Un template par ligne",
+        "• sections: liste séparée par virgules (forfait,horaire,st,depenses,retenue,taxes)",
+        "• Chaque client peut utiliser un template différent",
+    ])
+    ws = wb.create_sheet("Templates_Facture")
+    headers = ["name *", "description", "sections"]
+    for col, h in enumerate(headers, 1):
+        ws.cell(row=1, column=col, value=h)
+    style_header(ws, len(headers))
+    for col, val in enumerate(["Standard", "Format standard Provencher Roy", "forfait,horaire,st,depenses,retenue,taxes"], 1):
+        ws.cell(row=2, column=col, value=val)
+    style_example(ws, len(headers))
+    wb.save(os.path.join(OUTPUT_DIR, "R4_templates_facture.xlsx"))
+    print("✓ R4_templates_facture.xlsx")
+
+
+def create_ref_niveaux_relance():
+    wb = Workbook()
+    add_instructions(wb, [
+        "RÉFÉRENCE — NIVEAUX DE RELANCE (DUNNING)",
+        "",
+        "• 3 niveaux standard : 30 jours, 60 jours, 90 jours",
+        "• email_template: texte du courriel de relance",
+        "• Variables disponibles: {invoice_number}, {days}, {amount}",
+    ])
+    ws = wb.create_sheet("Niveaux_Relance")
+    headers = ["level *", "days_overdue *", "email_template *"]
+    for col, h in enumerate(headers, 1):
+        ws.cell(row=1, column=col, value=h)
+    style_header(ws, len(headers))
+    for col, val in enumerate([1, 30, "Rappel courtois: la facture {invoice_number} est échue depuis {days} jours."], 1):
+        ws.cell(row=2, column=col, value=val)
+    style_example(ws, len(headers))
+    wb.save(os.path.join(OUTPUT_DIR, "R5_niveaux_relance.xlsx"))
+    print("✓ R5_niveaux_relance.xlsx")
+
+
+def create_ref_unites_affaires():
+    wb = Workbook()
+    add_instructions(wb, [
+        "RÉFÉRENCE — UNITÉS D'AFFAIRES",
+        "",
+        "• Une BU par ligne",
+        "• Ces valeurs seront utilisées dans les projets et employés",
+        "• director_username: username du directeur de BU (optionnel)",
+    ])
+    ws = wb.create_sheet("Unites_Affaires")
+    headers = ["name *", "code", "director_username", "description"]
+    for col, h in enumerate(headers, 1):
+        ws.cell(row=1, column=col, value=h)
+    style_header(ws, len(headers))
+    for col, val in enumerate(["Architecture", "ARCH", "pierre.lavoie", "Unité architecture et design"], 1):
+        ws.cell(row=2, column=col, value=val)
+    style_example(ws, len(headers))
+    wb.save(os.path.join(OUTPUT_DIR, "R6_unites_affaires.xlsx"))
+    print("✓ R6_unites_affaires.xlsx")
+
+
 if __name__ == "__main__":
-    print("Génération des templates d'import ChangePoint...")
+    print("Génération des templates d'import...")
     print()
+    print("=== DONNÉES DE RÉFÉRENCE ===")
+    create_ref_profils_poste()
+    create_ref_categories_depenses()
+    create_ref_templates_projet()
+    create_ref_templates_facture()
+    create_ref_niveaux_relance()
+    create_ref_unites_affaires()
+    print()
+    print("=== DONNÉES CHANGEPOINT ===")
     create_employees()
     create_clients()
     create_projects()
@@ -351,6 +498,7 @@ if __name__ == "__main__":
     print(f"Templates générés dans: {OUTPUT_DIR}/")
     print()
     print("Ordre d'import recommandé:")
+    print("  R1-R6. Données de référence (en premier)")
     print("  1. 01_employes.xlsx")
     print("  2. 02_clients.xlsx")
     print("  3. 05_sous_traitants.xlsx")
