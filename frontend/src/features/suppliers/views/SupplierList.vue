@@ -35,7 +35,7 @@ async function onSearch() {
         placeholder="Rechercher par nom ou NEQ..."
         class="w-full max-w-md rounded-md border border-border px-3 py-2 text-sm"
         @keyup.enter="onSearch"
-      />
+      >
     </div>
 
     <div class="rounded-lg border border-border bg-surface">

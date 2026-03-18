@@ -89,7 +89,7 @@ const navItems = [
             type="text"
             :placeholder="t('nav.search')"
             class="w-64 rounded-md border border-border bg-surface-alt px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
-          />
+          >
         </div>
 
         <!-- Right side: locale, notifications, user menu -->

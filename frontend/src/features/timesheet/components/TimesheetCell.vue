@@ -75,6 +75,6 @@ function onKeydown(event: KeyboardEvent) {
       :data-col="date"
       @blur="onBlur"
       @keydown="onKeydown"
-    />
+    >
   </td>
 </template>

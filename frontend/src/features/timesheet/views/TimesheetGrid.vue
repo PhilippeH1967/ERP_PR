@@ -59,7 +59,10 @@ function normClass(total: number, norm: number): string {
           :style="{ width: Math.min(100, (store.weeklyTotal / store.WEEKLY_NORM) * 100) + '%' }"
         />
       </div>
-      <span class="text-sm font-mono" :class="normClass(store.weeklyTotal, store.WEEKLY_NORM)">
+      <span
+        class="text-sm font-mono"
+        :class="normClass(store.weeklyTotal, store.WEEKLY_NORM)"
+      >
         {{ store.weeklyTotal }}/{{ store.WEEKLY_NORM }}h
       </span>
     </div>
@@ -97,7 +100,10 @@ function normClass(total: number, norm: number): string {
           >
             <td class="sticky left-0 z-10 bg-surface px-4 py-2">
               <div class="flex items-center gap-2">
-                <span v-if="row.is_locked" class="text-text-muted">🔒</span>
+                <span
+                  v-if="row.is_locked"
+                  class="text-text-muted"
+                >🔒</span>
                 <div>
                   <span class="font-mono text-xs text-text-muted">{{ row.project_code }}</span>
                   <span class="ml-2 text-sm">{{ row.client_label || row.phase_name }}</span>
@@ -130,7 +136,10 @@ function normClass(total: number, norm: number): string {
           </tr>
 
           <!-- Daily totals -->
-          <tr v-if="store.gridRows.length" class="border-t-2 border-border bg-surface-alt font-medium">
+          <tr
+            v-if="store.gridRows.length"
+            class="border-t-2 border-border bg-surface-alt font-medium"
+          >
             <td class="sticky left-0 z-10 bg-surface-alt px-4 py-2 text-xs uppercase text-text-muted">
               Total jour
             </td>

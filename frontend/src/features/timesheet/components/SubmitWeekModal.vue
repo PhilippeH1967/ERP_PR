@@ -20,15 +20,24 @@ const emit = defineEmits<{
     @close="emit('close')"
   >
     <div class="text-sm">
-      <p v-if="weeklyTotal < weeklyNorm" class="text-warning">
+      <p
+        v-if="weeklyTotal < weeklyNorm"
+        class="text-warning"
+      >
         Vous avez saisi {{ weeklyTotal }}/{{ weeklyNorm }} heures.
         Soumettre quand même ?
       </p>
-      <p v-else-if="weeklyTotal > weeklyNorm" class="text-danger">
+      <p
+        v-else-if="weeklyTotal > weeklyNorm"
+        class="text-danger"
+      >
         Vous avez saisi {{ weeklyTotal }} heures (&gt;{{ weeklyNorm }}h).
         Vérifiez avant de soumettre.
       </p>
-      <p v-else class="text-success">
+      <p
+        v-else
+        class="text-success"
+      >
         {{ weeklyTotal }}/{{ weeklyNorm }} heures saisies. Prêt à soumettre.
       </p>
     </div>
