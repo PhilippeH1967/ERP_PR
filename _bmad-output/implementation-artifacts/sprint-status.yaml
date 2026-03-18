@@ -137,7 +137,7 @@ development_status:
 
   # Epic 12: Project Lifecycle Extended (4 stories)
   epic-12: backlog
-  12-1-contract-amendments-avenants: backlog
+  12-1-contract-amendments-avenants: backlog          # +GAP5: Delegation API réelle (modèle + endpoints)
   12-2-three-level-budget-view-rebaseline: backlog
   12-3-project-reopening-archival: backlog
   12-4-consortium-project-flag: backlog
@@ -164,7 +164,7 @@ development_status:
   15-1-st-credit-notes-partial-payments: backlog
   15-2-st-dispute-management: backlog
   15-3-st-contractual-holdbacks: backlog
-  15-4-st-intact-import-document-attachments: backlog
+  15-4-st-intact-import-document-attachments: backlog  # +GAP8: ST Invoice ViewSet + brancher STInvoiceList.vue
   epic-15-retrospective: optional
 
   # Epic 16: Consortium Management (6 stories)
@@ -178,11 +178,17 @@ development_status:
   epic-16-retrospective: optional
 
   # Epic 17: Multi-Currency, Data Operations & Extended Features (4 stories)
+  # ENRICHI avec les gaps mockup HIGH+MEDIUM intégrés
   epic-17: backlog
   17-1-multi-currency-invoicing: backlog
-  17-2-bulk-import-export: backlog
-  17-3-time-tracking-extended-features: backlog
-  17-4-expense-extended-client-groups: backlog
+  17-2-bulk-import-export: backlog                     # +GAP6: Admin sections détail (config hub → écrans réels)
+  17-3-time-tracking-extended-features: backlog        # +GAP3: 4 vues rôle (Manager/Paie/Compta/Direction)
+  #                                                      +GAP4: Manager slide-over detail review
+  #                                                      +GAP7: Notification API ViewSet + NotificationCenter réel
+  #                                                      +GAP9: Sparklines données réelles backend
+  17-4-expense-extended-client-groups: backlog          # +GAP1: Expense file upload logique réelle
+  #                                                      +GAP2: Expense templates backend model/CRUD
+  #                                                      +GAP10: Client contact role dropdown (sélection structurée)
   epic-17-retrospective: optional
 
   # === MVP-2: Strategic Intelligence ===
