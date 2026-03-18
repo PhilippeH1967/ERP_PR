@@ -3,11 +3,13 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useClientStore } from '../stores/useClientStore'
+import ClientCreateModal from '../components/ClientCreateModal.vue'
 
 const { t } = useI18n()
 const router = useRouter()
 const store = useClientStore()
 const search = ref('')
+const showCreateModal = ref(false)
 
 onMounted(() => store.fetchClients())
 
@@ -24,7 +26,7 @@ function onSearch() {
       </h1>
       <button
         class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
-        @click="router.push('/clients/new')"
+        @click="showCreateModal = true"
       >
         + Nouveau client
       </button>
@@ -83,8 +85,45 @@ function onSearch() {
               </span>
             </td>
           </tr>
+          <tr v-if="!store.clients.length && !store.isLoading">
+            <td
+              colspan="4"
+              class="px-4 py-8 text-center text-text-muted"
+            >
+              Aucun client trouvé
+            </td>
+          </tr>
         </tbody>
       </table>
+
+      <!-- Pagination -->
+      <div
+        v-if="store.pagination.count > 0"
+        class="flex items-center justify-between border-t border-border px-4 py-3"
+      >
+        <span class="text-xs text-text-muted">{{ store.pagination.count }} client(s)</span>
+        <div class="flex gap-2">
+          <button
+            class="rounded px-3 py-1 text-sm text-text-muted hover:bg-surface-alt disabled:opacity-30"
+            :disabled="!store.pagination.previous"
+            @click="store.fetchPage('prev')"
+          >
+            ◀ Précédent
+          </button>
+          <button
+            class="rounded px-3 py-1 text-sm text-text-muted hover:bg-surface-alt disabled:opacity-30"
+            :disabled="!store.pagination.next"
+            @click="store.fetchPage('next')"
+          >
+            Suivant ▶
+          </button>
+        </div>
+      </div>
     </div>
+
+    <ClientCreateModal
+      :open="showCreateModal"
+      @close="showCreateModal = false"
+    />
   </div>
 </template>

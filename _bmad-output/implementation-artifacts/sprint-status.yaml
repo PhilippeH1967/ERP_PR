@@ -48,7 +48,7 @@ development_status:
 
   # Epic 2: Client & Organization Management (4 stories)
   epic-2: in-progress
-  2-1-client-crud-5-tab-interface: in-progress        # Missing: create/edit forms
+  2-1-client-crud-5-tab-interface: done
   2-2-client-duplicate-detection-alias-search: in-progress  # Missing: duplicate detection modal
   2-3-client-financial-history-project-linking: in-progress  # Missing: financial history view
   2-4-external-organizations-registry: in-progress    # Missing: create/edit form
