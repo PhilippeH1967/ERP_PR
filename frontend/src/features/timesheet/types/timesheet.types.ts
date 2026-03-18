@@ -2,7 +2,11 @@ export interface TimeEntry {
   id: number
   employee: number
   project: number
+  project_code: string
+  project_name: string
   phase: number | null
+  phase_name: string
+  client_label: string
   date: string
   hours: string
   notes: string

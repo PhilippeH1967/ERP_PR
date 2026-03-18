@@ -46,6 +46,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
   const isLoading = ref(false)
   const currentWeekStart = ref(getMondayOfWeek(new Date()))
   const saveError = ref<{ type: string; entryId?: number } | null>(null)
+  const weeklyStats = ref({ contract_hours: 40, average_4_weeks: 0, billable_rate_percent: 0 })
 
   const weekDates = computed(() => getDatesForWeek(currentWeekStart.value))
   const weekEnd = computed(() => weekDates.value[6] || '')
@@ -58,11 +59,11 @@ export const useTimesheetStore = defineStore('timesheet', () => {
       if (!rowMap.has(key)) {
         rowMap.set(key, {
           project_id: entry.project,
-          project_code: `P-${entry.project}`,
-          project_name: `Project ${entry.project}`,
+          project_code: entry.project_code || `P-${entry.project}`,
+          project_name: entry.project_name || `Project ${entry.project}`,
           phase_id: entry.phase,
-          phase_name: entry.phase ? `Phase ${entry.phase}` : '',
-          client_label: entry.phase ? `Phase ${entry.phase}` : '',
+          phase_name: entry.phase_name || '',
+          client_label: entry.client_label || entry.phase_name || '',
           entries: {},
           is_locked: false,
           row_total: 0,
@@ -131,6 +132,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     dailyTotals: dailyTotals.value,
     weeklyTotal: weeklyTotal.value,
     weeklyNorm: WEEKLY_NORM,
+    contractHours: weeklyStats.value.contract_hours,
     contractHours: CONTRACT_HOURS,
   }))
 
@@ -152,6 +154,13 @@ export const useTimesheetStore = defineStore('timesheet', () => {
         locks.value = lockResp.data?.data || lockResp.data || []
       } catch {
         locks.value = []
+      }
+      try {
+        const statsResp = await timesheetApi.weeklyStats()
+        const stats = statsResp.data?.data || statsResp.data
+        if (stats?.contract_hours) weeklyStats.value = stats
+      } catch {
+        // Stats are optional
       }
     } finally {
       isLoading.value = false
@@ -207,10 +216,16 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     await fetchWeek()
   }
 
+  async function copyPreviousWeek() {
+    await timesheetApi.copyPreviousWeek(currentWeekStart.value)
+    await fetchWeek()
+  }
+
   return {
     entries, isLoading, saveError, currentWeekStart, currentWeek,
     gridRows, projectGroups, dailyTotals, weeklyTotal, weekDates,
-    statusMessage, fetchWeek, navigateWeek, saveCell, submitWeek,
+    weeklyStats, statusMessage, fetchWeek, navigateWeek, saveCell,
+    submitWeek, copyPreviousWeek,
     DAILY_NORM, WEEKLY_NORM, CONTRACT_HOURS,
   }
 })

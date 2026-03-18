@@ -10,6 +10,9 @@ export const timesheetApi = {
     }),
   submitWeek: (weekStart: string) =>
     apiClient.post('time_entries/submit_week/', { week_start: weekStart }),
+  weeklyStats: () => apiClient.get('time_entries/weekly_stats/'),
+  copyPreviousWeek: (weekStart: string) =>
+    apiClient.post('time_entries/copy_previous_week/', { week_start: weekStart }),
 
   // Approvals
   listApprovals: (params?: Record<string, string>) =>

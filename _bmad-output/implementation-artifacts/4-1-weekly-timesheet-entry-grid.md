@@ -130,11 +130,16 @@ Claude Opus 4.6 (1M context)
 
 ### Completion Notes List
 - Backend: TimeEntry model, API, 10 tests — DONE
-- Frontend: Interactive grid with editable cells, auto-save, totals, locks, submission — DONE
-- TimesheetCell.vue: number input with arrow key nav, green feedback
-- WeekNavigator.vue: prev/next week with formatted date
-- SubmitWeekModal.vue: under/over warning with BaseModal
-- Store: gridRows computed, daily/weekly totals, saveCell (create/update), navigateWeek
+- Backend: TimeEntrySerializer enrichi avec project_code, project_name, phase_name, client_label
+- Backend: weekly_stats endpoint (contract_hours, average_4_weeks, billable_rate_percent)
+- Backend: copy_previous_week endpoint (copie entries semaine precedente comme DRAFT)
+- Frontend: Interactive grid conforme au mockup timesheet-mockups.html
+- Frontend: Banniere statut (ambre/vert) avec "Xh saisies sur 40h"
+- Frontend: 4 compteurs KPI (semaine, contrat, moyenne 4 sem., taux facturable) — branchés sur backend
+- Frontend: Regroupement par projet avec en-tetes colores (★ favoris en premier)
+- Frontend: Bouton "Copier semaine precedente" branche sur backend
+- Frontend: Noms projets/phases viennent du backend (plus de hardcode)
+- Code review: 10 issues corriges (NaN safety, error handling, arrow nav, 409 conflict)
 - 7 new Vitest tests for store logic
 
 ### Change Log

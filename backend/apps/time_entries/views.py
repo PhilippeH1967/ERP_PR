@@ -63,6 +63,91 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         count = entries.update(status="SUBMITTED")
         return Response({"submitted_count": count})
 
+    @action(detail=False, methods=["get"])
+    def weekly_stats(self, request):
+        """Employee timesheet stats: contract, average 4 weeks, billable rate."""
+        from datetime import timedelta
+        from decimal import Decimal
+
+        from django.db.models import Sum
+
+        user = request.user
+        today = timezone.now().date()
+
+        # Average hours over last 4 weeks
+        four_weeks_ago = today - timedelta(weeks=4)
+        recent = TimeEntry.objects.filter(
+            employee=user, date__gte=four_weeks_ago, date__lte=today,
+        )
+        total_recent = recent.aggregate(t=Sum("hours"))["t"] or Decimal("0")
+        avg_4_weeks = round(float(total_recent) / 4, 1)
+
+        # Billable rate (entries on projects vs total)
+        total_hours = float(total_recent)
+        billable = recent.filter(
+            project__is_internal=False,
+        ).aggregate(t=Sum("hours"))["t"] or Decimal("0")
+        billable_rate = (
+            round(float(billable) / total_hours * 100)
+            if total_hours > 0
+            else 0
+        )
+
+        return Response({
+            "contract_hours": 40,
+            "average_4_weeks": avg_4_weeks,
+            "billable_rate_percent": billable_rate,
+        })
+
+    @action(detail=False, methods=["post"])
+    def copy_previous_week(self, request):
+        """Copy previous week's entries as drafts for current week."""
+        from datetime import timedelta
+
+        week_start = request.data.get("week_start")
+        if not week_start:
+            err = {
+                "code": "MISSING_WEEK",
+                "message": "week_start required",
+                "details": [],
+            }
+            return Response({"error": err}, status=status.HTTP_400_BAD_REQUEST)
+
+        from datetime import date as date_type
+
+        current_start = date_type.fromisoformat(week_start)
+        prev_start = current_start - timedelta(weeks=1)
+        prev_end = prev_start + timedelta(days=6)
+
+        prev_entries = TimeEntry.objects.filter(
+            employee=request.user,
+            date__gte=prev_start,
+            date__lte=prev_end,
+        )
+
+        created = 0
+        for entry in prev_entries:
+            new_date = entry.date + timedelta(weeks=1)
+            if not TimeEntry.objects.filter(
+                employee=request.user,
+                project=entry.project,
+                phase=entry.phase,
+                date=new_date,
+            ).exists():
+                TimeEntry.objects.create(
+                    tenant_id=entry.tenant_id,
+                    employee=request.user,
+                    project=entry.project,
+                    phase=entry.phase,
+                    date=new_date,
+                    hours=entry.hours,
+                    status="DRAFT",
+                    is_favorite=entry.is_favorite,
+                )
+                created += 1
+
+        return Response({"copied_count": created})
+
 
 class WeeklyApprovalViewSet(viewsets.ModelViewSet):
     """Weekly approval tracking with two-level workflow."""

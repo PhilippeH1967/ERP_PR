@@ -88,7 +88,7 @@ function normClass(total: number, norm: number): string {
       </div>
       <div class="rounded-lg border border-border bg-surface p-4 text-center">
         <div class="text-2xl font-bold text-success">
-          {{ store.CONTRACT_HOURS }}h
+          {{ store.weeklyStats.contract_hours }}h
         </div>
         <div class="text-xs text-text-muted">
           Contrat
@@ -96,7 +96,7 @@ function normClass(total: number, norm: number): string {
       </div>
       <div class="rounded-lg border border-border bg-surface p-4 text-center">
         <div class="text-2xl font-bold text-text">
-          —
+          {{ store.weeklyStats.average_4_weeks || '—' }}h
         </div>
         <div class="text-xs text-text-muted">
           Moyenne 4 sem.
@@ -104,7 +104,7 @@ function normClass(total: number, norm: number): string {
       </div>
       <div class="rounded-lg border border-border bg-surface p-4 text-center">
         <div class="text-2xl font-bold text-primary">
-          —
+          {{ store.weeklyStats.billable_rate_percent || '—' }}%
         </div>
         <div class="text-xs text-text-muted">
           Taux facturable
@@ -114,7 +114,10 @@ function normClass(total: number, norm: number): string {
 
     <!-- Action buttons -->
     <div class="mb-4 flex gap-3">
-      <button class="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10">
+      <button
+        class="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10"
+        @click="store.copyPreviousWeek()"
+      >
         Copier semaine précédente
       </button>
       <button class="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-muted hover:bg-surface-alt">

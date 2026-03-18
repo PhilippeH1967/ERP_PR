@@ -8,14 +8,35 @@ from .models import PeriodUnlock, TimeEntry, TimesheetLock, WeeklyApproval
 
 
 class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
+    """TimeEntry with nested project/phase names for grid display."""
+
+    project_code = serializers.CharField(source="project.code", read_only=True)
+    project_name = serializers.CharField(source="project.name", read_only=True)
+    phase_name = serializers.SerializerMethodField()
+    client_label = serializers.SerializerMethodField()
+
     class Meta:
         model = TimeEntry
         fields = [
-            "id", "employee", "project", "phase", "date", "hours",
-            "notes", "status", "is_favorite", "version",
+            "id", "employee", "project", "project_code", "project_name",
+            "phase", "phase_name", "client_label",
+            "date", "hours", "notes", "status", "is_favorite", "version",
             "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "employee", "created_at", "updated_at"]
+        read_only_fields = [
+            "id", "employee", "project_code", "project_name",
+            "phase_name", "client_label", "created_at", "updated_at",
+        ]
+
+    def get_phase_name(self, obj):
+        if obj.phase:
+            return obj.phase.name
+        return ""
+
+    def get_client_label(self, obj):
+        if obj.phase:
+            return obj.phase.client_facing_label or obj.phase.name
+        return ""
 
 
 class WeeklyApprovalSerializer(serializers.ModelSerializer):
