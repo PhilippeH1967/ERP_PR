@@ -1,2 +1,106 @@
-# Core models — base classes will be added in Story 1.2
-# (Tenant, TenantScopedModel, VersionedModel, AuditMixin, OptimisticLockMixin)
+"""
+Core infrastructure models for ERP multi-tenancy, versioning, and audit.
+
+All tenant-scoped models inherit TenantScopedModel for RLS isolation.
+Financial models additionally inherit VersionedModel and add HistoricalRecords().
+"""
+
+from django.db import models
+
+
+class Tenant(models.Model):
+    """Multi-tenant root model. Each tenant represents an isolated organization."""
+
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(unique=True, max_length=100)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "core_tenant"
+
+    def __str__(self):
+        return self.name
+
+
+class TimestampedModel(models.Model):
+    """Abstract base providing created_at and updated_at timestamps."""
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
+class TenantScopedModel(TimestampedModel):
+    """
+    Abstract base for all tenant-isolated models.
+
+    Provides:
+    - tenant FK (indexed for RLS policy performance)
+    - created_at / updated_at timestamps
+
+    PostgreSQL RLS policies filter on tenant_id = current_setting('app.current_tenant').
+    Use `python manage.py setup_rls` to create policies after migrations.
+    """
+
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="%(app_label)s_%(class)s_set",
+        db_index=True,
+    )
+
+    class Meta:
+        abstract = True
+
+
+class VersionedModel(models.Model):
+    """
+    Abstract base providing optimistic locking via version field.
+
+    Version auto-increments on every save (update only, not create).
+    Use OptimisticLockMixin in serializers to enforce If-Match version checks.
+    """
+
+    version = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        if self.pk and not kwargs.pop("skip_version_increment", False):
+            self.version = models.F("version") + 1
+        super().save(*args, **kwargs)
+        if self.pk:
+            # Refresh from DB to get actual version value after F() expression
+            self.refresh_from_db(fields=["version"])
+
+
+# AuditMixin pattern:
+# Models requiring audit trail add `history = HistoricalRecords()` field.
+# django-simple-history automatically tracks history_user, history_date,
+# history_change_reason on every save/delete.
+#
+# Example:
+#   from simple_history.models import HistoricalRecords
+#
+#   class Invoice(TenantScopedModel, VersionedModel):
+#       amount = models.DecimalField(max_digits=12, decimal_places=2)
+#       history = HistoricalRecords()
+
+
+class SampleTenantModel(TenantScopedModel, VersionedModel):
+    """
+    Concrete model for testing TenantScopedModel, VersionedModel, and RLS policies.
+    TODO: Remove when real tenant-scoped models are created (Epic 2+).
+    """
+
+    name = models.CharField(max_length=255)
+
+    class Meta:
+        db_table = "core_sample"
+
+    def __str__(self):
+        return self.name

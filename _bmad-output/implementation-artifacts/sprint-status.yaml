@@ -41,7 +41,7 @@ development_status:
   # Epic 1: Foundation & Platform Setup (6 stories)
   epic-1: in-progress
   1-1-project-scaffolding-docker-infrastructure: done
-  1-2-core-models-multi-tenancy-audit-trail: backlog
+  1-2-core-models-multi-tenancy-audit-trail: done
   1-3-sso-authentication-jwt: backlog
   1-4-rbac-framework-role-assignment: backlog
   1-5-bilingual-support-locale-aware-formatting: backlog
