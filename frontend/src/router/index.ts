@@ -21,6 +21,11 @@ const router = createRouter({
           name: 'dashboard',
           component: () => import('@/features/dashboard/views/DashboardView.vue'),
         },
+        {
+          path: 'notifications',
+          name: 'notifications',
+          component: () => import('@/features/dashboard/views/NotificationCenter.vue'),
+        },
         // Clients
         {
           path: 'clients',
@@ -65,6 +70,16 @@ const router = createRouter({
           name: 'billing',
           component: () => import('@/features/billing/views/InvoiceList.vue'),
         },
+        {
+          path: 'billing/:id',
+          name: 'invoice-detail',
+          component: () => import('@/features/billing/views/InvoiceDetail.vue'),
+        },
+        {
+          path: 'payments',
+          name: 'payments',
+          component: () => import('@/features/billing/views/PaymentList.vue'),
+        },
         // Expenses
         {
           path: 'expenses',
@@ -76,6 +91,11 @@ const router = createRouter({
           path: 'suppliers',
           name: 'suppliers',
           component: () => import('@/features/suppliers/views/SupplierList.vue'),
+        },
+        {
+          path: 'st-invoices',
+          name: 'st-invoices',
+          component: () => import('@/features/suppliers/views/STInvoiceList.vue'),
         },
       ],
     },
