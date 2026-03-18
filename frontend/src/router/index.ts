@@ -14,11 +14,7 @@ const router = createRouter({
       path: '/',
       component: () => import('@/shared/layouts/MainLayout.vue'),
       children: [
-        {
-          path: '',
-          name: 'home',
-          redirect: '/dashboard',
-        },
+        { path: '', name: 'home', redirect: '/dashboard' },
         // Dashboard
         {
           path: 'dashboard',
@@ -42,6 +38,11 @@ const router = createRouter({
           name: 'projects',
           component: () => import('@/features/projects/views/ProjectList.vue'),
         },
+        {
+          path: 'projects/:id',
+          name: 'project-detail',
+          component: () => import('@/features/projects/views/ProjectDetail.vue'),
+        },
         // Timesheets
         {
           path: 'timesheets',
@@ -52,19 +53,19 @@ const router = createRouter({
         {
           path: 'billing',
           name: 'billing',
-          component: () => import('@/shared/layouts/HomeView.vue'),
+          component: () => import('@/features/billing/views/InvoiceList.vue'),
         },
         // Expenses
         {
           path: 'expenses',
           name: 'expenses',
-          component: () => import('@/shared/layouts/HomeView.vue'),
+          component: () => import('@/features/expenses/views/ExpenseList.vue'),
         },
         // Suppliers
         {
           path: 'suppliers',
           name: 'suppliers',
-          component: () => import('@/shared/layouts/HomeView.vue'),
+          component: () => import('@/features/suppliers/views/SupplierList.vue'),
         },
       ],
     },

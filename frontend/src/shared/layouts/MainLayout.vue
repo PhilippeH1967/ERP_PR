@@ -25,6 +25,7 @@ const navItems = [
   { name: 'nav.projects', path: '/projects', icon: 'folder' },
   { name: 'nav.billing', path: '/billing', icon: 'document-text' },
   { name: 'nav.expenses', path: '/expenses', icon: 'receipt' },
+  { name: 'nav.suppliers', path: '/suppliers', icon: 'building' },
 ]
 </script>
 

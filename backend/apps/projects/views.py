@@ -94,16 +94,45 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def dashboard(self, request, pk=None):
-        """Project health dashboard (Story 3.8)."""
+        """Project health dashboard with real KPIs."""
+        from decimal import Decimal
+
+        from django.db.models import Sum
+
         project = self.get_object()
+
+        # Hours consumed vs budgeted
+        from apps.time_entries.models import TimeEntry
+
+        hours_consumed = TimeEntry.objects.filter(
+            project=project
+        ).aggregate(total=Sum("hours"))["total"] or Decimal("0")
+
+        budget_hours = project.phases.aggregate(
+            total=Sum("budgeted_hours")
+        )["total"] or Decimal("0")
+
+        utilization = (
+            float(hours_consumed / budget_hours * 100) if budget_hours > 0 else 0
+        )
+
+        # Health indicator
+        if utilization < 75:
+            health = "green"
+        elif utilization < 90:
+            health = "yellow"
+        else:
+            health = "red"
+
         return Response({
             "project_id": project.pk,
             "code": project.code,
             "name": project.name,
             "status": project.status,
-            "budget_utilization_percent": 0,
-            "hours_vs_planned_percent": 0,
-            "health": "green",
+            "hours_consumed": str(hours_consumed),
+            "budget_hours": str(budget_hours),
+            "budget_utilization_percent": round(utilization, 1),
+            "health": health,
         })
 
 

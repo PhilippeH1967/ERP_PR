@@ -52,14 +52,14 @@ class ClientViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def financial_summary(self, request, pk=None):
-        """Aggregated financial data for a client (Story 2.3)."""
-        return Response(
-            {
-                "total_ca": "0.00",
-                "invoices_outstanding": "0.00",
-                "projects_count": 0,
-            }
-        )
+        """Aggregated financial data for a client."""
+        from apps.billing.services import get_aging_analysis, get_client_financial_summary
+
+        client = self.get_object()
+        tenant_id = getattr(self.request, "tenant_id", client.tenant_id)
+        summary = get_client_financial_summary(client.pk, tenant_id)
+        aging = get_aging_analysis(client.pk, tenant_id)
+        return Response({**summary, "aging": aging})
 
 
 class ContactViewSet(viewsets.ModelViewSet):

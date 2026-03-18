@@ -81,13 +81,13 @@ class InvoiceViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def aging_analysis(self, request, pk=None):
-        """Invoice aging analysis for this project's client."""
-        return Response({
-            "0_30": "0.00",
-            "31_60": "0.00",
-            "61_90": "0.00",
-            "90_plus": "0.00",
-        })
+        """Invoice aging analysis for this invoice's client."""
+        from apps.billing.services import get_aging_analysis
+
+        invoice = self.get_object()
+        tenant_id = getattr(request, "tenant_id", invoice.tenant_id)
+        aging = get_aging_analysis(invoice.client_id, tenant_id)
+        return Response(aging)
 
 
 class InvoiceLineViewSet(viewsets.ModelViewSet):
