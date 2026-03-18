@@ -34,14 +34,28 @@ export interface TimesheetGridRow {
   entries: Record<string, TimeEntry | null>
   is_locked: boolean
   row_total: number
+  is_favorite: boolean
+  category: 'project' | 'non-project' | 'absence'
+}
+
+/** Rows grouped under a project header */
+export interface TimesheetProjectGroup {
+  project_id: number
+  project_code: string
+  project_name: string
+  is_favorite: boolean
+  category: 'project' | 'non-project' | 'absence'
+  rows: TimesheetGridRow[]
+  group_total: number
 }
 
 export interface TimesheetWeek {
   weekStart: string
   weekEnd: string
   dates: string[]
-  rows: TimesheetGridRow[]
+  groups: TimesheetProjectGroup[]
   dailyTotals: number[]
   weeklyTotal: number
   weeklyNorm: number
+  contractHours: number
 }

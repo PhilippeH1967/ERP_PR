@@ -1,10 +1,16 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { timesheetApi } from '../api/timesheetApi'
-import type { TimeEntry, TimesheetGridRow, TimesheetWeek } from '../types/timesheet.types'
+import type {
+  TimeEntry,
+  TimesheetGridRow,
+  TimesheetProjectGroup,
+  TimesheetWeek,
+} from '../types/timesheet.types'
 
 const DAILY_NORM = 8
 const WEEKLY_NORM = 40
+const CONTRACT_HOURS = 40
 
 function getDatesForWeek(weekStart: string): string[] {
   const dates: string[] = []
@@ -25,24 +31,26 @@ function getMondayOfWeek(d: Date): string {
   return date.toISOString().slice(0, 10)
 }
 
+function safeHours(hours: string | number | undefined): number {
+  const n = Number(hours)
+  return Number.isFinite(n) ? n : 0
+}
+
+function roundTotal(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
 export const useTimesheetStore = defineStore('timesheet', () => {
   const entries = ref<TimeEntry[]>([])
   const locks = ref<Array<{ phase: number | null; person: number | null }>>([])
   const isLoading = ref(false)
   const currentWeekStart = ref(getMondayOfWeek(new Date()))
+  const saveError = ref<{ type: string; entryId?: number } | null>(null)
 
   const weekDates = computed(() => getDatesForWeek(currentWeekStart.value))
   const weekEnd = computed(() => weekDates.value[6] || '')
 
-  function safeHours(hours: string | number | undefined): number {
-    const n = Number(hours)
-    return Number.isFinite(n) ? n : 0
-  }
-
-  function roundTotal(n: number): number {
-    return Math.round(n * 100) / 100
-  }
-
+  // Build flat rows
   const gridRows = computed<TimesheetGridRow[]>(() => {
     const rowMap = new Map<string, TimesheetGridRow>()
     for (const entry of entries.value) {
@@ -58,6 +66,8 @@ export const useTimesheetStore = defineStore('timesheet', () => {
           entries: {},
           is_locked: false,
           row_total: 0,
+          is_favorite: entry.is_favorite,
+          category: 'project',
         })
       }
       const row = rowMap.get(key)
@@ -74,6 +84,35 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     return Array.from(rowMap.values())
   })
 
+  // Group rows by project (mockup conformity)
+  const projectGroups = computed<TimesheetProjectGroup[]>(() => {
+    const groupMap = new Map<number, TimesheetProjectGroup>()
+    for (const row of gridRows.value) {
+      if (!groupMap.has(row.project_id)) {
+        groupMap.set(row.project_id, {
+          project_id: row.project_id,
+          project_code: row.project_code,
+          project_name: row.project_name,
+          is_favorite: row.is_favorite,
+          category: row.category,
+          rows: [],
+          group_total: 0,
+        })
+      }
+      const group = groupMap.get(row.project_id)
+      if (group) {
+        group.rows.push(row)
+        group.group_total = roundTotal(group.group_total + row.row_total)
+      }
+    }
+    // Sort: favorites first, then by project code
+    return Array.from(groupMap.values()).sort((a, b) => {
+      if (a.is_favorite && !b.is_favorite) return -1
+      if (!a.is_favorite && b.is_favorite) return 1
+      return a.project_code.localeCompare(b.project_code)
+    })
+  })
+
   const dailyTotals = computed(() =>
     weekDates.value.map((date) =>
       roundTotal(
@@ -88,11 +127,19 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     weekStart: currentWeekStart.value,
     weekEnd: weekEnd.value,
     dates: weekDates.value,
-    rows: gridRows.value,
+    groups: projectGroups.value,
     dailyTotals: dailyTotals.value,
     weeklyTotal: weeklyTotal.value,
     weeklyNorm: WEEKLY_NORM,
+    contractHours: CONTRACT_HOURS,
   }))
+
+  // Status banner
+  const statusMessage = computed(() => {
+    if (weeklyTotal.value >= WEEKLY_NORM) return { text: 'complete', color: 'green' }
+    if (weeklyTotal.value > 0) return { text: 'en-cours', color: 'amber' }
+    return { text: 'vide', color: 'gray' }
+  })
 
   async function fetchWeek() {
     isLoading.value = true
@@ -118,9 +165,12 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     fetchWeek()
   }
 
-  const saveError = ref<{ type: string; entryId?: number } | null>(null)
-
-  async function saveCell(projectId: number, phaseId: number | null, date: string, hours: string) {
+  async function saveCell(
+    projectId: number,
+    phaseId: number | null,
+    date: string,
+    hours: string,
+  ) {
     saveError.value = null
     const existing = entries.value.find(
       (e) => e.project === projectId && e.phase === phaseId && e.date === date,
@@ -133,7 +183,10 @@ export const useTimesheetStore = defineStore('timesheet', () => {
         if (idx >= 0 && updated) entries.value[idx] = updated
       } else if (hours !== '0' && hours !== '') {
         const resp = await timesheetApi.createEntry({
-          project: projectId, phase: phaseId, date, hours,
+          project: projectId,
+          phase: phaseId,
+          date,
+          hours,
         })
         const created = resp.data?.data || resp.data
         if (created) entries.value.push(created)
@@ -155,8 +208,9 @@ export const useTimesheetStore = defineStore('timesheet', () => {
   }
 
   return {
-    entries, isLoading, saveError, currentWeekStart, currentWeek, gridRows,
-    dailyTotals, weeklyTotal, weekDates, fetchWeek, navigateWeek,
-    saveCell, submitWeek, DAILY_NORM, WEEKLY_NORM,
+    entries, isLoading, saveError, currentWeekStart, currentWeek,
+    gridRows, projectGroups, dailyTotals, weeklyTotal, weekDates,
+    statusMessage, fetchWeek, navigateWeek, saveCell, submitWeek,
+    DAILY_NORM, WEEKLY_NORM, CONTRACT_HOURS,
   }
 })
