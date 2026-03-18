@@ -8,6 +8,7 @@ const props = defineProps<{
   phaseId: number | null
   date: string
   isLocked: boolean
+  ariaLabel?: string
 }>()
 
 const emit = defineEmits<{
@@ -15,8 +16,8 @@ const emit = defineEmits<{
 }>()
 
 const localValue = ref(props.entry ? props.entry.hours : '')
-const isSaving = ref(false)
 const showFeedback = ref(false)
+const showError = ref(false)
 
 watch(
   () => props.entry?.hours,
@@ -25,31 +26,34 @@ watch(
   },
 )
 
-function onBlur() {
+async function onBlur() {
   const val = localValue.value.toString().trim()
   const original = props.entry?.hours || ''
   if (val === original) return
   if (val === '' && !props.entry) return
 
-  isSaving.value = true
-  emit('save', props.projectId, props.phaseId, props.date, val || '0')
-
-  // Green feedback
-  setTimeout(() => {
-    isSaving.value = false
+  showError.value = false
+  try {
+    emit('save', props.projectId, props.phaseId, props.date, val || '0')
     showFeedback.value = true
     setTimeout(() => {
       showFeedback.value = false
     }, 500)
-  }, 300)
+  } catch {
+    showError.value = true
+    // Revert on error
+    localValue.value = original
+  }
 }
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
     event.preventDefault()
     const el = event.target as HTMLInputElement
+    // Skip disabled (locked) cells
+    const selector = `input[data-col="${props.date}"]:not(:disabled)`
     const cells = Array.from(
-      el.closest('table')?.querySelectorAll('input[data-col="' + props.date + '"]') || [],
+      el.closest('table')?.querySelectorAll(selector) || [],
     ) as HTMLInputElement[]
     const idx = cells.indexOf(el)
     const next = event.key === 'ArrowDown' ? cells[idx + 1] : cells[idx - 1]
@@ -66,9 +70,11 @@ function onKeydown(event: KeyboardEvent) {
       step="0.5"
       min="0"
       max="24"
+      :aria-label="ariaLabel || `${date}`"
       class="h-10 w-full border-0 bg-transparent px-2 text-center font-mono text-sm focus:bg-primary/5 focus:outline-none"
       :class="{
         'bg-success/10': showFeedback,
+        'bg-danger/10': showError,
         'bg-gray-100 text-text-muted cursor-not-allowed': isLocked,
       }"
       :disabled="isLocked"

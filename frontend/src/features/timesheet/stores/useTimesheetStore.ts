@@ -34,10 +34,19 @@ export const useTimesheetStore = defineStore('timesheet', () => {
   const weekDates = computed(() => getDatesForWeek(currentWeekStart.value))
   const weekEnd = computed(() => weekDates.value[6] || '')
 
+  function safeHours(hours: string | number | undefined): number {
+    const n = Number(hours)
+    return Number.isFinite(n) ? n : 0
+  }
+
+  function roundTotal(n: number): number {
+    return Math.round(n * 100) / 100
+  }
+
   const gridRows = computed<TimesheetGridRow[]>(() => {
     const rowMap = new Map<string, TimesheetGridRow>()
     for (const entry of entries.value) {
-      const key = `${entry.project}-${entry.phase ?? 'null'}`
+      const key = `${entry.project}-${entry.phase === null ? '_null_' : entry.phase}`
       if (!rowMap.has(key)) {
         rowMap.set(key, {
           project_id: entry.project,
@@ -51,13 +60,13 @@ export const useTimesheetStore = defineStore('timesheet', () => {
           row_total: 0,
         })
       }
-      rowMap.get(key)!.entries[entry.date] = entry
+      const row = rowMap.get(key)
+      if (row) row.entries[entry.date] = entry
     }
     for (const row of rowMap.values()) {
-      row.row_total = weekDates.value.reduce((sum, date) => {
-        const e = row.entries[date]
-        return sum + (e ? parseFloat(e.hours) || 0 : 0)
-      }, 0)
+      row.row_total = roundTotal(
+        weekDates.value.reduce((sum, date) => sum + safeHours(row.entries[date]?.hours), 0),
+      )
       if (row.phase_id) {
         row.is_locked = locks.value.some((l) => l.phase === row.phase_id)
       }
@@ -67,14 +76,13 @@ export const useTimesheetStore = defineStore('timesheet', () => {
 
   const dailyTotals = computed(() =>
     weekDates.value.map((date) =>
-      gridRows.value.reduce((sum, row) => {
-        const e = row.entries[date]
-        return sum + (e ? parseFloat(e.hours) || 0 : 0)
-      }, 0),
+      roundTotal(
+        gridRows.value.reduce((sum, row) => sum + safeHours(row.entries[date]?.hours), 0),
+      ),
     ),
   )
 
-  const weeklyTotal = computed(() => dailyTotals.value.reduce((a, b) => a + b, 0))
+  const weeklyTotal = computed(() => roundTotal(dailyTotals.value.reduce((a, b) => a + b, 0)))
 
   const currentWeek = computed<TimesheetWeek>(() => ({
     weekStart: currentWeekStart.value,
@@ -110,19 +118,34 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     fetchWeek()
   }
 
+  const saveError = ref<{ type: string; entryId?: number } | null>(null)
+
   async function saveCell(projectId: number, phaseId: number | null, date: string, hours: string) {
+    saveError.value = null
     const existing = entries.value.find(
       (e) => e.project === projectId && e.phase === phaseId && e.date === date,
     )
-    if (existing) {
-      const resp = await timesheetApi.updateEntry(existing.id, { hours }, existing.version)
-      const updated = resp.data?.data || resp.data
-      const idx = entries.value.findIndex((e) => e.id === existing.id)
-      if (idx >= 0 && updated) entries.value[idx] = updated
-    } else {
-      const resp = await timesheetApi.createEntry({ project: projectId, phase: phaseId, date, hours })
-      const created = resp.data?.data || resp.data
-      if (created) entries.value.push(created)
+    try {
+      if (existing) {
+        const resp = await timesheetApi.updateEntry(existing.id, { hours }, existing.version)
+        const updated = resp.data?.data || resp.data
+        const idx = entries.value.findIndex((e) => e.id === existing.id)
+        if (idx >= 0 && updated) entries.value[idx] = updated
+      } else if (hours !== '0' && hours !== '') {
+        const resp = await timesheetApi.createEntry({
+          project: projectId, phase: phaseId, date, hours,
+        })
+        const created = resp.data?.data || resp.data
+        if (created) entries.value.push(created)
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { status: number } }
+      if (axiosErr.response?.status === 409) {
+        saveError.value = { type: 'conflict', entryId: existing?.id }
+      } else {
+        saveError.value = { type: 'error' }
+      }
+      throw err
     }
   }
 
@@ -132,7 +155,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
   }
 
   return {
-    entries, isLoading, currentWeekStart, currentWeek, gridRows,
+    entries, isLoading, saveError, currentWeekStart, currentWeek, gridRows,
     dailyTotals, weeklyTotal, weekDates, fetchWeek, navigateWeek,
     saveCell, submitWeek, DAILY_NORM, WEEKLY_NORM,
   }
