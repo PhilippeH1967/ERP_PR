@@ -27,8 +27,15 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 tenant_id = user.tenant_association.tenant_id
         token["tenant_id"] = tenant_id
 
-        # Roles claim — will be populated by Story 1.4 (RBAC)
-        token["roles"] = []
+        # Roles claim — populated from ProjectRole model
+        from apps.core.models import ProjectRole
+
+        roles = list(
+            ProjectRole.objects.filter(user=user).values("project_id", "role")
+        )
+        token["roles"] = [
+            {"project_id": r["project_id"], "role": r["role"]} for r in roles
+        ]
 
         return token
 

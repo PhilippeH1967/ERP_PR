@@ -92,6 +92,54 @@ class VersionedModel(models.Model):
 #       history = HistoricalRecords()
 
 
+class Role(models.TextChoices):
+    """The 8 RBAC roles for per-project authorization."""
+
+    EMPLOYEE = "EMPLOYEE", "Employee"
+    PM = "PM", "Project Manager"
+    PROJECT_DIRECTOR = "PROJECT_DIRECTOR", "Associé en charge"
+    BU_DIRECTOR = "BU_DIRECTOR", "Directeur d'unité"
+    FINANCE = "FINANCE", "Finance"
+    DEPT_ASSISTANT = "DEPT_ASSISTANT", "Adjoint(e) de département"
+    PROPOSAL_MANAGER = "PROPOSAL_MANAGER", "Gestionnaire de propositions"
+    ADMIN = "ADMIN", "Administrateur"
+
+
+class ProjectRole(TenantScopedModel):
+    """
+    Per-project role assignment. A user can have different roles on different projects.
+
+    project_id is IntegerField (not FK) because Project model doesn't exist yet (Epic 3).
+    Will be migrated to FK when apps.projects is created.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="project_roles",
+    )
+    project_id = models.IntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Null for global roles (ADMIN, FINANCE)",
+    )
+    role = models.CharField(max_length=30, choices=Role.choices)
+
+    class Meta:
+        db_table = "core_project_role"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "project_id", "tenant"],
+                name="uq_project_role_user_project_tenant",
+            ),
+        ]
+
+    def __str__(self):
+        project = f"project {self.project_id}" if self.project_id else "global"
+        return f"{self.user} — {self.role} ({project})"
+
+
 class UserTenantAssociation(models.Model):
     """Links a Django User to a Tenant. Created on first SSO login."""
 

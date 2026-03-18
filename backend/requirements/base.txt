@@ -26,5 +26,5 @@ django-simple-history>=3.7,<4.0
 django-allauth[socialaccount]>=65.0,<66.0
 djangorestframework-simplejwt>=5.4,<6.0
 
-# Future stories
-# django-rules  # Story 1.4
+# Authorization
+rules>=3.5,<4.0

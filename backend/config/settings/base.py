@@ -46,6 +46,7 @@ THIRD_PARTY_APPS = [
     "allauth.socialaccount",
     "allauth.socialaccount.providers.openid_connect",
     "rest_framework_simplejwt",
+    "rules",
 ]
 
 LOCAL_APPS = [
@@ -227,6 +228,7 @@ CORS_ALLOW_CREDENTIALS = True
 
 # django-allauth configuration
 AUTHENTICATION_BACKENDS = [
+    "rules.permissions.ObjectPermissionBackend",
     "django.contrib.auth.backends.ModelBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
