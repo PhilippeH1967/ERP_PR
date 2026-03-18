@@ -57,17 +57,17 @@ development_status:
   epic-2-retrospective: optional
 
   # Epic 3: Project Creation & Management (10 stories)
-  epic-3: backlog
-  3-1-project-model-template-system: backlog
-  3-2-project-wizard-step-1-metadata: backlog
-  3-3-project-wizard-step-2-budget: backlog
-  3-4-project-wizard-step-3-resources-planning: backlog
-  3-5-project-wizard-step-4-subcontractors-confirmation: backlog
-  3-6-virtual-to-real-resource-assignment: backlog
-  3-7-wbs-management-dual-labels: backlog
-  3-8-project-dashboard-health-indicators: backlog
-  3-9-internal-projects-personnel-lending: backlog
-  3-10-project-lifecycle-leadership-management: backlog
+  epic-3: done
+  3-1-project-model-template-system: done
+  3-2-project-wizard-step-1-metadata: done
+  3-3-project-wizard-step-2-budget: done
+  3-4-project-wizard-step-3-resources-planning: done
+  3-5-project-wizard-step-4-subcontractors-confirmation: done
+  3-6-virtual-to-real-resource-assignment: done
+  3-7-wbs-management-dual-labels: done
+  3-8-project-dashboard-health-indicators: done
+  3-9-internal-projects-personnel-lending: done
+  3-10-project-lifecycle-leadership-management: done
   epic-3-retrospective: optional
 
   # Epic 4: Time Tracking & Approval (6 stories)
