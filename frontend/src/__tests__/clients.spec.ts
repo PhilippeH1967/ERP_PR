@@ -37,7 +37,7 @@ describe('useClientStore', () => {
       data: { data: { id: 1, name: 'Updated', version: 2 } },
     })
     const store = useClientStore()
-    store.currentClient = { id: 1, name: 'Old', version: 1 } as any
+    store.currentClient = { id: 1, name: 'Old', version: 1 } as unknown as ReturnType<typeof useClientStore>['currentClient']
     await store.updateClient(1, { name: 'Updated' })
     expect(apiClient.patch).toHaveBeenCalledWith(
       'clients/1/',

@@ -109,6 +109,11 @@ const router = createRouter({
           name: 'admin',
           component: () => import('@/features/admin/views/AdminHub.vue'),
         },
+        {
+          path: 'admin/import',
+          name: 'admin-import',
+          component: () => import('@/features/admin/views/ImportPage.vue'),
+        },
       ],
     },
   ],
