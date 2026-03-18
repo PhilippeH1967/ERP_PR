@@ -17,31 +17,53 @@ const router = createRouter({
         {
           path: '',
           name: 'home',
-          component: () => import('@/shared/layouts/HomeView.vue'),
+          redirect: '/dashboard',
         },
+        // Dashboard
         {
           path: 'dashboard',
           name: 'dashboard',
-          component: () => import('@/shared/layouts/HomeView.vue'),
+          component: () => import('@/features/dashboard/views/DashboardView.vue'),
+        },
+        // Clients
+        {
+          path: 'clients',
+          name: 'clients',
+          component: () => import('@/features/clients/views/ClientList.vue'),
         },
         {
-          path: 'timesheets',
-          name: 'timesheets',
-          component: () => import('@/shared/layouts/HomeView.vue'),
+          path: 'clients/:id',
+          name: 'client-detail',
+          component: () => import('@/features/clients/views/ClientDetail.vue'),
         },
+        // Projects
         {
           path: 'projects',
           name: 'projects',
-          component: () => import('@/shared/layouts/HomeView.vue'),
+          component: () => import('@/features/projects/views/ProjectList.vue'),
         },
+        // Timesheets
+        {
+          path: 'timesheets',
+          name: 'timesheets',
+          component: () => import('@/features/timesheet/views/TimesheetGrid.vue'),
+        },
+        // Billing
         {
           path: 'billing',
           name: 'billing',
           component: () => import('@/shared/layouts/HomeView.vue'),
         },
+        // Expenses
         {
           path: 'expenses',
           name: 'expenses',
+          component: () => import('@/shared/layouts/HomeView.vue'),
+        },
+        // Suppliers
+        {
+          path: 'suppliers',
+          name: 'suppliers',
           component: () => import('@/shared/layouts/HomeView.vue'),
         },
       ],
