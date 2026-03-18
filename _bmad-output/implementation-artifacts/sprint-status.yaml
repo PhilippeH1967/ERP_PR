@@ -93,46 +93,46 @@ development_status:
   epic-5-retrospective: optional
 
   # Epic 6: Expense Management (4 stories)
-  epic-6: backlog
-  6-1-expense-report-creation-receipt-upload: backlog
-  6-2-expense-categories-project-configuration: backlog
-  6-3-4-role-expense-approval-workflow: backlog
-  6-4-expense-reporting-intact-export: backlog
+  epic-6: done
+  6-1-expense-report-creation-receipt-upload: done
+  6-2-expense-categories-project-configuration: done
+  6-3-4-role-expense-approval-workflow: done
+  6-4-expense-reporting-intact-export: done
   epic-6-retrospective: optional
 
   # Epic 7: Supplier Payment Tracking (3 stories)
-  epic-7: backlog
-  7-1-st-invoice-entry-pm-authorization: backlog
-  7-2-payment-execution-validation: backlog
-  7-3-cross-project-payment-reports: backlog
+  epic-7: done
+  7-1-st-invoice-entry-pm-authorization: done
+  7-2-payment-execution-validation: done
+  7-3-cross-project-payment-reports: done
   epic-7-retrospective: optional
 
   # Epic 8: Dashboards, Notifications & Actions (4 stories)
-  epic-8: backlog
-  8-1-role-based-dashboards: backlog
-  8-2-pm-financial-kpis-hours-reports: backlog
-  8-3-system-health-admin-metrics: backlog
-  8-4-notification-center-actions-requises: backlog
+  epic-8: done
+  8-1-role-based-dashboards: done
+  8-2-pm-financial-kpis-hours-reports: done
+  8-3-system-health-admin-metrics: done
+  8-4-notification-center-actions-requises: done
   epic-8-retrospective: optional
 
   # Epic 9: Delegation & Access (3 stories)
-  epic-9: backlog
-  9-1-delegation-creation-scope-management: backlog
-  9-2-delegated-actions-audit-trail: backlog
-  9-3-department-assistant-delegation: backlog
+  epic-9: done
+  9-1-delegation-creation-scope-management: done
+  9-2-delegated-actions-audit-trail: done
+  9-3-department-assistant-delegation: done
   epic-9-retrospective: optional
 
   # Epic 10: Configuration & Regional Settings (2 stories)
-  epic-10: backlog
-  10-1-hr-labor-rules-overtime-configuration: backlog
-  10-2-expense-policies-business-configuration: backlog
+  epic-10: done
+  10-1-hr-labor-rules-overtime-configuration: done
+  10-2-expense-policies-business-configuration: done
   epic-10-retrospective: optional
 
   # Epic 11: ChangePoint Data Migration (3 stories)
-  epic-11: backlog
-  11-1-changepoint-data-import: backlog
-  11-2-migration-validation-reconciliation: backlog
-  11-3-parallel-run-period: backlog
+  epic-11: done
+  11-1-changepoint-data-import: done
+  11-2-migration-validation-reconciliation: done
+  11-3-parallel-run-period: done
   epic-11-retrospective: optional
 
   # === MVP-1.5: Productivity Enhancement ===
