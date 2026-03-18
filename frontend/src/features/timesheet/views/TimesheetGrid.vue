@@ -70,6 +70,18 @@ function normClass(total: number, norm: number): string {
       <span class="text-xs text-text-muted">Soumission avant samedi 18h</span>
     </div>
 
+    <!-- Anomaly badge: average > contract -->
+    <div
+      v-if="store.weeklyStats.average_4_weeks > store.weeklyStats.contract_hours"
+      class="mb-4 flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3"
+    >
+      <span class="text-warning">⚠️</span>
+      <span class="text-sm text-warning">
+        Votre moyenne sur 4 semaines est de {{ store.weeklyStats.average_4_weeks }}h
+        — au-dessus de votre contrat de {{ store.weeklyStats.contract_hours }}h.
+      </span>
+    </div>
+
     <!-- KPI counters (HIGH #2) -->
     <div class="mb-6 grid grid-cols-4 gap-4">
       <div class="rounded-lg border border-border bg-surface p-4 text-center">
