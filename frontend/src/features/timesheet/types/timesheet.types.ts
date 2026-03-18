@@ -30,6 +30,18 @@ export interface TimesheetGridRow {
   project_name: string
   phase_id: number | null
   phase_name: string
-  entries: Record<string, TimeEntry | null> // key = 'YYYY-MM-DD'
+  client_label: string
+  entries: Record<string, TimeEntry | null>
   is_locked: boolean
+  row_total: number
+}
+
+export interface TimesheetWeek {
+  weekStart: string
+  weekEnd: string
+  dates: string[]
+  rows: TimesheetGridRow[]
+  dailyTotals: number[]
+  weeklyTotal: number
+  weeklyNorm: number
 }
