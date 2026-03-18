@@ -39,6 +39,11 @@ export const useProjectStore = defineStore('projects', () => {
     return response.data?.data || response.data
   }
 
+  async function createProject(data: Partial<Project>) {
+    const response = await projectApi.create(data)
+    return response.data?.data || response.data
+  }
+
   return {
     projects,
     currentProject,
@@ -48,5 +53,6 @@ export const useProjectStore = defineStore('projects', () => {
     fetchProject,
     fetchTemplates,
     createFromTemplate,
+    createProject,
   }
 })

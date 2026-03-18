@@ -55,15 +55,15 @@ development_status:
   epic-2-retrospective: optional
 
   # Epic 3: Project Creation & Management (10 stories)
-  epic-3: in-progress
-  3-1-project-model-template-system: in-progress      # Missing: template selection UI
-  3-2-project-wizard-step-1-metadata: in-progress     # Missing: ProjectWizard.vue
-  3-3-project-wizard-step-2-budget: in-progress       # Missing: budget editor
-  3-4-project-wizard-step-3-resources-planning: in-progress  # Missing: resources/Gantt
-  3-5-project-wizard-step-4-subcontractors-confirmation: in-progress  # Missing: ST config
-  3-6-virtual-to-real-resource-assignment: in-progress  # Missing: assignment modal
-  3-7-wbs-management-dual-labels: in-progress         # Missing: WBS tree view
-  3-8-project-dashboard-health-indicators: in-progress  # Missing: health cards
+  epic-3: done
+  3-1-project-model-template-system: done              # Template selection in wizard step 1
+  3-2-project-wizard-step-1-metadata: done             # ProjectWizard.vue 4-step wizard
+  3-3-project-wizard-step-2-budget: done               # Phase budget editor in wizard step 2
+  3-4-project-wizard-step-3-resources-planning: done   # Resources info step (assign after creation)
+  3-5-project-wizard-step-4-subcontractors-confirmation: done  # Confirmation summary step
+  3-6-virtual-to-real-resource-assignment: in-progress  # Missing: 3-tier assignment modal
+  3-7-wbs-management-dual-labels: done                 # WBS tree in ProjectDetail
+  3-8-project-dashboard-health-indicators: done        # Health KPIs + budget bar in overview
   3-9-internal-projects-personnel-lending: done
   3-10-project-lifecycle-leadership-management: done
   epic-3-retrospective: optional

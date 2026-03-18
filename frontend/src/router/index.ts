@@ -39,6 +39,11 @@ const router = createRouter({
           component: () => import('@/features/projects/views/ProjectList.vue'),
         },
         {
+          path: 'projects/new',
+          name: 'project-create',
+          component: () => import('@/features/projects/views/ProjectCreate.vue'),
+        },
+        {
           path: 'projects/:id',
           name: 'project-detail',
           component: () => import('@/features/projects/views/ProjectDetail.vue'),
