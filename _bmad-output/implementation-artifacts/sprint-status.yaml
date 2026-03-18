@@ -39,13 +39,13 @@ development_status:
   # === MVP-1: Operational Foundation ===
 
   # Epic 1: Foundation & Platform Setup (6 stories)
-  epic-1: in-progress
+  epic-1: done
   1-1-project-scaffolding-docker-infrastructure: done
   1-2-core-models-multi-tenancy-audit-trail: done
   1-3-sso-authentication-jwt: done
   1-4-rbac-framework-role-assignment: done
   1-5-bilingual-support-locale-aware-formatting: done
-  1-6-frontend-shell-design-system-foundation: backlog
+  1-6-frontend-shell-design-system-foundation: done
   epic-1-retrospective: optional
 
   # Epic 2: Client & Organization Management (4 stories)

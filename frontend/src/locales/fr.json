@@ -7,5 +7,17 @@
     "login": "Se connecter",
     "logout": "Se d\u00e9connecter",
     "sso_unavailable": "Le service d'authentification est temporairement indisponible. Veuillez r\u00e9essayer dans quelques instants."
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "timesheets": "Feuilles de temps",
+    "projects": "Projets",
+    "billing": "Facturation",
+    "expenses": "D\u00e9penses",
+    "suppliers": "Fournisseurs",
+    "proposals": "Propositions",
+    "admin": "Administration",
+    "search": "Rechercher...",
+    "user": "Utilisateur"
   }
 }

@@ -7,5 +7,17 @@
     "login": "Sign in",
     "logout": "Sign out",
     "sso_unavailable": "The authentication service is temporarily unavailable. Please try again shortly."
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "timesheets": "Timesheets",
+    "projects": "Projects",
+    "billing": "Billing",
+    "expenses": "Expenses",
+    "suppliers": "Suppliers",
+    "proposals": "Proposals",
+    "admin": "Administration",
+    "search": "Search...",
+    "user": "User"
   }
 }
