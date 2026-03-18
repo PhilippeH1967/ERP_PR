@@ -71,8 +71,8 @@ development_status:
   epic-3-retrospective: optional
 
   # Epic 4: Time Tracking & Approval (6 stories)
-  epic-4: done
-  4-1-weekly-timesheet-entry-grid: done
+  epic-4: in-progress
+  4-1-weekly-timesheet-entry-grid: in-progress
   4-2-timesheet-draft-submit-favorites: done
   4-3-phase-person-blocking: done
   4-4-two-level-timesheet-approval: done
