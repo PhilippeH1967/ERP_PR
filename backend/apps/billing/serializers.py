@@ -1,0 +1,149 @@
+"""Billing serializers."""
+
+from rest_framework import serializers
+
+from apps.core.mixins import OptimisticLockMixin
+
+from .models import (
+    BillingDossier,
+    ClientLabel,
+    CreditNote,
+    DunningAction,
+    DunningLevel,
+    Holdback,
+    Invoice,
+    InvoiceLine,
+    InvoiceTemplate,
+    Payment,
+    PaymentAllocation,
+    WriteOff,
+)
+
+
+class InvoiceLineSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InvoiceLine
+        fields = [
+            "id", "financial_phase", "deliverable_name", "line_type",
+            "total_contract_amount", "invoiced_to_date",
+            "pct_billing_advancement", "pct_hours_advancement",
+            "amount_to_bill", "pct_after_billing", "order",
+        ]
+        read_only_fields = ["id"]
+
+
+class InvoiceSerializer(OptimisticLockMixin, serializers.ModelSerializer):
+    lines = InvoiceLineSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Invoice
+        fields = [
+            "id", "project", "client", "invoice_number", "status",
+            "total_amount", "tax_tps", "tax_tvq",
+            "submitted_by", "approved_by", "template",
+            "date_created", "date_sent", "date_paid",
+            "version", "lines", "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "date_created", "created_at", "updated_at"]
+
+
+class InvoiceListSerializer(serializers.ModelSerializer):
+    project_code = serializers.CharField(source="project.code", read_only=True)
+    client_name = serializers.CharField(source="client.name", read_only=True)
+
+    class Meta:
+        model = Invoice
+        fields = [
+            "id", "invoice_number", "project", "project_code",
+            "client", "client_name", "status", "total_amount",
+            "date_created", "date_sent",
+        ]
+
+
+class CreditNoteSerializer(OptimisticLockMixin, serializers.ModelSerializer):
+    class Meta:
+        model = CreditNote
+        fields = [
+            "id", "invoice", "project", "credit_note_number",
+            "amount", "reason", "status", "version",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class PaymentSerializer(OptimisticLockMixin, serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = [
+            "id", "invoice", "amount", "payment_date",
+            "reference", "method", "version",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class PaymentAllocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentAllocation
+        fields = ["id", "payment", "invoice", "allocated_amount"]
+        read_only_fields = ["id"]
+
+
+class HoldbackSerializer(OptimisticLockMixin, serializers.ModelSerializer):
+    class Meta:
+        model = Holdback
+        fields = [
+            "id", "project", "invoice", "percentage_rate",
+            "accumulated", "released", "remaining",
+            "release_date", "status", "version",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class WriteOffSerializer(OptimisticLockMixin, serializers.ModelSerializer):
+    class Meta:
+        model = WriteOff
+        fields = [
+            "id", "invoice", "amount", "reason", "status", "version",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class InvoiceTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InvoiceTemplate
+        fields = ["id", "name", "description", "template_config", "is_active"]
+        read_only_fields = ["id"]
+
+
+class ClientLabelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClientLabel
+        fields = ["id", "project", "wbs_code", "client_label"]
+        read_only_fields = ["id"]
+
+
+class DunningLevelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DunningLevel
+        fields = ["id", "level", "days_overdue", "email_template"]
+        read_only_fields = ["id"]
+
+
+class DunningActionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DunningAction
+        fields = ["id", "invoice", "dunning_level", "sent_at"]
+        read_only_fields = ["id", "sent_at"]
+
+
+class BillingDossierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BillingDossier
+        fields = [
+            "id", "invoice", "annexes_config", "status",
+            "file_url", "generated_at",
+        ]
+        read_only_fields = ["id", "generated_at"]
