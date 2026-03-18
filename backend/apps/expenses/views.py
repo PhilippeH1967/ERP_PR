@@ -55,3 +55,12 @@ class ExpenseCategoryViewSet(viewsets.ModelViewSet):
         if hasattr(self.request, "tenant_id") and self.request.tenant_id:
             qs = qs.filter(tenant_id=self.request.tenant_id)
         return qs
+
+    def perform_create(self, serializer):
+        tenant_id = getattr(self.request, "tenant_id", None)
+        if tenant_id:
+            from apps.core.models import Tenant
+
+            serializer.save(tenant=Tenant.objects.get(pk=tenant_id))
+        else:
+            serializer.save()

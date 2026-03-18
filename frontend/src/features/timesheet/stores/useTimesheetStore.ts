@@ -132,8 +132,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     dailyTotals: dailyTotals.value,
     weeklyTotal: weeklyTotal.value,
     weeklyNorm: WEEKLY_NORM,
-    contractHours: weeklyStats.value.contract_hours,
-    contractHours: CONTRACT_HOURS,
+    contractHours: weeklyStats.value.contract_hours || CONTRACT_HOURS,
   }))
 
   // Status banner
