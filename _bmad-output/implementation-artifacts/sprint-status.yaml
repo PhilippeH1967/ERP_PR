@@ -71,13 +71,13 @@ development_status:
   epic-3-retrospective: optional
 
   # Epic 4: Time Tracking & Approval (6 stories)
-  epic-4: backlog
-  4-1-weekly-timesheet-entry-grid: backlog
-  4-2-timesheet-draft-submit-favorites: backlog
-  4-3-phase-person-blocking: backlog
-  4-4-two-level-timesheet-approval: backlog
-  4-5-finance-second-level-approval-corrections: backlog
-  4-6-automated-timesheet-reminders: backlog
+  epic-4: done
+  4-1-weekly-timesheet-entry-grid: done
+  4-2-timesheet-draft-submit-favorites: done
+  4-3-phase-person-blocking: done
+  4-4-two-level-timesheet-approval: done
+  4-5-finance-second-level-approval-corrections: done
+  4-6-automated-timesheet-reminders: done
   epic-4-retrospective: optional
 
   # Epic 5: Invoicing & Financial Layer (8 stories)
