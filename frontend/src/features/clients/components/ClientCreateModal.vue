@@ -2,7 +2,9 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import SlideOver from '@/shared/components/SlideOver.vue'
+import { clientApi } from '../api/clientApi'
 import { useClientStore } from '../stores/useClientStore'
+import DuplicateDetectionModal from './DuplicateDetectionModal.vue'
 
 defineProps<{
   open: boolean
@@ -16,6 +18,8 @@ const router = useRouter()
 const store = useClientStore()
 const isSubmitting = ref(false)
 const error = ref('')
+const showDuplicateModal = ref(false)
+const duplicates = ref<Array<{ id: number; name: string; alias: string; match_type: string }>>([])
 
 const form = ref({
   name: '',
@@ -25,13 +29,37 @@ const form = ref({
   status: 'active',
 })
 
+async function checkDuplicates() {
+  if (!form.value.name.trim()) return
+  try {
+    const response = await clientApi.checkDuplicate(form.value.name)
+    const data = response.data?.data || response.data
+    duplicates.value = data?.duplicates || []
+  } catch {
+    duplicates.value = []
+  }
+}
+
 async function onSubmit() {
   if (!form.value.name.trim()) {
     error.value = 'Le nom est obligatoire'
     return
   }
+
+  // Check duplicates first
+  await checkDuplicates()
+  if (duplicates.value.length > 0) {
+    showDuplicateModal.value = true
+    return
+  }
+
+  await doCreate()
+}
+
+async function doCreate() {
   error.value = ''
   isSubmitting.value = true
+  showDuplicateModal.value = false
   try {
     const client = await store.createClient(form.value)
     emit('close')
@@ -70,6 +98,7 @@ async function onSubmit() {
           type="text"
           class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
           placeholder="Ville de Montréal"
+          @blur="checkDuplicates"
         >
       </div>
 
@@ -121,4 +150,11 @@ async function onSubmit() {
       </div>
     </form>
   </SlideOver>
+
+  <DuplicateDetectionModal
+    :open="showDuplicateModal"
+    :duplicates="duplicates"
+    @close="showDuplicateModal = false"
+    @proceed="doCreate"
+  />
 </template>

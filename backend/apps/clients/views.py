@@ -50,6 +50,22 @@ class ClientViewSet(viewsets.ModelViewSet):
         else:
             serializer.save()
 
+    @action(detail=False, methods=["post"])
+    def check_duplicate(self, request):
+        """Check for potential duplicate clients before creation."""
+        from .services import detect_duplicate_client
+
+        name = request.data.get("name", "")
+        if not name:
+            return Response({"duplicates": []})
+
+        tenant_id = getattr(request, "tenant_id", None)
+        if not tenant_id:
+            return Response({"duplicates": []})
+
+        duplicates = detect_duplicate_client(name, tenant_id)
+        return Response({"duplicates": duplicates})
+
     @action(detail=True, methods=["get"])
     def financial_summary(self, request, pk=None):
         """Aggregated financial data for a client."""

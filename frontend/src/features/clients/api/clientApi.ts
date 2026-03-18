@@ -12,6 +12,7 @@ export const clientApi = {
       headers: version ? { 'If-Match': String(version) } : {},
     }),
   delete: (id: number) => apiClient.delete(`${BASE}/${id}/`),
+  checkDuplicate: (name: string) => apiClient.post(`${BASE}/check_duplicate/`, { name }),
   financialSummary: (id: number) => apiClient.get(`${BASE}/${id}/financial_summary/`),
 
   // Contacts
