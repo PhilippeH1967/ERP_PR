@@ -1,51 +1,104 @@
 ID;Module;Scénario de test;Prérequis;Étapes;Résultat attendu;Rôle testeur;Priorité;Statut
-T-001;Authentification;Connexion SSO Microsoft;Compte Entra ID configuré;1. Ouvrir l'application 2. Cliquer "Se connecter" 3. Entrer identifiants Microsoft;Redirection vers dashboard, JWT token créé, nom affiché dans topbar;Tous;CRITIQUE;À tester
-T-002;Authentification;Déconnexion;Être connecté;1. Cliquer menu utilisateur 2. Cliquer "Se déconnecter";Retour à la page de login, session terminée;Tous;HAUTE;À tester
-T-003;Authentification;Session expirée;Être connecté, attendre 15min;1. Laisser l'app ouverte 15min 2. Effectuer une action;Token automatiquement rafraîchi, action exécutée sans interruption;Tous;HAUTE;À tester
-T-004;Navigation;Sidebar collapsible;Être connecté;1. Cliquer le bouton collapse sidebar 2. Vérifier que les icônes restent visibles 3. Re-cliquer pour étendre;Sidebar passe de 240px à 64px et vice-versa;Tous;MOYENNE;À tester
-T-005;Navigation;Changement de langue FR/EN;Être connecté;1. Cliquer le toggle FR/EN dans la topbar 2. Vérifier les labels;Tous les textes changent immédiatement de langue;Tous;HAUTE;À tester
-T-006;Clients;Créer un nouveau client;Être connecté Finance/Admin;1. Aller sur /clients 2. Cliquer "+ Nouveau client" 3. Remplir nom, alias, secteur 4. Cliquer "Créer";Client créé, redirection vers la fiche détail, client visible dans la liste;Finance;CRITIQUE;À tester
-T-007;Clients;Détection de doublons;Client "Provencher Roy" existant;1. Créer un nouveau client 2. Saisir "Provencher" dans le champ nom 3. Tab out du champ;Modal de détection affiche le doublon potentiel avec options "Voir existant" ou "Créer quand même";Finance;HAUTE;À tester
-T-008;Clients;Modifier un client (inline);Client existant;1. Ouvrir fiche client 2. Cliquer sur le champ "Nom" 3. Modifier la valeur 4. Tab out;Champ sauvegardé automatiquement, feedback vert 500ms, version incrémentée;Finance;HAUTE;À tester
-T-009;Clients;Ajouter un contact;Client existant;1. Onglet Contacts 2. Cliquer "+ Ajouter un contact" 3. Remplir nom, rôle, email 4. Cliquer "Ajouter";Contact ajouté, badge de rôle affiché, liste mise à jour;Finance;HAUTE;À tester
-T-010;Clients;Ajouter une adresse;Client existant;1. Onglet Adresses 2. Cliquer "+ Ajouter une adresse" 3. Remplir adresse, ville, code postal 4. Cocher "Facturation";Adresse ajoutée avec badge "Facturation" ambre;Finance;MOYENNE;À tester
-T-011;Clients;Historique financier;Client avec factures;1. Onglet "Financier" 2. Vérifier les 4 KPI (CA, payé, impayé, projets);Montants corrects en format monétaire locale, aging par tranche de jours;Finance;HAUTE;À tester
-T-012;Clients;Pagination liste;>25 clients;1. Vérifier que seuls 25 clients affichés 2. Cliquer "Suivant" 3. Cliquer "Précédent";Navigation entre pages, compteur total affiché;Finance;MOYENNE;À tester
-T-013;Projets;Créer un projet via wizard;Templates configurés;1. Aller sur /projects 2. Cliquer "+ Nouveau projet" 3. Sélectionner template 4. Remplir code + nom 5. Étape 2: vérifier phases pré-remplies 6. Étape 3: info ressources 7. Étape 4: confirmer;Projet créé avec phases du template, redirection vers fiche projet;PM;CRITIQUE;À tester
-T-014;Projets;Créer un projet sans template;Aucun;1. Wizard étape 1: sans template 2. Étape 2: ajouter manuellement 2 phases 3. Étape 4: créer;Projet créé avec les 2 phases manuelles;PM;HAUTE;À tester
-T-015;Projets;Voir les phases;Projet avec phases;1. Ouvrir fiche projet 2. Onglet "Phases" 3. Vérifier colonnes: nom, libellé client, type, mode, heures;Tableau complet avec bouton "Affecter" par phase;PM;HAUTE;À tester
-T-016;Projets;Affecter un employé;Projet avec phases;1. Onglet Phases 2. Cliquer "Affecter" 3. Entrer ID employé + pourcentage 4. Cliquer "Affecter";Affectation créée, visible dans onglet "Équipe" avec badge pourcentage;PM;HAUTE;À tester
-T-017;Projets;Dashboard santé projet;Projet avec heures saisies;1. Onglet "Vue d'ensemble" 2. Vérifier KPI: utilisation %, heures, budget;Indicateur vert/jaune/rouge selon utilisation, barre budget dans onglet Budget;PM;HAUTE;À tester
-T-018;Projets;WBS hiérarchique;Projet avec WBS;1. Onglet WBS 2. Vérifier arborescence;Éléments WBS avec type badge, libellé client, heures budgetées, enfants imbriqués;PM;MOYENNE;À tester
-T-019;Feuilles de temps;Saisie hebdomadaire;Employé assigné à projets;1. Aller sur /timesheets 2. Vérifier grille: projets groupés, jours en colonnes 3. Saisir heures dans une cellule 4. Tab vers cellule suivante;Auto-save <500ms, feedback vert, total jour et semaine mis à jour;Employé;CRITIQUE;À tester
-T-020;Feuilles de temps;Bannière statut;Heures saisies;1. Vérifier bannière en haut 2. Vérifier "Xh saisies sur 40h";Bannière ambre si en cours, verte si >=40h;Employé;HAUTE;À tester
-T-021;Feuilles de temps;KPI compteurs;Heures saisies;1. Vérifier 4 cartes KPI: semaine, contrat, moyenne 4 sem., taux facturable;Valeurs numériques correctes avec barre de progression;Employé;HAUTE;À tester
-T-022;Feuilles de temps;Navigation semaine;Aucun;1. Cliquer ▶ pour semaine suivante 2. Cliquer ◀ pour semaine précédente;Grille recharge avec les données de la semaine, date mise à jour;Employé;HAUTE;À tester
-T-023;Feuilles de temps;Copier semaine précédente;Semaine précédente saisie;1. Cliquer "Copier semaine précédente";Entrées de la semaine passée copiées comme brouillon;Employé;MOYENNE;À tester
-T-024;Feuilles de temps;Soumettre la semaine;Heures saisies;1. Cliquer "Soumettre" 2. Vérifier modal avec avertissement si <40h ou >40h 3. Confirmer;Toutes les entrées passent en statut SUBMITTED, grille non-éditable;Employé;CRITIQUE;À tester
-T-025;Feuilles de temps;Phase verrouillée;Phase bloquée par PM;1. Vérifier que la phase verrouillée est grisée 2. Essayer de saisir;Cellules désactivées, icône 🔒 visible;Employé;HAUTE;À tester
-T-026;Feuilles de temps;Conflit de version;2 utilisateurs éditent;1. Utilisateur A modifie une cellule 2. Utilisateur B modifie la même cellule;Le second reçoit erreur 409, modal de conflit proposant "Recharger";Employé;HAUTE;À tester
-T-027;Approbations;Approuver PM (niveau 1);Feuilles soumises;1. Aller sur /approvals 2. Filtrer "En attente" 3. Cliquer "Approuver PM";Statut PM passe à APPROVED, disponible pour Finance;PM;CRITIQUE;À tester
-T-028;Approbations;Anti-auto-approbation;PM soumet sa propre feuille;1. PM essaie d'approuver sa propre feuille;Erreur 403 "Cannot approve own timesheet";PM;CRITIQUE;À tester
-T-029;Approbations;Approuver Finance (niveau 2);PM approuvé;1. Se connecter Finance 2. Cliquer "Approuver Finance";Statut Finance passe à APPROVED;Finance;CRITIQUE;À tester
-T-030;Facturation;Voir la liste des factures;Factures existantes;1. Aller sur /billing 2. Vérifier colonnes: numéro, projet, client, montant, statut, date;Tableau avec badges statut colorés, montants en format monétaire;Finance;HAUTE;À tester
-T-031;Facturation;Préparer une facture (7 colonnes);Facture DRAFT;1. Cliquer sur une facture 2. Vérifier grille 7 colonnes 3. Modifier "À facturer" sur une ligne;Cellule éditable en bleu, montant sauvegardé;Finance;CRITIQUE;À tester
-T-032;Facturation;Soumettre une facture;Facture DRAFT;1. Cliquer "Soumettre";Statut passe à SUBMITTED;Finance;HAUTE;À tester
-T-033;Facturation;Approuver une facture;Facture SUBMITTED;1. Cliquer "Approuver";Statut passe à APPROVED;PM;HAUTE;À tester
-T-034;Facturation;Aging analysis;Factures envoyées;1. Ouvrir détail facture 2. Section bannière montants;TPS + TVQ affichés correctement;Finance;MOYENNE;À tester
-T-035;Dépenses;Créer une dépense;Être connecté;1. Aller sur /expenses 2. Cliquer "+ Nouvelle dépense" 3. Remplir date, montant, description 4. Zone upload justificatif 5. Soumettre;Dépense créée, visible dans la liste avec statut SUBMITTED;Employé;CRITIQUE;À tester
-T-036;Dépenses;KPI compteurs;Dépenses existantes;1. Vérifier 4 cartes: En cours, Soumises, Approuvées, Total mois;Compteurs corrects, total en format monétaire;Employé;HAUTE;À tester
-T-037;Dépenses;Modèles fréquents;Aucun;1. Vérifier section "Modèles fréquents" (Taxi, Repas, Stationnement);3 cartes templates cliquables;Employé;MOYENNE;À tester
-T-038;Fournisseurs;Créer une organisation;Être connecté;1. Aller sur /suppliers 2. Cliquer "+ Nouvelle organisation" 3. Remplir nom, NEQ, ville 4. Sélectionner rôles (ST/Partenaire/Concurrent);Organisation créée, visible dans la liste avec badges de rôle;Finance;HAUTE;À tester
-T-039;Fournisseurs;Recherche par NEQ;Organisations existantes;1. Taper un NEQ dans la recherche 2. Appuyer Entrée;Résultats filtrés par NEQ;Finance;MOYENNE;À tester
-T-040;Dashboard;Vue KPI role-adaptive;Être connecté;1. Aller sur /dashboard 2. Vérifier 4 cartes KPI;Projets actifs, feuilles en attente, factures impayées (monétaire), dépenses en attente;Tous;HAUTE;À tester
-T-041;Délégation;Créer une délégation;Être connecté;1. Aller sur /delegations 2. Cliquer "+ Nouvelle délégation" 3. Entrer ID délégué, portée, dates;Délégation créée dans la liste;PM;MOYENNE;À tester
-T-042;Admin;Hub d'administration;Être Admin;1. Aller sur /admin 2. Vérifier les 6 sections;6 cartes: Organisation, Utilisateurs, Facturation, Catégories, Import, Audit;Admin;HAUTE;À tester
-T-043;Formatage;Montants monétaires FR;Langue = FR;1. Vérifier tout montant affiché;Format: 10 200,50 $ (espace milliers, virgule décimale, $ suffixe);Tous;HAUTE;À tester
-T-044;Formatage;Dates YYYY-MM-DD;Aucun;1. Vérifier toutes les dates affichées;Format: 2026-03-18 (standard Québec);Tous;HAUTE;À tester
-T-045;Performance;Temps de chargement pages;Aucun;1. Mesurer le temps de chargement de chaque page principale;Toutes les pages chargent en <2 secondes (NFR1);Tous;HAUTE;À tester
-T-046;Performance;Auto-save timesheet;Saisie en cours;1. Saisir une valeur dans la grille 2. Chronométrer;Save complété en <500ms (NFR2);Employé;HAUTE;À tester
-T-047;Sécurité;Accès non authentifié;Non connecté;1. Accéder directement à /clients sans auth;Redirection vers /login;Tous;CRITIQUE;À tester
-T-048;Sécurité;API sans token;Aucun;1. Appeler GET /api/v1/clients/ sans Authorization header;Réponse 401 avec format {"error": {...}};Tous;CRITIQUE;À tester
-T-049;Sécurité;Isolation multi-tenant;2 tenants configurés;1. Se connecter tenant A 2. Vérifier qu'aucune donnée tenant B visible;Données filtrées par tenant uniquement;Admin;CRITIQUE;À tester
-T-050;Responsive;Sidebar mobile;Écran <1024px;1. Réduire la fenêtre à 768px;Sidebar se collapse automatiquement;Tous;MOYENNE;À tester
+T-001;Authentification;Connexion locale (email/mot de passe);Compte admin créé;1. Ouvrir http://localhost:5174/login 2. Saisir ph.admin / Pr0v3nch3r!2026 3. Cliquer "Se connecter";Dashboard affiché, version v1.1.009 visible sous logo, nom dans topbar;Tous;CRITIQUE;À tester
+T-002;Authentification;Connexion SSO Microsoft;Variables Entra configurées dans .env;1. Vérifier que le bouton "Se connecter avec Microsoft" apparaît 2. Cliquer → redirection Entra;Redirection SSO → retour dashboard avec JWT;Tous;HAUTE;À tester
+T-003;Authentification;Échec connexion (mauvais mot de passe);Aucun;1. Saisir identifiants incorrects 2. Cliquer "Se connecter";Message d'erreur rouge "Nom d'utilisateur ou mot de passe incorrect.";Tous;HAUTE;À tester
+T-004;Authentification;Déconnexion;Être connecté;1. Cliquer avatar 2. Cliquer "Se déconnecter";Retour page login, tokens supprimés;Tous;HAUTE;À tester
+T-005;Authentification;Session restaurée au refresh;Être connecté;1. Rafraîchir la page (F5);Session restaurée depuis localStorage, pas de retour login;Tous;HAUTE;À tester
+T-006;Navigation;Sidebar avec sections groupées;Être connecté;1. Vérifier sidebar: Principal (Dashboard, Timesheets, Projets) + Finance (Facturation, Paiements, Dépenses, Fournisseurs) + Gestion (Admin);6+ items de nav avec icônes, section active en bleu;Tous;HAUTE;À tester
+T-007;Navigation;Changement de langue FR/EN;Être connecté;1. Cliquer toggle EN/FR dans topbar;Tous les libellés changent immédiatement;Tous;MOYENNE;À tester
+T-008;Navigation;Badge notification dynamique;Être connecté;1. Vérifier cloche dans topbar 2. Cliquer → /notifications;Badge avec compteur non-lus, page centre de notifications;Tous;HAUTE;À tester
+T-009;Clients;Créer un client;Être connecté;1. /clients → "+ Nouveau client" 2. Remplir nom, alias, secteur 3. Créer;Client créé, visible dans liste;Finance;CRITIQUE;À tester
+T-010;Clients;Détection doublons;Client existant;1. Créer client avec nom similaire 2. Tab out du champ nom;Modal de détection avec option "Créer quand même";Finance;HAUTE;À tester
+T-011;Clients;Modifier client inline;Client existant;1. Ouvrir fiche 2. Cliquer sur un champ editable 3. Modifier → Tab;Sauvegarde automatique, feedback visuel;Finance;HAUTE;À tester
+T-012;Clients;Ajouter un contact;Client existant;1. Onglet Contacts 2. "+ Ajouter" 3. Remplir 4. Sauver;Contact ajouté avec badge rôle;Finance;HAUTE;À tester
+T-013;Clients;Supprimer un contact;Client avec contacts;1. Onglet Contacts 2. Cliquer "Supprimer" sur un contact 3. Confirmer;Contact supprimé de la liste;Finance;HAUTE;À tester
+T-014;Clients;Ajouter une adresse;Client existant;1. Onglet Adresses 2. "+ Ajouter" 3. Remplir avec "Facturation" coché;Adresse ajoutée avec badge ambre "Facturation";Finance;HAUTE;À tester
+T-015;Clients;Supprimer une adresse;Client avec adresses;1. Cliquer "Supprimer" sur une adresse 2. Confirmer;Adresse supprimée;Finance;HAUTE;À tester
+T-016;Clients;Historique financier;Client avec factures;1. Onglet "Financier" 2. Vérifier KPI + aging;CA total, payé, impayé + aging 0-30/31-60/61-90/90+;Finance;HAUTE;À tester
+T-017;Clients;Supprimer un client;Client sans projets;1. Bouton "Supprimer" dans le header 2. Confirmer;Client supprimé, retour liste;Finance;MOYENNE;À tester
+T-018;Clients;Pagination liste;>25 clients;1. Naviguer pages Suivant/Précédent;Pagination correcte;Finance;MOYENNE;À tester
+T-019;Projets;Créer projet via wizard (template);Templates configurés;1. /projects → "+ Nouveau projet" 2. Sélectionner template 3. 4 étapes → Créer;Projet créé avec phases du template, redirection fiche;PM;CRITIQUE;À tester
+T-020;Projets;Créer projet sans template;Aucun;1. Wizard sans template 2. Ajouter phases manuellement 3. Créer;Projet créé avec phases manuelles;PM;HAUTE;À tester
+T-021;Projets;Modifier projet inline;Projet existant;1. Onglet Vue d'ensemble 2. Cliquer "Modifier" 3. Changer nom, dates, BU 4. Enregistrer;Données mises à jour;PM;HAUTE;À tester
+T-022;Projets;Changer statut projet;Projet ACTIVE;1. Cliquer badge statut 2. Dropdown 3. Choisir "En pause";Statut changé, badge mis à jour;PM;HAUTE;À tester
+T-023;Projets;Supprimer projet;Projet sans données;1. Bouton "Supprimer" 2. Confirmer;Projet supprimé, retour liste;PM;MOYENNE;À tester
+T-024;Projets;Modifier phase inline;Projet avec phases;1. Onglet Phases 2. "Modifier" sur une phase 3. Changer heures/mode 4. OK;Phase mise à jour;PM;HAUTE;À tester
+T-025;Projets;Supprimer une phase;Projet avec phases;1. "Supprimer" sur une phase 2. Confirmer;Phase supprimée;PM;HAUTE;À tester
+T-026;Projets;Affecter un employé;Projet avec phases;1. "Affecter" sur une phase 2. Saisir ID employé + % 3. Affecter;Affectation visible dans onglet Équipe;PM;HAUTE;À tester
+T-027;Projets;Retirer une affectation;Affectation existante;1. Onglet Équipe 2. "Retirer" 3. Confirmer;Affectation supprimée;PM;HAUTE;À tester
+T-028;Projets;Créer un avenant;Projet existant;1. Onglet Avenants 2. "+ Nouvel avenant" 3. Description + impact budget 4. Créer;Avenant créé avec numéro auto-incrémenté;PM;HAUTE;À tester
+T-029;Projets;Supprimer un avenant;Avenant existant;1. "Supprimer" sur avenant 2. Confirmer;Avenant supprimé;PM;MOYENNE;À tester
+T-030;Projets;Dashboard santé projet;Projet avec heures;1. Onglet Vue d'ensemble → KPI 2. Onglet Budget → barre progression;Indicateur vert/jaune/rouge, % utilisation correct;PM;HAUTE;À tester
+T-031;Timesheets;Saisie hebdomadaire;Employé assigné;1. /timesheets 2. Saisir heures cellule par cellule 3. Tab entre cellules;Auto-save, totaux jour/semaine mis à jour;Employé;CRITIQUE;À tester
+T-032;Timesheets;Bannière statut;Heures saisies;1. Vérifier bannière "Xh saisies sur 40h";Vert si >=40h, ambre si en cours, gris si vide;Employé;HAUTE;À tester
+T-033;Timesheets;KPI compteurs;Heures saisies;1. 4 cartes: semaine, contrat, moyenne 4 sem., taux facturable;Valeurs numériques avec barre progression;Employé;HAUTE;À tester
+T-034;Timesheets;Navigation semaine;Aucun;1. Flèches ◀ ▶ pour changer de semaine;Grille recharge données semaine, dates mises à jour;Employé;HAUTE;À tester
+T-035;Timesheets;Copier semaine précédente;Semaine précédente saisie;1. "Copier semaine précédente";Entrées copiées en brouillon;Employé;MOYENNE;À tester
+T-036;Timesheets;Ajouter une tâche;Être connecté;1. "+ Ajouter une tâche" 2. Saisir projet ID + phase ID 3. Ajouter;Nouvelle ligne apparaît dans la grille;Employé;HAUTE;À tester
+T-037;Timesheets;Favoris projet;Projets dans grille;1. Cliquer étoile ☆ → ★ 2. Vérifier persistance après refresh;Étoile toggle, favoris en premier, persisté en localStorage;Employé;MOYENNE;À tester
+T-038;Timesheets;Phase verrouillée;Phase bloquée;1. Vérifier 🔒 sur la phase 2. Essayer de saisir;Cellules désactivées, ligne grisée;Employé;HAUTE;À tester
+T-039;Timesheets;Soumettre la semaine;Heures saisies;1. "Soumettre" 2. Modal confirmation 3. Confirmer;Toutes entrées en SUBMITTED, grille non-éditable;Employé;CRITIQUE;À tester
+T-040;Timesheets;Indicateur sauvegarde auto;Saisie en cours;1. Vérifier texte "Sauvegarde automatique active" en bas à gauche;Texte vert visible;Employé;MOYENNE;À tester
+T-041;Approbations;Approuver PM (niveau 1);Feuilles soumises;1. /approvals 2. Filtrer "En attente" 3. "Approuver PM";Statut PM → APPROVED;PM;CRITIQUE;À tester
+T-042;Approbations;Anti-auto-approbation;PM soumet sa feuille;1. PM tente d'approuver sa propre feuille;Erreur "Cannot approve own timesheet";PM;CRITIQUE;À tester
+T-043;Approbations;Approuver Finance (niveau 2);PM approuvé;1. Connexion Finance 2. "Approuver Finance";Statut Finance → APPROVED;Finance;CRITIQUE;À tester
+T-044;Facturation;Créer une facture;Projet existant;1. /billing → "+ Nouvelle facture" 2. Saisir projet ID 3. Créer;Facture DRAFT créée, redirection vers détail;Finance;CRITIQUE;À tester
+T-045;Facturation;Ajouter une ligne de facture;Facture DRAFT;1. "+ Ajouter ligne" 2. Livrable, type, montant 3. Ajouter;Ligne ajoutée dans la grille 7 colonnes;Finance;HAUTE;À tester
+T-046;Facturation;Modifier montant "À facturer";Facture DRAFT avec lignes;1. Modifier cellule "À facturer" 2. Blur;Montant sauvegardé, % recalculé;Finance;CRITIQUE;À tester
+T-047;Facturation;Supprimer une ligne;Facture DRAFT;1. Cliquer × sur une ligne 2. Confirmer;Ligne supprimée;Finance;HAUTE;À tester
+T-048;Facturation;Workflow complet facture;Facture avec lignes;1. Soumettre (DRAFT→SUBMITTED) 2. Approuver (→APPROVED) 3. Envoyer (→SENT) 4. Payer (→PAID);Chaque bouton apparaît au bon statut, transitions correctes;Finance;CRITIQUE;À tester
+T-049;Facturation;Enregistrer un paiement;Facture SENT;1. "Enregistrer paiement" 2. Montant, date, référence 3. Enregistrer;Paiement enregistré, facture marquée payée;Finance;HAUTE;À tester
+T-050;Facturation;Aging analysis;Factures envoyées;1. Ouvrir détail facture 2. Section aging en bas;4 tranches (0-30, 31-60, 61-90, 90+) avec montants;Finance;HAUTE;À tester
+T-051;Facturation;Imprimer facture;Facture existante;1. "Imprimer" dans le header 2. Nouvel onglet HTML;Brouillon print-ready avec lignes, montants, coordonnées bancaires;Finance;HAUTE;À tester
+T-052;Facturation;Page paiements;Paiements enregistrés;1. /payments 2. Vérifier liste + "+ Enregistrer paiement";Liste des paiements avec CRUD;Finance;HAUTE;À tester
+T-053;Facturation;Notes de crédit CRUD;Facture existante;1. /credit-notes 2. Créer note 3. Vérifier montant négatif 4. Supprimer;CRUD complet fonctionnel;Finance;HAUTE;À tester
+T-054;Facturation;Retenues (holdbacks) CRUD;Facture existante;1. /holdbacks 2. Créer retenue 3. Vérifier balance;Accumulé/libéré/restant affichés;Finance;HAUTE;À tester
+T-055;Facturation;Write-offs CRUD;Facture existante;1. /write-offs 2. Créer radiation 3. Supprimer;CRUD fonctionnel;Finance;MOYENNE;À tester
+T-056;Dépenses;Créer une dépense avec reçu;Être connecté;1. /expenses → "+ Nouvelle dépense" 2. Date, montant, description 3. Cliquer zone upload → sélectionner image 4. Preview affiché 5. Soumettre;Dépense créée avec fichier joint, preview visible;Employé;CRITIQUE;À tester
+T-057;Dépenses;KPI compteurs;Dépenses existantes;1. Vérifier 4 cartes: Soumis, Approuvés PM, Payés, Total;Compteurs et montant corrects;Employé;HAUTE;À tester
+T-058;Dépenses;Templates récurrents;Aucun;1. Cliquer template "Taxi" ou "Repas";Formulaire de création ouvert;Employé;MOYENNE;À tester
+T-059;Dépenses;Détail rapport + workflow;Dépense soumise;1. Cliquer sur un rapport → /expenses/{id} 2. Voir lignes + statut 3. PM: "Approuver PM" 4. Finance: "Valider" 5. "Marquer payé";Workflow SUBMITTED → PM_APPROVED → FINANCE_VALIDATED → PAID;PM/Finance;CRITIQUE;À tester
+T-060;Dépenses;Refuser une dépense;Dépense soumise;1. Bouton "Refuser";Statut → REJECTED;PM;HAUTE;À tester
+T-061;Dépenses;Supprimer ligne de dépense;Rapport avec lignes;1. Détail rapport 2. "Supprimer" sur une ligne 3. Confirmer;Ligne supprimée;Employé;HAUTE;À tester
+T-062;Fournisseurs;Créer organisation;Être connecté;1. /suppliers → "+ Nouvelle organisation" 2. Nom, NEQ, rôles 3. Créer;Organisation créée avec badges rôle;Finance;HAUTE;À tester
+T-063;Fournisseurs;Détail + modifier fournisseur;Organisation existante;1. Cliquer sur un fournisseur → /suppliers/{id} 2. Vérifier infos 3. "Modifier" 4. Changer ville 5. Enregistrer;Page détail avec identité + contact, modification sauvegardée;Finance;HAUTE;À tester
+T-064;Fournisseurs;Supprimer fournisseur;Organisation existante;1. "Supprimer" dans le header 2. Confirmer;Organisation supprimée, retour liste;Finance;MOYENNE;À tester
+T-065;Fournisseurs;Factures ST — CRUD;Fournisseur + projet existant;1. /st-invoices 2. "+ Nouvelle facture ST" 3. Fournisseur, projet, montant 4. Créer;Facture ST créée en statut "Reçue";Finance;CRITIQUE;À tester
+T-066;Fournisseurs;Factures ST — workflow;Facture ST reçue;1. "Autoriser" (→Autorisée) 2. "Payer" (→Payée);Workflow 3 statuts Reçue→Autorisée→Payée;PM/Finance;CRITIQUE;À tester
+T-067;Fournisseurs;Factures ST — filtres;Factures ST existantes;1. Cliquer onglets Toutes/Reçues/Autorisées/Payées;Liste filtrée par statut;Finance;HAUTE;À tester
+T-068;Fournisseurs;Import factures ST;Template Excel rempli;1. /admin → Import 2. Template "Factures fournisseurs" 3. Télécharger template 4. Remplir 5. Upload;Import avec rapport: X créées, Y doublons, Z erreurs;Finance;HAUTE;À tester
+T-069;Délégation;Créer une délégation;Être connecté;1. /delegations → "+ Nouvelle délégation" 2. Délégué ID, portée, dates 3. Créer;Délégation active dans la liste;PM;HAUTE;À tester
+T-070;Délégation;Validation auto-délégation;Être connecté;1. Tenter de se déléguer soi-même;Erreur "Impossible de se déléguer soi-même";PM;HAUTE;À tester
+T-071;Délégation;Bannière jaune délégation;Être délégué actif;1. Se connecter en tant que délégué 2. Vérifier bannière jaune en haut;Bannière "Par délégation de [nom]" avec portée et lien;PM;HAUTE;À tester
+T-072;Délégation;Révoquer délégation;Délégation active;1. "Révoquer" 2. Confirmer;Délégation désactivée;PM;MOYENNE;À tester
+T-073;Délégation;Auto-expiration;Délégation avec end_date passée;1. Attendre exécution Celery Beat (ou forcer manuellement);Délégation marquée inactive automatiquement;Admin;MOYENNE;À tester
+T-074;Notifications;Centre de notifications;Être connecté;1. /notifications 2. Vérifier liste;Notifications avec type, message, date, état lu/non-lu;Tous;HAUTE;À tester
+T-075;Notifications;Marquer comme lu;Notification non lue;1. Cliquer sur une notification non lue;Point bleu disparaît, compteur badge diminue;Tous;HAUTE;À tester
+T-076;Notifications;Tout marquer lu;Notifications non lues;1. "Tout marquer lu";Toutes les notifications passent en lu, badge à 0;Tous;HAUTE;À tester
+T-077;Notifications;Filtre non lues;Mix lu/non lu;1. Cliquer onglet "Non lues";Seules les notifications non lues affichées;Tous;MOYENNE;À tester
+T-078;Notifications;Préférences;Être connecté;1. /notifications → "Préférences" 2. Toggle email 3. Décocher catégories 4. Enregistrer;Préférences sauvegardées;Tous;MOYENNE;À tester
+T-079;Dashboard;KPI adaptatif — Employé;Rôle EMPLOYEE;1. /dashboard;4 KPI de base + actions rapides (Heures, Dépenses, Projets);Employé;HAUTE;À tester
+T-080;Dashboard;KPI adaptatif — PM;Rôle PM;1. /dashboard;KPI base + section PM (projets gérés, facturé, heures);PM;HAUTE;À tester
+T-081;Dashboard;KPI adaptatif — Admin;Rôle ADMIN;1. /dashboard;KPI base + PM + Admin (utilisateurs actifs, approbations, factures en souffrance);Admin;HAUTE;À tester
+T-082;Dashboard;Actions rapides par rôle;Différents rôles;1. Vérifier que les boutons d'action changent selon le rôle;PM voit "Approbations", Finance voit "Facturation", Admin voit "Administration";Tous;HAUTE;À tester
+T-083;Admin;Hub — 6 sections cliquables;Être Admin;1. /admin 2. Cliquer chaque carte;Toutes les 6 cartes naviguent vers leur page;Admin;HAUTE;À tester
+T-084;Admin;Organisation;Être Admin;1. /admin/org;Infos tenant, SSO, entités, unités d'affaires;Admin;MOYENNE;À tester
+T-085;Admin;Utilisateurs — créer;Être Admin;1. /admin/users → "+ Nouvel utilisateur" 2. Username, email, mot de passe, rôle 3. Créer;Utilisateur créé avec rôle et tenant association;Admin;CRITIQUE;À tester
+T-086;Admin;Utilisateurs — modifier rôle;Être Admin;1. "Rôle" sur un utilisateur 2. Changer via dropdown 3. OK;Rôle mis à jour;Admin;HAUTE;À tester
+T-087;Admin;Utilisateurs — désactiver;Être Admin;1. "Désactiver" sur un utilisateur;Statut passe à Inactif;Admin;HAUTE;À tester
+T-088;Admin;Catégories de dépenses CRUD;Être Admin;1. /admin/categories 2. Créer catégorie 3. Modifier 4. Supprimer;CRUD complet fonctionnel;Admin;HAUTE;À tester
+T-089;Admin;Templates de projet CRUD;Être Admin;1. /admin/templates 2. Créer template avec phases 3. Modifier 4. Supprimer (si non utilisé);CRUD complet, suppression bloquée si projets existent;Admin;HAUTE;À tester
+T-090;Admin;Facturation — templates facture CRUD;Être Admin;1. /admin/billing 2. Créer template 3. Modifier config JSON 4. Supprimer;CRUD fonctionnel;Admin;HAUTE;À tester
+T-091;Admin;Facturation — niveaux relance CRUD;Être Admin;1. /admin/billing 2. Créer niveau 3. Modifier jours/template 4. Supprimer;CRUD fonctionnel;Admin;HAUTE;À tester
+T-092;Admin;Import — télécharger template;Être Admin;1. /admin/import 2. Cliquer "Template" sur un type;Fichier Excel téléchargé;Admin;HAUTE;À tester
+T-093;Admin;Import — upload données;Être Admin;1. Remplir un template Excel 2. "Importer fichier" 3. Upload;Rapport d'import avec compteur succès/erreurs;Admin;HAUTE;À tester
+T-094;Admin;Import factures fournisseurs;Template rempli;1. Template "Factures fournisseurs" 2. Remplir 3 lignes 3. Upload;Rapport: 3 créées, validation fournisseur/projet;Admin;HAUTE;À tester
+T-095;Admin;Audit — métriques système;Être Admin;1. /admin/audit;KPI santé: utilisateurs actifs, approbations en attente, factures en souffrance;Admin;MOYENNE;À tester
+T-096;Sécurité;Accès non authentifié;Non connecté;1. Accéder à /clients directement;Redirection vers /login avec redirect query;Tous;CRITIQUE;À tester
+T-097;Sécurité;API sans token;Aucun;1. GET /api/v1/clients/ sans Authorization;Réponse 401;Tous;CRITIQUE;À tester
+T-098;Sécurité;SSO only — admin garde accès local;sso_only=True sur tenant;1. User non-admin tente login local → bloqué 2. Admin tente → autorisé;Admin peut toujours utiliser email/mdp;Admin;HAUTE;À tester
+T-099;Performance;Chargement pages <2s;Aucun;1. Chronométrer chaque page principale;Toutes <2 secondes;Tous;HAUTE;À tester
+T-100;Performance;Auto-save timesheet <500ms;Saisie en cours;1. Chronométrer save d'une cellule;Sauvegarde <500ms;Employé;HAUTE;À tester
+T-101;Charte graphique;Couleurs conformes aux mockups;Aucun;1. Comparer couleur primaire #2563EB 2. Badges statut 3. Ombres portées;Alignement exact avec flux-01-depenses.html;Tous;HAUTE;À tester
+T-102;Charte graphique;Taille boutons compacte;Aucun;1. Vérifier padding boutons (~6px 12px) 2. Font-size 12px;Boutons 30% plus petits que défaut Tailwind;Tous;MOYENNE;À tester
+T-103;Charte graphique;Version affichée;Aucun;1. Vérifier sous logo sidebar 2. Page login;v1.1.009 visible en petit gris;Tous;MOYENNE;À tester
