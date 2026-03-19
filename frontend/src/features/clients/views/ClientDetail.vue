@@ -78,6 +78,16 @@ async function onAddAddress(data: Record<string, unknown>) {
   await store.addAddress(clientId, data)
   showAddressForm.value = false
 }
+
+async function deleteClient() {
+  if (!confirm('Supprimer définitivement ce client ?')) return
+  try {
+    await clientApi.delete(clientId)
+    router.push('/clients')
+  } catch {
+    // error
+  }
+}
 </script>
 
 <template>
@@ -90,12 +100,20 @@ async function onAddAddress(data: Record<string, unknown>) {
           class="ml-2 text-lg text-text-muted"
         >({{ store.currentClient.alias }})</span>
       </h1>
-      <span
-        class="rounded-full px-3 py-1 text-xs font-medium"
-        :class="store.currentClient.status === 'active' ? 'bg-success/10 text-success' : 'bg-text-muted/10 text-text-muted'"
-      >
-        {{ store.currentClient.status }}
-      </span>
+      <div class="flex items-center gap-3">
+        <span
+          class="rounded-full px-3 py-1 text-xs font-medium"
+          :class="store.currentClient.status === 'active' ? 'bg-success/10 text-success' : 'bg-text-muted/10 text-text-muted'"
+        >
+          {{ store.currentClient.status }}
+        </span>
+        <button
+          class="rounded bg-danger/10 px-3 py-1 text-xs font-medium text-danger hover:bg-danger/20"
+          @click="deleteClient"
+        >
+          Supprimer
+        </button>
+      </div>
     </div>
 
     <!-- Tabs -->

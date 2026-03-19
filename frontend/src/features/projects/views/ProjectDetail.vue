@@ -1,429 +1,347 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useLocale } from '@/shared/composables/useLocale'
 import { projectApi } from '../api/projectApi'
 import { useProjectStore } from '../stores/useProjectStore'
 import AssignmentModal from '../components/AssignmentModal.vue'
 
 const route = useRoute()
+const router = useRouter()
 const store = useProjectStore()
 const { fmt } = useLocale()
+const projectId = Number(route.params.id)
 const activeTab = ref('overview')
+const actionError = ref('')
+const showEditStatus = ref(false)
+const showDeleteConfirm = ref(false)
 
-interface DashboardData {
-  hours_consumed: string
-  budget_hours: string
-  budget_utilization_percent: number
-  health: 'green' | 'yellow' | 'red'
-}
-
-interface WBSNode {
-  id: number
-  standard_label: string
-  client_facing_label: string
-  element_type: string
-  budgeted_hours: string
-  children: WBSNode[]
-}
+interface DashboardData { hours_consumed: string; budget_hours: string; budget_utilization_percent: number; health: 'green' | 'yellow' | 'red' }
+interface WBSNode { id: number; standard_label: string; client_facing_label: string; element_type: string; budgeted_hours: string; children: WBSNode[] }
+interface Assignment { id: number; employee: number; phase: number | null; percentage: string; start_date: string | null; end_date: string | null }
+interface Amendment { id: number; amendment_number: number; description: string; status: string; budget_impact: string; created_at: string }
 
 const dashboard = ref<DashboardData | null>(null)
 const wbsTree = ref<WBSNode[]>([])
+const assignments = ref<Assignment[]>([])
+const amendments = ref<Amendment[]>([])
+const showAssignModal = ref(false)
+const assignPhaseId = ref<number | null>(null)
+const assignPhaseName = ref('')
+
+// Amendment form
+const showAmendmentForm = ref(false)
+const amendmentForm = ref({ description: '', budget_impact: '0', status: 'DRAFT' })
 
 const tabs = [
   { key: 'overview', label: 'Vue d\'ensemble' },
   { key: 'phases', label: 'Phases' },
   { key: 'wbs', label: 'WBS' },
   { key: 'team', label: 'Équipe' },
+  { key: 'amendments', label: 'Avenants' },
   { key: 'budget', label: 'Budget' },
 ]
 
-interface Assignment {
-  id: number
-  employee: number
-  phase: number | null
-  percentage: string
-  start_date: string | null
-  end_date: string | null
+const statuses = [
+  { value: 'ACTIVE', label: 'Actif', color: 'badge-green' },
+  { value: 'ON_HOLD', label: 'En pause', color: 'badge-amber' },
+  { value: 'COMPLETED', label: 'Terminé', color: 'badge-gray' },
+  { value: 'CANCELLED', label: 'Annulé', color: 'badge-red' },
+]
+
+const statusColors: Record<string, string> = { ACTIVE: 'badge-green', ON_HOLD: 'badge-amber', COMPLETED: 'badge-gray', CANCELLED: 'badge-red' }
+
+async function reload() {
+  await store.fetchProject(projectId)
+  try { const r = await projectApi.dashboard(projectId); dashboard.value = r.data?.data || r.data } catch { dashboard.value = null }
+  try { const r = await projectApi.listWBS(projectId); wbsTree.value = r.data?.data || r.data || [] } catch { wbsTree.value = [] }
+  try { const r = await projectApi.listAssignments(projectId); assignments.value = r.data?.data || r.data || [] } catch { assignments.value = [] }
+  try { const r = await projectApi.listAmendments(projectId); amendments.value = r.data?.data || r.data || [] } catch { amendments.value = [] }
 }
 
-const assignments = ref<Assignment[]>([])
-const showAssignModal = ref(false)
-const assignPhaseId = ref<number | null>(null)
-const assignPhaseName = ref('')
+async function changeStatus(newStatus: string) {
+  actionError.value = ''
+  try {
+    await projectApi.update(projectId, { status: newStatus } as Record<string, unknown>)
+    showEditStatus.value = false
+    await reload()
+  } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+}
+
+async function deleteProject() {
+  try {
+    await projectApi.delete(projectId)
+    router.push('/projects')
+  } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+}
 
 function openAssignModal(phaseId: number | null, phaseName: string) {
-  assignPhaseId.value = phaseId
-  assignPhaseName.value = phaseName
-  showAssignModal.value = true
+  assignPhaseId.value = phaseId; assignPhaseName.value = phaseName; showAssignModal.value = true
 }
 
-async function onAssigned() {
-  const resp = await projectApi.listAssignments(projectId)
-  assignments.value = resp.data?.data || resp.data || []
+async function deletePhase(phaseId: number) {
+  if (!confirm('Supprimer cette phase ?')) return
+  await projectApi.deletePhase(projectId, phaseId); await reload()
 }
 
-const statusColors: Record<string, string> = {
-  ACTIVE: 'bg-success/10 text-success',
-  ON_HOLD: 'bg-warning/10 text-warning',
-  COMPLETED: 'bg-text-muted/10 text-text-muted',
-  CANCELLED: 'bg-danger/10 text-danger',
+async function deleteAssignment(assignId: number) {
+  if (!confirm('Retirer cette affectation ?')) return
+  await projectApi.deleteAssignment(projectId, assignId); await reload()
 }
 
-const projectId = Number(route.params.id)
+async function deleteWBS(wbsId: number) {
+  if (!confirm('Supprimer cet élément WBS ?')) return
+  await projectApi.deleteWBSElement(projectId, wbsId); await reload()
+}
 
-onMounted(async () => {
-  await store.fetchProject(projectId)
-  // Fetch dashboard KPIs
+async function createAmendment() {
+  actionError.value = ''
   try {
-    const resp = await projectApi.dashboard(projectId)
-    dashboard.value = resp.data?.data || resp.data
-  } catch {
-    dashboard.value = null
-  }
-  // Fetch WBS tree
-  try {
-    const resp = await projectApi.listWBS(projectId)
-    wbsTree.value = resp.data?.data || resp.data || []
-  } catch {
-    wbsTree.value = []
-  }
-  // Fetch assignments
-  try {
-    const resp = await projectApi.listAssignments(projectId)
-    assignments.value = resp.data?.data || resp.data || []
-  } catch {
-    assignments.value = []
-  }
-})
+    await projectApi.createAmendment(projectId, amendmentForm.value)
+    showAmendmentForm.value = false
+    amendmentForm.value = { description: '', budget_impact: '0', status: 'DRAFT' }
+    await reload()
+  } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+}
+
+async function deleteAmendment(id: number) {
+  if (!confirm('Supprimer cet avenant ?')) return
+  await projectApi.deleteAmendment(projectId, id); await reload()
+}
+
+onMounted(reload)
 </script>
 
 <template>
   <div v-if="store.currentProject">
-    <div class="mb-6 flex items-center gap-4">
-      <h1 class="text-2xl font-semibold text-text">
-        <span class="font-mono text-text-muted">{{ store.currentProject.code }}</span>
-        {{ store.currentProject.name }}
-      </h1>
-      <span
-        class="rounded-full px-3 py-1 text-xs font-medium"
-        :class="statusColors[store.currentProject.status]"
-      >
-        {{ store.currentProject.status }}
-      </span>
+    <!-- Header -->
+    <div class="page-header">
+      <div>
+        <button class="btn-back" @click="router.push('/projects')">&larr; Projets</button>
+        <h1><span class="code">{{ store.currentProject.code }}</span> {{ store.currentProject.name }}</h1>
+      </div>
+      <div class="header-actions">
+        <!-- Status dropdown -->
+        <div class="relative">
+          <button class="badge" :class="statusColors[store.currentProject.status]" @click="showEditStatus = !showEditStatus">
+            {{ statuses.find(s => s.value === store.currentProject?.status)?.label || store.currentProject.status }} ▾
+          </button>
+          <div v-if="showEditStatus" class="status-dropdown">
+            <button v-for="s in statuses" :key="s.value" class="status-option" :class="{ active: s.value === store.currentProject.status }" @click="changeStatus(s.value)">
+              <span class="badge" :class="s.color">{{ s.label }}</span>
+            </button>
+          </div>
+        </div>
+        <button class="btn-danger btn-sm" @click="showDeleteConfirm = true">Supprimer</button>
+      </div>
+    </div>
+
+    <div v-if="actionError" class="alert-error">{{ actionError }}</div>
+
+    <!-- Delete confirm -->
+    <div v-if="showDeleteConfirm" class="alert-warning">
+      Supprimer définitivement ce projet ?
+      <div class="flex gap-4 mt-2">
+        <button class="btn-danger" @click="deleteProject">Confirmer</button>
+        <button class="btn-ghost" @click="showDeleteConfirm = false">Annuler</button>
+      </div>
     </div>
 
     <!-- Tabs -->
-    <div class="mb-6 flex gap-1 border-b border-border">
-      <button
-        v-for="tab in tabs"
-        :key="tab.key"
-        class="px-4 py-2 text-sm font-medium transition-colors"
-        :class="activeTab === tab.key ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'"
-        @click="activeTab = tab.key"
-      >
+    <div class="tabs">
+      <button v-for="tab in tabs" :key="tab.key" class="tab" :class="{ active: activeTab === tab.key }" @click="activeTab = tab.key">
         {{ tab.label }}
+        <span v-if="tab.key === 'amendments' && amendments.length" class="tab-count">{{ amendments.length }}</span>
       </button>
     </div>
 
-    <!-- Overview -->
-    <div
-      v-if="activeTab === 'overview'"
-      class="space-y-6"
-    >
-      <!-- Health KPIs -->
-      <div
-        v-if="dashboard"
-        class="grid grid-cols-3 gap-4"
-      >
-        <div class="rounded-lg border border-border bg-surface p-4 text-center">
-          <div
-            class="text-3xl font-bold"
-            :class="{
-              'text-success': dashboard.health === 'green',
-              'text-warning': dashboard.health === 'yellow',
-              'text-danger': dashboard.health === 'red',
-            }"
-          >
-            {{ dashboard.budget_utilization_percent }}%
-          </div>
-          <div class="text-xs text-text-muted">
-            Utilisation budget
-          </div>
-        </div>
-        <div class="rounded-lg border border-border bg-surface p-4 text-center">
-          <div class="font-mono text-2xl font-bold text-text">
-            {{ fmt.hours(dashboard.hours_consumed) }}
-          </div>
-          <div class="text-xs text-text-muted">
-            Heures consommées
-          </div>
-        </div>
-        <div class="rounded-lg border border-border bg-surface p-4 text-center">
-          <div class="font-mono text-2xl font-bold text-text">
-            {{ fmt.hours(dashboard.budget_hours) }}
-          </div>
-          <div class="text-xs text-text-muted">
-            Budget heures
-          </div>
-        </div>
+    <!-- ═══ Overview ═══ -->
+    <template v-if="activeTab === 'overview'">
+      <div v-if="dashboard" class="kpi-grid-3">
+        <div class="kpi-card"><div class="kpi-value" :class="{ success: dashboard.health==='green', warning: dashboard.health==='yellow', danger: dashboard.health==='red' }">{{ dashboard.budget_utilization_percent }}%</div><div class="kpi-label">Utilisation</div></div>
+        <div class="kpi-card"><div class="kpi-value mono">{{ fmt.hours(dashboard.hours_consumed) }}</div><div class="kpi-label">Heures</div></div>
+        <div class="kpi-card"><div class="kpi-value mono">{{ fmt.hours(dashboard.budget_hours) }}</div><div class="kpi-label">Budget</div></div>
       </div>
-
-      <div class="grid grid-cols-2 gap-6">
-        <div class="rounded-lg border border-border bg-surface p-6">
-          <h3 class="mb-4 text-sm font-medium uppercase text-text-muted">
-            Informations
-          </h3>
-          <div class="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <span class="text-text-muted">Type contrat</span>
-              <p class="font-medium">
-                {{ store.currentProject.contract_type }}
-              </p>
-            </div>
-            <div>
-              <span class="text-text-muted">Unité d'affaires</span>
-              <p class="font-medium">
-                {{ store.currentProject.business_unit || '—' }}
-              </p>
-            </div>
-            <div>
-              <span class="text-text-muted">Début</span>
-              <p class="font-medium">
-                {{ store.currentProject.start_date ? fmt.date(store.currentProject.start_date) : '—' }}
-              </p>
-            </div>
-            <div>
-              <span class="text-text-muted">Fin</span>
-              <p class="font-medium">
-                {{ store.currentProject.end_date ? fmt.date(store.currentProject.end_date) : '—' }}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div class="rounded-lg border border-border bg-surface p-6">
-          <h3 class="mb-4 text-sm font-medium uppercase text-text-muted">
-            Direction
-          </h3>
-          <div class="grid grid-cols-1 gap-2 text-sm">
-            <div>
-              <span class="text-text-muted">Chef de projet</span>
-              <p class="font-medium">
-                {{ store.currentProject.pm || '—' }}
-              </p>
-            </div>
-            <div>
-              <span class="text-text-muted">Associé en charge</span>
-              <p class="font-medium">
-                {{ store.currentProject.associate_in_charge || '—' }}
-              </p>
-            </div>
-          </div>
-        </div>
+      <div class="info-grid">
+        <div class="info-card"><h3>Informations</h3><div class="info-pairs"><div><span>Type</span><p>{{ store.currentProject.contract_type }}</p></div><div><span>BU</span><p>{{ store.currentProject.business_unit || '—' }}</p></div><div><span>Début</span><p>{{ store.currentProject.start_date ? fmt.date(store.currentProject.start_date) : '—' }}</p></div><div><span>Fin</span><p>{{ store.currentProject.end_date ? fmt.date(store.currentProject.end_date) : '—' }}</p></div></div></div>
+        <div class="info-card"><h3>Direction</h3><div class="info-pairs single"><div><span>Chef de projet</span><p>{{ store.currentProject.pm || '—' }}</p></div><div><span>Associé en charge</span><p>{{ store.currentProject.associate_in_charge || '—' }}</p></div></div></div>
       </div>
+    </template>
 
-      <!-- Phases -->
-      <div
-        v-if="activeTab === 'phases'"
-        class="rounded-lg border border-border bg-surface"
-      >
-        <table class="w-full text-left text-sm">
-          <thead class="border-b border-border text-xs font-medium uppercase text-text-muted">
-            <tr>
-              <th class="px-4 py-3">
-                Phase
-              </th>
-              <th class="px-4 py-3">
-                Libellé client
-              </th>
-              <th class="px-4 py-3">
-                Type
-              </th>
-              <th class="px-4 py-3">
-                Mode
-              </th>
-              <th class="px-4 py-3 text-right font-mono">
-                Heures
-              </th>
-              <th class="px-4 py-3 text-right">
-                Actions
-              </th>
-            </tr>
-          </thead>
+    <!-- ═══ Phases ═══ -->
+    <template v-if="activeTab === 'phases'">
+      <div class="card-table">
+        <table>
+          <thead><tr><th>Phase</th><th>Libellé client</th><th>Type</th><th>Mode</th><th class="text-right">Heures</th><th class="text-right">Actions</th></tr></thead>
           <tbody>
-            <tr
-              v-for="phase in store.currentProject.phases"
-              :key="phase.id"
-              class="border-b border-border last:border-0"
-            >
-              <td class="px-4 py-3 font-medium">
-                {{ phase.name }}
+            <tr v-for="phase in store.currentProject.phases" :key="phase.id">
+              <td class="font-semibold">{{ phase.name }}</td>
+              <td class="text-muted">{{ phase.client_facing_label || '—' }}</td>
+              <td><span class="badge badge-gray">{{ phase.phase_type }}</span></td>
+              <td><span class="badge" :class="phase.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ phase.billing_mode }}</span></td>
+              <td class="text-right font-mono">{{ fmt.hours(phase.budgeted_hours) }}</td>
+              <td class="text-right actions-cell">
+                <button class="btn-action" @click="openAssignModal(phase.id, phase.name)">Affecter</button>
+                <button class="btn-action danger" @click="deletePhase(phase.id)">Supprimer</button>
               </td>
-              <td class="px-4 py-3 text-text-muted">
-                {{ phase.client_facing_label || '—' }}
-              </td>
-              <td class="px-4 py-3">
-                {{ phase.phase_type }}
-              </td>
-              <td class="px-4 py-3">
-                {{ phase.billing_mode }}
-              </td>
-              <td class="px-4 py-3 text-right font-mono">
-                {{ fmt.hours(phase.budgeted_hours) }}
-              </td>
-              <td class="px-4 py-3 text-right">
-                <button
-                  class="rounded bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/20"
-                  @click="openAssignModal(phase.id, phase.name)"
-                >
-                  Affecter
-                </button>
-              </td>
+            </tr>
+            <tr v-if="!store.currentProject.phases?.length"><td colspan="6" class="empty">Aucune phase</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
+
+    <!-- ═══ WBS ═══ -->
+    <template v-if="activeTab === 'wbs'">
+      <div class="card" v-if="wbsTree.length">
+        <div v-for="node in wbsTree" :key="node.id" class="wbs-node">
+          <div class="wbs-row">
+            <div><span class="badge badge-blue">{{ node.element_type }}</span> <span class="font-semibold">{{ node.client_facing_label || node.standard_label }}</span></div>
+            <div class="flex items-center gap-4"><span class="font-mono text-muted">{{ node.budgeted_hours }}h</span><button class="btn-action danger" @click="deleteWBS(node.id)">Supprimer</button></div>
+          </div>
+          <div v-if="node.children?.length" class="wbs-children">
+            <div v-for="child in node.children" :key="child.id" class="wbs-child">
+              <span>{{ child.client_facing_label || child.standard_label }}</span>
+              <span class="font-mono text-muted">{{ child.budgeted_hours }}h</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-else class="card empty-card">Aucun élément WBS</div>
+    </template>
+
+    <!-- ═══ Team ═══ -->
+    <template v-if="activeTab === 'team'">
+      <div class="card-table" v-if="assignments.length">
+        <table>
+          <thead><tr><th>Employé</th><th>Phase</th><th class="text-right">%</th><th>Période</th><th></th></tr></thead>
+          <tbody>
+            <tr v-for="a in assignments" :key="a.id">
+              <td class="font-semibold">Employé #{{ a.employee }}</td>
+              <td class="text-muted">{{ a.phase ? `Phase #${a.phase}` : 'Global' }}</td>
+              <td class="text-right"><span class="badge badge-blue">{{ a.percentage }}%</span></td>
+              <td class="text-muted">{{ a.start_date || '—' }} → {{ a.end_date || '...' }}</td>
+              <td class="text-right"><button class="btn-action danger" @click="deleteAssignment(a.id)">Retirer</button></td>
             </tr>
           </tbody>
         </table>
       </div>
+      <div v-else class="card empty-card">Aucune affectation — utilisez "Affecter" dans l'onglet Phases</div>
+    </template>
 
-      <!-- WBS Tree -->
-      <div
-        v-if="activeTab === 'wbs'"
-        class="rounded-lg border border-border bg-surface p-6"
-      >
-        <div
-          v-if="wbsTree.length"
-          class="space-y-2"
-        >
-          <div
-            v-for="node in wbsTree"
-            :key="node.id"
-            class="rounded border border-border p-3"
-          >
-            <div class="flex items-center justify-between">
-              <div>
-                <span class="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">{{ node.element_type }}</span>
-                <span class="ml-2 text-sm font-medium">{{ node.client_facing_label || node.standard_label }}</span>
-              </div>
-              <span class="font-mono text-xs text-text-muted">{{ node.budgeted_hours }}h</span>
-            </div>
-            <div
-              v-if="node.children?.length"
-              class="ml-6 mt-2 space-y-1"
-            >
-              <div
-                v-for="child in node.children"
-                :key="child.id"
-                class="flex items-center justify-between rounded bg-surface-alt p-2 text-sm"
-              >
-                <span>{{ child.client_facing_label || child.standard_label }}</span>
-                <span class="font-mono text-xs text-text-muted">{{ child.budgeted_hours }}h</span>
-              </div>
-            </div>
+    <!-- ═══ Amendments ═══ -->
+    <template v-if="activeTab === 'amendments'">
+      <div class="section-actions"><button class="btn-primary" @click="showAmendmentForm = !showAmendmentForm">+ Nouvel avenant</button></div>
+
+      <div v-if="showAmendmentForm" class="card" style="margin-bottom: 12px;">
+        <form @submit.prevent="createAmendment" class="form-row-3">
+          <div class="form-group"><label>Description</label><input v-model="amendmentForm.description" type="text" required placeholder="Description de l'avenant" /></div>
+          <div class="form-group"><label>Impact budget ($)</label><input v-model="amendmentForm.budget_impact" type="number" step="0.01" /></div>
+          <div class="form-group"><label>Statut</label><select v-model="amendmentForm.status"><option value="DRAFT">Brouillon</option><option value="PENDING">En attente</option><option value="APPROVED">Approuvé</option></select>
+            <div style="margin-top:6px;display:flex;gap:4px;justify-content:flex-end;"><button type="button" class="btn-ghost" @click="showAmendmentForm=false">Annuler</button><button type="submit" class="btn-primary">Créer</button></div>
           </div>
-        </div>
-        <p
-          v-else
-          class="text-sm text-text-muted"
-        >
-          Aucun élément WBS
-        </p>
+        </form>
       </div>
 
-      <!-- Team -->
-      <div
-        v-if="activeTab === 'team'"
-        class="rounded-lg border border-border bg-surface"
-      >
-        <div
-          v-if="assignments.length"
-          class="divide-y divide-border"
-        >
-          <div
-            v-for="a in assignments"
-            :key="a.id"
-            class="flex items-center justify-between px-4 py-3"
-          >
-            <div>
-              <span class="text-sm font-medium">Employé #{{ a.employee }}</span>
-              <span
-                v-if="a.phase"
-                class="ml-2 text-xs text-text-muted"
-              >Phase #{{ a.phase }}</span>
-            </div>
-            <div class="flex items-center gap-3">
-              <span class="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                {{ a.percentage }}%
-              </span>
-              <span
-                v-if="a.start_date"
-                class="text-xs text-text-muted"
-              >
-                {{ a.start_date }} → {{ a.end_date || '...' }}
-              </span>
-            </div>
-          </div>
-        </div>
-        <p
-          v-else
-          class="p-6 text-sm text-text-muted"
-        >
-          Aucune affectation — utilisez le bouton "Affecter" dans l'onglet Phases
-        </p>
+      <div class="card-table" v-if="amendments.length">
+        <table>
+          <thead><tr><th>No</th><th>Description</th><th class="text-right">Impact ($)</th><th>Statut</th><th>Date</th><th></th></tr></thead>
+          <tbody>
+            <tr v-for="am in amendments" :key="am.id">
+              <td class="font-mono font-semibold">#{{ am.amendment_number }}</td>
+              <td>{{ am.description }}</td>
+              <td class="text-right font-mono">{{ fmt.currency(am.budget_impact) }}</td>
+              <td><span class="badge" :class="am.status === 'APPROVED' ? 'badge-green' : am.status === 'PENDING' ? 'badge-amber' : 'badge-gray'">{{ am.status }}</span></td>
+              <td class="text-muted">{{ am.created_at?.substring(0, 10) }}</td>
+              <td class="text-right"><button class="btn-action danger" @click="deleteAmendment(am.id)">Supprimer</button></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
+      <div v-else-if="!showAmendmentForm" class="card empty-card">Aucun avenant</div>
+    </template>
 
-      <!-- Budget -->
-      <div
-        v-if="activeTab === 'budget'"
-        class="rounded-lg border border-border bg-surface p-6"
-      >
-        <div
-          v-if="dashboard"
-          class="space-y-4"
-        >
-          <div class="flex items-center gap-4">
-            <div class="h-3 flex-1 rounded-full bg-border">
-              <div
-                class="h-3 rounded-full"
-                :class="{
-                  'bg-success': dashboard.health === 'green',
-                  'bg-warning': dashboard.health === 'yellow',
-                  'bg-danger': dashboard.health === 'red',
-                }"
-                :style="{ width: Math.min(100, dashboard.budget_utilization_percent) + '%' }"
-              />
-            </div>
-            <span class="font-mono text-sm font-medium">{{ dashboard.budget_utilization_percent }}%</span>
-          </div>
-          <div class="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span class="text-text-muted">Heures consommées</span>
-              <p class="font-mono font-medium">
-                {{ fmt.hours(dashboard.hours_consumed) }}
-              </p>
-            </div>
-            <div>
-              <span class="text-text-muted">Budget total</span>
-              <p class="font-mono font-medium">
-                {{ fmt.hours(dashboard.budget_hours) }}
-              </p>
-            </div>
-          </div>
+    <!-- ═══ Budget ═══ -->
+    <template v-if="activeTab === 'budget'">
+      <div class="card" v-if="dashboard">
+        <div class="progress-row">
+          <div class="progress-bar"><div class="progress-fill" :class="{ green: dashboard.health==='green', amber: dashboard.health==='yellow', red: dashboard.health==='red' }" :style="{ width: Math.min(100, dashboard.budget_utilization_percent) + '%' }" /></div>
+          <span class="font-mono font-semibold">{{ dashboard.budget_utilization_percent }}%</span>
         </div>
-        <p
-          v-else
-          class="text-sm text-text-muted"
-        >
-          Aucune donnée budgétaire
-        </p>
+        <div class="budget-grid">
+          <div><span class="text-muted">Heures consommées</span><p class="font-mono font-semibold">{{ fmt.hours(dashboard.hours_consumed) }}</p></div>
+          <div><span class="text-muted">Budget total</span><p class="font-mono font-semibold">{{ fmt.hours(dashboard.budget_hours) }}</p></div>
+        </div>
       </div>
-    </div>
+      <div v-else class="card empty-card">Aucune donnée budgétaire</div>
+    </template>
 
-    <AssignmentModal
-      :open="showAssignModal"
-      :project-id="projectId"
-      :phase-id="assignPhaseId"
-      :phase-name="assignPhaseName"
-      @close="showAssignModal = false"
-      @assigned="onAssigned"
-    />
+    <AssignmentModal :open="showAssignModal" :project-id="projectId" :phase-id="assignPhaseId" :phase-name="assignPhaseName" @close="showAssignModal = false" @assigned="reload" />
   </div>
 </template>
+
+<style scoped>
+.page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 16px; }
+.page-header h1 { font-size: 20px; font-weight: 700; color: var(--color-gray-900); margin-top: 2px; }
+.code { font-family: var(--font-mono); color: var(--color-gray-400); font-weight: 400; }
+.btn-back { background: none; border: none; font-size: 12px; color: var(--color-gray-500); cursor: pointer; padding: 0; }
+.header-actions { display: flex; align-items: center; gap: 8px; position: relative; }
+.btn-danger { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; background: var(--color-danger); color: white; }
+
+.badge { display: inline-flex; padding: 2px 10px; border-radius: 10px; font-size: 10px; font-weight: 600; cursor: pointer; border: none; background: var(--color-gray-100); }
+.badge-green { background: #DCFCE7; color: #15803D; } .badge-amber { background: #FEF3C7; color: #92400E; }
+.badge-gray { background: var(--color-gray-100); color: var(--color-gray-500); } .badge-red { background: #FEE2E2; color: #DC2626; }
+.badge-blue { background: #DBEAFE; color: #1D4ED8; }
+
+.status-dropdown { position: absolute; top: 100%; right: 0; z-index: 50; margin-top: 4px; background: white; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); padding: 4px; min-width: 140px; }
+.status-option { display: block; width: 100%; padding: 6px 8px; border: none; background: none; cursor: pointer; text-align: left; border-radius: 4px; }
+.status-option:hover { background: var(--color-gray-50); }
+.status-option.active { background: var(--color-primary-light); }
+
+.alert-error { background: var(--color-danger-light); color: var(--color-danger); padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
+.alert-warning { background: #FEF3C7; color: #92400E; padding: 12px 16px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; }
+
+.tabs { display: flex; gap: 0; border-bottom: 2px solid var(--color-gray-200); margin-bottom: 16px; }
+.tab { padding: 8px 14px; font-size: 12px; font-weight: 500; color: var(--color-gray-500); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -2px; display: flex; align-items: center; gap: 4px; }
+.tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 600; }
+.tab-count { font-size: 9px; background: var(--color-gray-200); color: var(--color-gray-600); padding: 0 5px; border-radius: 8px; }
+
+.kpi-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+.kpi-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 14px; text-align: center; }
+.kpi-value { font-size: 24px; font-weight: 700; color: var(--color-gray-900); }
+.kpi-value.mono { font-family: var(--font-mono); font-size: 20px; }
+.kpi-value.success { color: var(--color-success); } .kpi-value.warning { color: var(--color-warning); } .kpi-value.danger { color: var(--color-danger); }
+.kpi-label { font-size: 10px; color: var(--color-gray-500); text-transform: uppercase; font-weight: 600; }
+
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.info-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 16px; }
+.info-card h3 { font-size: 11px; font-weight: 600; color: var(--color-gray-400); text-transform: uppercase; margin-bottom: 12px; }
+.info-pairs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
+.info-pairs.single { grid-template-columns: 1fr; }
+.info-pairs span { color: var(--color-gray-500); font-size: 11px; } .info-pairs p { font-weight: 600; margin-top: 1px; }
+
+.card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 12px; }
+.card-table { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+.empty { text-align: center; padding: 24px; color: var(--color-gray-400); } .empty-card { text-align: center; color: var(--color-gray-400); font-size: 13px; }
+
+.text-right { text-align: right; } .text-muted { color: var(--color-gray-500); font-size: 12px; }
+.font-mono { font-family: var(--font-mono); font-size: 12px; } .font-semibold { font-weight: 600; }
+.actions-cell { white-space: nowrap; }
+.btn-action { background: none; border: none; font-size: 11px; cursor: pointer; color: var(--color-primary); padding: 2px 6px; font-weight: 600; }
+.btn-action:hover { text-decoration: underline; } .btn-action.danger { color: var(--color-danger); }
+
+.section-actions { margin-bottom: 12px; }
+.form-row-3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; }
+.form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--color-gray-600); margin-bottom: 4px; }
+
+.wbs-node { border: 1px solid var(--color-gray-200); border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; }
+.wbs-row { display: flex; align-items: center; justify-content: space-between; }
+.wbs-children { margin-left: 24px; margin-top: 8px; }
+.wbs-child { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: var(--color-gray-50); border-radius: 4px; margin-bottom: 4px; font-size: 13px; }
+
+.progress-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.progress-bar { flex: 1; height: 10px; background: var(--color-gray-200); border-radius: 5px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 5px; } .progress-fill.green { background: var(--color-success); } .progress-fill.amber { background: var(--color-warning); } .progress-fill.red { background: var(--color-danger); }
+.budget-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px; }
+.budget-grid span { color: var(--color-gray-500); font-size: 11px; } .budget-grid p { margin-top: 2px; }
+</style>
