@@ -15,8 +15,6 @@ interface Tenant {
 
 const tenant = ref<Tenant | null>(null)
 const isLoading = ref(true)
-const isSaving = ref(false)
-const saveMessage = ref('')
 
 const form = ref({
   name: '',

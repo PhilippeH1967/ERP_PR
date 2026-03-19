@@ -42,7 +42,7 @@ async function fetch() {
   } catch { reports.value = [] }
 }
 
-function openFromTemplate(tmpl: typeof templates[0]) {
+function openFromTemplate(_tmpl: typeof templates[0]) {
   // Open create form — template defaults will be applied later
   showCreateForm.value = true
 }

@@ -30,7 +30,7 @@ describe('useBillingStore', () => {
     const store = useBillingStore()
     await store.fetchInvoices()
     expect(store.invoices).toHaveLength(1)
-    expect(store.invoices[0].invoice_number).toBe('PROV-001')
+    expect(store.invoices[0]!.invoice_number).toBe('PROV-001')
   })
 
   it('fetchInvoice sets currentInvoice', async () => {

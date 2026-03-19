@@ -17,7 +17,7 @@ const form = ref({
   code: '',
   name: '',
   client: null as number | null,
-  contract_type: 'FORFAITAIRE',
+  contract_type: 'FORFAITAIRE' as const,
   business_unit: '',
   legal_entity: '',
   start_date: '',

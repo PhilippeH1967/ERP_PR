@@ -26,7 +26,7 @@ const form = ref({
   legal_entity: '',
   alias: '',
   sector: '',
-  status: 'active',
+  status: 'active' as const,
 })
 
 async function checkDuplicates() {

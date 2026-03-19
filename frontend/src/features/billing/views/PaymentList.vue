@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useLocale } from '@/shared/composables/useLocale'
 import { billingApi } from '../api/billingApi'
 
-const router = useRouter()
 const { fmt } = useLocale()
 
 interface Payment {

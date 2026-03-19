@@ -45,7 +45,7 @@ async function addTask() {
   await store.saveCell(
     Number(newTask.value.project_id),
     newTask.value.phase_id ? Number(newTask.value.phase_id) : null,
-    store.weekDates[0],
+    store.weekDates[0] || '',
     '0',
   )
   showAddTask.value = false

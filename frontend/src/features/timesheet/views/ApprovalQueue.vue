@@ -10,7 +10,7 @@ const filter = ref<'pending' | 'all'>('pending')
 async function fetchApprovals() {
   isLoading.value = true
   try {
-    const params = filter.value === 'pending' ? { pm_status: 'PENDING' } : {}
+    const params: Record<string, string> = filter.value === 'pending' ? { pm_status: 'PENDING' } : {}
     const response = await timesheetApi.listApprovals(params)
     approvals.value = response.data?.data || response.data || []
   } finally {

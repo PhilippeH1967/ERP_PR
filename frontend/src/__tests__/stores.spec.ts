@@ -31,7 +31,7 @@ describe('useClientStore', () => {
     await store.fetchClients()
 
     expect(store.clients).toHaveLength(2)
-    expect(store.clients[0].name).toBe('Client A')
+    expect(store.clients[0]!.name).toBe('Client A')
     expect(store.isLoading).toBe(false)
   })
 

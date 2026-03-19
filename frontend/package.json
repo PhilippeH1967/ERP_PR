@@ -36,6 +36,7 @@
     "@playwright/test": "^1.49.0",
     "@tailwindcss/vite": "^4.0.0",
     "@tsconfig/node22": "^22.0.0",
+    "@types/jsdom": "^28.0.1",
     "@types/node": "^22.0.0",
     "@vitejs/plugin-vue": "^6.0.5",
     "@vue/test-utils": "^2.4.0",

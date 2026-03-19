@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import apiClient from '@/plugins/axios'
 
 interface ImportType {
@@ -9,9 +9,12 @@ interface ImportType {
   file: string
   order: number
   icon: string
+  category?: string
 }
 
 const importTypes = ref<ImportType[]>([])
+const referenceTypes = computed(() => importTypes.value.filter(t => t.category === 'reference'))
+const dataTypes = computed(() => importTypes.value.filter(t => t.category !== 'reference'))
 const uploadStatus = ref<Record<string, { loading: boolean; message: string; error: boolean }>>({})
 
 onMounted(async () => {
@@ -103,7 +106,7 @@ async function uploadFile(key: string, event: Event) {
 
     <div class="mb-8 space-y-4">
       <div
-        v-for="imp in importTypes.filter((t: ImportType & { category?: string }) => (t as { category?: string }).category === 'reference')"
+        v-for="imp in referenceTypes"
         :key="imp.key"
         class="rounded-lg border border-primary/20 bg-primary/5 p-6"
       >
@@ -140,9 +143,9 @@ async function uploadFile(key: string, event: Event) {
         <div
           v-if="uploadStatus[imp.key]"
           class="mt-3 rounded p-3 text-xs"
-          :class="uploadStatus[imp.key].error ? 'bg-danger/10 text-danger' : 'bg-success/10 text-success'"
+          :class="uploadStatus[imp.key]?.error ? 'bg-danger/10 text-danger' : 'bg-success/10 text-success'"
         >
-          <pre class="whitespace-pre-wrap font-mono">{{ uploadStatus[imp.key].message }}</pre>
+          <pre class="whitespace-pre-wrap font-mono">{{ uploadStatus[imp.key]?.message }}</pre>
         </div>
       </div>
     </div>
@@ -157,7 +160,7 @@ async function uploadFile(key: string, event: Event) {
 
     <div class="space-y-4">
       <div
-        v-for="imp in importTypes.filter((t: ImportType & { category?: string }) => (t as { category?: string }).category !== 'reference')"
+        v-for="imp in dataTypes"
         :key="imp.key"
         class="rounded-lg border border-border bg-surface p-6"
       >
@@ -202,13 +205,13 @@ async function uploadFile(key: string, event: Event) {
         <div
           v-if="uploadStatus[imp.key]"
           class="mt-3 rounded p-3 text-xs"
-          :class="uploadStatus[imp.key].error
+          :class="uploadStatus[imp.key]?.error
             ? 'bg-danger/10 text-danger'
-            : uploadStatus[imp.key].loading
+            : uploadStatus[imp.key]?.loading
               ? 'bg-primary/10 text-primary'
               : 'bg-success/10 text-success'"
         >
-          <pre class="whitespace-pre-wrap font-mono">{{ uploadStatus[imp.key].message }}</pre>
+          <pre class="whitespace-pre-wrap font-mono">{{ uploadStatus[imp.key]?.message }}</pre>
         </div>
       </div>
     </div>

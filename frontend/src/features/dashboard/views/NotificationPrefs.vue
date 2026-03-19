@@ -82,7 +82,7 @@ onMounted(fetchPrefs)
     <div class="card" style="margin-top: 12px;">
       <div class="card-title">Types de notifications</div>
       <div class="categories">
-        <label v-for="(enabled, key) in prefs.categories" :key="key" class="toggle-row">
+        <label v-for="(_enabled, key) in prefs.categories" :key="key" class="toggle-row">
           <input type="checkbox" v-model="(prefs.categories as Record<string, boolean>)[key as string]" />
           <span>{{ categoryLabels[key as string] || key }}</span>
         </label>
