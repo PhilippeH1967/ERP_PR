@@ -114,6 +114,36 @@ const router = createRouter({
           name: 'admin-import',
           component: () => import('@/features/admin/views/ImportPage.vue'),
         },
+        {
+          path: 'admin/templates',
+          name: 'admin-templates',
+          component: () => import('@/features/admin/views/TemplateList.vue'),
+        },
+        {
+          path: 'admin/org',
+          name: 'admin-org',
+          component: () => import('@/features/admin/views/OrgSettings.vue'),
+        },
+        {
+          path: 'admin/users',
+          name: 'admin-users',
+          component: () => import('@/features/admin/views/UserList.vue'),
+        },
+        {
+          path: 'admin/billing',
+          name: 'admin-billing',
+          component: () => import('@/features/admin/views/BillingSettings.vue'),
+        },
+        {
+          path: 'admin/categories',
+          name: 'admin-categories',
+          component: () => import('@/features/admin/views/CategoryList.vue'),
+        },
+        {
+          path: 'admin/audit',
+          name: 'admin-audit',
+          component: () => import('@/features/admin/views/AuditLog.vue'),
+        },
       ],
     },
   ],

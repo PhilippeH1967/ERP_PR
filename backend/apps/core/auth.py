@@ -112,6 +112,37 @@ def auth_me(request):
 
 
 @api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def user_list(request):
+    """List all users with their roles (admin only)."""
+    from django.contrib.auth import get_user_model
+
+    from apps.core.models import ProjectRole
+
+    User = get_user_model()
+    users = User.objects.all().order_by("username")
+
+    result = []
+    for user in users:
+        roles = list(
+            ProjectRole.objects.filter(user=user).values_list("role", flat=True)
+        )
+        result.append(
+            {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "is_active": user.is_active,
+                "is_staff": user.is_staff,
+                "date_joined": user.date_joined.isoformat(),
+                "roles": roles,
+            }
+        )
+
+    return Response({"data": result})
+
+
+@api_view(["GET"])
 @permission_classes([AllowAny])
 def auth_config(request):
     """Return auth configuration for the login page."""

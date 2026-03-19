@@ -61,3 +61,129 @@
   --radius-sm: 4px;
   --radius: 8px;
 }
+
+/* ── Global button styles ── */
+button, .btn, [type="submit"], [type="button"] {
+  font-size: 12px;
+}
+
+/* Reduce all Tailwind-style button padding globally */
+.rounded-md, .rounded-lg {
+  border-radius: 4px;
+}
+
+/* Standard button sizes */
+.btn-primary, .btn-ghost, .btn-success, .btn-danger, .btn-sso, .btn-login {
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+.btn-primary { background: var(--color-primary); color: white; }
+.btn-primary:hover:not(:disabled) { background: var(--color-primary-dark); }
+.btn-ghost { background: transparent; color: var(--color-gray-600); border: 1px solid var(--color-gray-300); }
+.btn-ghost:hover:not(:disabled) { background: var(--color-gray-100); }
+.btn-success { background: var(--color-success); color: white; }
+.btn-danger { background: var(--color-danger); color: white; }
+.btn-sm { padding: 4px 10px; font-size: 11px; }
+
+/* Form inputs — compact */
+input, select, textarea {
+  font-size: 13px;
+}
+input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="search"],
+select, textarea {
+  padding: 6px 10px;
+  border: 1px solid var(--color-gray-300);
+  border-radius: 4px;
+  font-family: inherit;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+/* Disabled state */
+button:disabled, .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Badge global */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Table global */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+table th {
+  background: var(--color-gray-50);
+  padding: 7px 10px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 2px solid var(--color-gray-200);
+}
+table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--color-gray-100);
+  font-size: 13px;
+}
+table tr:hover {
+  background: var(--color-gray-50);
+}
+
+/* ── Compact overrides for Tailwind utility classes ── */
+
+/* Reduce table cell padding (py-3 → py-2, px-4 → px-3) */
+table th[class*="py-3"], table td[class*="py-3"] {
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+}
+table th[class*="px-4"], table td[class*="px-4"] {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+
+/* Reduce all button-like elements with Tailwind padding */
+button[class*="px-4"][class*="py-3"],
+a[class*="px-4"][class*="py-3"],
+label[class*="px-4"][class*="py-2"] {
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+}
+button[class*="px-4"][class*="py-2"],
+a[class*="px-4"][class*="py-2"] {
+  padding: 5px 12px !important;
+  font-size: 12px !important;
+}
+button[class*="px-3"][class*="py-1"],
+a[class*="px-3"][class*="py-1"] {
+  padding: 3px 8px !important;
+  font-size: 11px !important;
+}
+
+/* Compact body font */
+body {
+  font-size: 13px;
+  line-height: 1.5;
+}

@@ -84,13 +84,16 @@ class ProjectListSerializer(serializers.ModelSerializer):
 
 
 class ProjectTemplateSerializer(serializers.ModelSerializer):
+    projects_count = serializers.IntegerField(read_only=True, default=0)
+
     class Meta:
         model = ProjectTemplate
         fields = [
             "id", "name", "code", "contract_type", "description",
             "is_active", "phases_config", "support_services_config",
+            "projects_count",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "projects_count"]
 
 
 class AmendmentSerializer(OptimisticLockMixin, serializers.ModelSerializer):

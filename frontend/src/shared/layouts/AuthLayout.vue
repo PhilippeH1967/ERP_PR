@@ -59,6 +59,7 @@ async function handleSSOLogin() {
         <span class="logo-erp">ERP</span>
       </div>
       <p class="login-subtitle">Services Professionnels</p>
+      <p class="login-version">v1.1.001</p>
 
       <!-- Error -->
       <div v-if="error" class="login-error">
@@ -157,7 +158,14 @@ async function handleSSOLogin() {
   text-align: center;
   font-size: 13px;
   color: var(--color-gray-500);
-  margin-bottom: 32px;
+  margin-bottom: 4px;
+}
+.login-version {
+  text-align: center;
+  font-size: 9px;
+  color: var(--color-gray-400);
+  letter-spacing: 0.5px;
+  margin-bottom: 28px;
 }
 .login-error {
   background: var(--color-danger-light);
@@ -198,7 +206,7 @@ async function handleSSOLogin() {
 }
 .btn-login {
   width: 100%;
-  padding: 10px 20px;
+  padding: 8px 16px;
   border-radius: 6px;
   font-size: 14px;
   font-weight: 600;
@@ -233,7 +241,7 @@ async function handleSSOLogin() {
 }
 .btn-sso {
   width: 100%;
-  padding: 10px 20px;
+  padding: 8px 16px;
   border-radius: 6px;
   font-size: 14px;
   font-weight: 600;

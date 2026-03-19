@@ -1,5 +1,6 @@
 """Project API views."""
 
+from django.db.models import Count
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.decorators import action
@@ -36,7 +37,34 @@ class ProjectTemplateViewSet(viewsets.ModelViewSet):
         qs = ProjectTemplate.objects.filter(is_active=True)
         if hasattr(self.request, "tenant_id") and self.request.tenant_id:
             qs = qs.filter(tenant_id=self.request.tenant_id)
-        return qs
+        return qs.annotate(projects_count=Count("project"))
+
+    def perform_create(self, serializer):
+        tenant_id = getattr(self.request, "tenant_id", None)
+        if tenant_id:
+            from apps.core.models import Tenant
+
+            serializer.save(tenant=Tenant.objects.get(pk=tenant_id))
+        else:
+            # Fallback: use first tenant
+            from apps.core.models import Tenant
+
+            serializer.save(tenant=Tenant.objects.first())
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if Project.objects.filter(template=instance).exists():
+            return Response(
+                {
+                    "error": {
+                        "code": "TEMPLATE_IN_USE",
+                        "message": "Ce template est utilisé par des projets et ne peut pas être supprimé.",
+                        "details": [],
+                    }
+                },
+                status=409,
+            )
+        return super().destroy(request, *args, **kwargs)
 
 
 class ProjectViewSet(viewsets.ModelViewSet):

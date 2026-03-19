@@ -10,7 +10,7 @@ const sections = [
     desc: 'Entités, unités d\'affaires, paramètres régionaux',
     icon: '🏢',
     route: '/admin/org',
-    ready: false,
+    ready: true,
   },
   {
     key: 'users',
@@ -18,23 +18,23 @@ const sections = [
     desc: 'Gestion des comptes, affectation des 8 rôles RBAC',
     icon: '👥',
     route: '/admin/users',
-    ready: false,
+    ready: true,
   },
   {
     key: 'billing',
     title: 'Paramètres facturation',
-    desc: 'Templates, taxes TPS/TVQ, termes de paiement',
+    desc: 'Templates de facture, niveaux de relance, taxes',
     icon: '💰',
     route: '/admin/billing',
-    ready: false,
+    ready: true,
   },
   {
     key: 'categories',
     title: 'Catégories & Listes',
-    desc: 'Catégories de dépenses, profils de poste, secteurs',
+    desc: 'Catégories de dépenses, templates de projet',
     icon: '📋',
     route: '/admin/categories',
-    ready: false,
+    ready: true,
   },
   {
     key: 'migration',
@@ -50,7 +50,7 @@ const sections = [
     desc: 'Historique complet des modifications',
     icon: '🔍',
     route: '/admin/audit',
-    ready: false,
+    ready: true,
   },
 ]
 

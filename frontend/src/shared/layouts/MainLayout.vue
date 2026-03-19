@@ -49,13 +49,14 @@ const navSections = [
     >
       <!-- Logo area -->
       <div
-        class="flex items-center px-5"
+        class="flex flex-col justify-center px-5"
         style="height: 56px; border-bottom: 1px solid var(--color-gray-200);"
       >
-        <span style="font-size: 18px; font-weight: 800; color: var(--color-primary); letter-spacing: -0.5px;">
+        <span style="font-size: 18px; font-weight: 800; color: var(--color-primary); letter-spacing: -0.5px; line-height: 1;">
           PR
           <span style="color: var(--color-gray-400); font-weight: 400;">| ERP</span>
         </span>
+        <span style="font-size: 9px; color: var(--color-gray-400); letter-spacing: 0.5px;">v1.1.001</span>
       </div>
 
       <!-- Navigation -->

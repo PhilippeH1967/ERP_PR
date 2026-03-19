@@ -12,6 +12,7 @@ from apps.core.auth import (
     CustomTokenRefreshView,
     auth_config,
     auth_me,
+    user_list,
 )
 
 
@@ -71,4 +72,5 @@ urlpatterns = [
     path("auth/token/verify/", TokenVerifyView.as_view(), name="token-verify"),
     path("auth/me/", auth_me, name="auth-me"),
     path("auth/config/", auth_config, name="auth-config"),
+    path("users/", user_list, name="user-list"),
 ]
