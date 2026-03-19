@@ -111,6 +111,46 @@ def auth_me(request):
     )
 
 
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def user_update(request, pk):
+    """Update user (toggle active, change role)."""
+    from django.contrib.auth import get_user_model
+
+    from apps.core.models import ProjectRole, Tenant
+
+    User = get_user_model()
+    user = User.objects.get(pk=pk)
+    data = request.data
+
+    if "is_active" in data:
+        user.is_active = data["is_active"]
+        user.save(update_fields=["is_active"])
+
+    if "role" in data:
+        tenant = Tenant.objects.first()
+        ProjectRole.objects.filter(user=user).delete()
+        if data["role"]:
+            ProjectRole.objects.create(
+                user=user, role=data["role"], tenant=tenant
+            )
+
+    roles = list(
+        ProjectRole.objects.filter(user=user).values_list("role", flat=True)
+    )
+    return Response(
+        {
+            "data": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "is_active": user.is_active,
+                "roles": roles,
+            }
+        }
+    )
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def user_list(request):

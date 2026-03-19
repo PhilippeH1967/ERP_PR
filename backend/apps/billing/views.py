@@ -8,6 +8,7 @@ from rest_framework.response import Response
 
 from .models import (
     CreditNote,
+    DunningLevel,
     Holdback,
     Invoice,
     InvoiceLine,
@@ -17,6 +18,7 @@ from .models import (
 )
 from .serializers import (
     CreditNoteSerializer,
+    DunningLevelSerializer,
     HoldbackSerializer,
     InvoiceLineSerializer,
     InvoiceListSerializer,
@@ -158,3 +160,38 @@ class InvoiceTemplateViewSet(viewsets.ModelViewSet):
         if hasattr(self.request, "tenant_id") and self.request.tenant_id:
             qs = qs.filter(tenant_id=self.request.tenant_id)
         return qs
+
+    def perform_create(self, serializer):
+        tenant_id = getattr(self.request, "tenant_id", None)
+        if tenant_id:
+            from apps.core.models import Tenant
+
+            serializer.save(tenant=Tenant.objects.get(pk=tenant_id))
+        else:
+            from apps.core.models import Tenant
+
+            serializer.save(tenant=Tenant.objects.first())
+
+
+class DunningLevelViewSet(viewsets.ModelViewSet):
+    """CRUD for dunning escalation levels."""
+
+    serializer_class = DunningLevelSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = DunningLevel.objects.all()
+        if hasattr(self.request, "tenant_id") and self.request.tenant_id:
+            qs = qs.filter(tenant_id=self.request.tenant_id)
+        return qs
+
+    def perform_create(self, serializer):
+        tenant_id = getattr(self.request, "tenant_id", None)
+        if tenant_id:
+            from apps.core.models import Tenant
+
+            serializer.save(tenant=Tenant.objects.get(pk=tenant_id))
+        else:
+            from apps.core.models import Tenant
+
+            serializer.save(tenant=Tenant.objects.first())

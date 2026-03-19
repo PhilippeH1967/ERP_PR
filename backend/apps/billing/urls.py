@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     CreditNoteViewSet,
+    DunningLevelViewSet,
     HoldbackViewSet,
     InvoiceLineViewSet,
     InvoiceTemplateViewSet,
@@ -20,6 +21,7 @@ router.register(r"payments", PaymentViewSet, basename="payment")
 router.register(r"holdbacks", HoldbackViewSet, basename="holdback")
 router.register(r"write_offs", WriteOffViewSet, basename="write-off")
 router.register(r"invoice_templates", InvoiceTemplateViewSet, basename="invoice-template")
+router.register(r"dunning_levels", DunningLevelViewSet, basename="dunning-level")
 
 line_router = DefaultRouter()
 line_router.register(r"lines", InvoiceLineViewSet, basename="invoice-line")
