@@ -101,6 +101,11 @@ const router = createRouter({
           name: 'expenses',
           component: () => import('@/features/expenses/views/ExpenseList.vue'),
         },
+        {
+          path: 'expenses/:id',
+          name: 'expense-detail',
+          component: () => import('@/features/expenses/views/ExpenseDetail.vue'),
+        },
         // Suppliers
         {
           path: 'suppliers',
