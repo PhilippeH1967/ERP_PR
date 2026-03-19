@@ -6,9 +6,19 @@
   "auth": {
     "login": "Sign in",
     "logout": "Sign out",
-    "sso_unavailable": "The authentication service is temporarily unavailable. Please try again shortly."
+    "username": "Username",
+    "username_placeholder": "Enter your username",
+    "password": "Password",
+    "password_placeholder": "Enter your password",
+    "login_sso": "Sign in with Microsoft",
+    "login_error": "Invalid username or password.",
+    "or": "or",
+    "sso_unavailable": "The SSO authentication service is temporarily unavailable."
   },
   "nav": {
+    "main": "Main",
+    "finance": "Finance",
+    "management": "Management",
     "dashboard": "Dashboard",
     "timesheets": "Timesheets",
     "projects": "Projects",

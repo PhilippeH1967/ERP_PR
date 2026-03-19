@@ -1,50 +1,63 @@
 @import 'tailwindcss';
 
 @theme {
-  /* Brand colors — Provencher Roy blue palette */
-  --color-primary: #1e3a5f;
-  --color-primary-light: #2d5a8e;
-  --color-primary-dark: #0f1f33;
+  /* Brand colors — aligned with mockups (blue-600 palette) */
+  --color-primary: #2563EB;
+  --color-primary-light: #DBEAFE;
+  --color-primary-dark: #1D4ED8;
 
   /* Semantic status colors — traffic light system */
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  --color-danger: #dc2626;
+  --color-success: #16A34A;
+  --color-success-light: #DCFCE7;
+  --color-warning: #D97706;
+  --color-warning-light: #FEF3C7;
+  --color-danger: #DC2626;
+  --color-danger-light: #FEE2E2;
 
-  /* Neutral palette */
+  /* Neutral palette — gray scale from mockups */
   --color-surface: #ffffff;
-  --color-surface-alt: #f8fafc;
-  --color-border: #e2e8f0;
-  --color-text: #1e293b;
-  --color-text-muted: #64748b;
+  --color-surface-alt: #F9FAFB;
+  --color-border: #E5E7EB;
+  --color-outline: #D1D5DB;
+  --color-text: #1F2937;
+  --color-text-muted: #6B7280;
+  --color-on-surface: #1F2937;
+  --color-on-surface-50: #6B7280;
+
+  /* Gray scale */
+  --color-gray-50: #F9FAFB;
+  --color-gray-100: #F3F4F6;
+  --color-gray-200: #E5E7EB;
+  --color-gray-300: #D1D5DB;
+  --color-gray-400: #9CA3AF;
+  --color-gray-500: #6B7280;
+  --color-gray-600: #4B5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1F2937;
+  --color-gray-900: #111827;
 
   /* Role-based badge colors */
-  --color-role-employee: #dbeafe;
-  --color-role-pm: #fef3c7;
-  --color-role-finance: #dcfce7;
-  --color-role-director: #ede9fe;
-  --color-role-admin: #f3f4f6;
+  --color-role-employee: #DBEAFE;
+  --color-role-pm: #FEF3C7;
+  --color-role-finance: #DCFCE7;
+  --color-role-director: #EDE9FE;
+  --color-role-admin: #F3F4F6;
 
-  /* Typography — system font stack */
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: ui-monospace, 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  /* Typography — system font stack (matches mockup) */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Code', Consolas, monospace;
 
   /* Layout dimensions */
   --spacing-sidebar: 240px;
   --spacing-sidebar-collapsed: 64px;
   --spacing-topbar: 56px;
-}
 
-/* Dark mode overrides */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-surface: #0f172a;
-    --color-surface-alt: #1e293b;
-    --color-border: #334155;
-    --color-text: #f1f5f9;
-    --color-text-muted: #94a3b8;
-    --color-primary: #3b82f6;
-    --color-primary-light: #60a5fa;
-    --color-primary-dark: #1d4ed8;
-  }
+  /* Shadows — matching mockups */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius: 8px;
 }

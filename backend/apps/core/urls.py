@@ -7,7 +7,12 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenVerifyView
 
-from apps.core.auth import CustomTokenObtainPairView, CustomTokenRefreshView
+from apps.core.auth import (
+    CustomTokenObtainPairView,
+    CustomTokenRefreshView,
+    auth_config,
+    auth_me,
+)
 
 
 @api_view(["GET"])
@@ -64,4 +69,6 @@ urlpatterns = [
     path("auth/token/", CustomTokenObtainPairView.as_view(), name="token-obtain"),
     path("auth/token/refresh/", CustomTokenRefreshView.as_view(), name="token-refresh"),
     path("auth/token/verify/", TokenVerifyView.as_view(), name="token-verify"),
+    path("auth/me/", auth_me, name="auth-me"),
+    path("auth/config/", auth_config, name="auth-config"),
 ]

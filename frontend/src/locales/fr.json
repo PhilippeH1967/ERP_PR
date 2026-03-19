@@ -6,9 +6,19 @@
   "auth": {
     "login": "Se connecter",
     "logout": "Se d\u00e9connecter",
-    "sso_unavailable": "Le service d'authentification est temporairement indisponible. Veuillez r\u00e9essayer dans quelques instants."
+    "username": "Nom d'utilisateur",
+    "username_placeholder": "Entrez votre nom d'utilisateur",
+    "password": "Mot de passe",
+    "password_placeholder": "Entrez votre mot de passe",
+    "login_sso": "Se connecter avec Microsoft",
+    "login_error": "Nom d'utilisateur ou mot de passe incorrect.",
+    "or": "ou",
+    "sso_unavailable": "Le service d'authentification SSO est temporairement indisponible."
   },
   "nav": {
+    "main": "Principal",
+    "finance": "Finance",
+    "management": "Gestion",
     "dashboard": "Tableau de bord",
     "timesheets": "Feuilles de temps",
     "projects": "Projets",

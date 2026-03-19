@@ -15,6 +15,10 @@ class Tenant(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField(unique=True, max_length=100)
     is_active = models.BooleanField(default=True)
+    sso_only = models.BooleanField(
+        default=False,
+        help_text="When True, only SSO login is allowed (except ADMIN users).",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
