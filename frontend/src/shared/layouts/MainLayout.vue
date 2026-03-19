@@ -1,14 +1,29 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuth } from '@/shared/composables/useAuth'
 import { useLocale } from '@/shared/composables/useLocale'
+import apiClient from '@/plugins/axios'
 
 const { t } = useI18n()
 const { currentUser, logout } = useAuth()
 const { currentLocale, switchLocale } = useLocale()
 
 const userMenuOpen = ref(false)
+const unreadCount = ref(0)
+
+async function fetchNotifCount() {
+  try {
+    const resp = await apiClient.get('notifications/')
+    unreadCount.value = resp.data?.unread_count || 0
+  } catch { unreadCount.value = 0 }
+}
+
+onMounted(() => {
+  fetchNotifCount()
+  // Refresh every 60s
+  setInterval(fetchNotifCount, 60000)
+})
 
 function toggleLocale() {
   switchLocale(currentLocale.value === 'fr' ? 'en' : 'fr')
@@ -57,7 +72,7 @@ const navSections = [
           PR
           <span style="color: var(--color-gray-400); font-weight: 400;">| ERP</span>
         </span>
-        <span style="font-size: 9px; color: var(--color-gray-400); letter-spacing: 0.5px;">v1.1.005</span>
+        <span style="font-size: 9px; color: var(--color-gray-400); letter-spacing: 0.5px;">v1.1.006</span>
       </div>
 
       <!-- Navigation -->
@@ -110,10 +125,10 @@ const navSections = [
           </button>
 
           <!-- Notifications bell -->
-          <button class="topbar-bell">
+          <router-link to="/notifications" class="topbar-bell">
             <span>🔔</span>
-            <span class="bell-badge">3</span>
-          </button>
+            <span v-if="unreadCount > 0" class="bell-badge">{{ unreadCount }}</span>
+          </router-link>
 
           <!-- User avatar + menu -->
           <div class="relative">
