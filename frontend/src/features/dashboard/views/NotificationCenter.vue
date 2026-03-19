@@ -68,6 +68,7 @@ onMounted(fetch)
           <button :class="{ active: filter === 'unread' }" @click="filter = 'unread'">Non lues</button>
         </div>
         <button v-if="unreadCount" class="btn-ghost" @click="markAllRead">Tout marquer lu</button>
+        <router-link to="/notifications/preferences" class="btn-ghost" style="text-decoration:none;">Préférences</router-link>
       </div>
     </div>
 

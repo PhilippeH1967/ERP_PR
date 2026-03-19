@@ -59,7 +59,7 @@ async function handleSSOLogin() {
         <span class="logo-erp">ERP</span>
       </div>
       <p class="login-subtitle">Services Professionnels</p>
-      <p class="login-version">v1.1.008</p>
+      <p class="login-version">v1.1.009</p>
 
       <!-- Error -->
       <div v-if="error" class="login-error">

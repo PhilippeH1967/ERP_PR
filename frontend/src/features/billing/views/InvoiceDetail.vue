@@ -109,6 +109,19 @@ async function deleteLine(lineId: number) {
   await reload()
 }
 
+function openPrint() {
+  const token = localStorage.getItem('access_token')
+  // Open print view with auth — fetch HTML and open in new window
+  fetch(`/api/v1/invoices/${invoiceId}/print/`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+    .then(r => r.text())
+    .then(html => {
+      const w = window.open('', '_blank')
+      if (w) { w.document.write(html); w.document.close() }
+    })
+}
+
 async function updateLine(lineId: number, field: string, value: string) {
   await billingApi.updateLine(invoiceId, lineId, { [field]: value })
   await reload()
@@ -132,6 +145,7 @@ async function updateLine(lineId: number, field: string, value: string) {
         <button v-if="invoice.status === 'SUBMITTED'" class="btn-success" @click="approveInvoice">Approuver</button>
         <button v-if="invoice.status === 'APPROVED'" class="btn-primary" @click="markSent">Marquer envoyée</button>
         <button v-if="invoice.status === 'SENT'" class="btn-success" @click="showPaymentForm = !showPaymentForm">Enregistrer paiement</button>
+        <button class="btn-ghost" @click="openPrint">Imprimer</button>
       </div>
     </div>
 

@@ -26,6 +26,11 @@ const router = createRouter({
           name: 'notifications',
           component: () => import('@/features/dashboard/views/NotificationCenter.vue'),
         },
+        {
+          path: 'notifications/preferences',
+          name: 'notification-prefs',
+          component: () => import('@/features/dashboard/views/NotificationPrefs.vue'),
+        },
         // Clients
         {
           path: 'clients',

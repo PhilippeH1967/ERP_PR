@@ -9,6 +9,7 @@ export const billingApi = {
   submitInvoice: (id: number) => apiClient.post(`invoices/${id}/submit/`),
   approveInvoice: (id: number) => apiClient.post(`invoices/${id}/approve/`),
   agingAnalysis: (id: number) => apiClient.get(`invoices/${id}/aging_analysis/`),
+  printView: (id: number) => `${apiClient.defaults.baseURL}invoices/${id}/print/`,
 
   // Lines
   listLines: (invoiceId: number) => apiClient.get(`invoices/${invoiceId}/lines/`),

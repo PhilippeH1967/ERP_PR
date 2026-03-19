@@ -12,6 +12,13 @@ const { currentLocale, switchLocale } = useLocale()
 const userMenuOpen = ref(false)
 const unreadCount = ref(0)
 
+interface ActiveDelegation {
+  delegator_name: string
+  scope: string
+  project_id: number | null
+}
+const activeDelegation = ref<ActiveDelegation | null>(null)
+
 async function fetchNotifCount() {
   try {
     const resp = await apiClient.get('notifications/')
@@ -19,9 +26,25 @@ async function fetchNotifCount() {
   } catch { unreadCount.value = 0 }
 }
 
+async function fetchDelegation() {
+  try {
+    const resp = await apiClient.get('delegations/')
+    const delegations = resp.data?.data || []
+    const today = new Date().toISOString().slice(0, 10)
+    const userId = currentUser.value?.id
+    const active = delegations.find(
+      (d: { delegate: number; is_active: boolean; start_date: string; end_date: string }) =>
+        d.delegate === userId && d.is_active && d.start_date <= today && d.end_date >= today,
+    )
+    activeDelegation.value = active
+      ? { delegator_name: active.delegator_name, scope: active.scope, project_id: active.project_id }
+      : null
+  } catch { activeDelegation.value = null }
+}
+
 onMounted(() => {
   fetchNotifCount()
-  // Refresh every 60s
+  fetchDelegation()
   setInterval(fetchNotifCount, 60000)
 })
 
@@ -72,7 +95,7 @@ const navSections = [
           PR
           <span style="color: var(--color-gray-400); font-weight: 400;">| ERP</span>
         </span>
-        <span style="font-size: 9px; color: var(--color-gray-400); letter-spacing: 0.5px;">v1.1.008</span>
+        <span style="font-size: 9px; color: var(--color-gray-400); letter-spacing: 0.5px;">v1.1.009</span>
       </div>
 
       <!-- Navigation -->
@@ -163,6 +186,13 @@ const navSections = [
         </div>
       </header>
 
+      <!-- Delegation banner -->
+      <div v-if="activeDelegation" class="delegation-banner">
+        <span>Par délégation de <strong>{{ activeDelegation.delegator_name }}</strong></span>
+        <span class="delegation-scope">{{ activeDelegation.scope === 'all' ? 'Tous projets' : `Projet #${activeDelegation.project_id}` }}</span>
+        <router-link to="/delegations" class="delegation-link">Voir délégations</router-link>
+      </div>
+
       <!-- Page content -->
       <main class="flex-1 overflow-y-auto p-6">
         <router-view />
@@ -233,6 +263,33 @@ const navSections = [
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.delegation-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 24px;
+  background: #FEF3C7;
+  border-bottom: 1px solid #FCD34D;
+  font-size: 12px;
+  color: #92400E;
+}
+.delegation-scope {
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: rgba(146, 64, 14, 0.1);
+  font-weight: 600;
+  font-size: 10px;
+}
+.delegation-link {
+  margin-left: auto;
+  color: #1D4ED8;
+  font-weight: 600;
+  text-decoration: none;
+}
+.delegation-link:hover {
+  text-decoration: underline;
 }
 
 .topbar-avatar {

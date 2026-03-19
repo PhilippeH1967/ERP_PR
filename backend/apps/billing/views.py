@@ -113,6 +113,75 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         invoice.save()
         return Response(InvoiceSerializer(invoice).data)
 
+    @action(detail=True, methods=["get"], url_path="print")
+    def print_view(self, request, pk=None):
+        """Print-ready HTML view for invoice brouillon / dossier."""
+        from django.http import HttpResponse
+
+        invoice = self.get_object()
+        lines = invoice.lines.all()
+
+        rows_html = ""
+        for line in lines:
+            rows_html += f"""
+            <tr>
+                <td>{line.deliverable_name}</td>
+                <td class="right mono">{line.total_contract_amount:,.2f} $</td>
+                <td class="right mono">{line.invoiced_to_date:,.2f} $</td>
+                <td class="right mono">{line.pct_billing_advancement}%</td>
+                <td class="right mono">{line.amount_to_bill:,.2f} $</td>
+            </tr>"""
+
+        html = f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Facture {invoice.invoice_number}</title>
+<style>
+  body {{ font-family: -apple-system, sans-serif; font-size: 12px; color: #1F2937; margin: 40px; }}
+  h1 {{ font-size: 20px; color: #2563EB; margin-bottom: 4px; }}
+  .meta {{ color: #6B7280; font-size: 11px; margin-bottom: 20px; }}
+  .amounts {{ display: flex; gap: 30px; margin-bottom: 20px; padding: 12px; background: #F9FAFB; border-radius: 6px; }}
+  .amounts div {{ text-align: center; }}
+  .amounts .val {{ font-size: 18px; font-weight: 700; font-family: monospace; }}
+  .amounts .lbl {{ font-size: 10px; color: #6B7280; }}
+  table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
+  th {{ background: #F3F4F6; padding: 8px; text-align: left; font-size: 10px; text-transform: uppercase; color: #6B7280; border-bottom: 2px solid #E5E7EB; }}
+  td {{ padding: 8px; border-bottom: 1px solid #E5E7EB; }}
+  .right {{ text-align: right; }}
+  .mono {{ font-family: monospace; }}
+  .footer {{ margin-top: 30px; padding-top: 12px; border-top: 1px solid #E5E7EB; font-size: 10px; color: #9CA3AF; }}
+  @media print {{ body {{ margin: 20px; }} }}
+</style>
+</head>
+<body>
+  <h1>PR | ERP — Facture {invoice.invoice_number}</h1>
+  <div class="meta">
+    Projet: {invoice.project.code if invoice.project else '—'} — {invoice.project.name if invoice.project else '—'}<br>
+    Client: {invoice.client.name if invoice.client else '—'}<br>
+    Date: {invoice.date_created}<br>
+    Statut: {invoice.status}
+  </div>
+
+  <div class="amounts">
+    <div><div class="val">{invoice.total_amount:,.2f} $</div><div class="lbl">Montant HT</div></div>
+    <div><div class="val">{invoice.tax_tps:,.2f} $</div><div class="lbl">TPS (5%)</div></div>
+    <div><div class="val">{invoice.tax_tvq:,.2f} $</div><div class="lbl">TVQ (9.975%)</div></div>
+  </div>
+
+  <table>
+    <thead><tr><th>Livrable</th><th class="right">Contrat</th><th class="right">Facturé</th><th class="right">% Fact.</th><th class="right">À facturer</th></tr></thead>
+    <tbody>{rows_html}</tbody>
+  </table>
+
+  <div class="footer">
+    Provencher Roy — Document généré le {timezone.now().strftime('%Y-%m-%d %H:%M')}<br>
+    Coordonnées bancaires : Institution 815 — Transit 30000 — Compte 1234567
+  </div>
+</body>
+</html>"""
+        return HttpResponse(html, content_type="text/html")
+
     @action(detail=True, methods=["get"])
     def aging_analysis(self, request, pk=None):
         """Invoice aging analysis for this invoice's client."""

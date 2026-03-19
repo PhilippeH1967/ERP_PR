@@ -29,6 +29,57 @@ const showAssignModal = ref(false)
 const assignPhaseId = ref<number | null>(null)
 const assignPhaseName = ref('')
 
+// Inline edit project
+const editingProject = ref(false)
+const projectForm = ref({ name: '', start_date: '', end_date: '', business_unit: '', pm: '', associate_in_charge: '' })
+
+function startEditProject() {
+  const p = store.currentProject
+  if (!p) return
+  projectForm.value = {
+    name: p.name || '',
+    start_date: p.start_date || '',
+    end_date: p.end_date || '',
+    business_unit: p.business_unit || '',
+    pm: String(p.pm || ''),
+    associate_in_charge: String(p.associate_in_charge || ''),
+  }
+  editingProject.value = true
+}
+
+async function saveProject() {
+  actionError.value = ''
+  try {
+    await projectApi.update(projectId, projectForm.value as Record<string, unknown>)
+    editingProject.value = false
+    await reload()
+  } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+}
+
+// Inline edit phase
+const editingPhaseId = ref<number | null>(null)
+const phaseForm = ref({ name: '', client_facing_label: '', billing_mode: '', budgeted_hours: '' })
+
+function startEditPhase(phase: { id: number; name: string; client_facing_label?: string; billing_mode: string; budgeted_hours: string }) {
+  editingPhaseId.value = phase.id
+  phaseForm.value = {
+    name: phase.name,
+    client_facing_label: phase.client_facing_label || '',
+    billing_mode: phase.billing_mode,
+    budgeted_hours: phase.budgeted_hours,
+  }
+}
+
+async function savePhase() {
+  if (!editingPhaseId.value) return
+  actionError.value = ''
+  try {
+    await projectApi.updatePhase(projectId, editingPhaseId.value, phaseForm.value as Record<string, unknown>)
+    editingPhaseId.value = null
+    await reload()
+  } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+}
+
 // Amendment form
 const showAmendmentForm = ref(false)
 const amendmentForm = ref({ description: '', budget_impact: '0', status: 'DRAFT' })
@@ -162,9 +213,23 @@ onMounted(reload)
         <div class="kpi-card"><div class="kpi-value mono">{{ fmt.hours(dashboard.hours_consumed) }}</div><div class="kpi-label">Heures</div></div>
         <div class="kpi-card"><div class="kpi-value mono">{{ fmt.hours(dashboard.budget_hours) }}</div><div class="kpi-label">Budget</div></div>
       </div>
-      <div class="info-grid">
-        <div class="info-card"><h3>Informations</h3><div class="info-pairs"><div><span>Type</span><p>{{ store.currentProject.contract_type }}</p></div><div><span>BU</span><p>{{ store.currentProject.business_unit || '—' }}</p></div><div><span>Début</span><p>{{ store.currentProject.start_date ? fmt.date(store.currentProject.start_date) : '—' }}</p></div><div><span>Fin</span><p>{{ store.currentProject.end_date ? fmt.date(store.currentProject.end_date) : '—' }}</p></div></div></div>
+      <!-- View mode -->
+      <div v-if="!editingProject" class="info-grid">
+        <div class="info-card"><h3>Informations <button class="btn-action" @click="startEditProject">Modifier</button></h3><div class="info-pairs"><div><span>Type</span><p>{{ store.currentProject.contract_type }}</p></div><div><span>BU</span><p>{{ store.currentProject.business_unit || '—' }}</p></div><div><span>Début</span><p>{{ store.currentProject.start_date ? fmt.date(store.currentProject.start_date) : '—' }}</p></div><div><span>Fin</span><p>{{ store.currentProject.end_date ? fmt.date(store.currentProject.end_date) : '—' }}</p></div></div></div>
         <div class="info-card"><h3>Direction</h3><div class="info-pairs single"><div><span>Chef de projet</span><p>{{ store.currentProject.pm || '—' }}</p></div><div><span>Associé en charge</span><p>{{ store.currentProject.associate_in_charge || '—' }}</p></div></div></div>
+      </div>
+      <!-- Edit mode -->
+      <div v-else class="card">
+        <h3 class="card-title-edit">Modifier le projet</h3>
+        <div class="edit-grid">
+          <div class="form-group"><label>Nom</label><input v-model="projectForm.name" /></div>
+          <div class="form-group"><label>Unité d'affaires</label><input v-model="projectForm.business_unit" /></div>
+          <div class="form-group"><label>Date début</label><input v-model="projectForm.start_date" type="date" /></div>
+          <div class="form-group"><label>Date fin</label><input v-model="projectForm.end_date" type="date" /></div>
+          <div class="form-group"><label>Chef de projet (ID)</label><input v-model="projectForm.pm" type="number" /></div>
+          <div class="form-group"><label>Associé en charge (ID)</label><input v-model="projectForm.associate_in_charge" type="number" /></div>
+        </div>
+        <div class="form-actions"><button class="btn-ghost" @click="editingProject = false">Annuler</button><button class="btn-primary" @click="saveProject">Enregistrer</button></div>
       </div>
     </template>
 
@@ -175,15 +240,29 @@ onMounted(reload)
           <thead><tr><th>Phase</th><th>Libellé client</th><th>Type</th><th>Mode</th><th class="text-right">Heures</th><th class="text-right">Actions</th></tr></thead>
           <tbody>
             <tr v-for="phase in store.currentProject.phases" :key="phase.id">
-              <td class="font-semibold">{{ phase.name }}</td>
-              <td class="text-muted">{{ phase.client_facing_label || '—' }}</td>
-              <td><span class="badge badge-gray">{{ phase.phase_type }}</span></td>
-              <td><span class="badge" :class="phase.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ phase.billing_mode }}</span></td>
-              <td class="text-right font-mono">{{ fmt.hours(phase.budgeted_hours) }}</td>
-              <td class="text-right actions-cell">
-                <button class="btn-action" @click="openAssignModal(phase.id, phase.name)">Affecter</button>
-                <button class="btn-action danger" @click="deletePhase(phase.id)">Supprimer</button>
-              </td>
+              <template v-if="editingPhaseId === phase.id">
+                <td><input v-model="phaseForm.name" class="inline-input" /></td>
+                <td><input v-model="phaseForm.client_facing_label" class="inline-input" /></td>
+                <td><span class="badge badge-gray">{{ phase.phase_type }}</span></td>
+                <td><select v-model="phaseForm.billing_mode" class="inline-select"><option value="FORFAIT">Forfait</option><option value="HORAIRE">Horaire</option></select></td>
+                <td class="text-right"><input v-model="phaseForm.budgeted_hours" type="number" class="inline-input-sm" /></td>
+                <td class="text-right actions-cell">
+                  <button class="btn-action" @click="savePhase">OK</button>
+                  <button class="btn-action" @click="editingPhaseId = null">×</button>
+                </td>
+              </template>
+              <template v-else>
+                <td class="font-semibold">{{ phase.name }}</td>
+                <td class="text-muted">{{ phase.client_facing_label || '—' }}</td>
+                <td><span class="badge badge-gray">{{ phase.phase_type }}</span></td>
+                <td><span class="badge" :class="phase.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ phase.billing_mode }}</span></td>
+                <td class="text-right font-mono">{{ fmt.hours(phase.budgeted_hours) }}</td>
+                <td class="text-right actions-cell">
+                  <button class="btn-action" @click="startEditPhase(phase)">Modifier</button>
+                  <button class="btn-action" @click="openAssignModal(phase.id, phase.name)">Affecter</button>
+                  <button class="btn-action danger" @click="deletePhase(phase.id)">Supprimer</button>
+                </td>
+              </template>
             </tr>
             <tr v-if="!store.currentProject.phases?.length"><td colspan="6" class="empty">Aucune phase</td></tr>
           </tbody>
@@ -344,4 +423,10 @@ onMounted(reload)
 .progress-fill { height: 100%; border-radius: 5px; } .progress-fill.green { background: var(--color-success); } .progress-fill.amber { background: var(--color-warning); } .progress-fill.red { background: var(--color-danger); }
 .budget-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px; }
 .budget-grid span { color: var(--color-gray-500); font-size: 11px; } .budget-grid p { margin-top: 2px; }
+
+.card-title-edit { font-size: 14px; font-weight: 600; color: var(--color-gray-800); margin-bottom: 12px; }
+.edit-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.inline-input { width: 100%; padding: 4px 8px; border: 1px solid var(--color-primary); border-radius: 3px; font-size: 12px; }
+.inline-input-sm { width: 70px; padding: 4px 6px; border: 1px solid var(--color-primary); border-radius: 3px; font-size: 12px; text-align: right; font-family: var(--font-mono); }
+.inline-select { padding: 4px 6px; border: 1px solid var(--color-primary); border-radius: 3px; font-size: 11px; }
 </style>

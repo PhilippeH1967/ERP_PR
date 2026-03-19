@@ -7,6 +7,8 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 
 import os
 from datetime import timedelta
+
+from celery.schedules import crontab
 from pathlib import Path
 
 import structlog
@@ -190,6 +192,16 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 300  # 5 minutes
+CELERY_BEAT_SCHEDULE = {
+    "send-timesheet-reminders": {
+        "task": "apps.time_entries.tasks.send_timesheet_reminders",
+        "schedule": crontab(hour=17, minute=0, day_of_week="thu"),
+    },
+    "expire-delegations": {
+        "task": "apps.core.tasks.expire_delegations",
+        "schedule": crontab(hour=1, minute=0),
+    },
+}
 
 # Redis Cache
 CACHES = {
