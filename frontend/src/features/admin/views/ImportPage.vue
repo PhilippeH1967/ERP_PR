@@ -24,8 +24,20 @@ onMounted(async () => {
   }
 })
 
-function downloadTemplate(key: string, _filename: string) {
-  window.open(`/api/v1/imports/${key}/template/`, '_blank')
+async function downloadTemplate(key: string, filename: string) {
+  try {
+    const resp = await apiClient.get(`imports/${key}/template/`, {
+      responseType: 'blob',
+    })
+    const url = window.URL.createObjectURL(resp.data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename || `${key}-template.xlsx`
+    a.click()
+    window.URL.revokeObjectURL(url)
+  } catch {
+    // silent fail
+  }
 }
 
 async function uploadFile(key: string, event: Event) {
