@@ -1,147 +1,202 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import BaseModal from '@/shared/components/BaseModal.vue'
+import { onMounted, ref, computed } from 'vue'
+import apiClient from '@/plugins/axios'
 
 interface Delegation {
   id: number
-  delegator: string
-  delegate: string
+  delegator: number
+  delegator_name: string
+  delegate: number
+  delegate_name: string
   scope: string
+  project_id: number | null
   start_date: string
-  end_date: string | null
+  end_date: string
   is_active: boolean
 }
 
 const delegations = ref<Delegation[]>([])
-const showCreateModal = ref(false)
+const isLoading = ref(true)
+const showCreate = ref(false)
+const error = ref('')
+const form = ref({ delegate: '', scope: 'all', project_id: '', start_date: '', end_date: '' })
 
-const createForm = ref({
-  delegate_id: '',
-  scope: 'project',
-  start_date: '',
-  end_date: '',
-})
+const today = new Date().toISOString().slice(0, 10)
+const activeDelegations = computed(() => delegations.value.filter(d => d.is_active && d.end_date >= today))
+const expiredDelegations = computed(() => delegations.value.filter(d => !d.is_active || d.end_date < today))
 
-function onCreate() {
-  // Will call API when delegation endpoints exist
-  showCreateModal.value = false
+async function fetch() {
+  isLoading.value = true
+  try {
+    const resp = await apiClient.get('delegations/')
+    delegations.value = resp.data?.data || []
+  } catch { delegations.value = [] }
+  finally { isLoading.value = false }
 }
+
+async function create() {
+  error.value = ''
+  try {
+    const data: Record<string, unknown> = {
+      delegate: Number(form.value.delegate),
+      scope: form.value.scope,
+      start_date: form.value.start_date,
+      end_date: form.value.end_date,
+    }
+    if (form.value.scope === 'project' && form.value.project_id) {
+      data.project_id = Number(form.value.project_id)
+    }
+    await apiClient.post('delegations/', data)
+    showCreate.value = false
+    form.value = { delegate: '', scope: 'all', project_id: '', start_date: '', end_date: '' }
+    await fetch()
+  } catch (e: unknown) {
+    error.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
+}
+
+async function remove(id: number) {
+  if (!confirm('Révoquer cette délégation ?')) return
+  await apiClient.delete(`delegations/${id}/`)
+  await fetch()
+}
+
+onMounted(fetch)
 </script>
 
 <template>
   <div>
-    <div class="mb-6 flex items-center justify-between">
-      <h1 class="text-2xl font-semibold text-text">
-        Délégations
-      </h1>
-      <button
-        class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
-        @click="showCreateModal = true"
-      >
-        + Nouvelle délégation
-      </button>
+    <div class="page-header">
+      <h1>Délégations</h1>
+      <button class="btn-primary" @click="showCreate = !showCreate">+ Nouvelle délégation</button>
     </div>
 
-    <!-- Active delegations banner -->
-    <div class="mb-4 rounded-lg border border-warning/30 bg-warning/5 p-3">
-      <span class="text-sm text-warning">
-        Les délégations actives permettent à un collègue d'agir en votre nom.
-      </span>
+    <!-- Info -->
+    <div class="info-banner">
+      Les délégations permettent à un utilisateur d'agir au nom d'un autre
+      (approbation de feuilles de temps, validation de dépenses, etc.).
+      Toutes les actions effectuées par délégation sont journalisées.
     </div>
 
-    <!-- Delegations list -->
-    <div class="rounded-lg border border-border bg-surface">
-      <div
-        v-for="d in delegations"
-        :key="d.id"
-        class="flex items-center justify-between border-b border-border p-4 last:border-0"
-      >
-        <div>
-          <p class="text-sm font-medium">
-            {{ d.delegator }} → {{ d.delegate }}
-          </p>
-          <p class="text-xs text-text-muted">
-            {{ d.scope }} · {{ d.start_date }} — {{ d.end_date || 'Indéfini' }}
-          </p>
-        </div>
-        <span
-          class="rounded-full px-2 py-0.5 text-xs"
-          :class="d.is_active ? 'bg-success/10 text-success' : 'bg-text-muted/10 text-text-muted'"
-        >
-          {{ d.is_active ? 'Active' : 'Expirée' }}
-        </span>
-      </div>
-      <p
-        v-if="!delegations.length"
-        class="p-8 text-center text-sm text-text-muted"
-      >
-        Aucune délégation active
-      </p>
-    </div>
-
-    <!-- Create delegation modal -->
-    <BaseModal
-      :open="showCreateModal"
-      title="Nouvelle délégation"
-      @close="showCreateModal = false"
-    >
-      <div class="space-y-4">
-        <div>
-          <label class="text-xs font-medium text-text-muted">Déléguer à (ID employé)</label>
-          <input
-            v-model="createForm.delegate_id"
-            type="number"
-            class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
-          >
-        </div>
-        <div>
-          <label class="text-xs font-medium text-text-muted">Portée</label>
-          <select
-            v-model="createForm.scope"
-            class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
-          >
-            <option value="project">
-              Projet spécifique
-            </option>
-            <option value="all">
-              Toutes les approbations
-            </option>
-          </select>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs font-medium text-text-muted">Début</label>
-            <input
-              v-model="createForm.start_date"
-              type="date"
-              class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
-            >
+    <!-- Create form -->
+    <div v-if="showCreate" class="card" style="margin-bottom: 12px;">
+      <div class="card-title">Nouvelle délégation</div>
+      <div v-if="error" class="alert-error">{{ error }}</div>
+      <form @submit.prevent="create">
+        <div class="form-row-4">
+          <div class="form-group">
+            <label>Délégué (user ID)</label>
+            <input v-model="form.delegate" type="number" required placeholder="ID utilisateur" />
           </div>
-          <div>
-            <label class="text-xs font-medium text-text-muted">Fin</label>
-            <input
-              v-model="createForm.end_date"
-              type="date"
-              class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
-            >
+          <div class="form-group">
+            <label>Portée</label>
+            <select v-model="form.scope">
+              <option value="all">Tous les projets</option>
+              <option value="project">Projet spécifique</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Date début</label>
+            <input v-model="form.start_date" type="date" required />
+          </div>
+          <div class="form-group">
+            <label>Date fin</label>
+            <input v-model="form.end_date" type="date" required />
+          </div>
+        </div>
+        <div v-if="form.scope === 'project'" class="form-group" style="max-width: 200px;">
+          <label>Projet ID</label>
+          <input v-model="form.project_id" type="number" placeholder="ID projet" />
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-ghost" @click="showCreate = false">Annuler</button>
+          <button type="submit" class="btn-primary">Créer</button>
+        </div>
+      </form>
+    </div>
+
+    <div v-if="isLoading" class="loading">Chargement...</div>
+
+    <!-- Active -->
+    <template v-if="activeDelegations.length">
+      <h2 class="section-title">Actives ({{ activeDelegations.length }})</h2>
+      <div class="delegation-grid">
+        <div v-for="d in activeDelegations" :key="d.id" class="delegation-card active">
+          <div class="delegation-header">
+            <div class="delegation-arrow">
+              <span class="delegation-user">{{ d.delegator_name }}</span>
+              <span class="arrow">→</span>
+              <span class="delegation-user highlight">{{ d.delegate_name }}</span>
+            </div>
+            <button class="btn-action danger" @click="remove(d.id)">Révoquer</button>
+          </div>
+          <div class="delegation-meta">
+            <span class="badge" :class="d.scope === 'all' ? 'badge-blue' : 'badge-amber'">
+              {{ d.scope === 'all' ? 'Tous projets' : `Projet #${d.project_id}` }}
+            </span>
+            <span class="date-range">{{ d.start_date }} → {{ d.end_date }}</span>
           </div>
         </div>
       </div>
+    </template>
 
-      <template #actions>
-        <button
-          class="rounded-md px-4 py-2 text-sm text-text-muted"
-          @click="showCreateModal = false"
-        >
-          Annuler
-        </button>
-        <button
-          class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
-          @click="onCreate"
-        >
-          Créer
-        </button>
-      </template>
-    </BaseModal>
+    <!-- Expired -->
+    <template v-if="expiredDelegations.length">
+      <h2 class="section-title" style="margin-top: 20px;">Expirées ({{ expiredDelegations.length }})</h2>
+      <div class="delegation-grid">
+        <div v-for="d in expiredDelegations" :key="d.id" class="delegation-card expired">
+          <div class="delegation-header">
+            <div class="delegation-arrow">
+              <span class="delegation-user">{{ d.delegator_name }}</span>
+              <span class="arrow">→</span>
+              <span class="delegation-user">{{ d.delegate_name }}</span>
+            </div>
+          </div>
+          <div class="delegation-meta">
+            <span class="badge badge-gray">{{ d.scope === 'all' ? 'Tous projets' : `Projet #${d.project_id}` }}</span>
+            <span class="date-range">{{ d.start_date }} → {{ d.end_date }}</span>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Empty -->
+    <div v-if="!isLoading && !delegations.length" class="empty-state">
+      <p>Aucune délégation active.</p>
+      <button class="btn-primary" @click="showCreate = true">Créer une délégation</button>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.page-header h1 { font-size: 20px; font-weight: 700; color: var(--color-gray-900); }
+.info-banner { background: #DBEAFE; color: #1D4ED8; padding: 10px 14px; border-radius: 6px; font-size: 12px; line-height: 1.5; margin-bottom: 16px; }
+.loading { text-align: center; padding: 40px; color: var(--color-gray-500); font-size: 13px; }
+.card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 16px; }
+.card-title { font-size: 14px; font-weight: 600; color: var(--color-gray-800); margin-bottom: 12px; }
+.alert-error { background: var(--color-danger-light); color: var(--color-danger); padding: 8px; border-radius: 6px; font-size: 12px; margin-bottom: 10px; }
+.form-row-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.form-group { margin-bottom: 10px; } .form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--color-gray-600); margin-bottom: 4px; }
+.form-actions { display: flex; justify-content: flex-end; gap: 6px; }
+
+.section-title { font-size: 13px; font-weight: 600; color: var(--color-gray-500); text-transform: uppercase; margin-bottom: 10px; }
+.delegation-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.delegation-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 14px; }
+.delegation-card.active { border-left: 3px solid var(--color-primary); }
+.delegation-card.expired { opacity: 0.6; }
+.delegation-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.delegation-arrow { display: flex; align-items: center; gap: 6px; }
+.delegation-user { font-size: 13px; font-weight: 600; color: var(--color-gray-800); }
+.delegation-user.highlight { color: var(--color-primary); }
+.arrow { color: var(--color-gray-400); font-size: 14px; }
+.delegation-meta { display: flex; align-items: center; gap: 8px; }
+.date-range { font-size: 11px; color: var(--color-gray-500); }
+.badge { display: inline-flex; padding: 1px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+.badge-blue { background: #DBEAFE; color: #1D4ED8; } .badge-amber { background: #FEF3C7; color: #92400E; }
+.badge-gray { background: var(--color-gray-100); color: var(--color-gray-500); }
+.btn-action { background: none; border: none; font-size: 11px; cursor: pointer; color: var(--color-primary); font-weight: 600; }
+.btn-action.danger { color: var(--color-danger); }
+.empty-state { text-align: center; padding: 40px; color: var(--color-gray-500); }
+.empty-state p { margin-bottom: 12px; }
+</style>

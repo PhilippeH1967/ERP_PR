@@ -12,6 +12,8 @@ from apps.core.auth import (
     CustomTokenRefreshView,
     auth_config,
     auth_me,
+    delegation_delete,
+    delegation_list_create,
     user_list,
 )
 
@@ -73,4 +75,6 @@ urlpatterns = [
     path("auth/me/", auth_me, name="auth-me"),
     path("auth/config/", auth_config, name="auth-config"),
     path("users/", user_list, name="user-list"),
+    path("delegations/", delegation_list_create, name="delegation-list"),
+    path("delegations/<int:pk>/", delegation_delete, name="delegation-delete"),
 ]

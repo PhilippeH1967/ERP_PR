@@ -7,8 +7,26 @@ import SubmitWeekModal from '../components/SubmitWeekModal.vue'
 
 const store = useTimesheetStore()
 const showSubmitModal = ref(false)
+const showAddTask = ref(false)
+const newTask = ref({ project_id: '', phase_id: '' })
 
 const dayLabels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+
+// Favorites stored in localStorage
+const favorites = ref<Set<number>>(new Set(JSON.parse(localStorage.getItem('ts_favorites') || '[]')))
+
+function toggleFavorite(projectId: number) {
+  if (favorites.value.has(projectId)) {
+    favorites.value.delete(projectId)
+  } else {
+    favorites.value.add(projectId)
+  }
+  localStorage.setItem('ts_favorites', JSON.stringify([...favorites.value]))
+}
+
+function isFavorite(projectId: number) {
+  return favorites.value.has(projectId)
+}
 
 onMounted(() => store.fetchWeek())
 
@@ -19,6 +37,20 @@ function onCellSave(projectId: number, phaseId: number | null, date: string, hou
 async function onSubmitConfirm() {
   await store.submitWeek()
   showSubmitModal.value = false
+}
+
+async function addTask() {
+  if (!newTask.value.project_id) return
+  // Create a 0h entry to make the row appear
+  await store.saveCell(
+    Number(newTask.value.project_id),
+    newTask.value.phase_id ? Number(newTask.value.phase_id) : null,
+    store.weekDates[0],
+    '0',
+  )
+  showAddTask.value = false
+  newTask.value = { project_id: '', phase_id: '' }
+  await store.fetchWeek()
 }
 
 function normClass(total: number, norm: number): string {
@@ -151,9 +183,26 @@ function normClass(total: number, norm: number): string {
       >
         Copier semaine précédente
       </button>
-      <button class="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-muted hover:bg-surface-alt">
+      <button
+        class="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-muted hover:bg-surface-alt"
+        @click="showAddTask = !showAddTask"
+      >
         + Ajouter une tâche
       </button>
+    </div>
+
+    <!-- Add task form -->
+    <div v-if="showAddTask" class="mb-4 flex items-end gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+      <div>
+        <label class="text-xs font-medium text-text-muted">Projet ID</label>
+        <input v-model="newTask.project_id" type="number" class="mt-1 block w-32 rounded border border-border px-2 py-1 text-sm" placeholder="ID projet" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-text-muted">Phase ID (optionnel)</label>
+        <input v-model="newTask.phase_id" type="number" class="mt-1 block w-32 rounded border border-border px-2 py-1 text-sm" placeholder="ID phase" />
+      </div>
+      <button class="btn-primary" @click="addTask">Ajouter</button>
+      <button class="btn-ghost" @click="showAddTask = false">Annuler</button>
     </div>
 
     <!-- Grid with project grouping (HIGH #3) -->
@@ -188,10 +237,13 @@ function normClass(total: number, norm: number): string {
                 class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary"
               >
                 <span class="flex items-center gap-1">
-                  <span
-                    v-if="group.is_favorite"
-                    class="text-warning"
-                  >★</span>
+                  <button
+                    class="text-sm"
+                    :class="isFavorite(group.project_id) ? 'text-warning' : 'text-text-muted/30 hover:text-warning/60'"
+                    @click.stop="toggleFavorite(group.project_id)"
+                  >
+                    {{ isFavorite(group.project_id) ? '★' : '☆' }}
+                  </button>
                   {{ group.project_code }} — {{ group.project_name }}
                 </span>
               </td>

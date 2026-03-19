@@ -142,6 +142,79 @@ def user_list(request):
     return Response({"data": result})
 
 
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def delegation_list_create(request):
+    """List and create delegations."""
+    from apps.core.models import Delegation
+
+    if request.method == "GET":
+        qs = Delegation.objects.select_related("delegator", "delegate").all()
+        if hasattr(request, "tenant_id") and request.tenant_id:
+            qs = qs.filter(tenant_id=request.tenant_id)
+        result = []
+        for d in qs:
+            result.append(
+                {
+                    "id": d.id,
+                    "delegator": d.delegator_id,
+                    "delegator_name": d.delegator.get_full_name() or d.delegator.username,
+                    "delegate": d.delegate_id,
+                    "delegate_name": d.delegate.get_full_name() or d.delegate.username,
+                    "scope": d.scope,
+                    "project_id": d.project_id,
+                    "start_date": d.start_date.isoformat(),
+                    "end_date": d.end_date.isoformat(),
+                    "is_active": d.is_active,
+                }
+            )
+        return Response({"data": result})
+
+    # POST
+    from apps.core.models import Tenant
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    data = request.data
+    tenant_id = getattr(request, "tenant_id", None)
+    tenant = Tenant.objects.get(pk=tenant_id) if tenant_id else Tenant.objects.first()
+
+    delegation = Delegation.objects.create(
+        tenant=tenant,
+        delegator=request.user,
+        delegate=User.objects.get(pk=data["delegate"]),
+        scope=data.get("scope", "all"),
+        project_id=data.get("project_id"),
+        start_date=data["start_date"],
+        end_date=data["end_date"],
+    )
+    return Response(
+        {
+            "data": {
+                "id": delegation.id,
+                "delegator": delegation.delegator_id,
+                "delegate": delegation.delegate_id,
+                "scope": delegation.scope,
+                "start_date": delegation.start_date.isoformat(),
+                "end_date": delegation.end_date.isoformat(),
+                "is_active": delegation.is_active,
+            }
+        },
+        status=201,
+    )
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delegation_delete(request, pk):
+    """Delete a delegation."""
+    from apps.core.models import Delegation
+
+    delegation = Delegation.objects.get(pk=pk)
+    delegation.delete()
+    return Response(status=204)
+
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def auth_config(request):

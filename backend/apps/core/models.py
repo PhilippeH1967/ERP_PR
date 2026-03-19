@@ -166,6 +166,46 @@ class UserTenantAssociation(models.Model):
         return f"{self.user} → {self.tenant}"
 
 
+class Delegation(TenantScopedModel):
+    """
+    Delegation of authority — allows one user to act on behalf of another.
+
+    Scope can be a specific project or entire module ('all').
+    Auto-expires when end_date passes.
+    """
+
+    delegator = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="delegations_given",
+    )
+    delegate = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="delegations_received",
+    )
+    scope = models.CharField(
+        max_length=20,
+        choices=[("project", "Projet spécifique"), ("all", "Tous les projets")],
+        default="all",
+    )
+    project_id = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Required when scope is 'project'",
+    )
+    start_date = models.DateField()
+    end_date = models.DateField()
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "core_delegation"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"{self.delegator} → {self.delegate} ({self.scope})"
+
+
 class SampleTenantModel(TenantScopedModel, VersionedModel):
     """
     Concrete model for testing TenantScopedModel, VersionedModel, and RLS policies.
