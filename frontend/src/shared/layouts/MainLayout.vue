@@ -72,7 +72,7 @@ const navSections = [
           PR
           <span style="color: var(--color-gray-400); font-weight: 400;">| ERP</span>
         </span>
-        <span style="font-size: 9px; color: var(--color-gray-400); letter-spacing: 0.5px;">v1.1.007</span>
+        <span style="font-size: 9px; color: var(--color-gray-400); letter-spacing: 0.5px;">v1.1.008</span>
       </div>
 
       <!-- Navigation -->

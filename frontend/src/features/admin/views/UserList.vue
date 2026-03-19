@@ -36,7 +36,7 @@ async function fetch() {
 async function createUser() {
   error.value = ''
   try {
-    await apiClient.post('users/', newUser.value)
+    await apiClient.post('users/create/', newUser.value)
     showCreateForm.value = false; newUser.value = { username: '', email: '', password: '', role: 'EMPLOYEE' }; await fetch()
   } catch (e: unknown) { error.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
 }

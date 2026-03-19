@@ -19,9 +19,17 @@ export const clientApi = {
   listContacts: (clientId: number) => apiClient.get(`${BASE}/${clientId}/contacts/`),
   createContact: (clientId: number, data: Partial<Contact>) =>
     apiClient.post(`${BASE}/${clientId}/contacts/`, data),
+  updateContact: (clientId: number, contactId: number, data: Partial<Contact>) =>
+    apiClient.patch(`${BASE}/${clientId}/contacts/${contactId}/`, data),
+  deleteContact: (clientId: number, contactId: number) =>
+    apiClient.delete(`${BASE}/${clientId}/contacts/${contactId}/`),
 
   // Addresses
   listAddresses: (clientId: number) => apiClient.get(`${BASE}/${clientId}/addresses/`),
   createAddress: (clientId: number, data: Partial<ClientAddress>) =>
     apiClient.post(`${BASE}/${clientId}/addresses/`, data),
+  updateAddress: (clientId: number, addressId: number, data: Partial<ClientAddress>) =>
+    apiClient.patch(`${BASE}/${clientId}/addresses/${addressId}/`, data),
+  deleteAddress: (clientId: number, addressId: number) =>
+    apiClient.delete(`${BASE}/${clientId}/addresses/${addressId}/`),
 }

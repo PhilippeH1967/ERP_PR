@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { supplierApi } from '../api/supplierApi'
 import type { ExternalOrganization } from '../types/supplier.types'
 import OrgCreateModal from '../components/OrgCreateModal.vue'
+
+const router = useRouter()
 
 const organizations = ref<ExternalOrganization[]>([])
 const search = ref('')
@@ -65,7 +68,8 @@ async function onSearch() {
           <tr
             v-for="org in organizations"
             :key="org.id"
-            class="border-b border-border last:border-0 hover:bg-surface-alt"
+            class="border-b border-border last:border-0 hover:bg-surface-alt cursor-pointer"
+            @click="router.push(`/suppliers/${org.id}`)"
           >
             <td class="px-4 py-3 font-medium">
               {{ org.name }}

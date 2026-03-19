@@ -113,6 +113,11 @@ const router = createRouter({
           component: () => import('@/features/suppliers/views/SupplierList.vue'),
         },
         {
+          path: 'suppliers/:id',
+          name: 'supplier-detail',
+          component: () => import('@/features/suppliers/views/SupplierDetail.vue'),
+        },
+        {
           path: 'st-invoices',
           name: 'st-invoices',
           component: () => import('@/features/suppliers/views/STInvoiceList.vue'),

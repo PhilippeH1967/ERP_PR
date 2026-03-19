@@ -79,6 +79,18 @@ async function onAddAddress(data: Record<string, unknown>) {
   showAddressForm.value = false
 }
 
+async function deleteContact(contactId: number) {
+  if (!confirm('Supprimer ce contact ?')) return
+  await clientApi.deleteContact(clientId, contactId)
+  await store.fetchClient(clientId)
+}
+
+async function deleteAddress(addressId: number) {
+  if (!confirm('Supprimer cette adresse ?')) return
+  await clientApi.deleteAddress(clientId, addressId)
+  await store.fetchClient(clientId)
+}
+
 async function deleteClient() {
   if (!confirm('Supprimer définitivement ce client ?')) return
   try {
@@ -193,7 +205,10 @@ async function deleteClient() {
                 class="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
               >{{ contact.role }}</span>
             </div>
-            <span class="text-xs text-text-muted">{{ contact.language_preference === 'fr' ? 'FR' : 'EN' }}</span>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-text-muted">{{ contact.language_preference === 'fr' ? 'FR' : 'EN' }}</span>
+              <button class="text-xs text-danger hover:underline" @click="deleteContact(contact.id)">Supprimer</button>
+            </div>
           </div>
           <p class="mt-1 text-sm text-text-muted">
             {{ contact.email }}{{ contact.phone ? ` · ${contact.phone}` : '' }}
@@ -242,7 +257,8 @@ async function deleteClient() {
           <p class="text-sm text-text-muted">
             {{ addr.city }}, {{ addr.province }} {{ addr.postal_code }}
           </p>
-          <div class="mt-1 flex gap-2">
+          <div class="mt-1 flex items-center justify-between">
+           <div class="flex gap-2">
             <span
               v-if="addr.is_primary"
               class="rounded bg-success/10 px-2 py-0.5 text-xs text-success"
@@ -259,6 +275,8 @@ async function deleteClient() {
               v-if="!addr.is_billing && !addr.is_primary"
               class="rounded bg-text-muted/10 px-2 py-0.5 text-xs text-text-muted"
             >Bureau</span>
+           </div>
+            <button class="text-xs text-danger hover:underline" @click="deleteAddress(addr.id)">Supprimer</button>
           </div>
         </div>
       </div>

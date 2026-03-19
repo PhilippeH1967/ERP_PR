@@ -74,6 +74,14 @@ async function reject() {
   }
 }
 
+async function deleteLine(lineId: number) {
+  if (!confirm('Supprimer cette ligne ?')) return
+  try {
+    await expenseApi.deleteLine(reportId, lineId)
+    await reload()
+  } catch { /* error */ }
+}
+
 onMounted(reload)
 </script>
 
@@ -136,6 +144,7 @@ onMounted(reload)
               <span v-if="line.receipt_path" class="flag-yes">Oui</span>
               <span v-else class="flag-no">Manquant</span>
             </td>
+            <td class="text-right"><button class="btn-action danger" @click="deleteLine(line.id)">Supprimer</button></td>
           </tr>
           <tr v-if="!report.lines?.length"><td colspan="6" class="empty">Aucune ligne</td></tr>
         </tbody>

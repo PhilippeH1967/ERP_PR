@@ -81,6 +81,38 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         invoice.save()
         return Response(InvoiceSerializer(invoice).data)
 
+    @action(detail=True, methods=["post"])
+    def send(self, request, pk=None):
+        """Mark invoice as sent to client."""
+        from django.utils import timezone
+
+        invoice = self.get_object()
+        if invoice.status != "APPROVED":
+            return Response(
+                {"error": {"code": "INVALID_STATUS", "message": "La facture doit être approuvée."}},
+                status=400,
+            )
+        invoice.status = "SENT"
+        invoice.date_sent = timezone.now().date()
+        invoice.save()
+        return Response(InvoiceSerializer(invoice).data)
+
+    @action(detail=True, methods=["post"])
+    def mark_paid(self, request, pk=None):
+        """Mark invoice as paid."""
+        from django.utils import timezone
+
+        invoice = self.get_object()
+        if invoice.status != "SENT":
+            return Response(
+                {"error": {"code": "INVALID_STATUS", "message": "La facture doit être envoyée."}},
+                status=400,
+            )
+        invoice.status = "PAID"
+        invoice.date_paid = timezone.now().date()
+        invoice.save()
+        return Response(InvoiceSerializer(invoice).data)
+
     @action(detail=True, methods=["get"])
     def aging_analysis(self, request, pk=None):
         """Invoice aging analysis for this invoice's client."""

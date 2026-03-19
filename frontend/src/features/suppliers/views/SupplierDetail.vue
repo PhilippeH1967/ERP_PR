@@ -1,0 +1,136 @@
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { supplierApi } from '../api/supplierApi'
+
+const route = useRoute()
+const router = useRouter()
+const orgId = Number(route.params.id)
+
+interface Org {
+  id: number; name: string; neq: string; address: string; city: string; province: string
+  postal_code: string; contact_name: string; contact_email: string; contact_phone: string
+  type_tags: string[]; is_active: boolean
+}
+
+const org = ref<Org | null>(null)
+const editing = ref(false)
+const form = ref<Partial<Org>>({})
+const error = ref('')
+
+async function fetch() {
+  const resp = await supplierApi.getOrganization(orgId)
+  org.value = resp.data?.data || resp.data
+}
+
+function startEdit() {
+  form.value = { ...org.value }
+  editing.value = true
+}
+
+async function save() {
+  error.value = ''
+  try {
+    await supplierApi.updateOrganization(orgId, form.value)
+    editing.value = false
+    await fetch()
+  } catch (e: unknown) { error.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+}
+
+async function remove() {
+  if (!confirm('Supprimer cette organisation ?')) return
+  try {
+    const { default: apiClient } = await import('@/plugins/axios')
+    await apiClient.delete(`external_organizations/${orgId}/`)
+    router.push('/suppliers')
+  } catch (e: unknown) { error.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+}
+
+onMounted(fetch)
+</script>
+
+<template>
+  <div v-if="org">
+    <div class="page-header">
+      <div>
+        <button class="btn-back" @click="router.push('/suppliers')">&larr; Fournisseurs</button>
+        <h1>{{ org.name }}</h1>
+        <p class="subtitle">NEQ: {{ org.neq || '—' }} · {{ org.city }}, {{ org.province }}</p>
+      </div>
+      <div class="header-actions">
+        <span v-for="tag in org.type_tags" :key="tag" class="badge" :class="tag === 'st' ? 'badge-blue' : tag === 'partner' ? 'badge-purple' : 'badge-gray'">
+          {{ tag === 'st' ? 'Sous-traitant' : tag === 'partner' ? 'Partenaire' : 'Concurrent' }}
+        </span>
+        <button v-if="!editing" class="btn-primary" @click="startEdit">Modifier</button>
+        <button class="btn-danger" @click="remove">Supprimer</button>
+      </div>
+    </div>
+
+    <div v-if="error" class="alert-error">{{ error }}</div>
+
+    <!-- View mode -->
+    <template v-if="!editing">
+      <div class="info-grid">
+        <div class="card">
+          <h3 class="card-title">Identification</h3>
+          <div class="info-pairs">
+            <div><span>Nom</span><p>{{ org.name }}</p></div>
+            <div><span>NEQ</span><p>{{ org.neq || '—' }}</p></div>
+            <div><span>Adresse</span><p>{{ org.address || '—' }}</p></div>
+            <div><span>Ville</span><p>{{ org.city || '—' }}, {{ org.province || '—' }} {{ org.postal_code || '' }}</p></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Contact principal</h3>
+          <div class="info-pairs single">
+            <div><span>Nom</span><p>{{ org.contact_name || '—' }}</p></div>
+            <div><span>Email</span><p>{{ org.contact_email || '—' }}</p></div>
+            <div><span>Téléphone</span><p>{{ org.contact_phone || '—' }}</p></div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Edit mode -->
+    <template v-if="editing">
+      <div class="card">
+        <h3 class="card-title">Modifier l'organisation</h3>
+        <div class="form-grid">
+          <div class="form-group"><label>Nom</label><input v-model="form.name" /></div>
+          <div class="form-group"><label>NEQ</label><input v-model="form.neq" /></div>
+          <div class="form-group"><label>Adresse</label><input v-model="form.address" /></div>
+          <div class="form-group"><label>Ville</label><input v-model="form.city" /></div>
+          <div class="form-group"><label>Province</label><input v-model="form.province" /></div>
+          <div class="form-group"><label>Code postal</label><input v-model="form.postal_code" /></div>
+          <div class="form-group"><label>Contact nom</label><input v-model="form.contact_name" /></div>
+          <div class="form-group"><label>Contact email</label><input v-model="form.contact_email" /></div>
+          <div class="form-group"><label>Contact téléphone</label><input v-model="form.contact_phone" /></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-ghost" @click="editing = false">Annuler</button>
+          <button class="btn-primary" @click="save">Enregistrer</button>
+        </div>
+      </div>
+    </template>
+  </div>
+</template>
+
+<style scoped>
+.page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 16px; }
+.page-header h1 { font-size: 20px; font-weight: 700; color: var(--color-gray-900); margin-top: 2px; }
+.btn-back { background: none; border: none; font-size: 12px; color: var(--color-gray-500); cursor: pointer; padding: 0; }
+.subtitle { font-size: 12px; color: var(--color-gray-500); }
+.header-actions { display: flex; align-items: center; gap: 6px; }
+.btn-danger { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; background: var(--color-danger); color: white; }
+.alert-error { background: var(--color-danger-light); color: var(--color-danger); padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
+.badge { display: inline-flex; padding: 2px 10px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+.badge-blue { background: #DBEAFE; color: #1D4ED8; } .badge-purple { background: #EDE9FE; color: #7C3AED; } .badge-gray { background: var(--color-gray-100); color: var(--color-gray-500); }
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 16px; }
+.card-title { font-size: 11px; font-weight: 600; color: var(--color-gray-400); text-transform: uppercase; margin-bottom: 12px; }
+.info-pairs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; } .info-pairs.single { grid-template-columns: 1fr; }
+.info-pairs span { color: var(--color-gray-500); font-size: 11px; } .info-pairs p { font-weight: 600; margin-top: 1px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.form-group { margin-bottom: 8px; } .form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--color-gray-600); margin-bottom: 4px; }
+.form-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
+</style>

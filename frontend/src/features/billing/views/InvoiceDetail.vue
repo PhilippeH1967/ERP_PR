@@ -13,6 +13,8 @@ const invoiceId = Number(route.params.id)
 const agingData = ref<Record<string, unknown> | null>(null)
 const showPaymentForm = ref(false)
 const paymentForm = ref({ amount: '', payment_date: '', reference: '', method: 'CHEQUE' })
+const showAddLine = ref(false)
+const newLine = ref({ deliverable_name: '', line_type: 'FORFAIT', total_contract_amount: '0', amount_to_bill: '0' })
 const actionError = ref('')
 
 const statusLabels: Record<string, string> = {
@@ -89,6 +91,22 @@ async function recordPayment() {
   } catch (e: unknown) {
     actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
   }
+}
+
+async function createLine() {
+  actionError.value = ''
+  try {
+    await billingApi.createLine(invoiceId, newLine.value)
+    showAddLine.value = false
+    newLine.value = { deliverable_name: '', line_type: 'FORFAIT', total_contract_amount: '0', amount_to_bill: '0' }
+    await reload()
+  } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+}
+
+async function deleteLine(lineId: number) {
+  if (!confirm('Supprimer cette ligne ?')) return
+  await billingApi.deleteLine(invoiceId, lineId)
+  await reload()
 }
 
 async function updateLine(lineId: number, field: string, value: string) {
@@ -170,6 +188,19 @@ async function updateLine(lineId: number, field: string, value: string) {
       </div>
     </div>
 
+    <!-- Add line -->
+    <div v-if="invoice.status === 'DRAFT'" class="line-actions">
+      <button class="btn-ghost" @click="showAddLine = !showAddLine">+ Ajouter ligne</button>
+    </div>
+    <div v-if="showAddLine" class="card" style="margin-bottom: 8px;">
+      <form @submit.prevent="createLine" class="form-row-4">
+        <div class="form-group"><label>Livrable</label><input v-model="newLine.deliverable_name" required /></div>
+        <div class="form-group"><label>Type</label><select v-model="newLine.line_type"><option value="FORFAIT">Forfait</option><option value="HORAIRE">Horaire</option><option value="ST">ST</option><option value="DEPENSE">Dépense</option></select></div>
+        <div class="form-group"><label>Montant contrat</label><input v-model="newLine.total_contract_amount" type="number" step="0.01" /></div>
+        <div class="form-group"><label>À facturer</label><input v-model="newLine.amount_to_bill" type="number" step="0.01" /><div style="margin-top:4px;display:flex;gap:4px;justify-content:flex-end;"><button type="button" class="btn-ghost" @click="showAddLine=false">Annuler</button><button type="submit" class="btn-primary">Ajouter</button></div></div>
+      </form>
+    </div>
+
     <!-- 7-Column Grid -->
     <div class="card-table">
       <table>
@@ -205,6 +236,7 @@ async function updateLine(lineId: number, field: string, value: string) {
               />
             </td>
             <td class="text-right font-mono text-muted">{{ line.pct_after_billing }}%</td>
+            <td v-if="invoice.status === 'DRAFT'" class="text-right"><button class="btn-action danger" @click="deleteLine(line.id)">×</button></td>
           </tr>
           <tr v-if="!invoice.lines?.length">
             <td colspan="7" class="empty">Aucune ligne</td>

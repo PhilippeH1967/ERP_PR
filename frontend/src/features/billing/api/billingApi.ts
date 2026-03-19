@@ -16,6 +16,8 @@ export const billingApi = {
     apiClient.post(`invoices/${invoiceId}/lines/`, data),
   updateLine: (invoiceId: number, lineId: number, data: Record<string, unknown>) =>
     apiClient.patch(`invoices/${invoiceId}/lines/${lineId}/`, data),
+  deleteLine: (invoiceId: number, lineId: number) =>
+    apiClient.delete(`invoices/${invoiceId}/lines/${lineId}/`),
 
   // Payments
   listPayments: (params?: Record<string, string>) => apiClient.get('payments/', { params }),

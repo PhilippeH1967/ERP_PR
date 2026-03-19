@@ -14,6 +14,7 @@ from apps.core.auth import (
     auth_me,
     delegation_delete,
     delegation_list_create,
+    user_create,
     user_list,
     user_update,
 )
@@ -76,6 +77,7 @@ urlpatterns = [
     path("auth/me/", auth_me, name="auth-me"),
     path("auth/config/", auth_config, name="auth-config"),
     path("users/", user_list, name="user-list"),
+    path("users/create/", user_create, name="user-create"),
     path("users/<int:pk>/", user_update, name="user-update"),
     path("delegations/", delegation_list_create, name="delegation-list"),
     path("delegations/<int:pk>/", delegation_delete, name="delegation-delete"),

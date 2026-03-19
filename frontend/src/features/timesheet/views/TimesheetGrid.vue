@@ -319,9 +319,7 @@ function normClass(total: number, norm: number): string {
 
     <!-- Submit button -->
     <div class="mt-4 flex items-center justify-between">
-      <button class="text-sm text-text-muted hover:text-text">
-        Sauvegarder brouillon
-      </button>
+      <span class="text-xs text-success">Sauvegarde automatique active</span>
       <button
         class="rounded-lg bg-primary px-6 py-2.5 font-medium text-white shadow-sm hover:bg-primary-light"
         @click="showSubmitModal = true"

@@ -151,6 +151,46 @@ def user_update(request, pk):
     )
 
 
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def user_create(request):
+    """Create a new user with role and tenant association."""
+    from django.contrib.auth import get_user_model
+
+    from apps.core.models import ProjectRole, Tenant, UserTenantAssociation
+
+    User = get_user_model()
+    data = request.data
+
+    if User.objects.filter(username=data.get("username", "")).exists():
+        return Response(
+            {"error": {"code": "DUPLICATE", "message": "Ce nom d'utilisateur existe déjà."}},
+            status=400,
+        )
+
+    user = User.objects.create_user(
+        username=data["username"],
+        email=data.get("email", ""),
+        password=data["password"],
+    )
+
+    # Tenant association
+    tenant = Tenant.objects.first()
+    if tenant:
+        UserTenantAssociation.objects.get_or_create(user=user, defaults={"tenant": tenant})
+
+    # Role
+    role = data.get("role")
+    if role and tenant:
+        ProjectRole.objects.create(user=user, role=role, tenant=tenant)
+
+    roles = list(ProjectRole.objects.filter(user=user).values_list("role", flat=True))
+    return Response(
+        {"data": {"id": user.id, "username": user.username, "email": user.email, "roles": roles}},
+        status=201,
+    )
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def user_list(request):
@@ -219,14 +259,42 @@ def delegation_list_create(request):
     tenant_id = getattr(request, "tenant_id", None)
     tenant = Tenant.objects.get(pk=tenant_id) if tenant_id else Tenant.objects.first()
 
+    # Validation
+    delegate_id = data.get("delegate")
+    scope = data.get("scope", "all")
+    project_id = data.get("project_id")
+    start_date = data.get("start_date")
+    end_date = data.get("end_date")
+
+    if not delegate_id or not start_date or not end_date:
+        return Response(
+            {"error": {"code": "VALIDATION", "message": "delegate, start_date et end_date sont obligatoires."}},
+            status=400,
+        )
+    if int(delegate_id) == request.user.id:
+        return Response(
+            {"error": {"code": "SELF_DELEGATION", "message": "Impossible de se déléguer soi-même."}},
+            status=400,
+        )
+    if start_date > end_date:
+        return Response(
+            {"error": {"code": "INVALID_DATES", "message": "La date de début doit précéder la date de fin."}},
+            status=400,
+        )
+    if scope == "project" and not project_id:
+        return Response(
+            {"error": {"code": "MISSING_PROJECT", "message": "Un projet est requis pour la portée 'projet'."}},
+            status=400,
+        )
+
     delegation = Delegation.objects.create(
         tenant=tenant,
         delegator=request.user,
-        delegate=User.objects.get(pk=data["delegate"]),
-        scope=data.get("scope", "all"),
-        project_id=data.get("project_id"),
-        start_date=data["start_date"],
-        end_date=data["end_date"],
+        delegate=User.objects.get(pk=delegate_id),
+        scope=scope,
+        project_id=project_id if scope == "project" else None,
+        start_date=start_date,
+        end_date=end_date,
     )
     return Response(
         {
