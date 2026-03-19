@@ -1,17 +1,49 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useLocale } from '@/shared/composables/useLocale'
 import { useBillingStore } from '../stores/useBillingStore'
+import { billingApi } from '../api/billingApi'
 
 const store = useBillingStore()
+const router = useRouter()
 const { fmt } = useLocale()
 
+const showCreate = ref(false)
+const createForm = ref({ project: '', notes: '' })
+const createError = ref('')
+
 const statusColors: Record<string, string> = {
-  DRAFT: 'bg-text-muted/10 text-text-muted',
-  SUBMITTED: 'bg-primary/10 text-primary',
-  APPROVED: 'bg-success/10 text-success',
-  SENT: 'bg-warning/10 text-warning',
-  PAID: 'bg-success/20 text-success',
+  DRAFT: 'badge-gray',
+  SUBMITTED: 'badge-blue',
+  APPROVED: 'badge-green',
+  SENT: 'badge-amber',
+  PAID: 'badge-green-solid',
+}
+
+const statusLabels: Record<string, string> = {
+  DRAFT: 'Brouillon',
+  SUBMITTED: 'Soumise',
+  APPROVED: 'Approuvée',
+  SENT: 'Envoyée',
+  PAID: 'Payée',
+}
+
+async function createInvoice() {
+  createError.value = ''
+  try {
+    const resp = await billingApi.createInvoice({
+      project: Number(createForm.value.project),
+      notes: createForm.value.notes,
+    })
+    const data = resp.data?.data || resp.data
+    showCreate.value = false
+    createForm.value = { project: '', notes: '' }
+    router.push(`/billing/${data.id}`)
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { error?: { message?: string } } } }
+    createError.value = e.response?.data?.error?.message || 'Erreur lors de la création'
+  }
 }
 
 onMounted(() => store.fetchInvoices())
@@ -19,68 +51,94 @@ onMounted(() => store.fetchInvoices())
 
 <template>
   <div>
-    <div class="mb-6 flex items-center justify-between">
-      <h1 class="text-2xl font-semibold text-text">
-        Facturation
-      </h1>
+    <div class="page-header">
+      <h1>Facturation</h1>
+      <button class="btn-primary" @click="showCreate = !showCreate">+ Nouvelle facture</button>
     </div>
 
-    <div class="rounded-lg border border-border bg-surface">
-      <table class="w-full text-left text-sm">
-        <thead class="border-b border-border text-xs font-medium uppercase tracking-wide text-text-muted">
+    <!-- Create form -->
+    <div v-if="showCreate" class="card" style="margin-bottom: 12px;">
+      <div class="card-title">Nouvelle facture</div>
+      <div v-if="createError" class="alert-error">{{ createError }}</div>
+      <form @submit.prevent="createInvoice" class="create-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label>ID Projet</label>
+            <input v-model="createForm.project" type="number" required placeholder="ID du projet" />
+          </div>
+          <div class="form-group">
+            <label>Notes (optionnel)</label>
+            <input v-model="createForm.notes" type="text" placeholder="Notes" />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-ghost" @click="showCreate = false">Annuler</button>
+          <button type="submit" class="btn-primary">Créer</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Table -->
+    <div class="card-table">
+      <table>
+        <thead>
           <tr>
-            <th class="px-4 py-3">
-              No facture
-            </th>
-            <th class="px-4 py-3">
-              Projet
-            </th>
-            <th class="px-4 py-3">
-              Client
-            </th>
-            <th class="px-4 py-3 text-right font-mono">
-              Montant
-            </th>
-            <th class="px-4 py-3">
-              Statut
-            </th>
-            <th class="px-4 py-3">
-              Date
-            </th>
+            <th>No facture</th>
+            <th>Projet</th>
+            <th>Client</th>
+            <th class="text-right">Montant</th>
+            <th>Statut</th>
+            <th>Date</th>
           </tr>
         </thead>
         <tbody>
           <tr
             v-for="invoice in store.invoices"
             :key="invoice.id"
-            class="cursor-pointer border-b border-border last:border-0 hover:bg-surface-alt"
+            class="row-link"
+            @click="router.push(`/billing/${invoice.id}`)"
           >
-            <td class="px-4 py-3 font-mono font-medium">
-              {{ invoice.invoice_number }}
-            </td>
-            <td class="px-4 py-3">
-              {{ invoice.project_code }}
-            </td>
-            <td class="px-4 py-3 text-text-muted">
-              {{ invoice.client_name }}
-            </td>
-            <td class="px-4 py-3 text-right font-mono">
-              {{ fmt.currency(invoice.total_amount) }}
-            </td>
-            <td class="px-4 py-3">
-              <span
-                class="rounded-full px-2 py-0.5 text-xs"
-                :class="statusColors[invoice.status] || ''"
-              >
-                {{ invoice.status }}
+            <td class="font-mono font-medium">{{ invoice.invoice_number }}</td>
+            <td>{{ invoice.project_code }}</td>
+            <td class="text-muted">{{ invoice.client_name }}</td>
+            <td class="text-right font-mono">{{ fmt.currency(invoice.total_amount) }}</td>
+            <td>
+              <span class="badge" :class="statusColors[invoice.status]">
+                {{ statusLabels[invoice.status] || invoice.status }}
               </span>
             </td>
-            <td class="px-4 py-3 text-text-muted">
-              {{ fmt.date(invoice.date_created) }}
-            </td>
+            <td class="text-muted">{{ fmt.date(invoice.date_created) }}</td>
+          </tr>
+          <tr v-if="!store.invoices?.length">
+            <td colspan="6" class="empty">Aucune facture</td>
           </tr>
         </tbody>
       </table>
     </div>
   </div>
 </template>
+
+<style scoped>
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.page-header h1 { font-size: 20px; font-weight: 700; color: var(--color-gray-900); }
+.card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 16px; }
+.card-title { font-size: 14px; font-weight: 600; color: var(--color-gray-800); margin-bottom: 12px; }
+.card-table { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+.alert-error { background: var(--color-danger-light); color: var(--color-danger); padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--color-gray-600); margin-bottom: 4px; }
+.form-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.row-link { cursor: pointer; }
+.row-link:hover { background: var(--color-gray-50); }
+.text-right { text-align: right; }
+.text-muted { color: var(--color-gray-500); }
+.empty { text-align: center; padding: 30px; color: var(--color-gray-400); }
+
+.badge { display: inline-flex; padding: 1px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+.badge-gray { background: var(--color-gray-100); color: var(--color-gray-500); }
+.badge-blue { background: #DBEAFE; color: #1D4ED8; }
+.badge-green { background: #DCFCE7; color: #15803D; }
+.badge-amber { background: #FEF3C7; color: #92400E; }
+.badge-green-solid { background: #15803D; color: white; }
+</style>

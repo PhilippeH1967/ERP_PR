@@ -1,191 +1,290 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useLocale } from '@/shared/composables/useLocale'
 import { billingApi } from '../api/billingApi'
 import type { Invoice } from '../types/billing.types'
 
 const route = useRoute()
+const router = useRouter()
 const { fmt } = useLocale()
 const invoice = ref<Invoice | null>(null)
 const invoiceId = Number(route.params.id)
+const agingData = ref<Record<string, unknown> | null>(null)
+const showPaymentForm = ref(false)
+const paymentForm = ref({ amount: '', payment_date: '', reference: '', method: 'CHEQUE' })
+const actionError = ref('')
 
+const statusLabels: Record<string, string> = {
+  DRAFT: 'Brouillon',
+  SUBMITTED: 'Soumise',
+  APPROVED: 'Approuvée',
+  SENT: 'Envoyée',
+  PAID: 'Payée',
+}
 const statusColors: Record<string, string> = {
-  DRAFT: 'bg-text-muted/10 text-text-muted',
-  SUBMITTED: 'bg-primary/10 text-primary',
-  APPROVED: 'bg-success/10 text-success',
-  SENT: 'bg-warning/10 text-warning',
-  PAID: 'bg-success/20 text-success',
+  DRAFT: 'badge-gray',
+  SUBMITTED: 'badge-blue',
+  APPROVED: 'badge-green',
+  SENT: 'badge-amber',
+  PAID: 'badge-green-solid',
+}
+
+async function reload() {
+  const resp = await billingApi.getInvoice(invoiceId)
+  invoice.value = resp.data?.data || resp.data
 }
 
 onMounted(async () => {
-  const resp = await billingApi.getInvoice(invoiceId)
-  invoice.value = resp.data?.data || resp.data
+  await reload()
+  try {
+    const agResp = await billingApi.agingAnalysis(invoiceId)
+    agingData.value = agResp.data?.data || agResp.data
+  } catch { /* aging optional */ }
 })
 
 async function submitInvoice() {
-  await billingApi.submitInvoice(invoiceId)
-  const resp = await billingApi.getInvoice(invoiceId)
-  invoice.value = resp.data?.data || resp.data
+  actionError.value = ''
+  try {
+    await billingApi.submitInvoice(invoiceId)
+    await reload()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
 }
 
 async function approveInvoice() {
-  await billingApi.approveInvoice(invoiceId)
-  const resp = await billingApi.getInvoice(invoiceId)
-  invoice.value = resp.data?.data || resp.data
+  actionError.value = ''
+  try {
+    await billingApi.approveInvoice(invoiceId)
+    await reload()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
+}
+
+async function markSent() {
+  actionError.value = ''
+  try {
+    await billingApi.updateInvoice(invoiceId, { status: 'SENT' })
+    await reload()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
+}
+
+async function recordPayment() {
+  actionError.value = ''
+  try {
+    await billingApi.createPayment({
+      invoice: invoiceId,
+      amount: paymentForm.value.amount,
+      payment_date: paymentForm.value.payment_date,
+      reference: paymentForm.value.reference,
+      method: paymentForm.value.method,
+    })
+    showPaymentForm.value = false
+    paymentForm.value = { amount: '', payment_date: '', reference: '', method: 'CHEQUE' }
+    await reload()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
 }
 
 async function updateLine(lineId: number, field: string, value: string) {
   await billingApi.updateLine(invoiceId, lineId, { [field]: value })
-  const resp = await billingApi.getInvoice(invoiceId)
-  invoice.value = resp.data?.data || resp.data
+  await reload()
 }
 </script>
 
 <template>
   <div v-if="invoice">
     <!-- Header -->
-    <div class="mb-6 flex items-center justify-between">
+    <div class="page-header">
       <div>
-        <h1 class="text-2xl font-semibold text-text">
+        <button class="btn-back" @click="router.push('/billing')">&larr; Facturation</button>
+        <h1>
           <span class="font-mono">{{ invoice.invoice_number }}</span>
         </h1>
-        <p class="text-sm text-text-muted">
-          Projet {{ invoice.project_code }} · {{ invoice.client_name }}
-        </p>
+        <p class="subtitle">Projet {{ invoice.project_code }} · {{ invoice.client_name }}</p>
       </div>
-      <div class="flex items-center gap-3">
-        <span
-          class="rounded-full px-3 py-1 text-xs font-medium"
-          :class="statusColors[invoice.status]"
-        >
-          {{ invoice.status }}
-        </span>
-        <button
-          v-if="invoice.status === 'DRAFT'"
-          class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
-          @click="submitInvoice"
-        >
-          Soumettre
-        </button>
-        <button
-          v-if="invoice.status === 'SUBMITTED'"
-          class="rounded-md bg-success px-4 py-2 text-sm font-medium text-white"
-          @click="approveInvoice"
-        >
-          Approuver
-        </button>
+      <div class="header-actions">
+        <span class="badge" :class="statusColors[invoice.status]">{{ statusLabels[invoice.status] }}</span>
+        <button v-if="invoice.status === 'DRAFT'" class="btn-primary" @click="submitInvoice">Soumettre</button>
+        <button v-if="invoice.status === 'SUBMITTED'" class="btn-success" @click="approveInvoice">Approuver</button>
+        <button v-if="invoice.status === 'APPROVED'" class="btn-primary" @click="markSent">Marquer envoyée</button>
+        <button v-if="invoice.status === 'SENT'" class="btn-success" @click="showPaymentForm = !showPaymentForm">Enregistrer paiement</button>
       </div>
     </div>
 
-    <!-- CA/Salary ratio banner (Story 5-3) -->
-    <div class="mb-4 flex items-center gap-4 rounded-lg border border-primary/20 bg-primary/5 p-3">
-      <div class="text-center">
-        <div class="font-mono text-lg font-bold text-primary">
-          {{ fmt.currency(invoice.total_amount) }}
+    <div v-if="actionError" class="alert-error">{{ actionError }}</div>
+
+    <!-- Payment form -->
+    <div v-if="showPaymentForm" class="card" style="margin-bottom: 12px;">
+      <div class="card-title">Enregistrer un paiement</div>
+      <form @submit.prevent="recordPayment" class="payment-form">
+        <div class="form-row-4">
+          <div class="form-group">
+            <label>Montant</label>
+            <input v-model="paymentForm.amount" type="number" step="0.01" required :placeholder="invoice.total_amount" />
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input v-model="paymentForm.payment_date" type="date" required />
+          </div>
+          <div class="form-group">
+            <label>Référence</label>
+            <input v-model="paymentForm.reference" type="text" placeholder="No chèque / virement" />
+          </div>
+          <div class="form-group">
+            <label>Méthode</label>
+            <select v-model="paymentForm.method">
+              <option value="CHEQUE">Chèque</option>
+              <option value="VIREMENT">Virement</option>
+              <option value="CARTE">Carte</option>
+            </select>
+          </div>
         </div>
-        <div class="text-[10px] text-text-muted">
-          Montant total
+        <div class="form-actions">
+          <button type="button" class="btn-ghost" @click="showPaymentForm = false">Annuler</button>
+          <button type="submit" class="btn-success">Enregistrer</button>
         </div>
+      </form>
+    </div>
+
+    <!-- Amounts banner -->
+    <div class="amounts-banner">
+      <div class="amount-item">
+        <div class="amount-value primary">{{ fmt.currency(invoice.total_amount) }}</div>
+        <div class="amount-label">Montant total</div>
       </div>
-      <div class="h-8 w-px bg-border" />
-      <div class="text-center">
-        <div class="font-mono text-lg font-bold text-text">
-          {{ fmt.currency(invoice.tax_tps) }}
-        </div>
-        <div class="text-[10px] text-text-muted">
-          TPS
-        </div>
+      <div class="amount-sep" />
+      <div class="amount-item">
+        <div class="amount-value">{{ fmt.currency(invoice.tax_tps) }}</div>
+        <div class="amount-label">TPS</div>
       </div>
-      <div class="h-8 w-px bg-border" />
-      <div class="text-center">
-        <div class="font-mono text-lg font-bold text-text">
-          {{ fmt.currency(invoice.tax_tvq) }}
-        </div>
-        <div class="text-[10px] text-text-muted">
-          TVQ
-        </div>
+      <div class="amount-sep" />
+      <div class="amount-item">
+        <div class="amount-value">{{ fmt.currency(invoice.tax_tvq) }}</div>
+        <div class="amount-label">TVQ</div>
       </div>
     </div>
 
-    <!-- 7-Column Invoice Preparation Grid (Story 5-2) -->
-    <div class="overflow-x-auto rounded-lg border border-border bg-surface">
-      <table class="w-full text-sm">
-        <thead class="border-b border-border bg-surface-alt text-xs font-medium uppercase text-text-muted">
+    <!-- 7-Column Grid -->
+    <div class="card-table">
+      <table>
+        <thead>
           <tr>
-            <th class="min-w-[200px] px-3 py-3 text-left">
-              Livrable
-            </th>
-            <th class="min-w-[100px] px-3 py-3 text-right font-mono">
-              Contrat
-            </th>
-            <th class="min-w-[100px] px-3 py-3 text-right font-mono">
-              Facturé à ce jour
-            </th>
-            <th class="min-w-[80px] px-3 py-3 text-right font-mono">
-              % Fact.
-            </th>
-            <th class="min-w-[80px] px-3 py-3 text-right font-mono">
-              % Heures
-            </th>
-            <th class="min-w-[120px] px-3 py-3 text-right font-mono">
-              À facturer
-            </th>
-            <th class="min-w-[80px] px-3 py-3 text-right font-mono">
-              % Après
-            </th>
+            <th style="min-width: 180px;">Livrable</th>
+            <th class="text-right mono-th" style="min-width: 90px;">Contrat</th>
+            <th class="text-right mono-th" style="min-width: 90px;">Facturé</th>
+            <th class="text-right mono-th" style="min-width: 60px;">% Fact.</th>
+            <th class="text-right mono-th" style="min-width: 60px;">% Heures</th>
+            <th class="text-right mono-th" style="min-width: 100px;">À facturer</th>
+            <th class="text-right mono-th" style="min-width: 60px;">% Après</th>
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="line in invoice.lines"
-            :key="line.id"
-            class="border-b border-border last:border-0 hover:bg-surface-alt"
-          >
-            <td class="px-3 py-2">
-              <div class="flex items-center gap-2">
-                <span
-                  class="rounded bg-text-muted/10 px-1.5 py-0.5 text-[10px] font-medium"
-                >{{ line.line_type }}</span>
-                <span>{{ line.deliverable_name }}</span>
-              </div>
+          <tr v-for="line in invoice.lines" :key="line.id">
+            <td>
+              <span class="line-type-badge">{{ line.line_type }}</span>
+              {{ line.deliverable_name }}
             </td>
-            <td class="px-3 py-2 text-right font-mono">
-              {{ fmt.currency(line.total_contract_amount) }}
-            </td>
-            <td class="px-3 py-2 text-right font-mono">
-              {{ fmt.currency(line.invoiced_to_date) }}
-            </td>
-            <td class="px-3 py-2 text-right font-mono">
-              {{ line.pct_billing_advancement }}%
-            </td>
-            <td class="px-3 py-2 text-right font-mono">
-              {{ line.pct_hours_advancement }}%
-            </td>
-            <td class="px-3 py-2 text-right">
+            <td class="text-right font-mono">{{ fmt.currency(line.total_contract_amount) }}</td>
+            <td class="text-right font-mono">{{ fmt.currency(line.invoiced_to_date) }}</td>
+            <td class="text-right font-mono">{{ line.pct_billing_advancement }}%</td>
+            <td class="text-right font-mono">{{ line.pct_hours_advancement }}%</td>
+            <td class="text-right">
               <input
                 :value="line.amount_to_bill"
                 type="number"
                 step="0.01"
-                class="w-full rounded border border-primary/30 bg-primary/5 px-2 py-1 text-right font-mono text-sm focus:border-primary focus:outline-none"
+                class="bill-input"
                 :disabled="invoice.status !== 'DRAFT'"
                 @blur="(e) => updateLine(line.id, 'amount_to_bill', (e.target as HTMLInputElement).value)"
-              >
+              />
             </td>
-            <td class="px-3 py-2 text-right font-mono text-text-muted">
-              {{ line.pct_after_billing }}%
-            </td>
+            <td class="text-right font-mono text-muted">{{ line.pct_after_billing }}%</td>
           </tr>
           <tr v-if="!invoice.lines?.length">
-            <td
-              colspan="7"
-              class="px-3 py-8 text-center text-text-muted"
-            >
-              Aucune ligne — ajoutez des livrables
-            </td>
+            <td colspan="7" class="empty">Aucune ligne</td>
           </tr>
         </tbody>
       </table>
     </div>
+
+    <!-- Aging Analysis -->
+    <div v-if="agingData" class="aging-section">
+      <h3 class="section-title">Analyse d'ancienneté</h3>
+      <div class="aging-grid">
+        <div class="aging-card">
+          <span class="aging-label">0-30 jours</span>
+          <span class="aging-value">{{ fmt.currency(agingData.range_0_30 as string || '0') }}</span>
+        </div>
+        <div class="aging-card">
+          <span class="aging-label">31-60 jours</span>
+          <span class="aging-value warning">{{ fmt.currency(agingData.range_31_60 as string || '0') }}</span>
+        </div>
+        <div class="aging-card">
+          <span class="aging-label">61-90 jours</span>
+          <span class="aging-value danger">{{ fmt.currency(agingData.range_61_90 as string || '0') }}</span>
+        </div>
+        <div class="aging-card">
+          <span class="aging-label">90+ jours</span>
+          <span class="aging-value danger">{{ fmt.currency(agingData.range_90_plus as string || '0') }}</span>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 16px; }
+.page-header h1 { font-size: 20px; font-weight: 700; color: var(--color-gray-900); margin-top: 2px; }
+.btn-back { background: none; border: none; font-size: 12px; color: var(--color-gray-500); cursor: pointer; padding: 0; }
+.subtitle { font-size: 12px; color: var(--color-gray-500); }
+.header-actions { display: flex; align-items: center; gap: 8px; }
+.btn-success { padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; background: var(--color-success); color: white; }
+.alert-error { background: var(--color-danger-light); color: var(--color-danger); padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
+
+.badge { display: inline-flex; padding: 2px 10px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+.badge-gray { background: var(--color-gray-100); color: var(--color-gray-500); }
+.badge-blue { background: #DBEAFE; color: #1D4ED8; }
+.badge-green { background: #DCFCE7; color: #15803D; }
+.badge-amber { background: #FEF3C7; color: #92400E; }
+.badge-green-solid { background: #15803D; color: white; }
+
+.card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 16px; }
+.card-title { font-size: 14px; font-weight: 600; color: var(--color-gray-800); margin-bottom: 12px; }
+.card-table { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow-x: auto; margin-bottom: 16px; }
+
+.amounts-banner { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 12px; }
+.amount-item { text-align: center; }
+.amount-value { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--color-gray-800); }
+.amount-value.primary { color: var(--color-primary); }
+.amount-label { font-size: 10px; color: var(--color-gray-500); }
+.amount-sep { width: 1px; height: 28px; background: var(--color-gray-200); }
+
+.text-right { text-align: right; }
+.text-muted { color: var(--color-gray-500); }
+.font-mono { font-family: var(--font-mono); font-size: 12px; }
+.mono-th { font-family: var(--font-mono); }
+.line-type-badge { font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; background: var(--color-gray-100); color: var(--color-gray-500); margin-right: 4px; }
+.bill-input { width: 100%; padding: 4px 8px; border: 1px solid var(--color-primary); border-radius: 3px; background: rgba(37,99,235,0.05); text-align: right; font-family: var(--font-mono); font-size: 12px; }
+.bill-input:disabled { background: transparent; border-color: var(--color-gray-200); color: var(--color-gray-500); }
+.empty { text-align: center; padding: 30px; color: var(--color-gray-400); }
+
+.form-row-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--color-gray-600); margin-bottom: 4px; }
+.form-actions { display: flex; justify-content: flex-end; gap: 6px; }
+
+.aging-section { margin-top: 16px; }
+.section-title { font-size: 14px; font-weight: 600; color: var(--color-gray-800); margin-bottom: 10px; }
+.aging-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.aging-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 14px; }
+.aging-label { display: block; font-size: 11px; color: var(--color-gray-500); text-transform: uppercase; font-weight: 600; margin-bottom: 4px; }
+.aging-value { font-size: 20px; font-weight: 700; font-family: var(--font-mono); color: var(--color-gray-900); }
+.aging-value.warning { color: var(--color-warning); }
+.aging-value.danger { color: var(--color-danger); }
+</style>

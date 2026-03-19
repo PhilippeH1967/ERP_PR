@@ -27,6 +27,7 @@ const navSections = [
     label: 'nav.finance',
     items: [
       { name: 'nav.billing', path: '/billing', icon: '📄' },
+      { name: 'nav.payments', path: '/payments', icon: '💳' },
       { name: 'nav.expenses', path: '/expenses', icon: '🧾' },
       { name: 'nav.suppliers', path: '/suppliers', icon: '🏢' },
     ],
@@ -56,7 +57,7 @@ const navSections = [
           PR
           <span style="color: var(--color-gray-400); font-weight: 400;">| ERP</span>
         </span>
-        <span style="font-size: 9px; color: var(--color-gray-400); letter-spacing: 0.5px;">v1.1.001</span>
+        <span style="font-size: 9px; color: var(--color-gray-400); letter-spacing: 0.5px;">v1.1.002</span>
       </div>
 
       <!-- Navigation -->

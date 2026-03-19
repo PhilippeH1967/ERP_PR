@@ -80,6 +80,21 @@ const router = createRouter({
           name: 'payments',
           component: () => import('@/features/billing/views/PaymentList.vue'),
         },
+        {
+          path: 'credit-notes',
+          name: 'credit-notes',
+          component: () => import('@/features/billing/views/CreditNoteList.vue'),
+        },
+        {
+          path: 'holdbacks',
+          name: 'holdbacks',
+          component: () => import('@/features/billing/views/HoldbackList.vue'),
+        },
+        {
+          path: 'write-offs',
+          name: 'write-offs',
+          component: () => import('@/features/billing/views/WriteOffList.vue'),
+        },
         // Expenses
         {
           path: 'expenses',
