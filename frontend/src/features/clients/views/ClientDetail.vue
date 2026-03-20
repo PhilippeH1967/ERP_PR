@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
+import apiClient from '@/plugins/axios'
 import { useRoute, useRouter } from 'vue-router'
 import { useLocale } from '@/shared/composables/useLocale'
 import { clientApi } from '../api/clientApi'
@@ -21,6 +22,45 @@ const confirmDeleteContact = ref<number | null>(null)
 const confirmDeleteAddress = ref<number | null>(null)
 const editingAddressId = ref<number | null>(null)
 const editAddressForm = ref<Record<string, unknown>>({})
+
+// Financial period filters
+const finPeriodMode = ref<'all' | 'year' | 'custom'>('all')
+const finSelectedYear = ref(String(new Date().getFullYear()))
+const finDateFrom = ref('')
+const finDateTo = ref('')
+
+// Project filters
+const projFilterStatus = ref('all')
+const projFilterSearch = ref('')
+
+const filteredProjects = computed(() => {
+  let list = linkedProjects.value
+  if (projFilterStatus.value !== 'all') {
+    list = list.filter((p: LinkedProject) => p.status === projFilterStatus.value)
+  }
+  const q = projFilterSearch.value.toLowerCase()
+  if (q) {
+    list = list.filter((p: LinkedProject) =>
+      p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)
+    )
+  }
+  return list
+})
+
+async function reloadFinancial() {
+  try {
+    const params: Record<string, string> = {}
+    if (finPeriodMode.value === 'year') {
+      params.date_from = `${finSelectedYear.value}-01-01`
+      params.date_to = `${finSelectedYear.value}-12-31`
+    } else if (finPeriodMode.value === 'custom') {
+      if (finDateFrom.value) params.date_from = finDateFrom.value
+      if (finDateTo.value) params.date_to = finDateTo.value
+    }
+    const resp = await apiClient.get(`clients/${clientId}/financial_summary/`, { params })
+    financial.value = resp.data?.data || resp.data
+  } catch { /* silent */ }
+}
 
 function startEditAddress(addr: Record<string, unknown>) {
   editingAddressId.value = addr.id as number
@@ -77,7 +117,6 @@ onMounted(async () => {
   }
   // Fetch linked projects
   try {
-    const { default: apiClient } = await import('@/plugins/axios')
     const resp = await apiClient.get('projects/', { params: { client: String(clientId) } })
     linkedProjects.value = resp.data?.data || resp.data || []
   } catch {
@@ -329,6 +368,23 @@ async function deleteClient() {
 
       <!-- Financial History -->
       <div v-if="activeTab === 'financial'">
+        <!-- Period filter -->
+        <div class="mb-4 flex items-center gap-3 rounded border border-border bg-surface-alt p-3">
+          <span class="text-xs font-medium text-text-muted">Période :</span>
+          <button class="text-xs px-2 py-1 rounded" :class="finPeriodMode === 'all' ? 'bg-primary text-white' : 'text-text-muted hover:bg-gray-100'" @click="finPeriodMode = 'all'; reloadFinancial()">Tout</button>
+          <button class="text-xs px-2 py-1 rounded" :class="finPeriodMode === 'year' ? 'bg-primary text-white' : 'text-text-muted hover:bg-gray-100'" @click="finPeriodMode = 'year'; reloadFinancial()">Par année</button>
+          <select v-if="finPeriodMode === 'year'" v-model="finSelectedYear" class="text-xs border border-border rounded px-2 py-1" @change="reloadFinancial()">
+            <option v-for="y in [2026, 2025, 2024, 2023, 2022]" :key="y" :value="String(y)">{{ y }}</option>
+          </select>
+          <button class="text-xs px-2 py-1 rounded" :class="finPeriodMode === 'custom' ? 'bg-primary text-white' : 'text-text-muted hover:bg-gray-100'" @click="finPeriodMode = 'custom'">Personnalisé</button>
+          <template v-if="finPeriodMode === 'custom'">
+            <input v-model="finDateFrom" type="date" class="text-xs border border-border rounded px-2 py-1" />
+            <span class="text-xs text-text-muted">→</span>
+            <input v-model="finDateTo" type="date" class="text-xs border border-border rounded px-2 py-1" />
+            <button class="text-xs text-primary font-semibold" @click="reloadFinancial()">Appliquer</button>
+          </template>
+        </div>
+
         <div
           v-if="financial"
           class="space-y-6"
@@ -365,6 +421,18 @@ async function deleteClient() {
               </div>
               <div class="text-xs text-text-muted">
                 Projets
+              </div>
+            </div>
+          </div>
+
+          <!-- CA by Year -->
+          <div v-if="financial.ca_by_year && Object.keys(financial.ca_by_year).length">
+            <h3 class="mb-3 text-sm font-medium uppercase text-text-muted">CA par année</h3>
+            <div class="flex gap-3">
+              <div v-for="(amount, year) in financial.ca_by_year" :key="year"
+                class="rounded border border-border p-3 text-center min-w-[100px]">
+                <div class="font-mono text-lg font-bold text-primary">{{ fmt.currency(amount) }}</div>
+                <div class="text-xs text-text-muted">{{ year }}</div>
               </div>
             </div>
           </div>
@@ -413,14 +481,26 @@ async function deleteClient() {
           <!-- Linked Projects -->
           <div>
             <h3 class="mb-3 text-sm font-medium uppercase text-text-muted">
-              Projets liés
+              Projets liés ({{ filteredProjects.length }})
             </h3>
+            <!-- Project filters -->
+            <div class="mb-3 flex items-center gap-3">
+              <input v-model="projFilterSearch" type="text" placeholder="Rechercher code ou nom..."
+                class="rounded border border-border px-2 py-1 text-xs" style="width: 200px;" />
+              <select v-model="projFilterStatus" class="rounded border border-border px-2 py-1 text-xs">
+                <option value="all">Tous statuts</option>
+                <option value="ACTIVE">Actif</option>
+                <option value="ON_HOLD">En pause</option>
+                <option value="COMPLETED">Terminé</option>
+                <option value="CANCELLED">Annulé</option>
+              </select>
+            </div>
             <div
-              v-if="linkedProjects.length"
+              v-if="filteredProjects.length"
               class="space-y-2"
             >
               <div
-                v-for="project in linkedProjects"
+                v-for="project in filteredProjects"
                 :key="project.id"
                 class="flex cursor-pointer items-center justify-between rounded border border-border p-3 hover:bg-surface-alt"
                 @click="router.push(`/projects/${project.id}`)"

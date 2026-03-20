@@ -80,7 +80,9 @@ class ClientViewSet(viewsets.ModelViewSet):
 
         client = self.get_object()
         tenant_id = getattr(self.request, "tenant_id", client.tenant_id)
-        summary = get_client_financial_summary(client.pk, tenant_id)
+        date_from = request.query_params.get("date_from")
+        date_to = request.query_params.get("date_to")
+        summary = get_client_financial_summary(client.pk, tenant_id, date_from, date_to)
         aging = get_aging_analysis(client.pk, tenant_id)
         return Response({**summary, "aging": aging})
 

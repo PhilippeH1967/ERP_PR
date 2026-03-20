@@ -8,23 +8,54 @@ from django.db.models import Sum
 from apps.billing.models import Invoice, Payment
 
 
-def get_client_financial_summary(client_id: int, tenant_id: int) -> dict:
-    """Aggregate financial data for a client."""
+def get_client_financial_summary(
+    client_id: int, tenant_id: int,
+    date_from: str | None = None, date_to: str | None = None,
+) -> dict:
+    """Aggregate financial data for a client, optionally filtered by period."""
     invoices = Invoice.objects.filter(
         client_id=client_id, tenant_id=tenant_id
     )
+    if date_from:
+        invoices = invoices.filter(date_created__gte=date_from)
+    if date_to:
+        invoices = invoices.filter(date_created__lte=date_to)
+
     total_invoiced = invoices.aggregate(total=Sum("total_amount"))["total"] or Decimal("0")
-    total_paid = Payment.objects.filter(
+
+    payments_qs = Payment.objects.filter(
         invoice__client_id=client_id, invoice__tenant_id=tenant_id
-    ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    )
+    if date_from:
+        payments_qs = payments_qs.filter(payment_date__gte=date_from)
+    if date_to:
+        payments_qs = payments_qs.filter(payment_date__lte=date_to)
+
+    total_paid = payments_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0")
     outstanding = total_invoiced - total_paid
     projects_count = invoices.values("project_id").distinct().count()
+
+    # CA by year
+    from django.db.models.functions import ExtractYear
+
+    ca_by_year = {}
+    yearly = (
+        Invoice.objects.filter(client_id=client_id, tenant_id=tenant_id)
+        .annotate(year=ExtractYear("date_created"))
+        .values("year")
+        .annotate(total=Sum("total_amount"))
+        .order_by("-year")
+    )
+    for row in yearly:
+        if row["year"]:
+            ca_by_year[str(row["year"])] = str(row["total"] or 0)
 
     return {
         "total_ca": str(total_invoiced),
         "total_paid": str(total_paid),
         "invoices_outstanding": str(outstanding),
         "projects_count": projects_count,
+        "ca_by_year": ca_by_year,
     }
 
 
