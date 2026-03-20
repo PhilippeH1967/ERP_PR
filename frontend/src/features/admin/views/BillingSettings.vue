@@ -34,7 +34,13 @@ async function fetchData() {
 }
 
 // Template CRUD
-function openCreateTmpl() { editTmplId.value = null; tmplForm.value = { name: '', description: '', template_config: '{}' }; showTmplForm.value = true }
+const defaultTemplateConfig = JSON.stringify({
+  "sections": ["forfait", "horaire", "st", "depenses", "retenue", "taxes"],
+  "logo": true,
+  "banking_footer": true,
+  "show_hours_detail": false
+}, null, 2)
+function openCreateTmpl() { editTmplId.value = null; tmplForm.value = { name: '', description: '', template_config: defaultTemplateConfig }; showTmplForm.value = true }
 function openEditTmpl(t: InvoiceTemplate) { editTmplId.value = t.id; tmplForm.value = { name: t.name, description: t.description, template_config: JSON.stringify(t.template_config, null, 2) }; showTmplForm.value = true }
 async function saveTmpl() {
   error.value = ''
@@ -79,7 +85,7 @@ onMounted(fetchData)
         <div class="card-header"><span class="card-title">Templates de facture</span><button class="btn-primary" @click="openCreateTmpl">+ Nouveau</button></div>
         <div v-if="showTmplForm" class="inline-form">
           <div class="form-row"><div class="form-group"><label>Nom</label><input v-model="tmplForm.name" required /></div><div class="form-group"><label>Description</label><input v-model="tmplForm.description" /></div></div>
-          <div class="form-group"><label>Configuration (JSON)</label><textarea v-model="tmplForm.template_config" rows="3" class="mono-input" /></div>
+          <div class="form-group"><label>Configuration (JSON)</label><textarea v-model="tmplForm.template_config" rows="6" class="mono-input" /><span class="field-hint">Sections possibles : forfait, horaire, st, depenses, retenue, taxes</span></div>
           <div class="form-actions"><button class="btn-ghost" @click="showTmplForm=false">Annuler</button><button class="btn-primary" @click="saveTmpl">{{ editTmplId ? 'Enregistrer' : 'Créer' }}</button></div>
         </div>
         <table v-if="templates.length">
@@ -155,4 +161,5 @@ onMounted(fetchData)
 .empty { text-align: center; padding: 24px; color: var(--color-gray-400); font-size: 13px; }
 .tax-grid { display: flex; gap: 24px; } .tax-label { font-size: 11px; font-weight: 600; color: var(--color-gray-500); text-transform: uppercase; display: block; } .tax-value { font-size: 20px; font-weight: 700; font-family: var(--font-mono); color: var(--color-gray-800); }
 .info-note { font-size: 12px; color: var(--color-gray-500); }
+.field-hint { display: block; font-size: 10px; color: var(--color-gray-400); margin-top: 2px; }
 </style>
