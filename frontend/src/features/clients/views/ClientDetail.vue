@@ -324,7 +324,6 @@ async function deleteClient() {
               </div>
             </div>
           </template>
-          </div>
         </div>
       </div>
 
