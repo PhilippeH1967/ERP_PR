@@ -23,7 +23,7 @@ const route = useRoute()
 const router = useRouter()
 const orgId = Number(route.params.id)
 
-interface BankingInfo { institution?: string; transit?: string; account?: string }
+interface BankingInfo { institution?: string; transit?: string; account?: string; bank_name?: string; bank_address?: string }
 interface Org {
   id: number; name: string; neq: string; address: string; city: string; province: string
   postal_code: string; country: string; contact_name: string; contact_email: string; contact_phone: string
@@ -155,9 +155,11 @@ onMounted(fetch)
           </div>
         </div>
       </div>
-      <div v-if="org.banking_info?.institution || org.banking_info?.transit || org.banking_info?.account" class="card" style="margin-top: 12px;">
+      <div v-if="org.banking_info?.bank_name || org.banking_info?.institution || org.banking_info?.transit || org.banking_info?.account" class="card" style="margin-top: 12px;">
         <h3 class="card-title">Coordonnées bancaires</h3>
         <div class="info-pairs">
+          <div><span>Nom de la banque</span><p>{{ org.banking_info?.bank_name || '—' }}</p></div>
+          <div><span>Adresse banque</span><p>{{ org.banking_info?.bank_address || '—' }}</p></div>
           <div><span>Institution</span><p>{{ org.banking_info?.institution || '—' }}</p></div>
           <div><span>Transit</span><p>{{ org.banking_info?.transit || '—' }}</p></div>
           <div><span>Compte</span><p>{{ org.banking_info?.account || '—' }}</p></div>
@@ -201,9 +203,11 @@ onMounted(fetch)
           <div class="form-group"><label>Contact nom</label><input v-model="form.contact_name" /></div>
           <div class="form-group"><label>Contact email</label><input v-model="form.contact_email" /></div>
           <div class="form-group"><label>Contact téléphone</label><input v-model="form.contact_phone" /></div>
-          <div class="form-group"><label>Banque — Institution</label><input v-model="(form.banking_info as BankingInfo).institution" placeholder="815" /></div>
-          <div class="form-group"><label>Banque — Transit</label><input v-model="(form.banking_info as BankingInfo).transit" placeholder="30000" /></div>
-          <div class="form-group"><label>Banque — Compte</label><input v-model="(form.banking_info as BankingInfo).account" placeholder="1234567" /></div>
+          <div class="form-group"><label>Nom de la banque</label><input v-model="(form.banking_info as BankingInfo).bank_name" placeholder="Banque Nationale" /></div>
+          <div class="form-group"><label>Adresse banque</label><input v-model="(form.banking_info as BankingInfo).bank_address" placeholder="600 rue De La Gauchetière, Montréal" /></div>
+          <div class="form-group"><label>Institution</label><input v-model="(form.banking_info as BankingInfo).institution" placeholder="815" /></div>
+          <div class="form-group"><label>Transit</label><input v-model="(form.banking_info as BankingInfo).transit" placeholder="30000" /></div>
+          <div class="form-group"><label>Compte</label><input v-model="(form.banking_info as BankingInfo).account" placeholder="1234567" /></div>
         </div>
         <div class="form-actions">
           <button class="btn-ghost" @click="editing = false">Annuler</button>
