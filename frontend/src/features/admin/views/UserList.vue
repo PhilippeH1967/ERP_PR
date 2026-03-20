@@ -67,15 +67,33 @@ onMounted(fetch)
       <button class="btn-primary" @click="showCreateForm = !showCreateForm">+ Nouvel utilisateur</button>
     </div>
 
-    <div v-if="showCreateForm" class="card" style="margin-bottom: 12px;">
+    <div v-if="showCreateForm" class="card create-card">
       <div class="card-title">Nouvel utilisateur</div>
       <div v-if="error" class="alert-error">{{ error }}</div>
-      <form @submit.prevent="createUser" class="form-row-4">
-        <div class="form-group"><label>Utilisateur</label><input v-model="newUser.username" required /></div>
-        <div class="form-group"><label>Email</label><input v-model="newUser.email" type="email" required /></div>
-        <div class="form-group"><label>Mot de passe</label><input v-model="newUser.password" type="password" required /></div>
-        <div class="form-group"><label>Rôle</label><select v-model="newUser.role"><option v-for="(l, k) in roleLabels" :key="k" :value="k">{{ l }}</option></select>
-          <div style="margin-top:6px;display:flex;gap:4px;justify-content:flex-end;"><button type="button" class="btn-ghost" @click="showCreateForm=false">Annuler</button><button type="submit" class="btn-primary">Créer</button></div>
+      <form @submit.prevent="createUser">
+        <div class="create-grid">
+          <div class="form-group">
+            <label>Nom d'utilisateur *</label>
+            <input v-model="newUser.username" type="text" required placeholder="Ex: jean.dupont" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label>Email *</label>
+            <input v-model="newUser.email" type="email" required placeholder="jean.dupont@provencher-roy.com" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label>Mot de passe *</label>
+            <input v-model="newUser.password" type="password" required placeholder="Minimum 8 caractères" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label>Rôle *</label>
+            <select v-model="newUser.role" class="form-input">
+              <option v-for="(l, k) in roleLabels" :key="k" :value="k">{{ l }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="create-actions">
+          <button type="button" class="btn-ghost" @click="showCreateForm=false">Annuler</button>
+          <button type="submit" class="btn-primary">Créer l'utilisateur</button>
         </div>
       </form>
     </div>
@@ -125,8 +143,14 @@ onMounted(fetch)
 .card-title { font-size: 14px; font-weight: 600; color: var(--color-gray-800); margin-bottom: 12px; }
 .card-table { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
 .alert-error { background: var(--color-danger-light); color: var(--color-danger); padding: 8px; border-radius: 6px; font-size: 12px; margin-bottom: 10px; }
-.form-row-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--color-gray-600); margin-bottom: 4px; }
+.create-card { margin-bottom: 12px; }
+.create-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.create-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--color-gray-100); }
+.form-group { margin-bottom: 4px; }
+.form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--color-gray-700); margin-bottom: 5px; }
+.form-input { width: 100%; padding: 8px 12px; border: 1px solid var(--color-gray-300); border-radius: 6px; font-size: 13px; font-family: inherit; background: white; }
+.form-input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+.form-input::placeholder { color: var(--color-gray-400); }
 .text-muted { color: var(--color-gray-500); font-size: 12px; }
 .role-badge { display: inline-flex; padding: 1px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; margin-right: 3px; }
 .badge-blue { background: #DBEAFE; color: #1D4ED8; } .badge-amber { background: #FEF3C7; color: #92400E; }
