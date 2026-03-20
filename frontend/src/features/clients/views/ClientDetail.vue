@@ -19,6 +19,22 @@ const isEditing = ref(false)
 const showDeleteConfirm = ref(false)
 const confirmDeleteContact = ref<number | null>(null)
 const confirmDeleteAddress = ref<number | null>(null)
+const editingAddressId = ref<number | null>(null)
+const editAddressForm = ref<Record<string, unknown>>({})
+
+function startEditAddress(addr: Record<string, unknown>) {
+  editingAddressId.value = addr.id as number
+  editAddressForm.value = { ...addr }
+}
+
+async function saveAddress() {
+  if (!editingAddressId.value) return
+  try {
+    await clientApi.updateAddress(clientId, editingAddressId.value, editAddressForm.value)
+    editingAddressId.value = null
+    await store.fetchClient(clientId)
+  } catch { /* error */ }
+}
 
 interface FinancialData {
   total_ca: string
@@ -268,44 +284,46 @@ async function deleteClient() {
           :key="addr.id"
           class="mb-3 rounded border border-border p-3"
         >
-          <p class="font-medium">
-            {{ addr.address_line_1 }}
-          </p>
-          <p
-            v-if="addr.address_line_2"
-            class="text-sm text-text-muted"
-          >
-            {{ addr.address_line_2 }}
-          </p>
-          <p class="text-sm text-text-muted">
-            {{ addr.city }}, {{ addr.province }} {{ addr.postal_code }}
-          </p>
-          <div class="mt-1 flex items-center justify-between">
-           <div class="flex gap-2">
-            <span
-              v-if="addr.is_primary"
-              class="rounded bg-success/10 px-2 py-0.5 text-xs text-success"
-            >Siège social</span>
-            <span
-              v-if="addr.is_billing && addr.is_primary"
-              class="rounded bg-warning/10 px-2 py-0.5 text-xs text-warning"
-            >Facturation principale</span>
-            <span
-              v-else-if="addr.is_billing"
-              class="rounded bg-warning/10 px-2 py-0.5 text-xs text-warning"
-            >Facturation</span>
-            <span
-              v-if="!addr.is_billing && !addr.is_primary"
-              class="rounded bg-text-muted/10 px-2 py-0.5 text-xs text-text-muted"
-            >Bureau</span>
-           </div>
-            <template v-if="isEditing">
-              <template v-if="confirmDeleteAddress === addr.id">
-                <button class="text-xs text-danger font-semibold hover:underline" @click="deleteAddress(addr.id)">Confirmer</button>
-                <button class="text-xs text-text-muted hover:underline ml-1" @click="confirmDeleteAddress = null">Annuler</button>
-              </template>
-              <button v-else class="text-xs text-danger hover:underline" @click="confirmDeleteAddress = addr.id">Supprimer</button>
-            </template>
+          <!-- Edit inline mode -->
+          <template v-if="editingAddressId === addr.id">
+            <div class="grid grid-cols-2 gap-2 text-sm">
+              <input v-model="editAddressForm.address_line_1" placeholder="Adresse *" class="col-span-2 rounded border border-primary/30 px-2 py-1 text-sm" />
+              <input v-model="editAddressForm.city" placeholder="Ville *" class="rounded border border-primary/30 px-2 py-1 text-sm" />
+              <input v-model="editAddressForm.province" placeholder="Province" class="rounded border border-primary/30 px-2 py-1 text-sm" />
+              <input v-model="editAddressForm.postal_code" placeholder="Code postal" class="rounded border border-primary/30 px-2 py-1 text-sm" />
+              <div class="flex items-center gap-4">
+                <label class="flex items-center gap-1 text-xs"><input type="checkbox" v-model="editAddressForm.is_billing" /> Facturation</label>
+                <label class="flex items-center gap-1 text-xs"><input type="checkbox" v-model="editAddressForm.is_primary" /> Principale</label>
+              </div>
+            </div>
+            <div class="mt-2 flex gap-2">
+              <button class="text-xs text-primary font-semibold hover:underline" @click="saveAddress">Enregistrer</button>
+              <button class="text-xs text-text-muted hover:underline" @click="editingAddressId = null">Annuler</button>
+            </div>
+          </template>
+
+          <!-- View mode -->
+          <template v-else>
+            <p class="font-medium">{{ addr.address_line_1 }}</p>
+            <p v-if="addr.address_line_2" class="text-sm text-text-muted">{{ addr.address_line_2 }}</p>
+            <p class="text-sm text-text-muted">{{ addr.city }}, {{ addr.province }} {{ addr.postal_code }}</p>
+            <div class="mt-1 flex items-center justify-between">
+              <div class="flex gap-2">
+                <span v-if="addr.is_primary" class="rounded bg-success/10 px-2 py-0.5 text-xs text-success">Siège social</span>
+                <span v-if="addr.is_billing && addr.is_primary" class="rounded bg-warning/10 px-2 py-0.5 text-xs text-warning">Facturation principale</span>
+                <span v-else-if="addr.is_billing" class="rounded bg-warning/10 px-2 py-0.5 text-xs text-warning">Facturation</span>
+                <span v-if="!addr.is_billing && !addr.is_primary" class="rounded bg-text-muted/10 px-2 py-0.5 text-xs text-text-muted">Bureau</span>
+              </div>
+              <div v-if="isEditing" class="flex gap-2">
+                <button class="text-xs text-primary hover:underline" @click="startEditAddress(addr)">Modifier</button>
+                <template v-if="confirmDeleteAddress === addr.id">
+                  <button class="text-xs text-danger font-semibold hover:underline" @click="deleteAddress(addr.id)">Confirmer</button>
+                  <button class="text-xs text-text-muted hover:underline" @click="confirmDeleteAddress = null">Annuler</button>
+                </template>
+                <button v-else class="text-xs text-danger hover:underline" @click="confirmDeleteAddress = addr.id">Supprimer</button>
+              </div>
+            </div>
+          </template>
           </div>
         </div>
       </div>
