@@ -33,6 +33,11 @@ class Client(TenantScopedModel, VersionedModel):
     # Billing parameters
     payment_terms_days = models.PositiveIntegerField(default=30)
     default_invoice_template = models.CharField(max_length=100, blank=True, default="")
+    tax_scheme = models.ForeignKey(
+        "core.TaxScheme", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="clients",
+        help_text="Schéma fiscal applicable (TPS+TVQ, TVH, etc.)",
+    )
     # CRM
     associe_en_charge = models.CharField(max_length=255, blank=True, default="")
     notes = models.TextField(blank=True, default="")

@@ -3,7 +3,7 @@
 from rest_framework import serializers, viewsets
 from rest_framework.permissions import IsAuthenticated
 
-from .models import BusinessUnit, LaborRule, PositionProfile, TaxConfiguration
+from .models import BusinessUnit, LaborRule, PositionProfile, TaxConfiguration, TaxRate, TaxScheme
 from .permissions import IsAdmin
 
 
@@ -22,9 +22,26 @@ class PositionProfileSerializer(serializers.ModelSerializer):
 
 
 class TaxConfigurationSerializer(serializers.ModelSerializer):
+    """DEPRECATED — kept for backward compatibility."""
     class Meta:
         model = TaxConfiguration
         fields = ["id", "legal_entity", "tps_rate", "tvq_rate", "is_active", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
+class TaxRateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaxRate
+        fields = ["id", "tax_type", "label", "rate", "is_active"]
+        read_only_fields = ["id"]
+
+
+class TaxSchemeSerializer(serializers.ModelSerializer):
+    rates = TaxRateSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = TaxScheme
+        fields = ["id", "name", "province", "description", "is_default", "is_active", "rates", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
@@ -75,6 +92,7 @@ class PositionProfileViewSet(_TenantCreateMixin, viewsets.ModelViewSet):
 
 
 class TaxConfigurationViewSet(_TenantCreateMixin, viewsets.ModelViewSet):
+    """DEPRECATED — use TaxSchemeViewSet."""
     serializer_class = TaxConfigurationSerializer
     permission_classes = [IsAdmin]
 
@@ -83,6 +101,35 @@ class TaxConfigurationViewSet(_TenantCreateMixin, viewsets.ModelViewSet):
         if hasattr(self.request, "tenant_id") and self.request.tenant_id:
             qs = qs.filter(tenant_id=self.request.tenant_id)
         return qs
+
+
+class TaxSchemeViewSet(_TenantCreateMixin, viewsets.ModelViewSet):
+    serializer_class = TaxSchemeSerializer
+    permission_classes = [IsAdmin]
+
+    def get_queryset(self):
+        qs = TaxScheme.objects.prefetch_related("rates").all()
+        if hasattr(self.request, "tenant_id") and self.request.tenant_id:
+            qs = qs.filter(tenant_id=self.request.tenant_id)
+        return qs
+
+
+class TaxRateViewSet(_TenantCreateMixin, viewsets.ModelViewSet):
+    serializer_class = TaxRateSerializer
+    permission_classes = [IsAdmin]
+
+    def get_queryset(self):
+        qs = TaxRate.objects.all()
+        scheme_id = self.kwargs.get("scheme_pk")
+        if scheme_id:
+            qs = qs.filter(scheme_id=scheme_id)
+        if hasattr(self.request, "tenant_id") and self.request.tenant_id:
+            qs = qs.filter(tenant_id=self.request.tenant_id)
+        return qs
+
+    def perform_create(self, serializer):
+        scheme = TaxScheme.objects.get(pk=self.kwargs["scheme_pk"])
+        serializer.save(scheme=scheme, tenant=scheme.tenant)
 
 
 class LaborRuleViewSet(_TenantCreateMixin, viewsets.ModelViewSet):

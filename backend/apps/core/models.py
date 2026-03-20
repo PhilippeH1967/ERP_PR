@@ -242,10 +242,60 @@ class PositionProfile(TenantScopedModel):
         return self.name
 
 
-class TaxConfiguration(TenantScopedModel):
-    """Tax rates per legal entity (FR83 — TPS/TVQ configurables)."""
+class TaxScheme(TenantScopedModel):
+    """
+    Tax scheme grouping multiple tax rates (FR83).
 
-    legal_entity = models.CharField(max_length=255, help_text="Ex: Provencher Roy Productions, PRAA")
+    Examples: "Québec TPS+TVQ", "Ontario TVH", "Alberta GST only"
+    Can be assigned to clients or legal entities.
+    """
+
+    name = models.CharField(max_length=255, help_text="Ex: Québec TPS+TVQ, Ontario TVH")
+    province = models.CharField(max_length=100, blank=True, default="")
+    description = models.TextField(blank=True, default="")
+    is_default = models.BooleanField(default=False, help_text="Schéma par défaut pour les nouveaux clients")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "core_tax_scheme"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class TaxRate(TenantScopedModel):
+    """Individual tax rate within a scheme."""
+
+    TAX_TYPE_CHOICES = [
+        ("TPS", "TPS (Taxe fédérale)"),
+        ("TVQ", "TVQ (Taxe Québec)"),
+        ("TVH", "TVH (Taxe harmonisée)"),
+        ("GST", "GST (Federal goods & services)"),
+        ("PST", "PST (Provincial sales tax)"),
+        ("HST", "HST (Harmonized sales tax)"),
+        ("OTHER", "Autre taxe"),
+    ]
+
+    scheme = models.ForeignKey(TaxScheme, on_delete=models.CASCADE, related_name="rates")
+    tax_type = models.CharField(max_length=10, choices=TAX_TYPE_CHOICES)
+    label = models.CharField(max_length=100, blank=True, default="", help_text="Libellé personnalisé si nécessaire")
+    rate = models.DecimalField(max_digits=6, decimal_places=3, help_text="Taux en pourcentage (ex: 9.975)")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "core_tax_rate"
+        ordering = ["scheme", "tax_type"]
+
+    def __str__(self):
+        return f"{self.tax_type} {self.rate}%"
+
+
+# Keep TaxConfiguration for backward compatibility (migration)
+class TaxConfiguration(TenantScopedModel):
+    """DEPRECATED — Use TaxScheme + TaxRate instead."""
+
+    legal_entity = models.CharField(max_length=255)
     tps_rate = models.DecimalField(max_digits=5, decimal_places=3, default=5.000)
     tvq_rate = models.DecimalField(max_digits=5, decimal_places=3, default=9.975)
     is_active = models.BooleanField(default=True)

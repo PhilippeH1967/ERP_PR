@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 
-from .models import BusinessUnit, Delegation, LaborRule, PositionProfile, ProjectRole, TaxConfiguration, Tenant, UserTenantAssociation
+from .models import BusinessUnit, Delegation, LaborRule, PositionProfile, ProjectRole, TaxConfiguration, TaxRate, TaxScheme, Tenant, UserTenantAssociation
 
 
 @admin.register(Tenant)
@@ -51,6 +51,23 @@ class PositionProfileAdmin(admin.ModelAdmin):
 class TaxConfigurationAdmin(admin.ModelAdmin):
     list_display = ("legal_entity", "tps_rate", "tvq_rate", "is_active")
     list_editable = ("tps_rate", "tvq_rate")
+
+
+class TaxRateInline(admin.TabularInline):
+    model = TaxRate
+    extra = 1
+
+
+@admin.register(TaxScheme)
+class TaxSchemeAdmin(admin.ModelAdmin):
+    list_display = ("name", "province", "is_default", "is_active")
+    list_filter = ("is_default", "is_active")
+    inlines = [TaxRateInline]
+
+
+@admin.register(TaxRate)
+class TaxRateAdmin(admin.ModelAdmin):
+    list_display = ("scheme", "tax_type", "rate", "is_active")
 
 
 @admin.register(LaborRule)

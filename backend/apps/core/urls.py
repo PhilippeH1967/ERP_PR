@@ -13,13 +13,19 @@ from apps.core.config_views import (
     LaborRuleViewSet,
     PositionProfileViewSet,
     TaxConfigurationViewSet,
+    TaxRateViewSet,
+    TaxSchemeViewSet,
 )
 
 config_router = DefaultRouter()
 config_router.register(r"business_units", BusinessUnitViewSet, basename="business-unit")
 config_router.register(r"position_profiles", PositionProfileViewSet, basename="position-profile")
 config_router.register(r"tax_configurations", TaxConfigurationViewSet, basename="tax-configuration")
+config_router.register(r"tax_schemes", TaxSchemeViewSet, basename="tax-scheme")
 config_router.register(r"labor_rules", LaborRuleViewSet, basename="labor-rule")
+
+tax_rate_router = DefaultRouter()
+tax_rate_router.register(r"rates", TaxRateViewSet, basename="tax-rate")
 
 from apps.core.auth import (
     CustomTokenObtainPairView,
@@ -87,6 +93,7 @@ urlpatterns = [
     path("health/", health_check, name="health-check"),
     # Admin configuration CRUD
     path("", include(config_router.urls)),
+    path("tax_schemes/<int:scheme_pk>/", include(tax_rate_router.urls)),
     # JWT Authentication endpoints
     path("auth/token/", CustomTokenObtainPairView.as_view(), name="token-obtain"),
     path("auth/token/refresh/", CustomTokenRefreshView.as_view(), name="token-refresh"),

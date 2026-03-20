@@ -21,12 +21,25 @@ const showPosForm = ref(false)
 const editPosId = ref<number | null>(null)
 const posForm = ref({ name: '', code: '', category: '', hourly_cost_rate: '' })
 
-// Tax Configurations
-interface TaxConfig { id: number; legal_entity: string; tps_rate: string; tvq_rate: string; is_active: boolean }
-const taxes = ref<TaxConfig[]>([])
-const showTaxForm = ref(false)
-const editTaxId = ref<number | null>(null)
-const taxForm = ref({ legal_entity: '', tps_rate: '5.000', tvq_rate: '9.975' })
+// Tax Schemes
+interface TaxRateItem { id: number; tax_type: string; label: string; rate: string; is_active: boolean }
+interface TaxScheme { id: number; name: string; province: string; description: string; is_default: boolean; is_active: boolean; rates: TaxRateItem[] }
+const schemes = ref<TaxScheme[]>([])
+const showSchemeForm = ref(false)
+const editSchemeId = ref<number | null>(null)
+const schemeForm = ref({ name: '', province: '', description: '' })
+// Rate form
+const showRateForm = ref<number | null>(null) // scheme id
+const rateForm = ref({ tax_type: 'TPS', rate: '5.000', label: '' })
+const taxTypes = [
+  { value: 'TPS', label: 'TPS (Taxe fédérale)' },
+  { value: 'TVQ', label: 'TVQ (Taxe Québec)' },
+  { value: 'TVH', label: 'TVH (Taxe harmonisée)' },
+  { value: 'GST', label: 'GST (Federal)' },
+  { value: 'PST', label: 'PST (Provincial)' },
+  { value: 'HST', label: 'HST (Harmonized)' },
+  { value: 'OTHER', label: 'Autre' },
+]
 
 // Labor Rules
 interface LaborRule { id: number; name: string; weekly_hours: string; daily_hours: string; overtime_threshold_weekly: string; statutory_holidays: string[]; rest_days: number[]; is_active: boolean }
@@ -44,7 +57,7 @@ async function fetchAll() {
   const endpoints = [
     { key: 'bu', url: 'business_units/' },
     { key: 'pos', url: 'position_profiles/' },
-    { key: 'tax', url: 'tax_configurations/' },
+    { key: 'tax', url: 'tax_schemes/' },
     { key: 'rule', url: 'labor_rules/' },
   ]
   for (const ep of endpoints) {
@@ -54,7 +67,7 @@ async function fetchAll() {
       const list = Array.isArray(d) ? d : d?.results || []
       if (ep.key === 'bu') bus.value = list
       if (ep.key === 'pos') positions.value = list
-      if (ep.key === 'tax') taxes.value = list
+      if (ep.key === 'tax') schemes.value = list
       if (ep.key === 'rule') rules.value = list
     } catch { /* silent */ }
   }
@@ -84,16 +97,29 @@ async function savePos() {
 async function deletePos(id: number) { confirmDelete.value = null; positions.value = positions.value.filter(p => p.id !== id); try { await apiClient.delete(`position_profiles/${id}/`) } catch { /* ok */ } }
 function editPos(p: Position) { editPosId.value = p.id; posForm.value = { name: p.name, code: p.code, category: p.category, hourly_cost_rate: p.hourly_cost_rate || '' }; showPosForm.value = true }
 
-async function saveTax() {
+async function saveScheme() {
   error.value = ''
   try {
-    if (editTaxId.value) await apiClient.patch(`tax_configurations/${editTaxId.value}/`, taxForm.value)
-    else await apiClient.post('tax_configurations/', taxForm.value)
-    showTaxForm.value = false; editTaxId.value = null; await fetchAll()
+    if (editSchemeId.value) await apiClient.patch(`tax_schemes/${editSchemeId.value}/`, schemeForm.value)
+    else await apiClient.post('tax_schemes/', schemeForm.value)
+    showSchemeForm.value = false; editSchemeId.value = null; await fetchAll()
   } catch { error.value = 'Erreur' }
 }
-async function deleteTax(id: number) { confirmDelete.value = null; taxes.value = taxes.value.filter(t => t.id !== id); try { await apiClient.delete(`tax_configurations/${id}/`) } catch { /* ok */ } }
-function editTax(t: TaxConfig) { editTaxId.value = t.id; taxForm.value = { legal_entity: t.legal_entity, tps_rate: t.tps_rate, tvq_rate: t.tvq_rate }; showTaxForm.value = true }
+async function deleteScheme(id: number) { confirmDelete.value = null; schemes.value = schemes.value.filter(s => s.id !== id); try { await apiClient.delete(`tax_schemes/${id}/`) } catch { /* ok */ } }
+function editScheme(s: TaxScheme) { editSchemeId.value = s.id; schemeForm.value = { name: s.name, province: s.province, description: s.description }; showSchemeForm.value = true }
+
+async function addRate(schemeId: number) {
+  error.value = ''
+  try {
+    await apiClient.post(`tax_schemes/${schemeId}/rates/`, rateForm.value)
+    showRateForm.value = null; rateForm.value = { tax_type: 'TPS', rate: '5.000', label: '' }; await fetchAll()
+  } catch { error.value = 'Erreur lors de l\'ajout du taux' }
+}
+async function deleteRate(schemeId: number, rateId: number) {
+  const scheme = schemes.value.find(s => s.id === schemeId)
+  if (scheme) scheme.rates = scheme.rates.filter(r => r.id !== rateId)
+  try { await apiClient.delete(`tax_schemes/${schemeId}/rates/${rateId}/`) } catch { /* ok */ }
+}
 
 async function saveRule() {
   error.value = ''
@@ -137,7 +163,7 @@ onMounted(fetchAll)
     <div class="tabs">
       <button :class="{ active: activeTab === 'bu' }" @click="activeTab = 'bu'">Unités d'affaires ({{ bus.length }})</button>
       <button :class="{ active: activeTab === 'positions' }" @click="activeTab = 'positions'">Profils de poste ({{ positions.length }})</button>
-      <button :class="{ active: activeTab === 'taxes' }" @click="activeTab = 'taxes'">Taxes ({{ taxes.length }})</button>
+      <button :class="{ active: activeTab === 'taxes' }" @click="activeTab = 'taxes'">Schémas fiscaux ({{ schemes.length }})</button>
       <button :class="{ active: activeTab === 'labor' }" @click="activeTab = 'labor'">Règles RH ({{ rules.length }})</button>
     </div>
 
@@ -211,38 +237,61 @@ onMounted(fetchAll)
       </div>
     </template>
 
-    <!-- ═══ Tax Configurations ═══ -->
+    <!-- ═══ Tax Schemes ═══ -->
     <template v-if="activeTab === 'taxes' && !isLoading">
-      <div class="section-actions"><button class="btn-primary" @click="showTaxForm = true; editTaxId = null; taxForm = { legal_entity: '', tps_rate: '5.000', tvq_rate: '9.975' }">+ Nouvelle entité</button></div>
-      <div v-if="showTaxForm" class="card form-card">
+      <p class="info-text">Chaque schéma fiscal regroupe les taxes applicables (TPS+TVQ, TVH, etc.) et peut être assigné à un client.</p>
+      <div class="section-actions"><button class="btn-primary" @click="showSchemeForm = true; editSchemeId = null; schemeForm = { name: '', province: '', description: '' }">+ Nouveau schéma</button></div>
+      <div v-if="showSchemeForm" class="card form-card">
         <div class="form-row-3">
-          <div class="form-group"><label>Entité juridique *</label><input v-model="taxForm.legal_entity" required placeholder="Provencher Roy Productions" /></div>
-          <div class="form-group"><label>TPS (%)</label><input v-model="taxForm.tps_rate" type="number" step="0.001" /></div>
-          <div class="form-group"><label>TVQ (%)</label><input v-model="taxForm.tvq_rate" type="number" step="0.001" /></div>
+          <div class="form-group"><label>Nom *</label><input v-model="schemeForm.name" required placeholder="Québec TPS+TVQ" /></div>
+          <div class="form-group"><label>Province</label><input v-model="schemeForm.province" placeholder="Québec, Ontario..." /></div>
+          <div class="form-group"><label>Description</label><input v-model="schemeForm.description" placeholder="Applicable aux clients QC" /></div>
         </div>
-        <div class="form-actions"><button class="btn-ghost" @click="showTaxForm = false">Annuler</button><button class="btn-primary" @click="saveTax">{{ editTaxId ? 'Enregistrer' : 'Créer' }}</button></div>
+        <div class="form-actions"><button class="btn-ghost" @click="showSchemeForm = false">Annuler</button><button class="btn-primary" @click="saveScheme">{{ editSchemeId ? 'Enregistrer' : 'Créer' }}</button></div>
       </div>
-      <div class="card-table">
-        <table>
-          <thead><tr><th>Entité juridique</th><th>TPS</th><th>TVQ</th><th style="text-align:right">Actions</th></tr></thead>
-          <tbody>
-            <tr v-for="t in taxes" :key="t.id">
-              <td class="font-semibold">{{ t.legal_entity }}</td>
-              <td class="font-mono">{{ t.tps_rate }}%</td>
-              <td class="font-mono">{{ t.tvq_rate }}%</td>
-              <td class="actions-cell">
-                <button class="btn-action" @click="editTax(t)">Modifier</button>
-                <template v-if="confirmDelete?.type === 'tax' && confirmDelete?.id === t.id">
-                  <button class="btn-action danger" @click="deleteTax(t.id)">Confirmer</button>
-                  <button class="btn-action" @click="confirmDelete = null">Annuler</button>
-                </template>
-                <button v-else class="btn-action danger" @click="confirmDelete = { type: 'tax', id: t.id }">Supprimer</button>
-              </td>
-            </tr>
-            <tr v-if="!taxes.length"><td colspan="4" class="empty">Aucune configuration de taxes</td></tr>
-          </tbody>
-        </table>
+
+      <div v-for="s in schemes" :key="s.id" class="card scheme-card">
+        <div class="scheme-header">
+          <div>
+            <span class="font-semibold">{{ s.name }}</span>
+            <span v-if="s.province" class="text-muted ml-2">({{ s.province }})</span>
+            <span v-if="s.is_default" class="badge-default">Par défaut</span>
+          </div>
+          <div class="actions-cell">
+            <button class="btn-action" @click="editScheme(s)">Modifier</button>
+            <button class="btn-action" @click="showRateForm = showRateForm === s.id ? null : s.id">+ Taxe</button>
+            <template v-if="confirmDelete?.type === 'tax' && confirmDelete?.id === s.id">
+              <button class="btn-action danger" @click="deleteScheme(s.id)">Confirmer</button>
+              <button class="btn-action" @click="confirmDelete = null">Annuler</button>
+            </template>
+            <button v-else class="btn-action danger" @click="confirmDelete = { type: 'tax', id: s.id }">Supprimer</button>
+          </div>
+        </div>
+
+        <!-- Add rate form -->
+        <div v-if="showRateForm === s.id" class="rate-form">
+          <select v-model="rateForm.tax_type" class="rate-select">
+            <option v-for="tt in taxTypes" :key="tt.value" :value="tt.value">{{ tt.label }}</option>
+          </select>
+          <input v-model="rateForm.rate" type="number" step="0.001" placeholder="Taux %" class="rate-input" />
+          <input v-model="rateForm.label" placeholder="Libellé (optionnel)" class="rate-input" />
+          <button class="btn-primary" @click="addRate(s.id)">Ajouter</button>
+          <button class="btn-ghost" @click="showRateForm = null">Annuler</button>
+        </div>
+
+        <!-- Rates list -->
+        <div v-if="s.rates?.length" class="rates-list">
+          <div v-for="r in s.rates" :key="r.id" class="rate-row">
+            <span class="rate-type">{{ r.tax_type }}</span>
+            <span class="rate-value">{{ r.rate }}%</span>
+            <span v-if="r.label" class="rate-label">{{ r.label }}</span>
+            <button class="btn-action danger" @click="deleteRate(s.id, r.id)">×</button>
+          </div>
+        </div>
+        <p v-else class="empty-small">Aucune taxe — cliquez "+ Taxe" pour ajouter</p>
       </div>
+
+      <div v-if="!schemes.length" class="card empty">Aucun schéma fiscal configuré</div>
     </template>
 
     <!-- ═══ Labor Rules ═══ -->
@@ -319,4 +368,18 @@ onMounted(fetchAll)
 .btn-action.danger { color: var(--color-danger); }
 .empty { text-align: center; padding: 24px; color: var(--color-gray-400); }
 .field-hint { display: block; font-size: 10px; color: var(--color-gray-400); margin-top: 2px; }
+.info-text { font-size: 12px; color: var(--color-gray-500); margin-bottom: 12px; line-height: 1.5; }
+.scheme-card { margin-bottom: 10px; }
+.scheme-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.badge-default { font-size: 9px; font-weight: 600; background: var(--color-primary-light); color: var(--color-primary); padding: 1px 6px; border-radius: 8px; margin-left: 6px; }
+.ml-2 { margin-left: 8px; }
+.rate-form { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding: 8px; background: var(--color-gray-50); border-radius: 4px; }
+.rate-select { padding: 4px 8px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; }
+.rate-input { padding: 4px 8px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; width: 100px; }
+.rates-list { display: flex; flex-direction: column; gap: 4px; }
+.rate-row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: var(--color-gray-50); border-radius: 4px; font-size: 12px; }
+.rate-type { font-weight: 600; color: var(--color-primary); min-width: 40px; }
+.rate-value { font-family: var(--font-mono); font-weight: 600; min-width: 60px; }
+.rate-label { color: var(--color-gray-500); }
+.empty-small { font-size: 11px; color: var(--color-gray-400); padding: 6px 0; }
 </style>
