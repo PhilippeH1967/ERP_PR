@@ -173,13 +173,11 @@ async function deleteAddress(addressId: number) {
 }
 
 async function deleteClient() {
-  if (!confirm('Supprimer définitivement ce client ?')) return
+  showDeleteConfirm.value = false
   try {
     await clientApi.delete(clientId)
-    router.push('/clients')
-  } catch {
-    // error
-  }
+  } catch { /* error */ }
+  router.push('/clients')
 }
 </script>
 
