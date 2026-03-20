@@ -73,7 +73,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["code", "name"]
-    filterset_fields = ["status", "contract_type", "is_internal"]
+    filterset_fields = ["status", "contract_type", "is_internal", "client"]
     ordering_fields = ["code", "name", "created_at", "start_date"]
     ordering = ["-created_at"]
 
