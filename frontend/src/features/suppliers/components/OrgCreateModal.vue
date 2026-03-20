@@ -138,18 +138,18 @@ async function doCreate() {
 
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="text-xs font-medium text-text-muted">Ville</label>
+          <label class="text-xs font-medium text-text-muted">Ville *</label>
           <input v-model="form.city" type="text" class="mt-1 w-full rounded-md border border-border px-3 py-1.5 text-sm" />
         </div>
         <div>
-          <label class="text-xs font-medium text-text-muted">Code postal</label>
+          <label class="text-xs font-medium text-text-muted">Code postal *</label>
           <input v-model="form.postal_code" type="text" class="mt-1 w-full rounded-md border border-border px-3 py-1.5 text-sm" />
         </div>
       </div>
 
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="text-xs font-medium text-text-muted">Pays</label>
+          <label class="text-xs font-medium text-text-muted">Pays *</label>
           <select v-model="selectedCountryCode" @change="onCountryChange" class="mt-1 w-full rounded-md border border-border px-3 py-1.5 text-sm">
             <option v-for="c in countries" :key="c.code" :value="c.code">{{ c.name }}</option>
           </select>
