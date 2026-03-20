@@ -36,6 +36,7 @@ const editRuleId = ref<number | null>(null)
 const ruleForm = ref({ name: '', weekly_hours: '40.0', daily_hours: '8.0', overtime_threshold_weekly: '40.0', overtime_threshold_daily: '8.0', statutory_holidays: '[]', rest_days: '[5, 6]' })
 
 const error = ref('')
+const confirmDelete = ref<{ type: string; id: number } | null>(null)
 
 // Fetch all
 async function fetchAll() {
@@ -69,7 +70,7 @@ async function saveBU() {
     showBUForm.value = false; editBUId.value = null; await fetchAll()
   } catch { error.value = 'Erreur' }
 }
-async function deleteBU(id: number) { bus.value = bus.value.filter(b => b.id !== id); try { await apiClient.delete(`business_units/${id}/`) } catch { /* ok */ } }
+async function deleteBU(id: number) { confirmDelete.value = null; bus.value = bus.value.filter(b => b.id !== id); try { await apiClient.delete(`business_units/${id}/`) } catch { /* ok */ } }
 function editBU(b: BU) { editBUId.value = b.id; buForm.value = { name: b.name, code: b.code }; showBUForm.value = true }
 
 async function savePos() {
@@ -80,7 +81,7 @@ async function savePos() {
     showPosForm.value = false; editPosId.value = null; await fetchAll()
   } catch { error.value = 'Erreur' }
 }
-async function deletePos(id: number) { positions.value = positions.value.filter(p => p.id !== id); try { await apiClient.delete(`position_profiles/${id}/`) } catch { /* ok */ } }
+async function deletePos(id: number) { confirmDelete.value = null; positions.value = positions.value.filter(p => p.id !== id); try { await apiClient.delete(`position_profiles/${id}/`) } catch { /* ok */ } }
 function editPos(p: Position) { editPosId.value = p.id; posForm.value = { name: p.name, code: p.code, category: p.category, hourly_cost_rate: p.hourly_cost_rate || '' }; showPosForm.value = true }
 
 async function saveTax() {
@@ -91,7 +92,7 @@ async function saveTax() {
     showTaxForm.value = false; editTaxId.value = null; await fetchAll()
   } catch { error.value = 'Erreur' }
 }
-async function deleteTax(id: number) { taxes.value = taxes.value.filter(t => t.id !== id); try { await apiClient.delete(`tax_configurations/${id}/`) } catch { /* ok */ } }
+async function deleteTax(id: number) { confirmDelete.value = null; taxes.value = taxes.value.filter(t => t.id !== id); try { await apiClient.delete(`tax_configurations/${id}/`) } catch { /* ok */ } }
 function editTax(t: TaxConfig) { editTaxId.value = t.id; taxForm.value = { legal_entity: t.legal_entity, tps_rate: t.tps_rate, tvq_rate: t.tvq_rate }; showTaxForm.value = true }
 
 async function saveRule() {
@@ -107,7 +108,7 @@ async function saveRule() {
     showRuleForm.value = false; editRuleId.value = null; await fetchAll()
   } catch { error.value = 'Erreur — vérifiez le format JSON des congés/jours repos' }
 }
-async function deleteRule(id: number) { rules.value = rules.value.filter(r => r.id !== id); try { await apiClient.delete(`labor_rules/${id}/`) } catch { /* ok */ } }
+async function deleteRule(id: number) { confirmDelete.value = null; rules.value = rules.value.filter(r => r.id !== id); try { await apiClient.delete(`labor_rules/${id}/`) } catch { /* ok */ } }
 function editRule(r: LaborRule) {
   editRuleId.value = r.id
   ruleForm.value = {
@@ -159,7 +160,14 @@ onMounted(fetchAll)
             <tr v-for="b in bus" :key="b.id">
               <td class="font-semibold">{{ b.name }}</td>
               <td class="font-mono text-muted">{{ b.code || '—' }}</td>
-              <td class="actions-cell"><button class="btn-action" @click="editBU(b)">Modifier</button><button class="btn-action danger" @click="deleteBU(b.id)">Supprimer</button></td>
+              <td class="actions-cell">
+                <button class="btn-action" @click="editBU(b)">Modifier</button>
+                <template v-if="confirmDelete?.type === 'bu' && confirmDelete?.id === b.id">
+                  <button class="btn-action danger" @click="deleteBU(b.id)">Confirmer</button>
+                  <button class="btn-action" @click="confirmDelete = null">Annuler</button>
+                </template>
+                <button v-else class="btn-action danger" @click="confirmDelete = { type: 'bu', id: b.id }">Supprimer</button>
+              </td>
             </tr>
             <tr v-if="!bus.length"><td colspan="3" class="empty">Aucune unité d'affaires</td></tr>
           </tbody>
@@ -188,7 +196,14 @@ onMounted(fetchAll)
               <td class="font-mono text-muted">{{ p.code || '—' }}</td>
               <td>{{ p.category || '—' }}</td>
               <td class="font-mono">{{ p.hourly_cost_rate ? `${p.hourly_cost_rate} $` : '—' }}</td>
-              <td class="actions-cell"><button class="btn-action" @click="editPos(p)">Modifier</button><button class="btn-action danger" @click="deletePos(p.id)">Supprimer</button></td>
+              <td class="actions-cell">
+                <button class="btn-action" @click="editPos(p)">Modifier</button>
+                <template v-if="confirmDelete?.type === 'pos' && confirmDelete?.id === p.id">
+                  <button class="btn-action danger" @click="deletePos(p.id)">Confirmer</button>
+                  <button class="btn-action" @click="confirmDelete = null">Annuler</button>
+                </template>
+                <button v-else class="btn-action danger" @click="confirmDelete = { type: 'pos', id: p.id }">Supprimer</button>
+              </td>
             </tr>
             <tr v-if="!positions.length"><td colspan="5" class="empty">Aucun profil de poste</td></tr>
           </tbody>
@@ -215,7 +230,14 @@ onMounted(fetchAll)
               <td class="font-semibold">{{ t.legal_entity }}</td>
               <td class="font-mono">{{ t.tps_rate }}%</td>
               <td class="font-mono">{{ t.tvq_rate }}%</td>
-              <td class="actions-cell"><button class="btn-action" @click="editTax(t)">Modifier</button><button class="btn-action danger" @click="deleteTax(t.id)">Supprimer</button></td>
+              <td class="actions-cell">
+                <button class="btn-action" @click="editTax(t)">Modifier</button>
+                <template v-if="confirmDelete?.type === 'tax' && confirmDelete?.id === t.id">
+                  <button class="btn-action danger" @click="deleteTax(t.id)">Confirmer</button>
+                  <button class="btn-action" @click="confirmDelete = null">Annuler</button>
+                </template>
+                <button v-else class="btn-action danger" @click="confirmDelete = { type: 'tax', id: t.id }">Supprimer</button>
+              </td>
             </tr>
             <tr v-if="!taxes.length"><td colspan="4" class="empty">Aucune configuration de taxes</td></tr>
           </tbody>
@@ -252,7 +274,14 @@ onMounted(fetchAll)
               <td class="font-mono">{{ r.daily_hours }}h</td>
               <td class="font-mono">{{ r.overtime_threshold_weekly }}h</td>
               <td class="text-muted">{{ r.statutory_holidays?.length || 0 }} jours</td>
-              <td class="actions-cell"><button class="btn-action" @click="editRule(r)">Modifier</button><button class="btn-action danger" @click="deleteRule(r.id)">Supprimer</button></td>
+              <td class="actions-cell">
+                <button class="btn-action" @click="editRule(r)">Modifier</button>
+                <template v-if="confirmDelete?.type === 'rule' && confirmDelete?.id === r.id">
+                  <button class="btn-action danger" @click="deleteRule(r.id)">Confirmer</button>
+                  <button class="btn-action" @click="confirmDelete = null">Annuler</button>
+                </template>
+                <button v-else class="btn-action danger" @click="confirmDelete = { type: 'rule', id: r.id }">Supprimer</button>
+              </td>
             </tr>
             <tr v-if="!rules.length"><td colspan="6" class="empty">Aucune règle RH</td></tr>
           </tbody>
