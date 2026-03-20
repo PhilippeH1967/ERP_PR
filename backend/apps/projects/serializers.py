@@ -3,6 +3,7 @@
 from rest_framework import serializers
 
 from apps.core.mixins import OptimisticLockMixin
+from apps.core.serializer_mixins import CostFieldFilterMixin
 
 from .models import (
     Amendment,
@@ -16,7 +17,7 @@ from .models import (
 )
 
 
-class PhaseSerializer(serializers.ModelSerializer):
+class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
     class Meta:
         model = Phase
         fields = [
@@ -27,7 +28,7 @@ class PhaseSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
 
-class WBSElementSerializer(serializers.ModelSerializer):
+class WBSElementSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
     children = serializers.SerializerMethodField()
 
     class Meta:
@@ -44,7 +45,7 @@ class WBSElementSerializer(serializers.ModelSerializer):
         return WBSElementSerializer(children, many=True).data
 
 
-class SupportServiceSerializer(serializers.ModelSerializer):
+class SupportServiceSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
     class Meta:
         model = SupportService
         fields = [
@@ -54,7 +55,7 @@ class SupportServiceSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
 
-class ProjectSerializer(OptimisticLockMixin, serializers.ModelSerializer):
+class ProjectSerializer(CostFieldFilterMixin, OptimisticLockMixin, serializers.ModelSerializer):
     phases = PhaseSerializer(many=True, read_only=True)
     support_services = SupportServiceSerializer(many=True, read_only=True)
 

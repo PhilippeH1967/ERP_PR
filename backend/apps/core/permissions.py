@@ -76,6 +76,24 @@ def cannot_approve_own(user, owner_id):
     return user.pk != owner_id
 
 
+@rules.predicate
+def is_dept_assistant(user):
+    """User has DEPT_ASSISTANT role (FR66)."""
+    return ProjectRole.objects.filter(user=user, role=Role.DEPT_ASSISTANT).exists()
+
+
+@rules.predicate
+def is_proposal_manager(user):
+    """User has PROPOSAL_MANAGER role (FR66)."""
+    return ProjectRole.objects.filter(user=user, role=Role.PROPOSAL_MANAGER).exists()
+
+
+@rules.predicate
+def is_employee(user):
+    """User has EMPLOYEE role (FR66)."""
+    return ProjectRole.objects.filter(user=user, role=Role.EMPLOYEE).exists()
+
+
 # Register rules
 rules.add_rule("is_admin", is_admin)
 rules.add_rule("is_finance", is_finance)
@@ -85,6 +103,9 @@ rules.add_rule("is_project_director", is_project_director)
 rules.add_rule("can_approve_invoice", can_approve_invoice)
 rules.add_rule("can_see_salary_costs", can_see_salary_costs)
 rules.add_rule("cannot_approve_own", cannot_approve_own)
+rules.add_rule("is_dept_assistant", is_dept_assistant)
+rules.add_rule("is_proposal_manager", is_proposal_manager)
+rules.add_rule("is_employee", is_employee)
 
 
 # ============================================================

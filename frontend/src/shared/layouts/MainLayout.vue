@@ -4,12 +4,14 @@ import { useI18n } from 'vue-i18n'
 import { useAuth } from '@/shared/composables/useAuth'
 import { useLocale } from '@/shared/composables/useLocale'
 import apiClient from '@/plugins/axios'
+import { useIdleTimeout } from '@/shared/composables/useIdleTimeout'
 
 const { t } = useI18n()
 const { currentUser, logout } = useAuth()
 const { currentLocale, switchLocale } = useLocale()
 
 const userMenuOpen = ref(false)
+const { showWarning: showIdleWarning, remainingSeconds, dismiss: dismissIdle } = useIdleTimeout(() => logout())
 const unreadCount = ref(0)
 
 interface ActiveDelegation {
@@ -186,6 +188,12 @@ const navSections = [
         </div>
       </header>
 
+      <!-- Idle timeout warning (FR77) -->
+      <div v-if="showIdleWarning" class="idle-warning">
+        <span>Votre session expire dans <strong>{{ remainingSeconds }}s</strong> — bougez la souris pour rester connecté.</span>
+        <button @click="dismissIdle" class="idle-dismiss">Rester connecté</button>
+      </div>
+
       <!-- Delegation banner -->
       <div v-if="activeDelegation" class="delegation-banner">
         <span>Par délégation de <strong>{{ activeDelegation.delegator_name }}</strong></span>
@@ -263,6 +271,30 @@ const navSections = [
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.idle-warning {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 24px;
+  background: #FEE2E2;
+  border-bottom: 1px solid #FECACA;
+  font-size: 12px;
+  color: #DC2626;
+}
+.idle-dismiss {
+  background: white;
+  border: 1px solid #DC2626;
+  color: #DC2626;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.idle-dismiss:hover {
+  background: #FEE2E2;
 }
 
 .delegation-banner {
