@@ -1,7 +1,25 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import SlideOver from '@/shared/components/SlideOver.vue'
 import { supplierApi } from '../api/supplierApi'
+
+const countries = [
+  { code: 'CA', name: 'Canada' },
+  { code: 'US', name: 'États-Unis' },
+  { code: 'FR', name: 'France' },
+  { code: 'BE', name: 'Belgique' },
+  { code: 'CH', name: 'Suisse' },
+  { code: 'OTHER', name: 'Autre' },
+]
+
+const provincesByCountry: Record<string, string[]> = {
+  CA: ['Alberta', 'Colombie-Britannique', 'Île-du-Prince-Édouard', 'Manitoba', 'Nouveau-Brunswick', 'Nouvelle-Écosse', 'Ontario', 'Québec', 'Saskatchewan', 'Terre-Neuve-et-Labrador', 'Territoires du Nord-Ouest', 'Nunavut', 'Yukon'],
+  US: ['Alabama', 'Alaska', 'Arizona', 'California', 'Colorado', 'Connecticut', 'Florida', 'Georgia', 'Illinois', 'Massachusetts', 'Michigan', 'New York', 'Ohio', 'Pennsylvania', 'Texas', 'Washington', 'Autre'],
+  FR: ['Île-de-France', 'Auvergne-Rhône-Alpes', 'Nouvelle-Aquitaine', 'Occitanie', 'Provence-Alpes-Côte d\'Azur', 'Bretagne', 'Autre'],
+}
+
+const selectedCountryCode = ref('CA')
+const provinces = computed(() => provincesByCountry[selectedCountryCode.value] || [])
 
 defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: []; created: [] }>()
@@ -20,11 +38,18 @@ const form = ref({
   city: '',
   province: 'Québec',
   postal_code: '',
+  country: 'Canada',
   contact_name: '',
   contact_email: '',
   contact_phone: '',
   type_tags: [] as string[],
 })
+
+function onCountryChange() {
+  const country = countries.find(c => c.code === selectedCountryCode.value)
+  form.value.country = country?.name || selectedCountryCode.value
+  form.value.province = provinces.value[0] || ''
+}
 
 const tagOptions = ['st', 'partner', 'competitor']
 const tagLabels: Record<string, string> = { st: 'Sous-traitant', partner: 'Partenaire', competitor: 'Concurrent' }
@@ -116,8 +141,24 @@ async function doCreate() {
           <input v-model="form.city" type="text" class="mt-1 w-full rounded-md border border-border px-3 py-1.5 text-sm" />
         </div>
         <div>
-          <label class="text-xs font-medium text-text-muted">Province</label>
-          <input v-model="form.province" type="text" class="mt-1 w-full rounded-md border border-border px-3 py-1.5 text-sm" />
+          <label class="text-xs font-medium text-text-muted">Code postal</label>
+          <input v-model="form.postal_code" type="text" class="mt-1 w-full rounded-md border border-border px-3 py-1.5 text-sm" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-medium text-text-muted">Pays</label>
+          <select v-model="selectedCountryCode" @change="onCountryChange" class="mt-1 w-full rounded-md border border-border px-3 py-1.5 text-sm">
+            <option v-for="c in countries" :key="c.code" :value="c.code">{{ c.name }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-text-muted">Province / État</label>
+          <select v-if="provinces.length" v-model="form.province" class="mt-1 w-full rounded-md border border-border px-3 py-1.5 text-sm">
+            <option v-for="p in provinces" :key="p" :value="p">{{ p }}</option>
+          </select>
+          <input v-else v-model="form.province" type="text" placeholder="Province / État" class="mt-1 w-full rounded-md border border-border px-3 py-1.5 text-sm" />
         </div>
       </div>
 
