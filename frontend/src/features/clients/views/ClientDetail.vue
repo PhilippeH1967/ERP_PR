@@ -84,14 +84,18 @@ async function onAddAddress(data: Record<string, unknown>) {
 }
 
 async function deleteContact(contactId: number) {
-  await clientApi.deleteContact(clientId, contactId)
   confirmDeleteContact.value = null
+  try {
+    await clientApi.deleteContact(clientId, contactId)
+  } catch { /* already deleted */ }
   await store.fetchClient(clientId)
 }
 
 async function deleteAddress(addressId: number) {
-  await clientApi.deleteAddress(clientId, addressId)
   confirmDeleteAddress.value = null
+  try {
+    await clientApi.deleteAddress(clientId, addressId)
+  } catch { /* already deleted */ }
   await store.fetchClient(clientId)
 }
 
