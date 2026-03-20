@@ -131,42 +131,43 @@ onMounted(fetch)
       <table v-if="users.length">
         <thead><tr><th>Utilisateur</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Inscrit</th><th>Actions</th></tr></thead>
         <tbody>
-          <tr v-for="user in users" :key="user.id">
-            <td class="font-semibold">{{ user.username }}</td>
-            <td class="text-muted">{{ user.email }}</td>
-            <td>
-              <template v-if="editingUserId === user.id">
-                <div class="inline-edit">
-                  <select v-model="editRole" class="role-select"><option v-for="(l, k) in roleLabels" :key="k" :value="k">{{ l }}</option></select>
-                  <button class="btn-action" @click="saveRole(user.id)">OK</button>
-                  <button class="btn-action" @click="editingUserId=null">×</button>
+          <template v-for="user in users" :key="user.id">
+            <tr>
+              <td class="font-semibold">{{ user.username }}</td>
+              <td class="text-muted">{{ user.email }}</td>
+              <td>
+                <template v-if="editingUserId === user.id">
+                  <div class="inline-edit">
+                    <select v-model="editRole" class="role-select"><option v-for="(l, k) in roleLabels" :key="k" :value="k">{{ l }}</option></select>
+                    <button class="btn-action" @click="saveRole(user.id)">OK</button>
+                    <button class="btn-action" @click="editingUserId=null">×</button>
+                  </div>
+                </template>
+                <template v-else>
+                  <span v-for="role in user.roles" :key="role" class="role-badge" :class="roleBadgeClass[role] || 'badge-gray'">{{ roleLabels[role] || role }}</span>
+                  <span v-if="!user.roles?.length" class="text-muted">Aucun</span>
+                </template>
+              </td>
+              <td><span :class="user.is_active ? 'flag-yes' : 'flag-no'">{{ user.is_active ? 'Actif' : 'Inactif' }}</span></td>
+              <td class="text-muted">{{ user.date_joined?.substring(0, 10) }}</td>
+              <td class="actions-cell">
+                <button class="btn-action" @click="startEditRole(user)">Rôle</button>
+                <button class="btn-action" @click="changingPasswordId = changingPasswordId === user.id ? null : user.id">Mdp</button>
+                <button class="btn-action" :class="user.is_active ? 'danger' : 'success'" @click="toggleActive(user)">{{ user.is_active ? 'Désactiver' : 'Activer' }}</button>
+                <button class="btn-action danger" @click="deleteUser(user)">Supprimer</button>
+              </td>
+            </tr>
+            <tr v-if="changingPasswordId === user.id">
+              <td colspan="6" class="password-row">
+                <div class="password-form">
+                  <span class="password-label">Nouveau mot de passe pour {{ user.username }} :</span>
+                  <input v-model="newPassword" type="password" placeholder="Min. 8 caractères" class="password-input" />
+                  <button class="btn-primary" @click="savePassword(user.id)">Changer</button>
+                  <button class="btn-ghost" @click="changingPasswordId = null; newPassword = ''">Annuler</button>
                 </div>
-              </template>
-              <template v-else>
-                <span v-for="role in user.roles" :key="role" class="role-badge" :class="roleBadgeClass[role] || 'badge-gray'">{{ roleLabels[role] || role }}</span>
-                <span v-if="!user.roles?.length" class="text-muted">Aucun</span>
-              </template>
-            </td>
-            <td><span :class="user.is_active ? 'flag-yes' : 'flag-no'">{{ user.is_active ? 'Actif' : 'Inactif' }}</span></td>
-            <td class="text-muted">{{ user.date_joined?.substring(0, 10) }}</td>
-            <td class="actions-cell">
-              <button class="btn-action" @click="startEditRole(user)">Rôle</button>
-              <button class="btn-action" @click="changingPasswordId = changingPasswordId === user.id ? null : user.id">Mdp</button>
-              <button class="btn-action" :class="user.is_active ? 'danger' : 'success'" @click="toggleActive(user)">{{ user.is_active ? 'Désactiver' : 'Activer' }}</button>
-              <button class="btn-action danger" @click="deleteUser(user)">Supprimer</button>
-            </td>
-          </tr>
-          <!-- Password change row -->
-          <tr v-if="changingPasswordId === user.id">
-            <td colspan="6" class="password-row">
-              <div class="password-form">
-                <span class="password-label">Nouveau mot de passe pour {{ user.username }} :</span>
-                <input v-model="newPassword" type="password" placeholder="Min. 8 caractères" class="password-input" />
-                <button class="btn-primary" @click="savePassword(user.id)">Changer</button>
-                <button class="btn-ghost" @click="changingPasswordId = null; newPassword = ''">Annuler</button>
-              </div>
-            </td>
-          </tr>
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
       <div v-else class="empty">Aucun utilisateur</div>
