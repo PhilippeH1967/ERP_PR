@@ -61,6 +61,7 @@ const navSections = [
       { name: 'nav.dashboard', path: '/dashboard', icon: '📊' },
       { name: 'nav.timesheets', path: '/timesheets', icon: '🕐' },
       { name: 'nav.projects', path: '/projects', icon: '📁' },
+      { name: 'nav.clients', path: '/clients', icon: '🤝' },
     ],
   },
   {
