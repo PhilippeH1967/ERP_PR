@@ -22,7 +22,7 @@ JAZZMIN_SETTINGS = {
     "site_header": "PR | ERP",
     "site_brand": "Provencher Roy",
     "welcome_sign": "Administration ERP — Provencher Roy",
-    "copyright": "Provencher Roy 2026",
+    "copyright": "",
     "search_model": ["auth.User", "core.Tenant"],
     "topmenu_links": [
         {"name": "ERP App", "url": "/", "new_window": True},

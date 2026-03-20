@@ -13,8 +13,10 @@ const invoiceId = Number(route.params.id)
 const agingData = ref<Record<string, unknown> | null>(null)
 const showPaymentForm = ref(false)
 const paymentForm = ref({ amount: '', payment_date: '', reference: '', method: 'CHEQUE' })
+const isEditingLines = ref(false)
 const showAddLine = ref(false)
 const newLine = ref({ deliverable_name: '', line_type: 'FORFAIT', total_contract_amount: '0', amount_to_bill: '0' })
+const confirmDeleteLine = ref<number | null>(null)
 const actionError = ref('')
 
 const statusLabels: Record<string, string> = {
@@ -104,9 +106,15 @@ async function createLine() {
 }
 
 async function deleteLine(lineId: number) {
-  if (!confirm('Supprimer cette ligne ?')) return
   await billingApi.deleteLine(invoiceId, lineId)
+  confirmDeleteLine.value = null
   await reload()
+}
+
+function stopEditingLines() {
+  isEditingLines.value = false
+  showAddLine.value = false
+  confirmDeleteLine.value = null
 }
 
 function openPrint() {
@@ -202,9 +210,13 @@ async function updateLine(lineId: number, field: string, value: string) {
       </div>
     </div>
 
-    <!-- Add line -->
+    <!-- Line management -->
     <div v-if="invoice.status === 'DRAFT'" class="line-actions">
-      <button class="btn-ghost" @click="showAddLine = !showAddLine">+ Ajouter ligne</button>
+      <button v-if="!isEditingLines" class="btn-primary" @click="isEditingLines = true">Modifier les lignes</button>
+      <template v-else>
+        <button class="btn-ghost" @click="showAddLine = !showAddLine">+ Ajouter ligne</button>
+        <button class="btn-ghost" @click="stopEditingLines">Terminer</button>
+      </template>
     </div>
     <div v-if="showAddLine" class="card" style="margin-bottom: 8px;">
       <form @submit.prevent="createLine" class="form-row-4">
@@ -245,12 +257,18 @@ async function updateLine(lineId: number, field: string, value: string) {
                 type="number"
                 step="0.01"
                 class="bill-input"
-                :disabled="invoice.status !== 'DRAFT'"
+                :disabled="!(invoice.status === 'DRAFT' && isEditingLines)"
                 @blur="(e) => updateLine(line.id, 'amount_to_bill', (e.target as HTMLInputElement).value)"
               />
             </td>
             <td class="text-right font-mono text-muted">{{ line.pct_after_billing }}%</td>
-            <td v-if="invoice.status === 'DRAFT'" class="text-right"><button class="btn-action danger" @click="deleteLine(line.id)">×</button></td>
+            <td v-if="invoice.status === 'DRAFT' && isEditingLines" class="text-right">
+              <template v-if="confirmDeleteLine === line.id">
+                <button class="btn-action danger" @click="deleteLine(line.id)">Confirmer</button>
+                <button class="btn-action" @click="confirmDeleteLine = null">Annuler</button>
+              </template>
+              <button v-else class="btn-action danger" @click="confirmDeleteLine = line.id">×</button>
+            </td>
           </tr>
           <tr v-if="!invoice.lines?.length">
             <td colspan="7" class="empty">Aucune ligne</td>
@@ -319,6 +337,9 @@ async function updateLine(lineId: number, field: string, value: string) {
 .bill-input { width: 100%; padding: 4px 8px; border: 1px solid var(--color-primary); border-radius: 3px; background: rgba(37,99,235,0.05); text-align: right; font-family: var(--font-mono); font-size: 12px; }
 .bill-input:disabled { background: transparent; border-color: var(--color-gray-200); color: var(--color-gray-500); }
 .empty { text-align: center; padding: 30px; color: var(--color-gray-400); }
+.line-actions { display: flex; gap: 8px; margin-bottom: 8px; }
+.btn-action { background: none; border: none; font-size: 11px; cursor: pointer; color: var(--color-primary); padding: 2px 6px; font-weight: 600; }
+.btn-action:hover { text-decoration: underline; } .btn-action.danger { color: var(--color-danger); }
 
 .form-row-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .form-group { margin-bottom: 12px; }

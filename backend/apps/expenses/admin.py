@@ -1,4 +1,5 @@
 from django.contrib import admin
+from simple_history.admin import SimpleHistoryAdmin
 from .models import ExpenseApproval, ExpenseCategory, ExpenseLine, ExpenseReport
 
 
@@ -9,7 +10,7 @@ class ExpenseLineInline(admin.TabularInline):
 
 
 @admin.register(ExpenseReport)
-class ExpenseReportAdmin(admin.ModelAdmin):
+class ExpenseReportAdmin(SimpleHistoryAdmin):
     list_display = ("id", "employee", "total_amount", "status", "submitted_at", "tenant")
     list_filter = ("status", "tenant")
     search_fields = ("employee__username",)

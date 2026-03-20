@@ -13,8 +13,13 @@ const { fmt } = useLocale()
 const projectId = Number(route.params.id)
 const activeTab = ref('overview')
 const actionError = ref('')
+const isEditing = ref(false)
 const showEditStatus = ref(false)
 const showDeleteConfirm = ref(false)
+const confirmDeletePhase = ref<number | null>(null)
+const confirmDeleteWBS = ref<number | null>(null)
+const confirmDeleteAssignment = ref<number | null>(null)
+const confirmDeleteAmendment = ref<number | null>(null)
 
 interface DashboardData { hours_consumed: string; budget_hours: string; budget_utilization_percent: number; health: 'green' | 'yellow' | 'red' }
 interface WBSNode { id: number; standard_label: string; client_facing_label: string; element_type: string; budgeted_hours: string; children: WBSNode[] }
@@ -34,6 +39,7 @@ const editingProject = ref(false)
 const projectForm = ref({ name: '', start_date: '', end_date: '', business_unit: '', pm: '', associate_in_charge: '' })
 
 function startEditProject() {
+  if (!isEditing.value) return
   const p = store.currentProject
   if (!p) return
   projectForm.value = {
@@ -45,6 +51,17 @@ function startEditProject() {
     associate_in_charge: String(p.associate_in_charge || ''),
   }
   editingProject.value = true
+}
+
+function stopEditing() {
+  isEditing.value = false
+  editingProject.value = false
+  editingPhaseId.value = null
+  showDeleteConfirm.value = false
+  confirmDeletePhase.value = null
+  confirmDeleteWBS.value = null
+  confirmDeleteAssignment.value = null
+  confirmDeleteAmendment.value = null
 }
 
 async function saveProject() {
@@ -131,18 +148,21 @@ function openAssignModal(phaseId: number | null, phaseName: string) {
 }
 
 async function deletePhase(phaseId: number) {
-  if (!confirm('Supprimer cette phase ?')) return
-  await projectApi.deletePhase(projectId, phaseId); await reload()
+  await projectApi.deletePhase(projectId, phaseId)
+  confirmDeletePhase.value = null
+  await reload()
 }
 
 async function deleteAssignment(assignId: number) {
-  if (!confirm('Retirer cette affectation ?')) return
-  await projectApi.deleteAssignment(projectId, assignId); await reload()
+  await projectApi.deleteAssignment(projectId, assignId)
+  confirmDeleteAssignment.value = null
+  await reload()
 }
 
 async function deleteWBS(wbsId: number) {
-  if (!confirm('Supprimer cet élément WBS ?')) return
-  await projectApi.deleteWBSElement(projectId, wbsId); await reload()
+  await projectApi.deleteWBSElement(projectId, wbsId)
+  confirmDeleteWBS.value = null
+  await reload()
 }
 
 async function createAmendment() {
@@ -156,8 +176,9 @@ async function createAmendment() {
 }
 
 async function deleteAmendment(id: number) {
-  if (!confirm('Supprimer cet avenant ?')) return
-  await projectApi.deleteAmendment(projectId, id); await reload()
+  await projectApi.deleteAmendment(projectId, id)
+  confirmDeleteAmendment.value = null
+  await reload()
 }
 
 onMounted(reload)
@@ -172,28 +193,30 @@ onMounted(reload)
         <h1><span class="code">{{ store.currentProject.code }}</span> {{ store.currentProject.name }}</h1>
       </div>
       <div class="header-actions">
-        <!-- Status dropdown -->
+        <!-- Status badge (clickable only in edit mode) -->
         <div class="relative">
-          <button class="badge" :class="statusColors[store.currentProject.status]" @click="showEditStatus = !showEditStatus">
-            {{ statuses.find(s => s.value === store.currentProject?.status)?.label || store.currentProject.status }} ▾
+          <button class="badge" :class="statusColors[store.currentProject.status]" @click="isEditing && (showEditStatus = !showEditStatus)" :style="isEditing ? 'cursor:pointer' : 'cursor:default'">
+            {{ statuses.find(s => s.value === store.currentProject?.status)?.label || store.currentProject.status }} <span v-if="isEditing">&#x25BE;</span>
           </button>
-          <div v-if="showEditStatus" class="status-dropdown">
+          <div v-if="showEditStatus && isEditing" class="status-dropdown">
             <button v-for="s in statuses" :key="s.value" class="status-option" :class="{ active: s.value === store.currentProject.status }" @click="changeStatus(s.value)">
               <span class="badge" :class="s.color">{{ s.label }}</span>
             </button>
           </div>
         </div>
-        <button class="btn-danger btn-sm" @click="showDeleteConfirm = true">Supprimer</button>
+        <button v-if="!isEditing" class="btn-primary" @click="isEditing = true">Modifier</button>
+        <button v-if="isEditing" class="btn-ghost" @click="stopEditing">Terminer</button>
+        <button v-if="isEditing" class="btn-danger btn-sm" @click="showDeleteConfirm = true">Supprimer...</button>
       </div>
     </div>
 
     <div v-if="actionError" class="alert-error">{{ actionError }}</div>
 
-    <!-- Delete confirm -->
-    <div v-if="showDeleteConfirm" class="alert-warning">
+    <!-- Delete confirm banner -->
+    <div v-if="showDeleteConfirm" class="alert-danger-banner">
       Supprimer définitivement ce projet ?
-      <div class="flex gap-4 mt-2">
-        <button class="btn-danger" @click="deleteProject">Confirmer</button>
+      <div class="banner-actions">
+        <button class="btn-danger" @click="deleteProject">Confirmer la suppression</button>
         <button class="btn-ghost" @click="showDeleteConfirm = false">Annuler</button>
       </div>
     </div>
@@ -215,7 +238,7 @@ onMounted(reload)
       </div>
       <!-- View mode -->
       <div v-if="!editingProject" class="info-grid">
-        <div class="info-card"><h3>Informations <button class="btn-action" @click="startEditProject">Modifier</button></h3><div class="info-pairs"><div><span>Type</span><p>{{ store.currentProject.contract_type }}</p></div><div><span>BU</span><p>{{ store.currentProject.business_unit || '—' }}</p></div><div><span>Début</span><p>{{ store.currentProject.start_date ? fmt.date(store.currentProject.start_date) : '—' }}</p></div><div><span>Fin</span><p>{{ store.currentProject.end_date ? fmt.date(store.currentProject.end_date) : '—' }}</p></div></div></div>
+        <div class="info-card"><h3>Informations <button v-if="isEditing" class="btn-action" @click="startEditProject">Modifier</button></h3><div class="info-pairs"><div><span>Type</span><p>{{ store.currentProject.contract_type }}</p></div><div><span>BU</span><p>{{ store.currentProject.business_unit || '—' }}</p></div><div><span>Début</span><p>{{ store.currentProject.start_date ? fmt.date(store.currentProject.start_date) : '—' }}</p></div><div><span>Fin</span><p>{{ store.currentProject.end_date ? fmt.date(store.currentProject.end_date) : '—' }}</p></div></div></div>
         <div class="info-card"><h3>Direction</h3><div class="info-pairs single"><div><span>Chef de projet</span><p>{{ store.currentProject.pm || '—' }}</p></div><div><span>Associé en charge</span><p>{{ store.currentProject.associate_in_charge || '—' }}</p></div></div></div>
       </div>
       <!-- Edit mode -->
@@ -258,9 +281,15 @@ onMounted(reload)
                 <td><span class="badge" :class="phase.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ phase.billing_mode }}</span></td>
                 <td class="text-right font-mono">{{ fmt.hours(phase.budgeted_hours) }}</td>
                 <td class="text-right actions-cell">
-                  <button class="btn-action" @click="startEditPhase(phase)">Modifier</button>
-                  <button class="btn-action" @click="openAssignModal(phase.id, phase.name)">Affecter</button>
-                  <button class="btn-action danger" @click="deletePhase(phase.id)">Supprimer</button>
+                  <template v-if="isEditing">
+                    <button class="btn-action" @click="startEditPhase(phase)">Modifier</button>
+                    <button class="btn-action" @click="openAssignModal(phase.id, phase.name)">Affecter</button>
+                    <template v-if="confirmDeletePhase === phase.id">
+                      <button class="btn-action danger" @click="deletePhase(phase.id)">Confirmer</button>
+                      <button class="btn-action" @click="confirmDeletePhase = null">Annuler</button>
+                    </template>
+                    <button v-else class="btn-action danger" @click="confirmDeletePhase = phase.id">Supprimer...</button>
+                  </template>
                 </td>
               </template>
             </tr>
@@ -276,7 +305,15 @@ onMounted(reload)
         <div v-for="node in wbsTree" :key="node.id" class="wbs-node">
           <div class="wbs-row">
             <div><span class="badge badge-blue">{{ node.element_type }}</span> <span class="font-semibold">{{ node.client_facing_label || node.standard_label }}</span></div>
-            <div class="flex items-center gap-4"><span class="font-mono text-muted">{{ node.budgeted_hours }}h</span><button class="btn-action danger" @click="deleteWBS(node.id)">Supprimer</button></div>
+            <div class="flex items-center gap-4"><span class="font-mono text-muted">{{ node.budgeted_hours }}h</span>
+              <template v-if="isEditing">
+                <template v-if="confirmDeleteWBS === node.id">
+                  <button class="btn-action danger" @click="deleteWBS(node.id)">Confirmer</button>
+                  <button class="btn-action" @click="confirmDeleteWBS = null">Annuler</button>
+                </template>
+                <button v-else class="btn-action danger" @click="confirmDeleteWBS = node.id">Supprimer...</button>
+              </template>
+            </div>
           </div>
           <div v-if="node.children?.length" class="wbs-children">
             <div v-for="child in node.children" :key="child.id" class="wbs-child">
@@ -300,7 +337,15 @@ onMounted(reload)
               <td class="text-muted">{{ a.phase ? `Phase #${a.phase}` : 'Global' }}</td>
               <td class="text-right"><span class="badge badge-blue">{{ a.percentage }}%</span></td>
               <td class="text-muted">{{ a.start_date || '—' }} → {{ a.end_date || '...' }}</td>
-              <td class="text-right"><button class="btn-action danger" @click="deleteAssignment(a.id)">Retirer</button></td>
+              <td class="text-right">
+                <template v-if="isEditing">
+                  <template v-if="confirmDeleteAssignment === a.id">
+                    <button class="btn-action danger" @click="deleteAssignment(a.id)">Confirmer</button>
+                    <button class="btn-action" @click="confirmDeleteAssignment = null">Annuler</button>
+                  </template>
+                  <button v-else class="btn-action danger" @click="confirmDeleteAssignment = a.id">Retirer...</button>
+                </template>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -310,7 +355,7 @@ onMounted(reload)
 
     <!-- ═══ Amendments ═══ -->
     <template v-if="activeTab === 'amendments'">
-      <div class="section-actions"><button class="btn-primary" @click="showAmendmentForm = !showAmendmentForm">+ Nouvel avenant</button></div>
+      <div v-if="isEditing" class="section-actions"><button class="btn-primary" @click="showAmendmentForm = !showAmendmentForm">+ Nouvel avenant</button></div>
 
       <div v-if="showAmendmentForm" class="card" style="margin-bottom: 12px;">
         <form @submit.prevent="createAmendment" class="form-row-3">
@@ -332,7 +377,15 @@ onMounted(reload)
               <td class="text-right font-mono">{{ fmt.currency(am.budget_impact) }}</td>
               <td><span class="badge" :class="am.status === 'APPROVED' ? 'badge-green' : am.status === 'PENDING' ? 'badge-amber' : 'badge-gray'">{{ am.status }}</span></td>
               <td class="text-muted">{{ am.created_at?.substring(0, 10) }}</td>
-              <td class="text-right"><button class="btn-action danger" @click="deleteAmendment(am.id)">Supprimer</button></td>
+              <td class="text-right">
+                <template v-if="isEditing">
+                  <template v-if="confirmDeleteAmendment === am.id">
+                    <button class="btn-action danger" @click="deleteAmendment(am.id)">Confirmer</button>
+                    <button class="btn-action" @click="confirmDeleteAmendment = null">Annuler</button>
+                  </template>
+                  <button v-else class="btn-action danger" @click="confirmDeleteAmendment = am.id">Supprimer...</button>
+                </template>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -378,7 +431,8 @@ onMounted(reload)
 .status-option.active { background: var(--color-primary-light); }
 
 .alert-error { background: var(--color-danger-light); color: var(--color-danger); padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
-.alert-warning { background: #FEF3C7; color: #92400E; padding: 12px 16px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; }
+.alert-danger-banner { background: #FEE2E2; color: #DC2626; padding: 12px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+.banner-actions { display: flex; gap: 8px; margin-top: 8px; }
 
 .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--color-gray-200); margin-bottom: 16px; }
 .tab { padding: 8px 14px; font-size: 12px; font-weight: 500; color: var(--color-gray-500); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -2px; display: flex; align-items: center; gap: 4px; }

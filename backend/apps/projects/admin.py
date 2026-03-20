@@ -1,4 +1,5 @@
 from django.contrib import admin
+from simple_history.admin import SimpleHistoryAdmin
 from .models import Amendment, EmployeeAssignment, FinancialPhase, Phase, Project, ProjectTemplate, SupportService, WBSElement
 
 
@@ -9,7 +10,7 @@ class PhaseInline(admin.TabularInline):
 
 
 @admin.register(Project)
-class ProjectAdmin(admin.ModelAdmin):
+class ProjectAdmin(SimpleHistoryAdmin):
     list_display = ("code", "name", "client", "contract_type", "status", "pm", "tenant", "created_at")
     list_filter = ("status", "contract_type", "is_internal", "tenant")
     search_fields = ("code", "name", "client__name")

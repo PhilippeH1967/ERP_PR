@@ -15,6 +15,7 @@ interface Org {
 
 const org = ref<Org | null>(null)
 const editing = ref(false)
+const showDeleteConfirm = ref(false)
 const form = ref<Partial<Org>>({})
 const error = ref('')
 
@@ -38,12 +39,16 @@ async function save() {
 }
 
 async function remove() {
-  if (!confirm('Supprimer cette organisation ?')) return
   try {
     const { default: apiClient } = await import('@/plugins/axios')
     await apiClient.delete(`external_organizations/${orgId}/`)
     router.push('/suppliers')
   } catch (e: unknown) { error.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+}
+
+function stopEditing() {
+  editing.value = false
+  showDeleteConfirm.value = false
 }
 
 onMounted(fetch)
@@ -62,11 +67,21 @@ onMounted(fetch)
           {{ tag === 'st' ? 'Sous-traitant' : tag === 'partner' ? 'Partenaire' : 'Concurrent' }}
         </span>
         <button v-if="!editing" class="btn-primary" @click="startEdit">Modifier</button>
-        <button class="btn-danger" @click="remove">Supprimer</button>
+        <button v-if="editing" class="btn-ghost" @click="stopEditing">Terminer</button>
+        <button v-if="editing" class="btn-danger" @click="showDeleteConfirm = true">Supprimer...</button>
       </div>
     </div>
 
     <div v-if="error" class="alert-error">{{ error }}</div>
+
+    <!-- Delete confirm banner -->
+    <div v-if="showDeleteConfirm" class="alert-danger-banner">
+      Supprimer définitivement cette organisation ?
+      <div class="banner-actions">
+        <button class="btn-danger" @click="remove">Confirmer la suppression</button>
+        <button class="btn-ghost" @click="showDeleteConfirm = false">Annuler</button>
+      </div>
+    </div>
 
     <!-- View mode -->
     <template v-if="!editing">
@@ -123,6 +138,8 @@ onMounted(fetch)
 .header-actions { display: flex; align-items: center; gap: 6px; }
 .btn-danger { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; background: var(--color-danger); color: white; }
 .alert-error { background: var(--color-danger-light); color: var(--color-danger); padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
+.alert-danger-banner { background: #FEE2E2; color: #DC2626; padding: 12px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+.banner-actions { display: flex; gap: 8px; margin-top: 8px; }
 .badge { display: inline-flex; padding: 2px 10px; border-radius: 10px; font-size: 10px; font-weight: 600; }
 .badge-blue { background: #DBEAFE; color: #1D4ED8; } .badge-purple { background: #EDE9FE; color: #7C3AED; } .badge-gray { background: var(--color-gray-100); color: var(--color-gray-500); }
 .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

@@ -1,4 +1,5 @@
 from django.contrib import admin
+from simple_history.admin import SimpleHistoryAdmin
 from .models import BillingDossier, ClientLabel, CreditNote, DunningAction, DunningLevel, Holdback, Invoice, InvoiceLine, InvoiceTemplate, Payment, PaymentAllocation, WriteOff
 
 
@@ -9,7 +10,7 @@ class InvoiceLineInline(admin.TabularInline):
 
 
 @admin.register(Invoice)
-class InvoiceAdmin(admin.ModelAdmin):
+class InvoiceAdmin(SimpleHistoryAdmin):
     list_display = ("invoice_number", "project", "client", "total_amount", "status", "date_created")
     list_filter = ("status", "tenant")
     search_fields = ("invoice_number", "project__code", "client__name")

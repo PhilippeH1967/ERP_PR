@@ -1,9 +1,10 @@
 from django.contrib import admin
+from simple_history.admin import SimpleHistoryAdmin
 from .models import PeriodUnlock, TimeEntry, TimesheetLock, WeeklyApproval
 
 
 @admin.register(TimeEntry)
-class TimeEntryAdmin(admin.ModelAdmin):
+class TimeEntryAdmin(SimpleHistoryAdmin):
     list_display = ("employee", "project", "phase", "date", "hours", "status")
     list_filter = ("status", "date", "project")
     search_fields = ("employee__username", "project__code")

@@ -10,6 +10,8 @@ const router = useRouter()
 const { fmt } = useLocale()
 const reportId = Number(route.params.id)
 const report = ref<ExpenseReport | null>(null)
+const isEditing = ref(false)
+const confirmDeleteLine = ref<number | null>(null)
 const actionError = ref('')
 
 const statusLabels: Record<string, string> = {
@@ -75,11 +77,16 @@ async function reject() {
 }
 
 async function deleteLine(lineId: number) {
-  if (!confirm('Supprimer cette ligne ?')) return
   try {
     await expenseApi.deleteLine(reportId, lineId)
+    confirmDeleteLine.value = null
     await reload()
   } catch { /* error */ }
+}
+
+function stopEditing() {
+  isEditing.value = false
+  confirmDeleteLine.value = null
 }
 
 onMounted(reload)
@@ -95,6 +102,8 @@ onMounted(reload)
       </div>
       <div class="header-actions">
         <span class="badge" :class="statusColors[report.status]">{{ statusLabels[report.status] || report.status }}</span>
+        <button v-if="!isEditing" class="btn-primary btn-sm" @click="isEditing = true">Modifier les lignes</button>
+        <button v-if="isEditing" class="btn-ghost" @click="stopEditing">Terminer</button>
         <button v-if="report.status === 'SUBMITTED'" class="btn-primary" @click="approveAsPM">Approuver (PM)</button>
         <button v-if="report.status === 'PM_APPROVED'" class="btn-success" @click="validateAsFinance">Valider (Finance)</button>
         <button v-if="report.status === 'FINANCE_VALIDATED'" class="btn-success" @click="markPaid">Marquer payé</button>
@@ -144,7 +153,13 @@ onMounted(reload)
               <span v-if="line.receipt_path" class="flag-yes">Oui</span>
               <span v-else class="flag-no">Manquant</span>
             </td>
-            <td class="text-right"><button class="btn-action danger" @click="deleteLine(line.id)">Supprimer</button></td>
+            <td v-if="isEditing" class="text-right">
+              <template v-if="confirmDeleteLine === line.id">
+                <button class="btn-action danger" @click="deleteLine(line.id)">Confirmer</button>
+                <button class="btn-action" @click="confirmDeleteLine = null">Annuler</button>
+              </template>
+              <button v-else class="btn-action danger" @click="confirmDeleteLine = line.id">Supprimer...</button>
+            </td>
           </tr>
           <tr v-if="!report.lines?.length"><td colspan="6" class="empty">Aucune ligne</td></tr>
         </tbody>
@@ -175,4 +190,7 @@ onMounted(reload)
 .font-mono { font-family: var(--font-mono); font-size: 12px; }
 .flag-yes { font-size: 11px; font-weight: 600; color: #15803D; } .flag-no { font-size: 11px; color: var(--color-danger); }
 .empty { text-align: center; padding: 30px; color: var(--color-gray-400); }
+.btn-action { background: none; border: none; font-size: 11px; cursor: pointer; color: var(--color-primary); padding: 2px 6px; font-weight: 600; }
+.btn-action:hover { text-decoration: underline; } .btn-action.danger { color: var(--color-danger); }
+.btn-sm { font-size: 11px; padding: 4px 10px; }
 </style>

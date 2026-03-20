@@ -1,4 +1,5 @@
 from django.contrib import admin
+from simple_history.admin import SimpleHistoryAdmin
 from .models import Client, ClientAddress, Contact
 
 
@@ -13,7 +14,7 @@ class AddressInline(admin.TabularInline):
 
 
 @admin.register(Client)
-class ClientAdmin(admin.ModelAdmin):
+class ClientAdmin(SimpleHistoryAdmin):
     list_display = ("name", "alias", "sector", "status", "tenant", "created_at")
     list_filter = ("status", "sector", "tenant")
     search_fields = ("name", "alias", "legal_entity")
