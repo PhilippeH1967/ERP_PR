@@ -85,18 +85,20 @@ async function onAddAddress(data: Record<string, unknown>) {
 
 async function deleteContact(contactId: number) {
   confirmDeleteContact.value = null
-  try {
-    await clientApi.deleteContact(clientId, contactId)
-  } catch { /* already deleted */ }
-  await store.fetchClient(clientId)
+  // Instant UI update
+  if (store.currentClient) {
+    store.currentClient.contacts = store.currentClient.contacts.filter((c: { id: number }) => c.id !== contactId)
+  }
+  try { await clientApi.deleteContact(clientId, contactId) } catch { /* ok */ }
 }
 
 async function deleteAddress(addressId: number) {
   confirmDeleteAddress.value = null
-  try {
-    await clientApi.deleteAddress(clientId, addressId)
-  } catch { /* already deleted */ }
-  await store.fetchClient(clientId)
+  // Instant UI update
+  if (store.currentClient) {
+    store.currentClient.addresses = store.currentClient.addresses.filter((a: { id: number }) => a.id !== addressId)
+  }
+  try { await clientApi.deleteAddress(clientId, addressId) } catch { /* ok */ }
 }
 
 async function deleteClient() {
