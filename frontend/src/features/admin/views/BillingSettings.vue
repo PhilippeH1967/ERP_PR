@@ -51,8 +51,8 @@ async function saveTmpl() {
     showTmplForm.value = false; await fetchData()
   } catch (e: unknown) { error.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
 }
-const confirmDeleteTmpl = ref<number | null>(null)
-async function deleteTmpl(id: number) { confirmDeleteTmpl.value = null; invoiceTemplates.value = invoiceTemplates.value.filter(t => t.id !== id); try { await apiClient.delete(`invoice_templates/${id}/`) } catch { /* ok */ } }
+const confirmDeleteId = ref<{ type: string; id: number } | null>(null)
+async function deleteTmpl(id: number) { confirmDeleteId.value = null; templates.value = templates.value.filter(t => t.id !== id); try { await apiClient.delete(`invoice_templates/${id}/`) } catch { /* ok */ } }
 
 // Dunning CRUD
 function openCreateDunning() { editDunningId.value = null; dunningForm.value = { level: '', days_overdue: '', email_template: '' }; showDunningForm.value = true }
@@ -66,8 +66,7 @@ async function saveDunning() {
     showDunningForm.value = false; await fetchData()
   } catch (e: unknown) { error.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
 }
-const confirmDeleteDunning = ref<number | null>(null)
-async function deleteDunning(id: number) { confirmDeleteDunning.value = null; dunningLevels.value = dunningLevels.value.filter(d => d.id !== id); try { await apiClient.delete(`dunning_levels/${id}/`) } catch { /* ok */ } }
+async function deleteDunning(id: number) { confirmDeleteId.value = null; dunningLevels.value = dunningLevels.value.filter(d => d.id !== id); try { await apiClient.delete(`dunning_levels/${id}/`) } catch { /* ok */ } }
 
 onMounted(fetchData)
 </script>
@@ -100,9 +99,9 @@ onMounted(fetchData)
               <td><span :class="t.is_active ? 'flag-yes' : 'flag-no'">{{ t.is_active ? 'Actif' : 'Inactif' }}</span></td>
               <td class="actions-cell">
                 <button class="btn-action" @click="openEditTmpl(t)">Modifier</button>
-                <button v-if="confirmDeleteTmpl === t.id" class="btn-action danger" @click="deleteTmpl(t.id)">Confirmer</button>
-                <button v-if="confirmDeleteTmpl === t.id" class="btn-action" @click="confirmDeleteTmpl = null">Annuler</button>
-                <button v-if="confirmDeleteTmpl !== t.id" class="btn-action danger" @click="confirmDeleteTmpl = t.id">Supprimer</button>
+                <button v-if="confirmDeleteId?.type === 'tmpl' && confirmDeleteId?.id === t.id" class="btn-action danger" @click="deleteTmpl(t.id)">Confirmer</button>
+                <button v-if="confirmDeleteId?.type === 'tmpl' && confirmDeleteId?.id === t.id" class="btn-action" @click="confirmDeleteId = null">Annuler</button>
+                <button v-if="!(confirmDeleteId?.type === 'tmpl' && confirmDeleteId?.id === t.id)" class="btn-action danger" @click="confirmDeleteId = { type: 'tmpl', id: t.id }">Supprimer</button>
               </td>
             </tr>
           </tbody>
@@ -129,9 +128,9 @@ onMounted(fetchData)
               <td class="text-muted template-cell">{{ d.email_template?.substring(0, 80) }}{{ d.email_template?.length > 80 ? '...' : '' }}</td>
               <td class="actions-cell">
                 <button class="btn-action" @click="openEditDunning(d)">Modifier</button>
-                <button v-if="confirmDeleteDunning === d.id" class="btn-action danger" @click="deleteDunning(d.id)">Confirmer</button>
-                <button v-if="confirmDeleteDunning === d.id" class="btn-action" @click="confirmDeleteDunning = null">Annuler</button>
-                <button v-if="confirmDeleteDunning !== d.id" class="btn-action danger" @click="confirmDeleteDunning = d.id">Supprimer</button>
+                <button v-if="confirmDeleteId?.type === 'dun' && confirmDeleteId?.id === d.id" class="btn-action danger" @click="deleteDunning(d.id)">Confirmer</button>
+                <button v-if="confirmDeleteId?.type === 'dun' && confirmDeleteId?.id === d.id" class="btn-action" @click="confirmDeleteId = null">Annuler</button>
+                <button v-if="!(confirmDeleteId?.type === 'dun' && confirmDeleteId?.id === d.id)" class="btn-action danger" @click="confirmDeleteId = { type: 'dun', id: d.id }">Supprimer</button>
               </td>
             </tr>
           </tbody>
