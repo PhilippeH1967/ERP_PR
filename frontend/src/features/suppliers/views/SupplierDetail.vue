@@ -1,7 +1,23 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supplierApi } from '../api/supplierApi'
+
+const countries = [
+  { code: 'CA', name: 'Canada' },
+  { code: 'US', name: 'États-Unis' },
+  { code: 'FR', name: 'France' },
+  { code: 'BE', name: 'Belgique' },
+  { code: 'CH', name: 'Suisse' },
+  { code: 'OTHER', name: 'Autre' },
+]
+const provincesByCountry: Record<string, string[]> = {
+  CA: ['Alberta', 'Colombie-Britannique', 'Île-du-Prince-Édouard', 'Manitoba', 'Nouveau-Brunswick', 'Nouvelle-Écosse', 'Ontario', 'Québec', 'Saskatchewan', 'Terre-Neuve-et-Labrador', 'Territoires du Nord-Ouest', 'Nunavut', 'Yukon'],
+  US: ['Alabama', 'Alaska', 'Arizona', 'California', 'Colorado', 'Connecticut', 'Florida', 'Georgia', 'Illinois', 'Massachusetts', 'Michigan', 'New York', 'Ohio', 'Pennsylvania', 'Texas', 'Washington', 'Autre'],
+  FR: ['Île-de-France', 'Auvergne-Rhône-Alpes', 'Nouvelle-Aquitaine', 'Occitanie', 'Provence-Alpes-Côte d\'Azur', 'Bretagne', 'Autre'],
+}
+const editCountryCode = ref('CA')
+const editProvinces = computed(() => provincesByCountry[editCountryCode.value] || [])
 
 const route = useRoute()
 const router = useRouter()
@@ -35,7 +51,16 @@ function toggleEditTag(tag: string) {
 
 function startEdit() {
   form.value = { ...org.value, banking_info: { ...(org.value?.banking_info || {}) } }
+  // Resolve country code from name
+  const match = countries.find(c => c.name === org.value?.country)
+  editCountryCode.value = match?.code || 'OTHER'
   editing.value = true
+}
+
+function onEditCountryChange() {
+  const country = countries.find(c => c.code === editCountryCode.value)
+  form.value.country = country?.name || editCountryCode.value
+  form.value.province = editProvinces.value[0] || ''
 }
 
 async function save() {
@@ -149,9 +174,20 @@ onMounted(fetch)
           <div class="form-group"><label>NEQ</label><input v-model="form.neq" /></div>
           <div class="form-group"><label>Adresse</label><input v-model="form.address" /></div>
           <div class="form-group"><label>Ville</label><input v-model="form.city" /></div>
-          <div class="form-group"><label>Province</label><input v-model="form.province" /></div>
           <div class="form-group"><label>Code postal</label><input v-model="form.postal_code" /></div>
-          <div class="form-group"><label>Pays</label><input v-model="form.country" /></div>
+          <div class="form-group">
+            <label>Pays</label>
+            <select v-model="editCountryCode" @change="onEditCountryChange" class="form-select">
+              <option v-for="c in countries" :key="c.code" :value="c.code">{{ c.name }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Province / État</label>
+            <select v-if="editProvinces.length" v-model="form.province" class="form-select">
+              <option v-for="p in editProvinces" :key="p" :value="p">{{ p }}</option>
+            </select>
+            <input v-else v-model="form.province" placeholder="Province / État" />
+          </div>
           <div class="form-group form-group-wide">
             <label>Rôles</label>
             <div class="tag-selector">
@@ -197,6 +233,7 @@ onMounted(fetch)
 .info-pairs span { color: var(--color-gray-500); font-size: 11px; } .info-pairs p { font-weight: 600; margin-top: 1px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 .form-group { margin-bottom: 8px; } .form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--color-gray-600); margin-bottom: 4px; }
+.form-select { width: 100%; padding: 6px 10px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 13px; font-family: inherit; }
 .form-group-wide { grid-column: span 3; }
 .tag-selector { display: flex; gap: 6px; }
 .tag-btn { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid var(--color-gray-300); background: white; color: var(--color-gray-500); transition: all 0.15s; }
