@@ -32,19 +32,27 @@ function startEdit() {
 
 async function save() {
   error.value = ''
+  if (!form.value.name?.trim()) {
+    error.value = 'Le nom est obligatoire.'
+    return
+  }
   try {
     await supplierApi.updateOrganization(orgId, form.value)
     editing.value = false
     await fetch()
-  } catch (e: unknown) { error.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: { message?: string; details?: Array<{ message?: string }> } } } }
+    error.value = err.response?.data?.error?.details?.[0]?.message || err.response?.data?.error?.message || 'Erreur'
+  }
 }
 
 async function remove() {
+  showDeleteConfirm.value = false
   try {
     const { default: apiClient } = await import('@/plugins/axios')
     await apiClient.delete(`external_organizations/${orgId}/`)
-    router.push('/suppliers')
-  } catch (e: unknown) { error.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+  } catch { /* ok */ }
+  router.push('/suppliers')
 }
 
 function stopEditing() {
