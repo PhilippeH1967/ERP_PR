@@ -154,7 +154,7 @@ onMounted(fetchAll)
       </div>
       <div class="card-table">
         <table>
-          <thead><tr><th>Nom</th><th>Code</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Nom</th><th>Code</th><th style="text-align:right">Actions</th></tr></thead>
           <tbody>
             <tr v-for="b in bus" :key="b.id">
               <td class="font-semibold">{{ b.name }}</td>
@@ -181,7 +181,7 @@ onMounted(fetchAll)
       </div>
       <div class="card-table">
         <table>
-          <thead><tr><th>Nom</th><th>Code</th><th>Catégorie</th><th>Taux horaire</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Nom</th><th>Code</th><th>Catégorie</th><th>Taux horaire</th><th style="text-align:right">Actions</th></tr></thead>
           <tbody>
             <tr v-for="p in positions" :key="p.id">
               <td class="font-semibold">{{ p.name }}</td>
@@ -209,7 +209,7 @@ onMounted(fetchAll)
       </div>
       <div class="card-table">
         <table>
-          <thead><tr><th>Entité juridique</th><th>TPS</th><th>TVQ</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Entité juridique</th><th>TPS</th><th>TVQ</th><th style="text-align:right">Actions</th></tr></thead>
           <tbody>
             <tr v-for="t in taxes" :key="t.id">
               <td class="font-semibold">{{ t.legal_entity }}</td>
@@ -244,7 +244,7 @@ onMounted(fetchAll)
       </div>
       <div class="card-table">
         <table>
-          <thead><tr><th>Nom</th><th>Heures/sem</th><th>Heures/jour</th><th>Seuil OT</th><th>Congés</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Nom</th><th>Heures/sem</th><th>Heures/jour</th><th>Seuil OT</th><th>Congés</th><th style="text-align:right">Actions</th></tr></thead>
           <tbody>
             <tr v-for="r in rules" :key="r.id">
               <td class="font-semibold">{{ r.name }}</td>
@@ -284,7 +284,7 @@ onMounted(fetchAll)
 .form-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
 .font-mono { font-family: var(--font-mono); font-size: 12px; }
 .text-muted { color: var(--color-gray-500); font-size: 12px; }
-.actions-cell { text-align: right; white-space: nowrap; }
+.actions-cell { text-align: right; white-space: nowrap; width: 1%; }
 .btn-action { background: none; border: none; font-size: 11px; cursor: pointer; color: var(--color-primary); padding: 2px 6px; font-weight: 600; }
 .btn-action:hover { text-decoration: underline; }
 .btn-action.danger { color: var(--color-danger); }
