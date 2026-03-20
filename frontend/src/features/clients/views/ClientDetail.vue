@@ -22,6 +22,28 @@ const confirmDeleteContact = ref<number | null>(null)
 const confirmDeleteAddress = ref<number | null>(null)
 const editingAddressId = ref<number | null>(null)
 const editAddressForm = ref<Record<string, unknown>>({})
+const editAddrCountryCode = ref('CA')
+
+const addrCountries = [
+  { code: 'CA', name: 'Canada' },
+  { code: 'US', name: 'États-Unis' },
+  { code: 'FR', name: 'France' },
+  { code: 'BE', name: 'Belgique' },
+  { code: 'CH', name: 'Suisse' },
+  { code: 'OTHER', name: 'Autre' },
+]
+const addrProvincesByCountry: Record<string, string[]> = {
+  CA: ['Alberta', 'Colombie-Britannique', 'Île-du-Prince-Édouard', 'Manitoba', 'Nouveau-Brunswick', 'Nouvelle-Écosse', 'Ontario', 'Québec', 'Saskatchewan', 'Terre-Neuve-et-Labrador', 'Territoires du Nord-Ouest', 'Nunavut', 'Yukon'],
+  US: ['Alabama', 'Alaska', 'Arizona', 'California', 'Colorado', 'Connecticut', 'Florida', 'Georgia', 'Illinois', 'Massachusetts', 'Michigan', 'New York', 'Ohio', 'Pennsylvania', 'Texas', 'Washington', 'Autre'],
+  FR: ['Île-de-France', 'Auvergne-Rhône-Alpes', 'Nouvelle-Aquitaine', 'Occitanie', 'Provence-Alpes-Côte d\'Azur', 'Bretagne', 'Autre'],
+}
+const editAddrProvinces = computed(() => addrProvincesByCountry[editAddrCountryCode.value] || [])
+
+function onEditAddrCountryChange() {
+  const c = addrCountries.find(x => x.code === editAddrCountryCode.value)
+  editAddressForm.value.country = c?.name || editAddrCountryCode.value
+  editAddressForm.value.province = editAddrProvinces.value[0] || ''
+}
 
 // Financial period filters
 const finPeriodMode = ref<'all' | 'year' | 'custom'>('all')
@@ -65,6 +87,8 @@ async function reloadFinancial() {
 function startEditAddress(addr: Record<string, unknown>) {
   editingAddressId.value = addr.id as number
   editAddressForm.value = { ...addr }
+  const match = addrCountries.find(c => c.name === addr.country)
+  editAddrCountryCode.value = match?.code || 'OTHER'
 }
 
 async function saveAddress() {
@@ -124,8 +148,14 @@ onMounted(async () => {
   }
 })
 
-function saveField(field: string, value: string | number) {
-  store.updateClient(clientId, { [field]: value })
+async function saveField(field: string, value: string | number) {
+  formError.value = ''
+  try {
+    await store.updateClient(clientId, { [field]: value })
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: { message?: string } } } }
+    formError.value = err.response?.data?.error?.message || 'Erreur de sauvegarde'
+  }
 }
 
 const formError = ref('')
@@ -326,9 +356,21 @@ async function deleteClient() {
             <div class="grid grid-cols-2 gap-2 text-sm">
               <input v-model="editAddressForm.address_line_1" placeholder="Adresse *" class="col-span-2 rounded border border-primary/30 px-2 py-1 text-sm" />
               <input v-model="editAddressForm.city" placeholder="Ville *" class="rounded border border-primary/30 px-2 py-1 text-sm" />
-              <input v-model="editAddressForm.province" placeholder="Province" class="rounded border border-primary/30 px-2 py-1 text-sm" />
               <input v-model="editAddressForm.postal_code" placeholder="Code postal" class="rounded border border-primary/30 px-2 py-1 text-sm" />
-              <div class="flex items-center gap-4">
+              <div>
+                <label class="text-xs text-text-muted">Pays</label>
+                <select v-model="editAddrCountryCode" @change="onEditAddrCountryChange" class="w-full rounded border border-primary/30 px-2 py-1 text-sm">
+                  <option v-for="c in addrCountries" :key="c.code" :value="c.code">{{ c.name }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-text-muted">Province</label>
+                <select v-if="editAddrProvinces.length" v-model="editAddressForm.province" class="w-full rounded border border-primary/30 px-2 py-1 text-sm">
+                  <option v-for="p in editAddrProvinces" :key="p" :value="p">{{ p }}</option>
+                </select>
+                <input v-else v-model="editAddressForm.province" placeholder="Province" class="w-full rounded border border-primary/30 px-2 py-1 text-sm" />
+              </div>
+              <div class="col-span-2 flex items-center gap-4">
                 <label class="flex items-center gap-1 text-xs"><input type="checkbox" v-model="editAddressForm.is_billing" /> Facturation</label>
                 <label class="flex items-center gap-1 text-xs"><input type="checkbox" v-model="editAddressForm.is_primary" /> Principale</label>
               </div>
