@@ -14,8 +14,8 @@ const showCreate = ref(false)
 const createError = ref('')
 
 // Lookup data
-interface ClientOption { id: number; name: string; alias: string }
-interface ProjectOption { id: number; code: string; name: string; client: number }
+interface ClientOption { id: number; name: string; alias: string; status: string }
+interface ProjectOption { id: number; code: string; name: string; client: number; status: string; client_name: string }
 
 const allClients = ref<ClientOption[]>([])
 const allProjects = ref<ProjectOption[]>([])
@@ -24,16 +24,18 @@ const clientSearch = ref('')
 const projectSearch = ref('')
 const selectedClientId = ref<number | null>(null)
 const selectedProjectId = ref<number | null>(null)
+const showProjectList = ref(false)
 
 const filteredClients = computed(() => {
   const q = clientSearch.value.toLowerCase()
-  return allClients.value.filter(c =>
-    c.name.toLowerCase().includes(q) || (c.alias || '').toLowerCase().includes(q)
-  ).slice(0, 15)
+  return allClients.value
+    .filter(c => c.status === 'active')
+    .filter(c => !q || c.name.toLowerCase().includes(q) || (c.alias || '').toLowerCase().includes(q))
+    .slice(0, 15)
 })
 
 const filteredProjects = computed(() => {
-  let list = allProjects.value
+  let list = allProjects.value.filter(p => p.status === 'ACTIVE')
   if (selectedClientId.value) {
     list = list.filter(p => p.client === selectedClientId.value)
   }
@@ -49,7 +51,7 @@ const filteredProjects = computed(() => {
 function selectClient(client: ClientOption) {
   selectedClientId.value = client.id
   clientSearch.value = client.name
-  // Reset project if it doesn't match
+  // Reset project if doesn't match
   if (selectedProjectId.value) {
     const proj = allProjects.value.find(p => p.id === selectedProjectId.value)
     if (proj && proj.client !== client.id) {
@@ -57,11 +59,14 @@ function selectClient(client: ClientOption) {
       projectSearch.value = ''
     }
   }
+  // Show project list automatically after selecting client
+  showProjectList.value = true
 }
 
 function selectProject(project: ProjectOption) {
   selectedProjectId.value = project.id
   projectSearch.value = `${project.code} — ${project.name}`
+  showProjectList.value = false
   // Auto-fill client
   if (!selectedClientId.value) {
     const client = allClients.value.find(c => c.id === project.client)
@@ -72,11 +77,25 @@ function selectProject(project: ProjectOption) {
   }
 }
 
+function clearClient() {
+  selectedClientId.value = null
+  clientSearch.value = ''
+  selectedProjectId.value = null
+  projectSearch.value = ''
+  showProjectList.value = false
+}
+
+function clearProject() {
+  selectedProjectId.value = null
+  projectSearch.value = ''
+  showProjectList.value = true
+}
+
 async function loadLookups() {
   try {
     const [cResp, pResp] = await Promise.all([
-      apiClient.get('clients/'),
-      apiClient.get('projects/'),
+      apiClient.get('clients/', { params: { status: 'active' } }),
+      apiClient.get('projects/', { params: { status: 'ACTIVE' } }),
     ])
     const cData = cResp.data?.data || cResp.data
     allClients.value = Array.isArray(cData) ? cData : cData?.results || []
@@ -151,55 +170,66 @@ onMounted(() => store.fetchInvoices())
         <div class="form-row-2">
           <!-- Client search -->
           <div class="form-group">
-            <label>Client *</label>
+            <label>1. Client (actifs uniquement) *</label>
             <div class="search-dropdown">
-              <input
-                v-model="clientSearch"
-                type="text"
-                placeholder="Rechercher un client..."
-                class="search-input"
-                @focus="selectedClientId = null"
-              />
-              <div v-if="clientSearch && !selectedClientId" class="dropdown-list">
-                <div
-                  v-for="c in filteredClients"
-                  :key="c.id"
-                  class="dropdown-item"
-                  @click="selectClient(c)"
-                >
-                  <span class="dropdown-main">{{ c.name }}</span>
-                  <span v-if="c.alias" class="dropdown-sub">{{ c.alias }}</span>
+              <template v-if="!selectedClientId">
+                <input
+                  v-model="clientSearch"
+                  type="text"
+                  placeholder="Tapez pour rechercher un client..."
+                  class="search-input"
+                />
+                <div v-if="filteredClients.length || clientSearch" class="dropdown-list">
+                  <div
+                    v-for="c in filteredClients"
+                    :key="c.id"
+                    class="dropdown-item"
+                    @click="selectClient(c)"
+                  >
+                    <span class="dropdown-main">{{ c.name }}</span>
+                    <span v-if="c.alias" class="dropdown-sub">({{ c.alias }})</span>
+                  </div>
+                  <div v-if="clientSearch && !filteredClients.length" class="dropdown-empty">Aucun client actif trouvé</div>
                 </div>
-                <div v-if="!filteredClients.length" class="dropdown-empty">Aucun client trouvé</div>
+              </template>
+              <div v-else class="selected-chip">
+                <span>{{ clientSearch }}</span>
+                <button type="button" class="chip-clear" @click="clearClient">&times;</button>
               </div>
-              <div v-if="selectedClientId" class="selected-badge">{{ clientSearch }}</div>
             </div>
           </div>
 
-          <!-- Project search (filtered by client) -->
+          <!-- Project list (filtered by client, shown automatically) -->
           <div class="form-group">
-            <label>Projet *</label>
+            <label>2. Projet (actifs uniquement) *</label>
             <div class="search-dropdown">
-              <input
-                v-model="projectSearch"
-                type="text"
-                :placeholder="selectedClientId ? 'Rechercher un projet...' : 'Choisir un client d\'abord'"
-                class="search-input"
-                @focus="selectedProjectId = null"
-              />
-              <div v-if="projectSearch && !selectedProjectId" class="dropdown-list">
-                <div
-                  v-for="p in filteredProjects"
-                  :key="p.id"
-                  class="dropdown-item"
-                  @click="selectProject(p)"
-                >
-                  <span class="dropdown-code">{{ p.code }}</span>
-                  <span class="dropdown-main">{{ p.name }}</span>
+              <template v-if="!selectedProjectId">
+                <input
+                  v-model="projectSearch"
+                  type="text"
+                  :placeholder="selectedClientId ? `Rechercher parmi ${filteredProjects.length} projet(s)...` : 'Sélectionnez un client d\'abord'"
+                  class="search-input"
+                  :disabled="!selectedClientId"
+                  @focus="showProjectList = true"
+                />
+                <!-- Auto-show list when client selected -->
+                <div v-if="(showProjectList || projectSearch) && selectedClientId" class="dropdown-list">
+                  <div
+                    v-for="p in filteredProjects"
+                    :key="p.id"
+                    class="dropdown-item"
+                    @click="selectProject(p)"
+                  >
+                    <span class="dropdown-code">{{ p.code }}</span>
+                    <span class="dropdown-main">{{ p.name }}</span>
+                  </div>
+                  <div v-if="!filteredProjects.length" class="dropdown-empty">Aucun projet actif pour ce client</div>
                 </div>
-                <div v-if="!filteredProjects.length" class="dropdown-empty">Aucun projet trouvé</div>
+              </template>
+              <div v-else class="selected-chip">
+                <span>{{ projectSearch }}</span>
+                <button type="button" class="chip-clear" @click="clearProject">&times;</button>
               </div>
-              <div v-if="selectedProjectId" class="selected-badge">{{ projectSearch }}</div>
             </div>
           </div>
         </div>
@@ -270,7 +300,9 @@ onMounted(() => store.fetchInvoices())
 .dropdown-sub { font-size: 11px; color: var(--color-gray-400); }
 .dropdown-code { font-family: var(--font-mono); font-size: 11px; color: var(--color-primary); font-weight: 600; min-width: 90px; }
 .dropdown-empty { padding: 12px; text-align: center; font-size: 12px; color: var(--color-gray-400); }
-.selected-badge { position: absolute; top: 0; left: 0; right: 0; padding: 8px 12px; background: var(--color-primary-light); color: var(--color-primary); font-size: 13px; font-weight: 500; border-radius: 6px; pointer-events: none; }
+.selected-chip { display: flex; align-items: center; justify-content: space-between; padding: 7px 12px; background: var(--color-primary-light); color: var(--color-primary); font-size: 13px; font-weight: 500; border-radius: 6px; }
+.chip-clear { background: none; border: none; font-size: 16px; cursor: pointer; color: var(--color-primary); padding: 0 0 0 8px; font-weight: 700; }
+.chip-clear:hover { color: var(--color-danger); }
 .form-group { margin-bottom: 12px; }
 .form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--color-gray-600); margin-bottom: 4px; }
 .form-actions { display: flex; justify-content: flex-end; gap: 6px; }
