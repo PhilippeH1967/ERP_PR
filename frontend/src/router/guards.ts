@@ -33,9 +33,20 @@ export async function authGuard(
     }
   }
 
-  if (isAuthenticated.value) {
-    next()
-  } else {
+  if (!isAuthenticated.value) {
     next({ name: 'login', query: { redirect: to.fullPath } })
+    return
   }
+
+  // Admin routes require ADMIN role
+  if (to.path.startsWith('/admin')) {
+    const { currentUser } = useAuth()
+    const roles = currentUser.value?.roles || []
+    if (!roles.includes('ADMIN')) {
+      next({ name: 'dashboard' })
+      return
+    }
+  }
+
+  next()
 }
