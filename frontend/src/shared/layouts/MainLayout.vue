@@ -8,7 +8,8 @@ import { useIdleTimeout } from '@/shared/composables/useIdleTimeout'
 
 const { t } = useI18n()
 const { currentUser, logout } = useAuth()
-const { currentLocale, switchLocale } = useLocale()
+const { currentLocale, switchLocale, initLocale } = useLocale()
+initLocale()
 
 const userMenuOpen = ref(false)
 const { showWarning: showIdleWarning, remainingSeconds, dismiss: dismissIdle } = useIdleTimeout(() => logout())
