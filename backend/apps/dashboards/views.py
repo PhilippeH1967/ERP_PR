@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .services import get_pm_financial_kpis, get_role_dashboard_kpis
+from .services import get_bu_director_kpis, get_pm_financial_kpis, get_role_dashboard_kpis
 
 
 @api_view(["GET"])
@@ -26,6 +26,17 @@ def pm_financial_kpis(request):
     if not tenant_id:
         return Response({})
     kpis = get_pm_financial_kpis(request.user, tenant_id)
+    return Response(kpis)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def bu_director_kpis(request):
+    """BU Director KPIs — projects, hours, utilization, budget."""
+    tenant_id = getattr(request, "tenant_id", None)
+    if not tenant_id:
+        return Response({})
+    kpis = get_bu_director_kpis(request.user, tenant_id)
     return Response(kpis)
 
 

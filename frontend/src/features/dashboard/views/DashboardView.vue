@@ -20,6 +20,13 @@ interface PMKPIs {
   total_hours: string
 }
 
+interface BUKPIs {
+  projects_in_bu: number
+  total_hours_bu: string
+  utilization_percent: number
+  budget_consumed_percent: number
+}
+
 interface SystemHealth {
   active_users: number
   pending_approvals: number
@@ -28,10 +35,12 @@ interface SystemHealth {
 
 const kpis = ref<KPIs | null>(null)
 const pmKpis = ref<PMKPIs | null>(null)
+const buKpis = ref<BUKPIs | null>(null)
 const healthKpis = ref<SystemHealth | null>(null)
 
 const roles = computed(() => currentUser.value?.roles || [])
 const isPM = computed(() => roles.value.includes('PM') || roles.value.includes('PROJECT_DIRECTOR'))
+const isBUDirector = computed(() => roles.value.includes('BU_DIRECTOR'))
 const isFinance = computed(() => roles.value.includes('FINANCE'))
 const isAdmin = computed(() => roles.value.includes('ADMIN'))
 
@@ -47,6 +56,14 @@ onMounted(async () => {
     try {
       const resp = await apiClient.get('dashboard/pm-kpis/')
       pmKpis.value = resp.data?.data || resp.data
+    } catch { /* empty */ }
+  }
+
+  // BU Director KPIs
+  if (isBUDirector.value || isAdmin.value) {
+    try {
+      const resp = await apiClient.get('dashboard/bu-kpis/')
+      buKpis.value = resp.data?.data || resp.data
     } catch { /* empty */ }
   }
 
@@ -104,6 +121,29 @@ onMounted(async () => {
         <div class="kpi-card">
           <p class="kpi-label">Heures totales</p>
           <p class="kpi-value mono">{{ fmt.hours(pmKpis.total_hours) }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- BU Director Section -->
+    <div v-if="buKpis && (isBUDirector || isAdmin)" class="section">
+      <h2 class="section-title">Directeur d'unité</h2>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <p class="kpi-label">Projets unité</p>
+          <p class="kpi-value primary">{{ buKpis.projects_in_bu }}</p>
+        </div>
+        <div class="kpi-card">
+          <p class="kpi-label">Heures totales</p>
+          <p class="kpi-value mono">{{ fmt.hours(buKpis.total_hours_bu) }}</p>
+        </div>
+        <div class="kpi-card">
+          <p class="kpi-label">Utilisation %</p>
+          <p class="kpi-value">{{ buKpis.utilization_percent }}%</p>
+        </div>
+        <div class="kpi-card">
+          <p class="kpi-label">Budget consommé %</p>
+          <p class="kpi-value">{{ buKpis.budget_consumed_percent }}%</p>
         </div>
       </div>
     </div>
