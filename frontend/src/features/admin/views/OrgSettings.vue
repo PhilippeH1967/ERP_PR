@@ -182,7 +182,7 @@ onMounted(fetchAll)
         <div class="form-row-4">
           <div class="form-group"><label>Nom *</label><input v-model="posForm.name" required /></div>
           <div class="form-group"><label>Code</label><input v-model="posForm.code" placeholder="ARCH" /></div>
-          <div class="form-group"><label>Catégorie</label><input v-model="posForm.category" placeholder="Professionnel" /></div>
+          <div class="form-group"><label>Catégorie</label><input v-model="posForm.category" placeholder="Professionnel, Technique, Support, Direction" /><span class="field-hint">Regroupe les profils par famille de métier</span></div>
           <div class="form-group"><label>Taux horaire coût ($)</label><input v-model="posForm.hourly_cost_rate" type="number" step="0.01" /></div>
         </div>
         <div class="form-actions"><button class="btn-ghost" @click="showPosForm = false">Annuler</button><button class="btn-primary" @click="savePos">{{ editPosId ? 'Enregistrer' : 'Créer' }}</button></div>
@@ -318,4 +318,5 @@ onMounted(fetchAll)
 .btn-action:hover { text-decoration: underline; }
 .btn-action.danger { color: var(--color-danger); }
 .empty { text-align: center; padding: 24px; color: var(--color-gray-400); }
+.field-hint { display: block; font-size: 10px; color: var(--color-gray-400); margin-top: 2px; }
 </style>
