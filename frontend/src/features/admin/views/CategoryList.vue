@@ -8,7 +8,7 @@ const router = useRouter()
 interface ExpenseCategory {
   id: number
   name: string
-  code: string
+  // code field removed — not in backend model
   is_refacturable_default: boolean
   requires_receipt: boolean
   gl_account: string
@@ -22,7 +22,6 @@ const editingId = ref<number | null>(null)
 
 const form = ref({
   name: '',
-  code: '',
   is_refacturable_default: false,
   requires_receipt: true,
   gl_account: '',
@@ -43,7 +42,7 @@ async function fetchCategories() {
 
 function openCreate() {
   editingId.value = null
-  form.value = { name: '', code: '', is_refacturable_default: false, requires_receipt: true, gl_account: '' }
+  form.value = { name: '', is_refacturable_default: false, requires_receipt: true, gl_account: '' }
   showForm.value = true
 }
 
@@ -51,7 +50,6 @@ function openEdit(cat: ExpenseCategory) {
   editingId.value = cat.id
   form.value = {
     name: cat.name,
-    code: cat.code,
     is_refacturable_default: cat.is_refacturable_default,
     requires_receipt: cat.requires_receipt,
     gl_account: cat.gl_account,
@@ -65,11 +63,18 @@ async function save() {
   saveError.value = ''
   if (!form.value.name.trim()) { saveError.value = 'Le nom est obligatoire.'; return }
   try {
-    if (editingId.value) {
-      await apiClient.patch(`expense_categories/${editingId.value}/`, form.value)
-    } else {
-      await apiClient.post('expense_categories/', form.value)
+    const payload = {
+      name: form.value.name,
+      is_refacturable_default: form.value.is_refacturable_default,
+      requires_receipt: form.value.requires_receipt,
+      gl_account: form.value.gl_account,
     }
+    if (editingId.value) {
+      await apiClient.patch(`expense_categories/${editingId.value}/`, payload)
+    } else {
+      await apiClient.post('expense_categories/', payload)
+    }
+    editingId.value = null
     showForm.value = false
     await fetchCategories()
   } catch (e: unknown) {
@@ -117,7 +122,7 @@ onMounted(fetchCategories)
       <table v-if="categories.length">
         <thead>
           <tr>
-            <th>Code</th>
+            <!-- code column removed -->
             <th>Nom</th>
             <th>Compte GL</th>
             <th>Refacturable</th>
@@ -127,7 +132,7 @@ onMounted(fetchCategories)
         </thead>
         <tbody>
           <tr v-for="cat in categories" :key="cat.id">
-            <td class="code-cell">{{ cat.code }}</td>
+            <!-- code removed -->
             <td class="name-cell">{{ cat.name }}</td>
             <td class="mono">{{ cat.gl_account || '—' }}</td>
             <td>
@@ -167,7 +172,7 @@ onMounted(fetchCategories)
             <div class="form-row">
               <div class="form-group">
                 <label>Code</label>
-                <input v-model="form.code" type="text" required placeholder="Ex: TRANSPORT" />
+                <!-- code field removed -->
               </div>
               <div class="form-group">
                 <label>Nom</label>
