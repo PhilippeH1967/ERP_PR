@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProjectStore } from '../stores/useProjectStore'
+import apiClient from '@/plugins/axios'
 
 const router = useRouter()
 const store = useProjectStore()
@@ -17,13 +18,60 @@ const form = ref({
   code: '',
   name: '',
   client: null as number | null,
+  pm: null as number | null,
+  associate_in_charge: null as number | null,
+  invoice_approver: null as number | null,
   contract_type: 'FORFAITAIRE' as const,
-  business_unit: '',
+  business_unit: null as number | null,
+  is_internal: false,
   legal_entity: '',
   start_date: '',
   end_date: '',
   template_id: null as number | null,
 })
+
+// Client searchable dropdown (same pattern as InvoiceList.vue)
+interface ClientOption { id: number; name: string; alias: string; status: string }
+const allClients = ref<ClientOption[]>([])
+const clientSearch = ref('')
+const selectedClientId = ref<number | null>(null)
+
+const filteredClients = computed(() => {
+  const q = clientSearch.value.toLowerCase()
+  return allClients.value
+    .filter(c => c.status === 'active')
+    .filter(c => !q || c.name.toLowerCase().includes(q) || (c.alias || '').toLowerCase().includes(q))
+    .slice(0, 15)
+})
+
+function selectClient(client: ClientOption) {
+  selectedClientId.value = client.id
+  clientSearch.value = client.name
+  form.value.client = client.id
+}
+
+function clearClient() {
+  selectedClientId.value = null
+  clientSearch.value = ''
+  form.value.client = null
+}
+
+// Business Unit dropdown
+interface BUOption { id: number; name: string; code: string }
+const businessUnits = ref<BUOption[]>([])
+
+async function loadLookups() {
+  try {
+    const [cResp, buResp] = await Promise.all([
+      apiClient.get('clients/', { params: { status: 'active' } }),
+      apiClient.get('business_units/'),
+    ])
+    const cData = cResp.data?.data || cResp.data
+    allClients.value = Array.isArray(cData) ? cData : cData?.results || []
+    const buData = buResp.data?.data || buResp.data
+    businessUnits.value = Array.isArray(buData) ? buData : buData?.results || []
+  } catch { /* silent */ }
+}
 
 // Step 2: Phases (from template or manual)
 const phases = ref<Array<{ name: string; client_facing_label: string; billing_mode: string; budgeted_hours: string; budgeted_cost: string }>>([])
@@ -38,8 +86,8 @@ function removePhase(index: number) {
 
 function nextStep() {
   if (currentStep.value === 1) {
-    if (!form.value.code || !form.value.name) {
-      error.value = 'Code et nom sont obligatoires'
+    if (!form.value.code || !form.value.name || !form.value.client) {
+      error.value = 'Code, nom et client sont obligatoires'
       return
     }
     error.value = ''
@@ -68,11 +116,26 @@ async function onSubmit() {
   isSubmitting.value = true
   error.value = ''
   try {
+    const payload = {
+      code: form.value.code,
+      name: form.value.name,
+      client: form.value.client,
+      pm: form.value.pm,
+      associate_in_charge: form.value.associate_in_charge,
+      invoice_approver: form.value.invoice_approver,
+      contract_type: form.value.contract_type,
+      business_unit: form.value.business_unit,
+      is_internal: form.value.is_internal,
+      legal_entity: form.value.legal_entity,
+      start_date: form.value.start_date || null,
+      end_date: form.value.end_date || null,
+      template_id: form.value.template_id,
+    }
     let project
     if (form.value.template_id) {
-      project = await store.createFromTemplate(form.value.template_id, form.value)
+      project = await store.createFromTemplate(form.value.template_id, payload)
     } else {
-      const resp = await store.createProject(form.value)
+      const resp = await store.createProject(payload)
       project = resp
     }
     if (project?.id) {
@@ -84,6 +147,8 @@ async function onSubmit() {
     isSubmitting.value = false
   }
 }
+
+onMounted(loadLookups)
 </script>
 
 <template>
@@ -173,6 +238,38 @@ async function onSubmit() {
               placeholder="Complexe Desjardins"
             >
           </div>
+
+          <!-- Client searchable dropdown -->
+          <div class="col-span-2">
+            <label class="text-xs font-medium text-text-muted">Client *</label>
+            <div class="relative mt-1">
+              <template v-if="!selectedClientId">
+                <input
+                  v-model="clientSearch"
+                  type="text"
+                  placeholder="Tapez pour rechercher un client..."
+                  class="w-full rounded-md border border-border px-3 py-2 text-sm"
+                />
+                <div v-if="filteredClients.length || clientSearch" class="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-white shadow-lg">
+                  <div
+                    v-for="c in filteredClients"
+                    :key="c.id"
+                    class="cursor-pointer px-3 py-2 text-sm hover:bg-primary/10"
+                    @click="selectClient(c)"
+                  >
+                    <span class="font-medium">{{ c.name }}</span>
+                    <span v-if="c.alias" class="ml-2 text-xs text-text-muted">({{ c.alias }})</span>
+                  </div>
+                  <div v-if="clientSearch && !filteredClients.length" class="px-3 py-2 text-center text-xs text-text-muted">Aucun client actif trouvé</div>
+                </div>
+              </template>
+              <div v-else class="flex items-center justify-between rounded-md bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
+                <span>{{ clientSearch }}</span>
+                <button type="button" class="ml-2 text-base font-bold hover:text-danger" @click="clearClient">&times;</button>
+              </div>
+            </div>
+          </div>
+
           <div>
             <label class="text-xs font-medium text-text-muted">Type de contrat</label>
             <select
@@ -195,8 +292,51 @@ async function onSubmit() {
           </div>
           <div>
             <label class="text-xs font-medium text-text-muted">Unité d'affaires</label>
-            <input
+            <select
               v-model="form.business_unit"
+              class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
+            >
+              <option :value="null">— Sélectionner —</option>
+              <option
+                v-for="bu in businessUnits"
+                :key="bu.id"
+                :value="bu.id"
+              >
+                {{ bu.name }} ({{ bu.code }})
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-medium text-text-muted">Chef de projet (ID utilisateur)</label>
+            <input
+              v-model="form.pm"
+              type="number"
+              class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
+              placeholder="ID"
+            >
+          </div>
+          <div>
+            <label class="text-xs font-medium text-text-muted">Associé en charge (ID utilisateur)</label>
+            <input
+              v-model="form.associate_in_charge"
+              type="number"
+              class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
+              placeholder="ID"
+            >
+          </div>
+          <div>
+            <label class="text-xs font-medium text-text-muted">Approbateur factures (ID utilisateur)</label>
+            <input
+              v-model="form.invoice_approver"
+              type="number"
+              class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
+              placeholder="ID"
+            >
+          </div>
+          <div>
+            <label class="text-xs font-medium text-text-muted">Entité juridique</label>
+            <input
+              v-model="form.legal_entity"
               type="text"
               class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
             >
@@ -216,6 +356,15 @@ async function onSubmit() {
               type="date"
               class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
             >
+          </div>
+          <div class="col-span-2 flex items-center gap-2">
+            <input
+              id="is_internal"
+              v-model="form.is_internal"
+              type="checkbox"
+              class="h-4 w-4 rounded border-border"
+            >
+            <label for="is_internal" class="text-sm text-text">Projet interne (non facturable)</label>
           </div>
         </div>
       </div>
@@ -331,8 +480,36 @@ async function onSubmit() {
                 <span class="ml-2 font-medium">{{ form.name }}</span>
               </div>
               <div>
+                <span class="text-text-muted">Client:</span>
+                <span class="ml-2 font-medium">{{ clientSearch || '—' }}</span>
+              </div>
+              <div>
                 <span class="text-text-muted">Type:</span>
                 <span class="ml-2">{{ form.contract_type }}</span>
+              </div>
+              <div>
+                <span class="text-text-muted">Unité d'affaires:</span>
+                <span class="ml-2">{{ businessUnits.find(bu => bu.id === form.business_unit)?.name || '—' }}</span>
+              </div>
+              <div>
+                <span class="text-text-muted">Entité juridique:</span>
+                <span class="ml-2">{{ form.legal_entity || '—' }}</span>
+              </div>
+              <div>
+                <span class="text-text-muted">Projet interne:</span>
+                <span class="ml-2">{{ form.is_internal ? 'Oui' : 'Non' }}</span>
+              </div>
+              <div>
+                <span class="text-text-muted">Chef de projet:</span>
+                <span class="ml-2">{{ form.pm || '—' }}</span>
+              </div>
+              <div>
+                <span class="text-text-muted">Associé en charge:</span>
+                <span class="ml-2">{{ form.associate_in_charge || '—' }}</span>
+              </div>
+              <div>
+                <span class="text-text-muted">Approbateur factures:</span>
+                <span class="ml-2">{{ form.invoice_approver || '—' }}</span>
               </div>
               <div>
                 <span class="text-text-muted">Phases:</span>

@@ -34,6 +34,12 @@ const showAssignModal = ref(false)
 const assignPhaseId = ref<number | null>(null)
 const assignPhaseName = ref('')
 
+// WBS create/edit
+const showWBSForm = ref(false)
+const wbsForm = ref({ standard_label: '', client_facing_label: '', element_type: 'PHASE', budgeted_hours: '0', phase: null as number | null })
+const editingWBSId = ref<number | null>(null)
+const editingWBSForm = ref({ standard_label: '', client_facing_label: '', budgeted_hours: '' })
+
 // Inline edit project
 const editingProject = ref(false)
 const projectForm = ref({ name: '', start_date: '', end_date: '', business_unit: '', pm: '', associate_in_charge: '' })
@@ -57,6 +63,8 @@ function stopEditing() {
   isEditing.value = false
   editingProject.value = false
   editingPhaseId.value = null
+  editingWBSId.value = null
+  showWBSForm.value = false
   showDeleteConfirm.value = false
   confirmDeletePhase.value = null
   confirmDeleteWBS.value = null
@@ -93,6 +101,42 @@ async function savePhase() {
   try {
     await projectApi.updatePhase(projectId, editingPhaseId.value, phaseForm.value as Record<string, unknown>)
     editingPhaseId.value = null
+    await reload()
+  } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+}
+
+// WBS create
+async function createWBSElement() {
+  actionError.value = ''
+  try {
+    await projectApi.createWBSElement(projectId, {
+      standard_label: wbsForm.value.standard_label,
+      client_facing_label: wbsForm.value.client_facing_label,
+      element_type: wbsForm.value.element_type,
+      budgeted_hours: wbsForm.value.budgeted_hours,
+      phase: wbsForm.value.phase,
+    } as Record<string, unknown>)
+    showWBSForm.value = false
+    wbsForm.value = { standard_label: '', client_facing_label: '', element_type: 'PHASE', budgeted_hours: '0', phase: null }
+    await reload()
+  } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+}
+
+function startEditWBS(node: WBSNode) {
+  editingWBSId.value = node.id
+  editingWBSForm.value = {
+    standard_label: node.standard_label,
+    client_facing_label: node.client_facing_label,
+    budgeted_hours: node.budgeted_hours,
+  }
+}
+
+async function saveWBS() {
+  if (!editingWBSId.value) return
+  actionError.value = ''
+  try {
+    await projectApi.updateWBSElement(projectId, editingWBSId.value, editingWBSForm.value as Record<string, unknown>)
+    editingWBSId.value = null
     await reload()
   } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
 }
@@ -301,19 +345,62 @@ onMounted(reload)
 
     <!-- ═══ WBS ═══ -->
     <template v-if="activeTab === 'wbs'">
+      <div v-if="isEditing" class="section-actions"><button class="btn-primary" @click="showWBSForm = !showWBSForm">+ Ajouter un élément WBS</button></div>
+
+      <div v-if="showWBSForm" class="card" style="margin-bottom: 12px;">
+        <form @submit.prevent="createWBSElement" class="form-row-3">
+          <div class="form-group"><label>Libellé standard</label><input v-model="wbsForm.standard_label" type="text" required placeholder="Libellé interne" /></div>
+          <div class="form-group"><label>Libellé client</label><input v-model="wbsForm.client_facing_label" type="text" placeholder="Libellé visible client" /></div>
+          <div class="form-group"><label>Type</label>
+            <select v-model="wbsForm.element_type">
+              <option value="PHASE">Phase</option>
+              <option value="TASK">Tâche</option>
+              <option value="SUBTASK">Sous-tâche</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Heures budgetées</label><input v-model="wbsForm.budgeted_hours" type="number" step="0.01" /></div>
+          <div class="form-group"><label>Phase</label>
+            <select v-model="wbsForm.phase">
+              <option :value="null">— Aucune —</option>
+              <option v-for="phase in store.currentProject?.phases" :key="phase.id" :value="phase.id">{{ phase.name }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>&nbsp;</label>
+            <div style="display:flex;gap:4px;">
+              <button type="button" class="btn-ghost" @click="showWBSForm=false">Annuler</button>
+              <button type="submit" class="btn-primary">Créer</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
       <div class="card" v-if="wbsTree.length">
         <div v-for="node in wbsTree" :key="node.id" class="wbs-node">
           <div class="wbs-row">
-            <div><span class="badge badge-blue">{{ node.element_type }}</span> <span class="font-semibold">{{ node.client_facing_label || node.standard_label }}</span></div>
-            <div class="flex items-center gap-4"><span class="font-mono text-muted">{{ node.budgeted_hours }}h</span>
-              <template v-if="isEditing">
-                <template v-if="confirmDeleteWBS === node.id">
-                  <button class="btn-action danger" @click="deleteWBS(node.id)">Confirmer</button>
-                  <button class="btn-action" @click="confirmDeleteWBS = null">Annuler</button>
+            <template v-if="editingWBSId === node.id">
+              <div class="flex items-center gap-2" style="flex:1">
+                <span class="badge badge-blue">{{ node.element_type }}</span>
+                <input v-model="editingWBSForm.standard_label" class="inline-input" placeholder="Libellé standard" />
+                <input v-model="editingWBSForm.client_facing_label" class="inline-input" placeholder="Libellé client" />
+                <input v-model="editingWBSForm.budgeted_hours" type="number" class="inline-input-sm" />
+                <button class="btn-action" @click="saveWBS">OK</button>
+                <button class="btn-action" @click="editingWBSId = null">&times;</button>
+              </div>
+            </template>
+            <template v-else>
+              <div><span class="badge badge-blue">{{ node.element_type }}</span> <span class="font-semibold">{{ node.client_facing_label || node.standard_label }}</span></div>
+              <div class="flex items-center gap-4"><span class="font-mono text-muted">{{ node.budgeted_hours }}h</span>
+                <template v-if="isEditing">
+                  <button class="btn-action" @click="startEditWBS(node)">Modifier</button>
+                  <template v-if="confirmDeleteWBS === node.id">
+                    <button class="btn-action danger" @click="deleteWBS(node.id)">Confirmer</button>
+                    <button class="btn-action" @click="confirmDeleteWBS = null">Annuler</button>
+                  </template>
+                  <button v-else class="btn-action danger" @click="confirmDeleteWBS = node.id">Supprimer...</button>
                 </template>
-                <button v-else class="btn-action danger" @click="confirmDeleteWBS = node.id">Supprimer...</button>
-              </template>
-            </div>
+              </div>
+            </template>
           </div>
           <div v-if="node.children?.length" class="wbs-children">
             <div v-for="child in node.children" :key="child.id" class="wbs-child">
@@ -323,7 +410,7 @@ onMounted(reload)
           </div>
         </div>
       </div>
-      <div v-else class="card empty-card">Aucun élément WBS</div>
+      <div v-else-if="!showWBSForm" class="card empty-card">Aucun élément WBS</div>
     </template>
 
     <!-- ═══ Team ═══ -->

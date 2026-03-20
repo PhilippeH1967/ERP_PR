@@ -37,6 +37,7 @@ from apps.core.auth import (
     user_create,
     user_delete,
     user_list,
+    user_search,
     user_update,
 )
 
@@ -101,6 +102,7 @@ urlpatterns = [
     path("auth/me/", auth_me, name="auth-me"),
     path("auth/config/", auth_config, name="auth-config"),
     path("users/", user_list, name="user-list"),
+    path("users/search/", user_search, name="user-search"),
     path("users/create/", user_create, name="user-create"),
     path("users/<int:pk>/", user_update, name="user-update"),
     path("users/<int:pk>/delete/", user_delete, name="user-delete"),

@@ -1,0 +1,26 @@
+ID;Module;Scénario de test;Prérequis;Étapes;Résultat attendu;Rôle testeur;Priorité;Statut
+V4-001;Projet Wizard;Créer un projet avec template;Admin connecté + templates existants;1. /projects → "+ Nouveau projet" 2. Sélectionner template "Forfaitaire Standard" 3. Remplir code: PR-2026-002, nom: Centre Eaton 4. Sélectionner client (searchable) 5. Sélectionner BU (dropdown) 6. Dates + PM + Associé 7. Suivant → phases pré-remplies 8. Suivant → Suivant → Créer;Projet créé avec phases du template, client lié, BU assignée, redirection fiche;Admin;CRITIQUE;À tester
+V4-002;Projet Wizard;Créer un projet sans template;Admin connecté;1. "+ Nouveau projet" 2. Sans template 3. Code + nom + client 4. Étape 2: ajouter 2 phases manuellement 5. Créer;Projet créé avec 2 phases manuelles;Admin;HAUTE;À tester
+V4-003;Projet Wizard;Client obligatoire;Admin connecté;1. "+ Nouveau projet" 2. Remplir code + nom mais PAS de client 3. Cliquer Suivant;Message erreur "Client obligatoire";Admin;HAUTE;À tester
+V4-004;Projet Wizard;Sélection client searchable;Admin connecté + clients existants;1. Étape 1 → champ Client 2. Taper quelques lettres du nom 3. Dropdown apparaît 4. Cliquer pour sélectionner;Client sélectionné, affiché comme chip bleu;Admin;HAUTE;À tester
+V4-005;Projet Wizard;BU en dropdown;Admin connecté + BU créées;1. Étape 1 → champ Unité d'affaires 2. Vérifier que c'est un dropdown (pas texte libre);Liste des BU configurées dans /admin/org;Admin;HAUTE;À tester
+V4-006;Projet Wizard;Projet interne;Admin connecté;1. Cocher "Projet interne (non facturable)" 2. Créer le projet;Projet créé avec is_internal = true;Admin;MOYENNE;À tester
+V4-007;Projet Wizard;PM et Associé assignés;Admin connecté;1. Remplir PM (ID utilisateur) + Associé en charge 2. Créer;Visibles dans l'onglet Vue d'ensemble du projet;Admin;HAUTE;À tester
+V4-008;Projet Detail;Modifier les infos projet;Projet existant;1. Fiche projet → Modifier 2. Changer nom, dates, BU 3. Enregistrer;Données mises à jour;PM;HAUTE;À tester
+V4-009;Projet Detail;Changer le statut;Projet ACTIVE;1. Modifier → cliquer badge statut 2. Choisir "En pause";Statut changé en ON_HOLD;PM;HAUTE;À tester
+V4-010;Projet Detail;Transition statut invalide;Projet COMPLETED;1. Tenter de changer un projet terminé en Actif;Message erreur "Transition invalide";PM;HAUTE;À tester
+V4-011;Projet Detail;Supprimer un projet;Projet sans données;1. Modifier → Supprimer... → Confirmer;Projet supprimé, retour liste;Admin;MOYENNE;À tester
+V4-012;Phases;Modifier une phase inline;Projet avec phases;1. Onglet Phases → Modifier (mode édition) 2. Changer heures/mode 3. OK;Phase mise à jour;PM;HAUTE;À tester
+V4-013;Phases;Supprimer une phase;Projet avec phases;1. Onglet Phases → Supprimer → Confirmer;Phase supprimée;PM;HAUTE;À tester
+V4-014;WBS;Créer un élément WBS;Projet existant;1. Onglet WBS → "+ Ajouter un élément" 2. Label standard + label client + type + heures 3. Ajouter;Élément WBS créé dans l'arbre;PM;HAUTE;À tester
+V4-015;WBS;Modifier un élément WBS;Élément WBS existant;1. Modifier sur un noeud WBS 2. Changer label/heures 3. Enregistrer;Données mises à jour;PM;HAUTE;À tester
+V4-016;WBS;Supprimer un élément WBS;Élément WBS existant;1. Supprimer → Confirmer;Élément supprimé;PM;MOYENNE;À tester
+V4-017;Équipe;Affecter un employé;Projet avec phases;1. Onglet Phases → Affecter 2. Rechercher employé par nom (dropdown) 3. Pourcentage + dates 4. Affecter;Affectation visible dans onglet Équipe;PM;HAUTE;À tester
+V4-018;Équipe;Recherche employé par nom;Utilisateurs existants;1. Modal d'affectation 2. Taper un nom dans le champ employé 3. Dropdown avec résultats;Liste filtrée d'utilisateurs;PM;HAUTE;À tester
+V4-019;Équipe;Retirer une affectation;Affectation existante;1. Onglet Équipe → Retirer → Confirmer;Affectation supprimée;PM;HAUTE;À tester
+V4-020;Avenants;Créer un avenant;Projet existant;1. Onglet Avenants → "+ Nouvel avenant" 2. Description + impact budget 3. Créer;Avenant créé avec numéro auto;PM;HAUTE;À tester
+V4-021;Avenants;Supprimer un avenant;Avenant existant;1. Supprimer → Confirmer;Avenant supprimé;PM;MOYENNE;À tester
+V4-022;Budget;Barre de progression budget;Projet avec heures saisies;1. Onglet Budget 2. Vérifier barre + pourcentage;Utilisation budget affichée en vert/jaune/rouge;PM;HAUTE;À tester
+V4-023;Liste projets;Recherche projet;Projets existants;1. /projects 2. Taper un code ou nom 3. Entrée;Résultats filtrés;Tous;HAUTE;À tester
+V4-024;Liste projets;Cliquer sur un projet;Projets existants;1. Cliquer sur un projet dans la liste;Redirection vers fiche détail;Tous;HAUTE;À tester
+V4-025;Projet;Dual labels phases;Projet avec phases;1. Onglet Phases 2. Vérifier colonnes "Phase" (label interne) et "Libellé client";Deux colonnes distinctes;PM;HAUTE;À tester

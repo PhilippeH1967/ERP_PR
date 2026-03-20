@@ -351,6 +351,25 @@ def delegation_delete(request, pk):
 
 
 @api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def user_search(request):
+    """Search users by username or email. Any authenticated user can access this."""
+    from django.contrib.auth import get_user_model
+    from django.db.models import Q
+
+    User = get_user_model()
+    q = request.query_params.get("q", "").strip()
+
+    qs = User.objects.filter(is_active=True)
+    if q:
+        qs = qs.filter(Q(username__icontains=q) | Q(email__icontains=q))
+    qs = qs.order_by("username")[:10]
+
+    result = [{"id": u.id, "username": u.username, "email": u.email} for u in qs]
+    return Response({"data": result})
+
+
+@api_view(["GET"])
 @permission_classes([AllowAny])
 def auth_config(request):
     """Return auth configuration for the login page."""

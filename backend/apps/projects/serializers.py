@@ -125,4 +125,4 @@ class EmployeeAssignmentSerializer(serializers.ModelSerializer):
             "id", "employee", "project", "phase",
             "percentage", "start_date", "end_date",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "project"]

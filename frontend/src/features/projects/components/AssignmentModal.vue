@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import BaseModal from '@/shared/components/BaseModal.vue'
 import { projectApi } from '../api/projectApi'
+import apiClient from '@/plugins/axios'
 
 const props = defineProps<{
   open: boolean
@@ -19,10 +20,71 @@ const isSubmitting = ref(false)
 const error = ref('')
 
 const form = ref({
-  employee: '' as string | number,
+  employee: null as number | null,
   percentage: 100,
   start_date: '',
   end_date: '',
+})
+
+// User search
+interface UserOption { id: number; username: string; email: string }
+const allUsers = ref<UserOption[]>([])
+const userSearch = ref('')
+const selectedUser = ref<UserOption | null>(null)
+
+const filteredUsers = computed(() => {
+  const q = userSearch.value.toLowerCase()
+  if (!q) return allUsers.value.slice(0, 10)
+  return allUsers.value
+    .filter(u => u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
+    .slice(0, 10)
+})
+
+function selectUser(user: UserOption) {
+  selectedUser.value = user
+  userSearch.value = user.username
+  form.value.employee = user.id
+}
+
+function clearUser() {
+  selectedUser.value = null
+  userSearch.value = ''
+  form.value.employee = null
+}
+
+// Phase names lookup
+interface PhaseOption { id: number; name: string }
+const phases = ref<PhaseOption[]>([])
+
+const resolvedPhaseName = computed(() => {
+  if (props.phaseName) return props.phaseName
+  if (props.phaseId) {
+    const phase = phases.value.find(p => p.id === props.phaseId)
+    return phase ? phase.name : `Phase #${props.phaseId}`
+  }
+  return 'Global'
+})
+
+// Load users and phases when modal opens
+watch(() => props.open, async (isOpen) => {
+  if (isOpen) {
+    // Reset form
+    form.value = { employee: null, percentage: 100, start_date: '', end_date: '' }
+    selectedUser.value = null
+    userSearch.value = ''
+    error.value = ''
+
+    try {
+      const [uResp, pResp] = await Promise.all([
+        apiClient.get('users/search/', { params: { q: '' } }),
+        projectApi.listPhases(props.projectId),
+      ])
+      const uData = uResp.data?.data || uResp.data
+      allUsers.value = Array.isArray(uData) ? uData : uData?.results || []
+      const pData = pResp.data?.data || pResp.data
+      phases.value = Array.isArray(pData) ? pData : pData?.results || []
+    } catch { /* silent */ }
+  }
 })
 
 async function onSubmit() {
@@ -42,7 +104,6 @@ async function onSubmit() {
     })
     emit('assigned')
     emit('close')
-    form.value = { employee: '', percentage: 100, start_date: '', end_date: '' }
   } catch {
     error.value = "Erreur lors de l'affectation"
   } finally {
@@ -54,7 +115,7 @@ async function onSubmit() {
 <template>
   <BaseModal
     :open="open"
-    :title="`Affecter — ${phaseName}`"
+    :title="`Affecter — ${resolvedPhaseName}`"
     @close="emit('close')"
   >
     <form
@@ -69,16 +130,33 @@ async function onSubmit() {
       </div>
 
       <div>
-        <label class="text-xs font-medium text-text-muted">ID Employé *</label>
-        <input
-          v-model="form.employee"
-          type="number"
-          class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
-          placeholder="ID de l'employé"
-        >
-        <p class="mt-1 text-[10px] text-text-muted">
-          La recherche par nom sera disponible quand le module Employés sera complet
-        </p>
+        <label class="text-xs font-medium text-text-muted">Employé *</label>
+        <div class="relative mt-1">
+          <template v-if="!selectedUser">
+            <input
+              v-model="userSearch"
+              type="text"
+              class="w-full rounded-md border border-border px-3 py-2 text-sm"
+              placeholder="Rechercher par nom ou email..."
+            >
+            <div v-if="filteredUsers.length || userSearch" class="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-white shadow-lg">
+              <div
+                v-for="u in filteredUsers"
+                :key="u.id"
+                class="cursor-pointer px-3 py-2 text-sm hover:bg-primary/10"
+                @click="selectUser(u)"
+              >
+                <span class="font-medium">{{ u.username }}</span>
+                <span class="ml-2 text-xs text-text-muted">{{ u.email }}</span>
+              </div>
+              <div v-if="userSearch && !filteredUsers.length" class="px-3 py-2 text-center text-xs text-text-muted">Aucun utilisateur trouvé</div>
+            </div>
+          </template>
+          <div v-else class="flex items-center justify-between rounded-md bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
+            <span>{{ selectedUser.username }} <span class="text-xs font-normal text-text-muted">({{ selectedUser.email }})</span></span>
+            <button type="button" class="ml-2 text-base font-bold hover:text-danger" @click="clearUser">&times;</button>
+          </div>
+        </div>
       </div>
 
       <div>

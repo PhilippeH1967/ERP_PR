@@ -67,6 +67,14 @@ class ProjectTemplateViewSet(viewsets.ModelViewSet):
         return super().destroy(request, *args, **kwargs)
 
 
+VALID_TRANSITIONS = {
+    "ACTIVE": ["ON_HOLD", "COMPLETED", "CANCELLED"],
+    "ON_HOLD": ["ACTIVE", "CANCELLED"],
+    "COMPLETED": [],  # Cannot transition from COMPLETED
+    "CANCELLED": [],  # Cannot transition from CANCELLED
+}
+
+
 class ProjectViewSet(viewsets.ModelViewSet):
     """CRUD for projects with search, filter, wizard support."""
 
@@ -100,7 +108,33 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             serializer.save(tenant=Tenant.objects.get(pk=tenant_id))
         else:
-            serializer.save()
+            from apps.core.models import Tenant
+
+            serializer.save(tenant=Tenant.objects.first())
+
+    def partial_update(self, request, *args, **kwargs):
+        """Validate status transitions before updating."""
+        new_status = request.data.get("status")
+        if new_status:
+            instance = self.get_object()
+            current_status = instance.status
+            if current_status != new_status:
+                allowed = VALID_TRANSITIONS.get(current_status, [])
+                if new_status not in allowed:
+                    return Response(
+                        {
+                            "error": {
+                                "code": "INVALID_STATUS_TRANSITION",
+                                "message": (
+                                    f"Transition de '{current_status}' vers '{new_status}' "
+                                    f"non autorisée. Transitions valides: {', '.join(allowed) if allowed else 'aucune'}."
+                                ),
+                                "details": [],
+                            }
+                        },
+                        status=400,
+                    )
+        return super().partial_update(request, *args, **kwargs)
 
     @action(detail=False, methods=["post"])
     def create_from_template(self, request):

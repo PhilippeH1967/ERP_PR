@@ -35,6 +35,8 @@ export const projectApi = {
   listWBS: (projectId: number) => apiClient.get(`${BASE}/${projectId}/wbs/`),
   createWBSElement: (projectId: number, data: Partial<WBSElement>) =>
     apiClient.post(`${BASE}/${projectId}/wbs/`, data),
+  updateWBSElement: (projectId: number, wbsId: number, data: Partial<WBSElement>) =>
+    apiClient.patch(`${BASE}/${projectId}/wbs/${wbsId}/`, data),
   deleteWBSElement: (projectId: number, wbsId: number) =>
     apiClient.delete(`${BASE}/${projectId}/wbs/${wbsId}/`),
 
