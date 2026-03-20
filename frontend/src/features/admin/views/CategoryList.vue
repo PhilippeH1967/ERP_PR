@@ -59,28 +59,31 @@ function openEdit(cat: ExpenseCategory) {
   showForm.value = true
 }
 
+const saveError = ref('')
+
 async function save() {
+  saveError.value = ''
+  if (!form.value.name.trim()) { saveError.value = 'Le nom est obligatoire.'; return }
   try {
     if (editingId.value) {
-      await apiClient.put(`expense_categories/${editingId.value}/`, form.value)
+      await apiClient.patch(`expense_categories/${editingId.value}/`, form.value)
     } else {
       await apiClient.post('expense_categories/', form.value)
     }
     showForm.value = false
     await fetchCategories()
-  } catch {
-    // error
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: { message?: string; details?: Array<{ message?: string }> } } } }
+    saveError.value = err.response?.data?.error?.details?.[0]?.message || err.response?.data?.error?.message || 'Erreur'
   }
 }
 
+const confirmDeleteCat = ref<number | null>(null)
+
 async function deleteCategory(id: number) {
-  if (!confirm('Supprimer cette catégorie ?')) return
-  try {
-    await apiClient.delete(`expense_categories/${id}/`)
-    await fetchCategories()
-  } catch {
-    // error
-  }
+  confirmDeleteCat.value = null
+  categories.value = categories.value.filter(c => c.id !== id)
+  try { await apiClient.delete(`expense_categories/${id}/`) } catch { /* ok */ }
 }
 
 onMounted(fetchCategories)
@@ -139,7 +142,11 @@ onMounted(fetchCategories)
             </td>
             <td class="actions-cell">
               <button class="btn-icon" @click="openEdit(cat)">Modifier</button>
-              <button class="btn-icon btn-icon-danger" @click="deleteCategory(cat.id)">Supprimer</button>
+              <template v-if="confirmDeleteCat === cat.id">
+                <button class="btn-icon btn-icon-danger" @click="deleteCategory(cat.id)">Confirmer</button>
+                <button class="btn-icon" @click="confirmDeleteCat = null">Annuler</button>
+              </template>
+              <button v-else class="btn-icon btn-icon-danger" @click="confirmDeleteCat = cat.id">Supprimer</button>
             </td>
           </tr>
         </tbody>
@@ -155,6 +162,7 @@ onMounted(fetchCategories)
           <button class="modal-close" @click="showForm = false">&times;</button>
         </div>
         <div class="modal-body">
+          <div v-if="saveError" class="alert-error" style="margin-bottom:10px;">{{ saveError }}</div>
           <form @submit.prevent="save">
             <div class="form-row">
               <div class="form-group">
