@@ -31,6 +31,7 @@ const schemeForm = ref({ name: '', province: '', description: '' })
 // Rate form
 const showRateForm = ref<number | null>(null) // scheme id
 const rateForm = ref({ tax_type: 'TPS', rate: '5.000', label: '' })
+const editingRate = ref<{ id: number; rate: string } | null>(null)
 const taxTypes = [
   { value: 'TPS', label: 'TPS (Taxe fédérale)' },
   { value: 'TVQ', label: 'TVQ (Taxe Québec)' },
@@ -115,6 +116,15 @@ async function addRate(schemeId: number) {
     showRateForm.value = null; rateForm.value = { tax_type: 'TPS', rate: '5.000', label: '' }; await fetchAll()
   } catch { error.value = 'Erreur lors de l\'ajout du taux' }
 }
+async function saveRate(schemeId: number, rateId: number) {
+  if (!editingRate.value) return
+  try {
+    await apiClient.patch(`tax_schemes/${schemeId}/rates/${rateId}/`, { rate: editingRate.value.rate })
+    editingRate.value = null
+    await fetchAll()
+  } catch { error.value = 'Erreur lors de la modification du taux' }
+}
+
 async function deleteRate(schemeId: number, rateId: number) {
   const scheme = schemes.value.find(s => s.id === schemeId)
   if (scheme) scheme.rates = scheme.rates.filter(r => r.id !== rateId)
@@ -257,16 +267,27 @@ onMounted(fetchAll)
             <span v-if="s.province" class="text-muted ml-2">({{ s.province }})</span>
             <span v-if="s.is_default" class="badge-default">Par défaut</span>
           </div>
-          <div class="actions-cell">
-            <button class="btn-action" @click="editScheme(s)">Modifier</button>
-            <button class="btn-action" @click="showRateForm = showRateForm === s.id ? null : s.id">+ Taxe</button>
-            <template v-if="confirmDelete?.type === 'tax' && confirmDelete?.id === s.id">
-              <button class="btn-action danger" @click="deleteScheme(s.id)">Confirmer</button>
-              <button class="btn-action" @click="confirmDelete = null">Annuler</button>
+        </div>
+
+        <!-- Rates list -->
+        <div v-if="s.rates?.length" class="rates-list">
+          <div v-for="r in s.rates" :key="r.id" class="rate-row">
+            <span class="rate-type">{{ r.tax_type }}</span>
+            <template v-if="editingRate?.id === r.id">
+              <input v-model="editingRate.rate" type="number" step="0.001" class="rate-input-edit" />
+              <span>%</span>
+              <button class="btn-action" @click="saveRate(s.id, r.id)">OK</button>
+              <button class="btn-action" @click="editingRate = null">×</button>
             </template>
-            <button v-else class="btn-action danger" @click="confirmDelete = { type: 'tax', id: s.id }">Supprimer</button>
+            <template v-else>
+              <span class="rate-value">{{ r.rate }}%</span>
+              <span v-if="r.label" class="rate-label">{{ r.label }}</span>
+              <button class="btn-action" @click="editingRate = { id: r.id, rate: r.rate }">Modifier</button>
+              <button class="btn-action danger" @click="deleteRate(s.id, r.id)">×</button>
+            </template>
           </div>
         </div>
+        <p v-else class="empty-small">Aucune taxe — cliquez "+ Taxe" pour ajouter</p>
 
         <!-- Add rate form -->
         <div v-if="showRateForm === s.id" class="rate-form">
@@ -279,16 +300,16 @@ onMounted(fetchAll)
           <button class="btn-ghost" @click="showRateForm = null">Annuler</button>
         </div>
 
-        <!-- Rates list -->
-        <div v-if="s.rates?.length" class="rates-list">
-          <div v-for="r in s.rates" :key="r.id" class="rate-row">
-            <span class="rate-type">{{ r.tax_type }}</span>
-            <span class="rate-value">{{ r.rate }}%</span>
-            <span v-if="r.label" class="rate-label">{{ r.label }}</span>
-            <button class="btn-action danger" @click="deleteRate(s.id, r.id)">×</button>
-          </div>
+        <!-- Scheme actions -->
+        <div class="scheme-actions">
+          <button class="btn-action" @click="editScheme(s)">Modifier le schéma</button>
+          <button class="btn-action" @click="showRateForm = showRateForm === s.id ? null : s.id">+ Ajouter une taxe</button>
+          <template v-if="confirmDelete?.type === 'tax' && confirmDelete?.id === s.id">
+            <button class="btn-action danger" @click="deleteScheme(s.id)">Confirmer suppression</button>
+            <button class="btn-action" @click="confirmDelete = null">Annuler</button>
+          </template>
+          <button v-else class="btn-action danger" @click="confirmDelete = { type: 'tax', id: s.id }">Supprimer le schéma</button>
         </div>
-        <p v-else class="empty-small">Aucune taxe — cliquez "+ Taxe" pour ajouter</p>
       </div>
 
       <div v-if="!schemes.length" class="card empty">Aucun schéma fiscal configuré</div>
@@ -382,4 +403,6 @@ onMounted(fetchAll)
 .rate-value { font-family: var(--font-mono); font-weight: 600; min-width: 60px; }
 .rate-label { color: var(--color-gray-500); }
 .empty-small { font-size: 11px; color: var(--color-gray-400); padding: 6px 0; }
+.scheme-actions { display: flex; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--color-gray-100); }
+.rate-input-edit { width: 70px; padding: 2px 6px; border: 1px solid var(--color-primary); border-radius: 3px; font-family: var(--font-mono); font-size: 12px; text-align: right; }
 </style>
