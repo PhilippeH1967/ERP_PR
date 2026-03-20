@@ -25,6 +25,14 @@ async function fetch() {
   org.value = resp.data?.data || resp.data
 }
 
+function toggleEditTag(tag: string) {
+  const tags = (form.value.type_tags as string[]) || []
+  const idx = tags.indexOf(tag)
+  if (idx >= 0) tags.splice(idx, 1)
+  else tags.push(tag)
+  form.value.type_tags = [...tags]
+}
+
 function startEdit() {
   form.value = { ...org.value, banking_info: { ...(org.value?.banking_info || {}) } }
   editing.value = true
@@ -143,6 +151,17 @@ onMounted(fetch)
           <div class="form-group"><label>Ville</label><input v-model="form.city" /></div>
           <div class="form-group"><label>Province</label><input v-model="form.province" /></div>
           <div class="form-group"><label>Code postal</label><input v-model="form.postal_code" /></div>
+          <div class="form-group"><label>Pays</label><input v-model="form.country" /></div>
+          <div class="form-group form-group-wide">
+            <label>Rôles</label>
+            <div class="tag-selector">
+              <button v-for="tag in ['st', 'partner', 'competitor']" :key="tag" type="button"
+                class="tag-btn" :class="(form.type_tags as string[] || []).includes(tag) ? 'tag-active' : ''"
+                @click="toggleEditTag(tag)">
+                {{ tag === 'st' ? 'Sous-traitant' : tag === 'partner' ? 'Partenaire' : 'Concurrent' }}
+              </button>
+            </div>
+          </div>
           <div class="form-group"><label>Contact nom</label><input v-model="form.contact_name" /></div>
           <div class="form-group"><label>Contact email</label><input v-model="form.contact_email" /></div>
           <div class="form-group"><label>Contact téléphone</label><input v-model="form.contact_phone" /></div>
@@ -178,5 +197,9 @@ onMounted(fetch)
 .info-pairs span { color: var(--color-gray-500); font-size: 11px; } .info-pairs p { font-weight: 600; margin-top: 1px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 .form-group { margin-bottom: 8px; } .form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--color-gray-600); margin-bottom: 4px; }
+.form-group-wide { grid-column: span 3; }
+.tag-selector { display: flex; gap: 6px; }
+.tag-btn { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid var(--color-gray-300); background: white; color: var(--color-gray-500); transition: all 0.15s; }
+.tag-btn.tag-active { border-color: var(--color-primary); background: var(--color-primary-light); color: var(--color-primary); }
 .form-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
 </style>
