@@ -135,12 +135,7 @@ class TestFR66_RBAC(TestCase):
         UserTenantAssociation.objects.create(user=emp, tenant=tenant)
         ProjectRole.objects.create(user=emp, tenant=tenant, role=Role.EMPLOYEE)
         resp = self.client.post("/api/v1/auth/token/", {"username": "emp_sso", "password": "Test123!"})
-        # Should be blocked — 400 if validation works, or check error in response
-        self.assertIn(resp.status_code, [400, 200])  # May pass if tenant check is in validate
-        if resp.status_code == 200:
-            # The validate() should have raised but didn't — this is a known gap
-            # SSO-only enforcement needs the tenant to be the user's primary tenant
-            pass
+        self.assertEqual(resp.status_code, 400)  # Blocked by sso_only
 
     def test_sso_only_allows_admin(self):
         """SSO-only mode allows admin local login."""

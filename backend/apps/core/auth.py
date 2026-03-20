@@ -57,15 +57,19 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         ).exists()
 
         if not is_admin:
-            with contextlib.suppress(Exception):
+            try:
                 if (
                     hasattr(user, "tenant_association")
                     and user.tenant_association.tenant.sso_only
                 ):
                     raise serializers.ValidationError(
-                        "SSO login is required for this organization.",
+                        "Connexion SSO obligatoire pour cette organisation.",
                         code="sso_only",
                     )
+            except serializers.ValidationError:
+                raise  # Re-raise validation errors
+            except Exception:
+                pass  # Suppress only unexpected errors (missing association, etc.)
 
         return data
 
