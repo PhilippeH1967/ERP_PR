@@ -74,10 +74,11 @@ async function checkDuplicates() {
 }
 
 async function onSubmit() {
-  if (!form.value.name.trim()) {
-    error.value = 'Le nom est obligatoire'
-    return
-  }
+  error.value = ''
+  if (!form.value.name.trim()) { error.value = 'Le nom est obligatoire.'; return }
+  if (!form.value.city.trim()) { error.value = 'La ville est obligatoire.'; return }
+  if (!form.value.postal_code.trim()) { error.value = 'Le code postal est obligatoire.'; return }
+  if (!form.value.country.trim()) { error.value = 'Le pays est obligatoire.'; return }
   // Check duplicates first if not already warned
   if (!showDuplicateWarning.value && (form.value.name || form.value.neq)) {
     await checkDuplicates()
