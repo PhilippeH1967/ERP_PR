@@ -69,7 +69,7 @@ async function saveBU() {
     showBUForm.value = false; editBUId.value = null; await fetchAll()
   } catch { error.value = 'Erreur' }
 }
-async function deleteBU(id: number) { await apiClient.delete(`business_units/${id}/`); await fetchAll() }
+async function deleteBU(id: number) { bus.value = bus.value.filter(b => b.id !== id); try { await apiClient.delete(`business_units/${id}/`) } catch { /* ok */ } }
 function editBU(b: BU) { editBUId.value = b.id; buForm.value = { name: b.name, code: b.code }; showBUForm.value = true }
 
 async function savePos() {
@@ -80,7 +80,7 @@ async function savePos() {
     showPosForm.value = false; editPosId.value = null; await fetchAll()
   } catch { error.value = 'Erreur' }
 }
-async function deletePos(id: number) { await apiClient.delete(`position_profiles/${id}/`); await fetchAll() }
+async function deletePos(id: number) { positions.value = positions.value.filter(p => p.id !== id); try { await apiClient.delete(`position_profiles/${id}/`) } catch { /* ok */ } }
 function editPos(p: Position) { editPosId.value = p.id; posForm.value = { name: p.name, code: p.code, category: p.category, hourly_cost_rate: p.hourly_cost_rate || '' }; showPosForm.value = true }
 
 async function saveTax() {
@@ -91,7 +91,7 @@ async function saveTax() {
     showTaxForm.value = false; editTaxId.value = null; await fetchAll()
   } catch { error.value = 'Erreur' }
 }
-async function deleteTax(id: number) { await apiClient.delete(`tax_configurations/${id}/`); await fetchAll() }
+async function deleteTax(id: number) { taxes.value = taxes.value.filter(t => t.id !== id); try { await apiClient.delete(`tax_configurations/${id}/`) } catch { /* ok */ } }
 function editTax(t: TaxConfig) { editTaxId.value = t.id; taxForm.value = { legal_entity: t.legal_entity, tps_rate: t.tps_rate, tvq_rate: t.tvq_rate }; showTaxForm.value = true }
 
 async function saveRule() {
@@ -107,7 +107,7 @@ async function saveRule() {
     showRuleForm.value = false; editRuleId.value = null; await fetchAll()
   } catch { error.value = 'Erreur — vérifiez le format JSON des congés/jours repos' }
 }
-async function deleteRule(id: number) { await apiClient.delete(`labor_rules/${id}/`); await fetchAll() }
+async function deleteRule(id: number) { rules.value = rules.value.filter(r => r.id !== id); try { await apiClient.delete(`labor_rules/${id}/`) } catch { /* ok */ } }
 function editRule(r: LaborRule) {
   editRuleId.value = r.id
   ruleForm.value = {
