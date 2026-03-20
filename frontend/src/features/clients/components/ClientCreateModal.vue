@@ -35,6 +35,9 @@ async function checkDuplicates() {
     const response = await clientApi.checkDuplicate(form.value.name)
     const data = response.data?.data || response.data
     duplicates.value = data?.duplicates || []
+    if (duplicates.value.length > 0) {
+      showDuplicateModal.value = true
+    }
   } catch {
     duplicates.value = []
   }
