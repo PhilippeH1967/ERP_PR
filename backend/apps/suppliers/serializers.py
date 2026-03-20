@@ -11,7 +11,7 @@ class ExternalOrganizationSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "neq", "address", "city", "province",
             "postal_code", "country", "contact_name", "contact_email",
-            "contact_phone", "type_tags", "is_active",
+            "contact_phone", "type_tags", "banking_info", "is_active",
             "created_at", "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]

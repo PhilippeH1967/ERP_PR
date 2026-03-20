@@ -1,0 +1,24 @@
+ID;Module;Scénario de test;Prérequis;Étapes;Résultat attendu;Rôle testeur;Priorité;Statut
+V2-001;Clients;Créer un client;Admin connecté;1. /clients → "+ Nouveau client" 2. Nom: "Hydro-Québec", Alias: "HQ", Secteur: "Énergie" 3. Créer;Client créé, visible dans la liste;Admin;CRITIQUE;À tester
+V2-002;Clients;Détection doublons;Client "Hydro-Québec" existe;1. "+ Nouveau client" 2. Taper "Hydro" dans le nom 3. Tab out;Modal doublon avec "Hydro-Québec" affiché, options "Créer quand même" ou "Modifier";Admin;HAUTE;À tester
+V2-003;Clients;Recherche par alias;Clients existants;1. Taper "HQ" dans la barre de recherche 2. Entrée;Hydro-Québec apparaît dans les résultats;Admin;HAUTE;À tester
+V2-004;Clients;Fiche client 6 onglets;Client existant;1. Cliquer sur un client 2. Vérifier les onglets;6 onglets: Identification, Contacts, Adresses, Financier, Paramètres facturation, CRM;Admin;HAUTE;À tester
+V2-005;Clients;Mode lecture par défaut;Fiche client ouverte;1. Vérifier que les champs ne sont PAS éditables au clic;Champs affichés en texte simple, pas d'édition possible;Admin;HAUTE;À tester
+V2-006;Clients;Modifier un client;Fiche client ouverte;1. Cliquer "Modifier" 2. Changer le nom 3. Cliquer sur le champ → éditer → Tab 4. Cliquer "Terminer";Modification sauvegardée, retour mode lecture;Admin;HAUTE;À tester
+V2-007;Clients;Ajouter un contact;Mode édition activé;1. Onglet Contacts 2. "+ Ajouter un contact" 3. Nom + email + rôle 4. Sauver;Contact ajouté avec badge rôle;Admin;HAUTE;À tester
+V2-008;Clients;Supprimer un contact;Mode édition + contact existant;1. Bouton "Supprimer" sur un contact 2. Confirmer;Contact supprimé;Admin;HAUTE;À tester
+V2-009;Clients;Ajouter une adresse;Mode édition activé;1. Onglet Adresses 2. "+ Ajouter une adresse" 3. Adresse + ville + cocher Facturation;Adresse ajoutée avec badge "Facturation";Admin;HAUTE;À tester
+V2-010;Clients;Supprimer une adresse;Mode édition + adresse existante;1. Bouton "Supprimer" sur une adresse 2. Confirmer;Adresse supprimée;Admin;HAUTE;À tester
+V2-011;Clients;Historique financier;Client avec factures;1. Onglet "Financier" 2. Vérifier KPI + aging;CA total, payé, impayé + aging 0-30/31-60/61-90/90+;Admin;HAUTE;À tester
+V2-012;Clients;Projets liés;Client avec projet;1. Onglet "Financier" → section "Projets liés";Liste des projets du client, cliquables;Admin;HAUTE;À tester
+V2-013;Clients;Supprimer un client;Client sans projets;1. "Supprimer..." → bannière rouge → "Confirmer la suppression";Client supprimé, retour liste;Admin;MOYENNE;À tester
+V2-014;Clients;Pagination;>25 clients;1. Vérifier Suivant/Précédent en bas de liste;Navigation entre pages;Admin;MOYENNE;À tester
+V2-015;Fournisseurs;Créer une organisation;Admin connecté;1. /suppliers → "+ Nouvelle organisation" 2. Nom: "WSP Global", NEQ: "1234567890", Ville: "Montréal" 3. Rôle: Sous-traitant 4. Créer;Organisation créée avec badge "Sous-traitant";Admin;CRITIQUE;À tester
+V2-016;Fournisseurs;Détection doublons fournisseur (nom);WSP Global existe;1. "+ Nouvelle organisation" 2. Taper "WSP" dans le nom 3. Tab out;Avertissement doublon avec "WSP Global" affiché;Admin;HAUTE;À tester
+V2-017;Fournisseurs;Détection doublons fournisseur (NEQ);WSP Global avec NEQ existe;1. "+ Nouvelle organisation" 2. Taper le même NEQ 3. Tab out;Avertissement "NEQ identique" affiché;Admin;HAUTE;À tester
+V2-018;Fournisseurs;Fiche détail fournisseur;Organisation existante;1. Cliquer sur WSP Global dans la liste;Page détail avec Identification + Contact + Badges rôle;Admin;HAUTE;À tester
+V2-019;Fournisseurs;Modifier fournisseur;Fiche fournisseur;1. "Modifier" 2. Changer ville 3. Ajouter infos bancaires (Institution, Transit, Compte) 4. "Enregistrer";Données mises à jour;Admin;HAUTE;À tester
+V2-020;Fournisseurs;Coordonnées bancaires visibles;Fournisseur avec banking_info;1. Retourner en mode lecture;Section "Coordonnées bancaires" visible avec Institution/Transit/Compte;Admin;HAUTE;À tester
+V2-021;Fournisseurs;Supprimer fournisseur;Fiche fournisseur en mode édition;1. "Supprimer..." → bannière rouge → "Confirmer la suppression";Organisation supprimée, retour liste;Admin;MOYENNE;À tester
+V2-022;Fournisseurs;Recherche par NEQ;Organisations existantes;1. Taper un NEQ dans la recherche;Résultats filtrés;Admin;HAUTE;À tester
+V2-023;Fournisseurs;Tags multiples;Fournisseur existant;1. Créer org avec rôles "Sous-traitant" + "Partenaire";2 badges affichés (bleu ST + violet Partenaire);Admin;MOYENNE;À tester

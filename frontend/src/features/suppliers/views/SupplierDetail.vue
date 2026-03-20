@@ -7,10 +7,11 @@ const route = useRoute()
 const router = useRouter()
 const orgId = Number(route.params.id)
 
+interface BankingInfo { institution?: string; transit?: string; account?: string }
 interface Org {
   id: number; name: string; neq: string; address: string; city: string; province: string
   postal_code: string; contact_name: string; contact_email: string; contact_phone: string
-  type_tags: string[]; is_active: boolean
+  type_tags: string[]; banking_info: BankingInfo; is_active: boolean
 }
 
 const org = ref<Org | null>(null)
@@ -25,7 +26,7 @@ async function fetch() {
 }
 
 function startEdit() {
-  form.value = { ...org.value }
+  form.value = { ...org.value, banking_info: { ...(org.value?.banking_info || {}) } }
   editing.value = true
 }
 
@@ -104,6 +105,14 @@ onMounted(fetch)
           </div>
         </div>
       </div>
+      <div v-if="org.banking_info?.institution || org.banking_info?.transit || org.banking_info?.account" class="card" style="margin-top: 12px;">
+        <h3 class="card-title">Coordonnées bancaires</h3>
+        <div class="info-pairs">
+          <div><span>Institution</span><p>{{ org.banking_info?.institution || '—' }}</p></div>
+          <div><span>Transit</span><p>{{ org.banking_info?.transit || '—' }}</p></div>
+          <div><span>Compte</span><p>{{ org.banking_info?.account || '—' }}</p></div>
+        </div>
+      </div>
     </template>
 
     <!-- Edit mode -->
@@ -120,6 +129,9 @@ onMounted(fetch)
           <div class="form-group"><label>Contact nom</label><input v-model="form.contact_name" /></div>
           <div class="form-group"><label>Contact email</label><input v-model="form.contact_email" /></div>
           <div class="form-group"><label>Contact téléphone</label><input v-model="form.contact_phone" /></div>
+          <div class="form-group"><label>Banque — Institution</label><input v-model="(form.banking_info as BankingInfo).institution" placeholder="815" /></div>
+          <div class="form-group"><label>Banque — Transit</label><input v-model="(form.banking_info as BankingInfo).transit" placeholder="30000" /></div>
+          <div class="form-group"><label>Banque — Compte</label><input v-model="(form.banking_info as BankingInfo).account" placeholder="1234567" /></div>
         </div>
         <div class="form-actions">
           <button class="btn-ghost" @click="editing = false">Annuler</button>

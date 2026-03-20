@@ -41,6 +41,13 @@ class ExternalOrganization(TenantScopedModel):
     class Meta:
         db_table = "suppliers_external_org"
         ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["neq", "tenant"],
+                name="uq_supplier_neq_tenant",
+                condition=models.Q(neq__gt=""),
+            ),
+        ]
 
     def __str__(self):
         return self.name

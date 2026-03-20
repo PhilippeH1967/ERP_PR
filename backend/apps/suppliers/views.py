@@ -30,7 +30,39 @@ class ExternalOrganizationViewSet(viewsets.ModelViewSet):
 
             serializer.save(tenant=Tenant.objects.get(pk=tenant_id))
         else:
-            serializer.save()
+            from apps.core.models import Tenant
+
+            serializer.save(tenant=Tenant.objects.first())
+
+    @action(detail=False, methods=["post"])
+    def check_duplicate(self, request):
+        """Check for duplicate organizations by name or NEQ."""
+        name = request.data.get("name", "").strip()
+        neq = request.data.get("neq", "").strip()
+        tenant_id = getattr(request, "tenant_id", None)
+
+        duplicates = []
+        qs = ExternalOrganization.objects.all()
+        if tenant_id:
+            qs = qs.filter(tenant_id=tenant_id)
+
+        if neq:
+            for org in qs.filter(neq__iexact=neq):
+                duplicates.append({
+                    "id": org.id, "name": org.name, "neq": org.neq,
+                    "match_type": "neq_exact",
+                })
+
+        if name and len(name) >= 3:
+            for org in qs.filter(name__icontains=name).exclude(
+                id__in=[d["id"] for d in duplicates]
+            )[:5]:
+                duplicates.append({
+                    "id": org.id, "name": org.name, "neq": org.neq,
+                    "match_type": "name_similar",
+                })
+
+        return Response({"duplicates": duplicates})
 
 
 class STInvoiceViewSet(viewsets.ModelViewSet):

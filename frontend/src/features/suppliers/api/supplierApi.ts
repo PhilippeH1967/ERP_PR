@@ -8,6 +8,8 @@ export const supplierApi = {
     apiClient.post('external_organizations/', data),
   updateOrganization: (id: number, data: Record<string, unknown>) =>
     apiClient.patch(`external_organizations/${id}/`, data),
+  checkDuplicate: (data: { name?: string; neq?: string }) =>
+    apiClient.post('external_organizations/check_duplicate/', data),
 
   // ST Invoices
   listSTInvoices: (params?: Record<string, string>) => apiClient.get('st_invoices/', { params }),

@@ -48,7 +48,9 @@ class ClientViewSet(viewsets.ModelViewSet):
 
             serializer.save(tenant=Tenant.objects.get(pk=tenant_id))
         else:
-            serializer.save()
+            from apps.core.models import Tenant
+
+            serializer.save(tenant=Tenant.objects.first())
 
     @action(detail=False, methods=["post"])
     def check_duplicate(self, request):
@@ -60,6 +62,11 @@ class ClientViewSet(viewsets.ModelViewSet):
             return Response({"duplicates": []})
 
         tenant_id = getattr(request, "tenant_id", None)
+        if not tenant_id:
+            from apps.core.models import Tenant
+
+            tenant = Tenant.objects.first()
+            tenant_id = tenant.id if tenant else None
         if not tenant_id:
             return Response({"duplicates": []})
 
