@@ -10,7 +10,7 @@ const orgId = Number(route.params.id)
 interface BankingInfo { institution?: string; transit?: string; account?: string }
 interface Org {
   id: number; name: string; neq: string; address: string; city: string; province: string
-  postal_code: string; contact_name: string; contact_email: string; contact_phone: string
+  postal_code: string; country: string; contact_name: string; contact_email: string; contact_phone: string
   type_tags: string[]; banking_info: BankingInfo; is_active: boolean
 }
 
@@ -102,6 +102,15 @@ onMounted(fetch)
             <div><span>NEQ</span><p>{{ org.neq || '—' }}</p></div>
             <div><span>Adresse</span><p>{{ org.address || '—' }}</p></div>
             <div><span>Ville</span><p>{{ org.city || '—' }}, {{ org.province || '—' }} {{ org.postal_code || '' }}</p></div>
+            <div><span>Pays</span><p>{{ org.country || '—' }}</p></div>
+            <div><span>Rôles</span>
+              <p>
+                <span v-for="tag in org.type_tags" :key="tag" class="badge" :class="tag === 'st' ? 'badge-blue' : tag === 'partner' ? 'badge-purple' : 'badge-gray'" style="margin-right: 4px;">
+                  {{ tag === 'st' ? 'Sous-traitant' : tag === 'partner' ? 'Partenaire' : 'Concurrent' }}
+                </span>
+                <span v-if="!org.type_tags?.length">—</span>
+              </p>
+            </div>
           </div>
         </div>
         <div class="card">
