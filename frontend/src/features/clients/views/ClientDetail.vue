@@ -17,6 +17,8 @@ const showContactForm = ref(false)
 const showAddressForm = ref(false)
 const isEditing = ref(false)
 const showDeleteConfirm = ref(false)
+const confirmDeleteContact = ref<number | null>(null)
+const confirmDeleteAddress = ref<number | null>(null)
 
 interface FinancialData {
   total_ca: string
@@ -82,14 +84,14 @@ async function onAddAddress(data: Record<string, unknown>) {
 }
 
 async function deleteContact(contactId: number) {
-  if (!confirm('Supprimer ce contact ?')) return
   await clientApi.deleteContact(clientId, contactId)
+  confirmDeleteContact.value = null
   await store.fetchClient(clientId)
 }
 
 async function deleteAddress(addressId: number) {
-  if (!confirm('Supprimer cette adresse ?')) return
   await clientApi.deleteAddress(clientId, addressId)
+  confirmDeleteAddress.value = null
   await store.fetchClient(clientId)
 }
 
@@ -197,7 +199,13 @@ async function deleteClient() {
             </div>
             <div class="flex items-center gap-2">
               <span class="text-xs text-text-muted">{{ contact.language_preference === 'fr' ? 'FR' : 'EN' }}</span>
-              <button v-if="isEditing" class="text-xs text-danger hover:underline" @click="deleteContact(contact.id)">Supprimer</button>
+              <template v-if="isEditing">
+                <template v-if="confirmDeleteContact === contact.id">
+                  <button class="text-xs text-danger font-semibold hover:underline" @click="deleteContact(contact.id)">Confirmer</button>
+                  <button class="text-xs text-text-muted hover:underline ml-1" @click="confirmDeleteContact = null">Annuler</button>
+                </template>
+                <button v-else class="text-xs text-danger hover:underline" @click="confirmDeleteContact = contact.id">Supprimer</button>
+              </template>
             </div>
           </div>
           <p class="mt-1 text-sm text-text-muted">
@@ -266,7 +274,13 @@ async function deleteClient() {
               class="rounded bg-text-muted/10 px-2 py-0.5 text-xs text-text-muted"
             >Bureau</span>
            </div>
-            <button v-if="isEditing" class="text-xs text-danger hover:underline" @click="deleteAddress(addr.id)">Supprimer</button>
+            <template v-if="isEditing">
+              <template v-if="confirmDeleteAddress === addr.id">
+                <button class="text-xs text-danger font-semibold hover:underline" @click="deleteAddress(addr.id)">Confirmer</button>
+                <button class="text-xs text-text-muted hover:underline ml-1" @click="confirmDeleteAddress = null">Annuler</button>
+              </template>
+              <button v-else class="text-xs text-danger hover:underline" @click="confirmDeleteAddress = addr.id">Supprimer</button>
+            </template>
           </div>
         </div>
       </div>
