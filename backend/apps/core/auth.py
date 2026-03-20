@@ -12,6 +12,8 @@ from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+
+from apps.core.permissions import IsAdmin
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
@@ -116,7 +118,7 @@ def auth_me(request):
 
 
 @api_view(["DELETE"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdmin])
 def user_delete(request, pk):
     """Delete a user (admin only). Cannot delete yourself."""
     from django.contrib.auth import get_user_model
@@ -133,7 +135,7 @@ def user_delete(request, pk):
 
 
 @api_view(["PATCH"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdmin])
 def user_update(request, pk):
     """Update user (toggle active, change role)."""
     from django.contrib.auth import get_user_model
@@ -177,7 +179,7 @@ def user_update(request, pk):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdmin])
 def user_create(request):
     """Create a new user with role and tenant association."""
     from django.contrib.auth import get_user_model
@@ -217,7 +219,7 @@ def user_create(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdmin])
 def user_list(request):
     """List all users with their roles (admin only)."""
     from django.contrib.auth import get_user_model

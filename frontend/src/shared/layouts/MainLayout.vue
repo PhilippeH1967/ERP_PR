@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuth } from '@/shared/composables/useAuth'
 import { useLocale } from '@/shared/composables/useLocale'
@@ -55,32 +55,39 @@ function toggleLocale() {
   switchLocale(currentLocale.value === 'fr' ? 'en' : 'fr')
 }
 
-const navSections = [
-  {
-    label: 'nav.main',
-    items: [
-      { name: 'nav.dashboard', path: '/dashboard', icon: '📊' },
-      { name: 'nav.timesheets', path: '/timesheets', icon: '🕐' },
-      { name: 'nav.projects', path: '/projects', icon: '📁' },
-      { name: 'nav.clients', path: '/clients', icon: '🤝' },
-    ],
-  },
-  {
-    label: 'nav.finance',
-    items: [
-      { name: 'nav.billing', path: '/billing', icon: '📄' },
-      { name: 'nav.payments', path: '/payments', icon: '💳' },
-      { name: 'nav.expenses', path: '/expenses', icon: '🧾' },
-      { name: 'nav.suppliers', path: '/suppliers', icon: '🏢' },
-    ],
-  },
-  {
-    label: 'nav.management',
-    items: [
-      { name: 'nav.admin', path: '/admin', icon: '⚙️' },
-    ],
-  },
-]
+const isUserAdmin = computed(() => currentUser.value?.roles?.includes('ADMIN'))
+
+const navSections = computed(() => {
+  const sections = [
+    {
+      label: 'nav.main',
+      items: [
+        { name: 'nav.dashboard', path: '/dashboard', icon: '📊' },
+        { name: 'nav.timesheets', path: '/timesheets', icon: '🕐' },
+        { name: 'nav.projects', path: '/projects', icon: '📁' },
+        { name: 'nav.clients', path: '/clients', icon: '🤝' },
+      ],
+    },
+    {
+      label: 'nav.finance',
+      items: [
+        { name: 'nav.billing', path: '/billing', icon: '📄' },
+        { name: 'nav.payments', path: '/payments', icon: '💳' },
+        { name: 'nav.expenses', path: '/expenses', icon: '🧾' },
+        { name: 'nav.suppliers', path: '/suppliers', icon: '🏢' },
+      ],
+    },
+  ]
+  if (isUserAdmin.value) {
+    sections.push({
+      label: 'nav.management',
+      items: [
+        { name: 'nav.admin', path: '/admin', icon: '⚙️' },
+      ],
+    })
+  }
+  return sections
+})
 </script>
 
 <template>
