@@ -100,8 +100,9 @@ onMounted(fetchData)
               <td><span :class="t.is_active ? 'flag-yes' : 'flag-no'">{{ t.is_active ? 'Actif' : 'Inactif' }}</span></td>
               <td class="actions-cell">
                 <button class="btn-action" @click="openEditTmpl(t)">Modifier</button>
-                <template v-if="confirmDeleteTmpl === t.id"><button class="btn-action danger" @click="deleteTmpl(t.id)">Confirmer</button><button class="btn-action" @click="confirmDeleteTmpl = null">Annuler</button></template>
-                <button v-else class="btn-action danger" @click="confirmDeleteTmpl = t.id">Supprimer</button>
+                <button v-if="confirmDeleteTmpl === t.id" class="btn-action danger" @click="deleteTmpl(t.id)">Confirmer</button>
+                <button v-if="confirmDeleteTmpl === t.id" class="btn-action" @click="confirmDeleteTmpl = null">Annuler</button>
+                <button v-if="confirmDeleteTmpl !== t.id" class="btn-action danger" @click="confirmDeleteTmpl = t.id">Supprimer</button>
               </td>
             </tr>
           </tbody>
@@ -128,8 +129,9 @@ onMounted(fetchData)
               <td class="text-muted template-cell">{{ d.email_template?.substring(0, 80) }}{{ d.email_template?.length > 80 ? '...' : '' }}</td>
               <td class="actions-cell">
                 <button class="btn-action" @click="openEditDunning(d)">Modifier</button>
-                <template v-if="confirmDeleteDunning === d.id"><button class="btn-action danger" @click="deleteDunning(d.id)">Confirmer</button><button class="btn-action" @click="confirmDeleteDunning = null">Annuler</button></template>
-                <button v-else class="btn-action danger" @click="confirmDeleteDunning = d.id">Supprimer</button>
+                <button v-if="confirmDeleteDunning === d.id" class="btn-action danger" @click="deleteDunning(d.id)">Confirmer</button>
+                <button v-if="confirmDeleteDunning === d.id" class="btn-action" @click="confirmDeleteDunning = null">Annuler</button>
+                <button v-if="confirmDeleteDunning !== d.id" class="btn-action danger" @click="confirmDeleteDunning = d.id">Supprimer</button>
               </td>
             </tr>
           </tbody>
