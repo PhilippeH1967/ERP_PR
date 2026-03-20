@@ -1,8 +1,36 @@
 from django.contrib import admin
-
 from .models import ExpenseApproval, ExpenseCategory, ExpenseLine, ExpenseReport
 
-admin.site.register(ExpenseReport)
-admin.site.register(ExpenseLine)
-admin.site.register(ExpenseCategory)
-admin.site.register(ExpenseApproval)
+
+class ExpenseLineInline(admin.TabularInline):
+    model = ExpenseLine
+    extra = 0
+    fields = ("expense_date", "amount", "description", "category", "is_refacturable", "tax_type")
+
+
+@admin.register(ExpenseReport)
+class ExpenseReportAdmin(admin.ModelAdmin):
+    list_display = ("id", "employee", "total_amount", "status", "submitted_at", "tenant")
+    list_filter = ("status", "tenant")
+    search_fields = ("employee__username",)
+    inlines = [ExpenseLineInline]
+    list_per_page = 25
+
+
+@admin.register(ExpenseLine)
+class ExpenseLineAdmin(admin.ModelAdmin):
+    list_display = ("report", "expense_date", "amount", "description", "category", "is_refacturable")
+    list_filter = ("is_refacturable", "tax_type")
+
+
+@admin.register(ExpenseCategory)
+class ExpenseCategoryAdmin(admin.ModelAdmin):
+    list_display = ("name", "code", "is_refacturable_default", "requires_receipt", "gl_account", "tenant")
+    list_filter = ("is_refacturable_default", "requires_receipt")
+    list_editable = ("gl_account",)
+
+
+@admin.register(ExpenseApproval)
+class ExpenseApprovalAdmin(admin.ModelAdmin):
+    list_display = ("expense_report", "approver", "decision", "created_at")
+    list_filter = ("decision",)
