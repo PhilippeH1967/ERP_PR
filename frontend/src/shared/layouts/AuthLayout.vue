@@ -26,9 +26,14 @@ async function handleLocalLogin() {
     const redirect = (router.currentRoute.value.query.redirect as string) || '/'
     router.push(redirect)
   } catch (e: unknown) {
-    const axiosError = e as { response?: { data?: { detail?: string } } }
-    if (axiosError.response?.data?.detail) {
-      error.value = axiosError.response.data.detail
+    const axiosError = e as { response?: { data?: { detail?: string; error?: { details?: Array<{ message?: string }>; message?: string } } } }
+    const resp = axiosError.response?.data
+    if (resp?.detail) {
+      error.value = resp.detail
+    } else if (resp?.error?.details?.[0]?.message) {
+      error.value = resp.error.details[0].message
+    } else if (resp?.error?.message) {
+      error.value = resp.error.message
     } else {
       error.value = t('auth.login_error')
     }
