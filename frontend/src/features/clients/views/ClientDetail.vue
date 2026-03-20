@@ -73,14 +73,30 @@ function saveField(field: string, value: string | number) {
   store.updateClient(clientId, { [field]: value })
 }
 
+const formError = ref('')
+
 async function onAddContact(data: Record<string, unknown>) {
-  await store.addContact(clientId, data)
-  showContactForm.value = false
+  formError.value = ''
+  try {
+    await store.addContact(clientId, data)
+    showContactForm.value = false
+    await store.fetchClient(clientId)
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: { message?: string; details?: Array<{ message?: string }> } } } }
+    formError.value = err.response?.data?.error?.details?.[0]?.message || err.response?.data?.error?.message || 'Erreur lors de la création du contact'
+  }
 }
 
 async function onAddAddress(data: Record<string, unknown>) {
-  await store.addAddress(clientId, data)
-  showAddressForm.value = false
+  formError.value = ''
+  try {
+    await store.addAddress(clientId, data)
+    showAddressForm.value = false
+    await store.fetchClient(clientId)
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: { message?: string; details?: Array<{ message?: string }> } } } }
+    formError.value = err.response?.data?.error?.details?.[0]?.message || err.response?.data?.error?.message || 'Erreur lors de la création de l\'adresse'
+  }
 }
 
 async function deleteContact(contactId: number) {
@@ -169,6 +185,9 @@ async function deleteClient() {
           <EditableField :value="store.currentClient.sector" label="Secteur" placeholder="Public, Privé..." @save="(v) => saveField('sector', v)" />
         </div>
       </div>
+
+      <!-- API Error -->
+      <div v-if="formError" class="mb-3 rounded bg-danger/10 p-2 text-sm text-danger">{{ formError }}</div>
 
       <!-- Contacts -->
       <div v-if="activeTab === 'contacts'">
