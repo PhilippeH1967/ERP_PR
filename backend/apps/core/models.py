@@ -206,6 +206,84 @@ class Delegation(TenantScopedModel):
         return f"{self.delegator} → {self.delegate} ({self.scope})"
 
 
+class BusinessUnit(TenantScopedModel):
+    """Business unit / department within the organization (FR83)."""
+
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=50, blank=True, default="")
+    director = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="directed_bus",
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "core_business_unit"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class PositionProfile(TenantScopedModel):
+    """Virtual resource profile / position archetype (FR83 — 31 profiles)."""
+
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=50, blank=True, default="")
+    category = models.CharField(max_length=100, blank=True, default="")
+    hourly_cost_rate = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "core_position_profile"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class TaxConfiguration(TenantScopedModel):
+    """Tax rates per legal entity (FR83 — TPS/TVQ configurables)."""
+
+    legal_entity = models.CharField(max_length=255, help_text="Ex: Provencher Roy Productions, PRAA")
+    tps_rate = models.DecimalField(max_digits=5, decimal_places=3, default=5.000)
+    tvq_rate = models.DecimalField(max_digits=5, decimal_places=3, default=9.975)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "core_tax_configuration"
+        ordering = ["legal_entity"]
+
+    def __str__(self):
+        return f"{self.legal_entity} — TPS {self.tps_rate}% / TVQ {self.tvq_rate}%"
+
+
+class LaborRule(TenantScopedModel):
+    """HR labor rules per jurisdiction (FR78 — work week, overtime, holidays)."""
+
+    name = models.CharField(max_length=255, help_text="Ex: Québec standard, Ontario standard")
+    weekly_hours = models.DecimalField(max_digits=4, decimal_places=1, default=40.0)
+    daily_hours = models.DecimalField(max_digits=4, decimal_places=1, default=8.0)
+    overtime_threshold_weekly = models.DecimalField(max_digits=4, decimal_places=1, default=40.0)
+    overtime_threshold_daily = models.DecimalField(max_digits=4, decimal_places=1, default=8.0)
+    statutory_holidays = models.JSONField(
+        default=list,
+        help_text='List of holiday dates: ["2026-01-01", "2026-07-01", ...]',
+    )
+    rest_days = models.JSONField(
+        default=list,
+        help_text='Days of week that are rest days: [5, 6] for Sat/Sun',
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "core_labor_rule"
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.weekly_hours}h/sem)"
+
+
 class SampleTenantModel(TenantScopedModel, VersionedModel):
     """
     Concrete model for testing TenantScopedModel, VersionedModel, and RLS policies.

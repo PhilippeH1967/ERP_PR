@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 
-from .models import Delegation, ProjectRole, Tenant, UserTenantAssociation
+from .models import BusinessUnit, Delegation, LaborRule, PositionProfile, ProjectRole, TaxConfiguration, Tenant, UserTenantAssociation
 
 
 @admin.register(Tenant)
@@ -31,3 +31,29 @@ class DelegationAdmin(admin.ModelAdmin):
     list_display = ("delegator", "delegate", "scope", "start_date", "end_date", "is_active")
     list_filter = ("scope", "is_active")
     search_fields = ("delegator__username", "delegate__username")
+
+
+@admin.register(BusinessUnit)
+class BusinessUnitAdmin(admin.ModelAdmin):
+    list_display = ("name", "code", "director", "is_active", "tenant")
+    list_filter = ("is_active",)
+    search_fields = ("name", "code")
+
+
+@admin.register(PositionProfile)
+class PositionProfileAdmin(admin.ModelAdmin):
+    list_display = ("name", "code", "category", "hourly_cost_rate", "is_active")
+    list_filter = ("category", "is_active")
+    search_fields = ("name", "code")
+
+
+@admin.register(TaxConfiguration)
+class TaxConfigurationAdmin(admin.ModelAdmin):
+    list_display = ("legal_entity", "tps_rate", "tvq_rate", "is_active")
+    list_editable = ("tps_rate", "tvq_rate")
+
+
+@admin.register(LaborRule)
+class LaborRuleAdmin(admin.ModelAdmin):
+    list_display = ("name", "weekly_hours", "daily_hours", "overtime_threshold_weekly", "is_active")
+    list_editable = ("weekly_hours", "overtime_threshold_weekly")

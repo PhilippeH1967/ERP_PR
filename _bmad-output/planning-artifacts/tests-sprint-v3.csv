@@ -1,0 +1,19 @@
+ID;Module;Scénario de test;Prérequis;Étapes;Résultat attendu;Rôle testeur;Priorité;Statut
+V3-001;Admin Org;Créer une unité d'affaires;Admin connecté;1. /admin/org → onglet "Unités d'affaires" 2. "+ Nouvelle unité" 3. Nom: "Architecture", Code: "ARCH" 4. Créer;Unité créée dans la liste;Admin;HAUTE;À tester
+V3-002;Admin Org;Modifier une unité d'affaires;BU existante;1. "Modifier" sur Architecture 2. Changer code en "ARCHI" 3. Enregistrer;Code mis à jour;Admin;HAUTE;À tester
+V3-003;Admin Org;Supprimer une unité d'affaires;BU existante;1. "Supprimer" sur une BU;BU supprimée;Admin;MOYENNE;À tester
+V3-004;Admin Org;Créer un profil de poste;Admin connecté;1. Onglet "Profils de poste" 2. "+ Nouveau profil" 3. Nom: "Architecte", Code: "ARCH", Catégorie: "Professionnel", Taux: 95 4. Créer;Profil créé avec taux affiché;Admin;HAUTE;À tester
+V3-005;Admin Org;Modifier un profil de poste;Profil existant;1. "Modifier" 2. Changer taux 3. Enregistrer;Taux mis à jour;Admin;HAUTE;À tester
+V3-006;Admin Org;Supprimer un profil de poste;Profil existant;1. "Supprimer";Profil supprimé;Admin;MOYENNE;À tester
+V3-007;Admin Org;Créer une config taxes;Admin connecté;1. Onglet "Taxes" 2. "+ Nouvelle entité" 3. Entité: "Provencher Roy Productions", TPS: 5.000, TVQ: 9.975 4. Créer;Config créée;Admin;HAUTE;À tester
+V3-008;Admin Org;Modifier les taux de taxes;Config existante;1. "Modifier" 2. Changer TVQ en 10.000 3. Enregistrer;Taux mis à jour;Admin;HAUTE;À tester
+V3-009;Admin Org;Non-admin bloqué sur taxes;Employé connecté;1. Se connecter test.employe 2. Tenter d'accéder /admin/org;Menu Admin non visible dans sidebar. Si accès direct → erreur 403 sur l'API;Employé;HAUTE;À tester
+V3-010;Admin Org;Créer une règle RH;Admin connecté;1. Onglet "Règles RH" 2. "+ Nouvelle règle" 3. Nom: "Québec standard", 40h/sem, 8h/jour, seuil OT 40h, congés: ["2026-01-01"] 4. Créer;Règle créée avec "1 jours" dans congés;Admin;HAUTE;À tester
+V3-011;Admin Org;Modifier une règle RH;Règle existante;1. "Modifier" 2. Changer heures/sem en 37.5 3. Enregistrer;Heures mises à jour à 37.5h;Admin;HAUTE;À tester
+V3-012;Admin Org;Supprimer une règle RH;Règle existante;1. "Supprimer";Règle supprimée;Admin;MOYENNE;À tester
+V3-013;Admin Org;Non-admin bloqué sur règles RH;Employé connecté;1. Se connecter test.employe 2. API GET /labor_rules/ retourne 403;Accès refusé;Employé;HAUTE;À tester
+V3-014;Admin;Templates projet CRUD;Admin connecté;1. /admin/templates 2. Vérifier CRUD fonctionne;Créer/modifier/supprimer templates OK;Admin;HAUTE;À tester
+V3-015;Admin;Catégories dépenses CRUD;Admin connecté;1. /admin/categories 2. Vérifier CRUD fonctionne;Créer/modifier/supprimer catégories OK;Admin;HAUTE;À tester
+V3-016;Admin;Templates facture CRUD;Admin connecté;1. /admin/billing → section Templates 2. Vérifier CRUD;Créer/modifier/supprimer templates facture OK;Admin;HAUTE;À tester
+V3-017;Admin;Niveaux relance CRUD;Admin connecté;1. /admin/billing → section Niveaux de relance 2. Vérifier CRUD;Créer/modifier/supprimer niveaux OK;Admin;HAUTE;À tester
+V3-018;Admin;Import templates disponibles;Admin connecté;1. /admin/import 2. Vérifier tous les templates téléchargeables;12 templates (6 ref + 6 data) avec bouton Template;Admin;HAUTE;À tester

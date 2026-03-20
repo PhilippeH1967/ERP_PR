@@ -1,11 +1,25 @@
 """Core app URL configuration."""
 
 from django.db import connection
-from django.urls import path
+from django.urls import include, path
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenVerifyView
+
+from apps.core.config_views import (
+    BusinessUnitViewSet,
+    LaborRuleViewSet,
+    PositionProfileViewSet,
+    TaxConfigurationViewSet,
+)
+
+config_router = DefaultRouter()
+config_router.register(r"business_units", BusinessUnitViewSet, basename="business-unit")
+config_router.register(r"position_profiles", PositionProfileViewSet, basename="position-profile")
+config_router.register(r"tax_configurations", TaxConfigurationViewSet, basename="tax-configuration")
+config_router.register(r"labor_rules", LaborRuleViewSet, basename="labor-rule")
 
 from apps.core.auth import (
     CustomTokenObtainPairView,
@@ -71,6 +85,8 @@ def health_check(request):
 urlpatterns = [
     path("", api_root, name="api-root"),
     path("health/", health_check, name="health-check"),
+    # Admin configuration CRUD
+    path("", include(config_router.urls)),
     # JWT Authentication endpoints
     path("auth/token/", CustomTokenObtainPairView.as_view(), name="token-obtain"),
     path("auth/token/refresh/", CustomTokenRefreshView.as_view(), name="token-refresh"),
