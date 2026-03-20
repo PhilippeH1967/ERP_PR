@@ -1,30 +1,98 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useLocale } from '@/shared/composables/useLocale'
 import { useBillingStore } from '../stores/useBillingStore'
 import { billingApi } from '../api/billingApi'
+import apiClient from '@/plugins/axios'
 
 const store = useBillingStore()
 const router = useRouter()
 const { fmt } = useLocale()
 
 const showCreate = ref(false)
-const createForm = ref({ project: '', client: '', invoice_number: '' })
 const createError = ref('')
 
-// Auto-fill client when project changes
-async function onProjectChange() {
-  if (!createForm.value.project) return
+// Lookup data
+interface ClientOption { id: number; name: string; alias: string }
+interface ProjectOption { id: number; code: string; name: string; client: number }
+
+const allClients = ref<ClientOption[]>([])
+const allProjects = ref<ProjectOption[]>([])
+
+const clientSearch = ref('')
+const projectSearch = ref('')
+const selectedClientId = ref<number | null>(null)
+const selectedProjectId = ref<number | null>(null)
+
+const filteredClients = computed(() => {
+  const q = clientSearch.value.toLowerCase()
+  return allClients.value.filter(c =>
+    c.name.toLowerCase().includes(q) || (c.alias || '').toLowerCase().includes(q)
+  ).slice(0, 15)
+})
+
+const filteredProjects = computed(() => {
+  let list = allProjects.value
+  if (selectedClientId.value) {
+    list = list.filter(p => p.client === selectedClientId.value)
+  }
+  const q = projectSearch.value.toLowerCase()
+  if (q) {
+    list = list.filter(p =>
+      p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)
+    )
+  }
+  return list.slice(0, 20)
+})
+
+function selectClient(client: ClientOption) {
+  selectedClientId.value = client.id
+  clientSearch.value = client.name
+  // Reset project if it doesn't match
+  if (selectedProjectId.value) {
+    const proj = allProjects.value.find(p => p.id === selectedProjectId.value)
+    if (proj && proj.client !== client.id) {
+      selectedProjectId.value = null
+      projectSearch.value = ''
+    }
+  }
+}
+
+function selectProject(project: ProjectOption) {
+  selectedProjectId.value = project.id
+  projectSearch.value = `${project.code} — ${project.name}`
+  // Auto-fill client
+  if (!selectedClientId.value) {
+    const client = allClients.value.find(c => c.id === project.client)
+    if (client) {
+      selectedClientId.value = client.id
+      clientSearch.value = client.name
+    }
+  }
+}
+
+async function loadLookups() {
   try {
-    const resp = await billingApi.getInvoice  // unused, use apiClient
-    const { default: apiClient } = await import('@/plugins/axios')
-    const projResp = await apiClient.get(`projects/${createForm.value.project}/`)
-    const proj = projResp.data?.data || projResp.data
-    if (proj?.client) createForm.value.client = String(proj.client)
+    const [cResp, pResp] = await Promise.all([
+      apiClient.get('clients/'),
+      apiClient.get('projects/'),
+    ])
+    const cData = cResp.data?.data || cResp.data
+    allClients.value = Array.isArray(cData) ? cData : cData?.results || []
+    const pData = pResp.data?.data || pResp.data
+    allProjects.value = Array.isArray(pData) ? pData : pData?.results || []
   } catch { /* silent */ }
-  // Auto-generate invoice number
-  createForm.value.invoice_number = `PROV-${Date.now().toString().slice(-6)}`
+}
+
+function openCreate() {
+  showCreate.value = true
+  selectedClientId.value = null
+  selectedProjectId.value = null
+  clientSearch.value = ''
+  projectSearch.value = ''
+  createError.value = ''
+  loadLookups()
 }
 
 const statusColors: Record<string, string> = {
@@ -45,19 +113,23 @@ const statusLabels: Record<string, string> = {
 
 async function createInvoice() {
   createError.value = ''
+  if (!selectedProjectId.value || !selectedClientId.value) {
+    createError.value = 'Sélectionnez un client et un projet.'
+    return
+  }
   try {
+    const invoiceNumber = `PROV-${Date.now().toString().slice(-6)}`
     const resp = await billingApi.createInvoice({
-      project: Number(createForm.value.project),
-      client: Number(createForm.value.client),
-      invoice_number: createForm.value.invoice_number,
+      project: selectedProjectId.value,
+      client: selectedClientId.value,
+      invoice_number: invoiceNumber,
     })
     const data = resp.data?.data || resp.data
     showCreate.value = false
-    createForm.value = { project: '', client: '', invoice_number: '' }
     router.push(`/billing/${data.id}`)
   } catch (err: unknown) {
-    const e = err as { response?: { data?: { error?: { message?: string } } } }
-    createError.value = e.response?.data?.error?.message || 'Erreur lors de la création'
+    const e = err as { response?: { data?: { error?: { message?: string; details?: Array<{ message?: string }> } } } }
+    createError.value = e.response?.data?.error?.details?.[0]?.message || e.response?.data?.error?.message || 'Erreur lors de la création'
   }
 }
 
@@ -68,7 +140,7 @@ onMounted(() => store.fetchInvoices())
   <div>
     <div class="page-header">
       <h1>Facturation</h1>
-      <button class="btn-primary" @click="showCreate = !showCreate">+ Nouvelle facture</button>
+      <button class="btn-primary" @click="openCreate">+ Nouvelle facture</button>
     </div>
 
     <!-- Create form -->
@@ -76,23 +148,65 @@ onMounted(() => store.fetchInvoices())
       <div class="card-title">Nouvelle facture</div>
       <div v-if="createError" class="alert-error">{{ createError }}</div>
       <form @submit.prevent="createInvoice" class="create-form">
-        <div class="form-row-3">
+        <div class="form-row-2">
+          <!-- Client search -->
           <div class="form-group">
-            <label>Projet ID *</label>
-            <input v-model="createForm.project" type="number" required placeholder="Ex: 1" @change="onProjectChange" />
+            <label>Client *</label>
+            <div class="search-dropdown">
+              <input
+                v-model="clientSearch"
+                type="text"
+                placeholder="Rechercher un client..."
+                class="search-input"
+                @focus="selectedClientId = null"
+              />
+              <div v-if="clientSearch && !selectedClientId" class="dropdown-list">
+                <div
+                  v-for="c in filteredClients"
+                  :key="c.id"
+                  class="dropdown-item"
+                  @click="selectClient(c)"
+                >
+                  <span class="dropdown-main">{{ c.name }}</span>
+                  <span v-if="c.alias" class="dropdown-sub">{{ c.alias }}</span>
+                </div>
+                <div v-if="!filteredClients.length" class="dropdown-empty">Aucun client trouvé</div>
+              </div>
+              <div v-if="selectedClientId" class="selected-badge">{{ clientSearch }}</div>
+            </div>
           </div>
+
+          <!-- Project search (filtered by client) -->
           <div class="form-group">
-            <label>Client ID *</label>
-            <input v-model="createForm.client" type="number" required placeholder="Auto-rempli" />
-          </div>
-          <div class="form-group">
-            <label>No facture *</label>
-            <input v-model="createForm.invoice_number" type="text" required placeholder="PROV-XXXXXX" />
+            <label>Projet *</label>
+            <div class="search-dropdown">
+              <input
+                v-model="projectSearch"
+                type="text"
+                :placeholder="selectedClientId ? 'Rechercher un projet...' : 'Choisir un client d\'abord'"
+                class="search-input"
+                @focus="selectedProjectId = null"
+              />
+              <div v-if="projectSearch && !selectedProjectId" class="dropdown-list">
+                <div
+                  v-for="p in filteredProjects"
+                  :key="p.id"
+                  class="dropdown-item"
+                  @click="selectProject(p)"
+                >
+                  <span class="dropdown-code">{{ p.code }}</span>
+                  <span class="dropdown-main">{{ p.name }}</span>
+                </div>
+                <div v-if="!filteredProjects.length" class="dropdown-empty">Aucun projet trouvé</div>
+              </div>
+              <div v-if="selectedProjectId" class="selected-badge">{{ projectSearch }}</div>
+            </div>
           </div>
         </div>
+
         <div class="form-actions">
           <button type="button" class="btn-ghost" @click="showCreate = false">Annuler</button>
-          <button type="submit" class="btn-primary">Créer</button>
+          <button type="submit" class="btn-primary" :disabled="!selectedProjectId || !selectedClientId">Créer la facture</button>
         </div>
       </form>
     </div>
@@ -144,8 +258,19 @@ onMounted(() => store.fetchInvoices())
 .card-title { font-size: 14px; font-weight: 600; color: var(--color-gray-800); margin-bottom: 12px; }
 .card-table { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
 .alert-error { background: var(--color-danger-light); color: var(--color-danger); padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.search-dropdown { position: relative; }
+.search-input { width: 100%; padding: 8px 12px; border: 1px solid var(--color-gray-300); border-radius: 6px; font-size: 13px; }
+.search-input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.dropdown-list { position: absolute; top: 100%; left: 0; right: 0; z-index: 50; margin-top: 2px; background: white; border: 1px solid var(--color-gray-200); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); max-height: 200px; overflow-y: auto; }
+.dropdown-item { padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 13px; transition: background 0.1s; }
+.dropdown-item:hover { background: var(--color-primary-light); }
+.dropdown-main { font-weight: 500; color: var(--color-gray-800); }
+.dropdown-sub { font-size: 11px; color: var(--color-gray-400); }
+.dropdown-code { font-family: var(--font-mono); font-size: 11px; color: var(--color-primary); font-weight: 600; min-width: 90px; }
+.dropdown-empty { padding: 12px; text-align: center; font-size: 12px; color: var(--color-gray-400); }
+.selected-badge { position: absolute; top: 0; left: 0; right: 0; padding: 8px 12px; background: var(--color-primary-light); color: var(--color-primary); font-size: 13px; font-weight: 500; border-radius: 6px; pointer-events: none; }
 .form-group { margin-bottom: 12px; }
 .form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--color-gray-600); margin-bottom: 4px; }
 .form-actions { display: flex; justify-content: flex-end; gap: 6px; }
