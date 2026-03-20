@@ -120,7 +120,11 @@ function removeService(index: number) {
   form.value.support_services_config.splice(index, 1)
 }
 
+const saveError = ref('')
+
 async function saveTemplate() {
+  saveError.value = ''
+  if (!form.value.name.trim()) { saveError.value = 'Le nom est obligatoire.'; return }
   try {
     if (isEditing.value && editingTemplate.value) {
       await apiClient.put(`project_templates/${editingTemplate.value.id}/`, form.value)
@@ -129,8 +133,9 @@ async function saveTemplate() {
     }
     closeForm()
     await fetchTemplates()
-  } catch {
-    // error handling
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: { message?: string; details?: Array<{ message?: string }> } } } }
+    saveError.value = err.response?.data?.error?.details?.[0]?.message || err.response?.data?.error?.message || 'Erreur lors de la sauvegarde'
   }
 }
 
@@ -255,6 +260,7 @@ onMounted(fetchTemplates)
         </div>
 
         <div class="modal-body">
+          <div v-if="saveError" class="alert-error" style="margin-bottom:12px;">{{ saveError }}</div>
           <form @submit.prevent="saveTemplate">
             <!-- Basic info -->
             <div class="form-row">

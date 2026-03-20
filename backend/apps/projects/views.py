@@ -37,7 +37,7 @@ class ProjectTemplateViewSet(viewsets.ModelViewSet):
         qs = ProjectTemplate.objects.filter(is_active=True)
         if hasattr(self.request, "tenant_id") and self.request.tenant_id:
             qs = qs.filter(tenant_id=self.request.tenant_id)
-        return qs.annotate(projects_count=Count("project"))
+        return qs.annotate(projects_count=Count("projects"))
 
     def perform_create(self, serializer):
         tenant_id = getattr(self.request, "tenant_id", None)
