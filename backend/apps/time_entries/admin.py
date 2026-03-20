@@ -25,4 +25,4 @@ class TimesheetLockAdmin(admin.ModelAdmin):
 
 @admin.register(PeriodUnlock)
 class PeriodUnlockAdmin(admin.ModelAdmin):
-    list_display = ("employee", "period_start", "period_end", "reason", "unlocked_by")
+    list_display = ("period_start", "period_end", "reason", "unlocked_by")

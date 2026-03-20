@@ -25,12 +25,12 @@ class ExpenseLineAdmin(admin.ModelAdmin):
 
 @admin.register(ExpenseCategory)
 class ExpenseCategoryAdmin(admin.ModelAdmin):
-    list_display = ("name", "code", "is_refacturable_default", "requires_receipt", "gl_account", "tenant")
+    list_display = ("name", "is_refacturable_default", "requires_receipt", "gl_account", "tenant")
     list_filter = ("is_refacturable_default", "requires_receipt")
     list_editable = ("gl_account",)
 
 
 @admin.register(ExpenseApproval)
 class ExpenseApprovalAdmin(admin.ModelAdmin):
-    list_display = ("expense_report", "approver", "decision", "created_at")
-    list_filter = ("decision",)
+    list_display = ("report", "approved_by", "role_level", "status", "date")
+    list_filter = ("status",)

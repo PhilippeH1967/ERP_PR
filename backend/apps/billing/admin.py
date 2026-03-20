@@ -38,17 +38,17 @@ class PaymentAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentAllocation)
 class PaymentAllocationAdmin(admin.ModelAdmin):
-    list_display = ("payment", "invoice", "amount")
+    list_display = ("payment", "invoice", "allocated_amount")
 
 
 @admin.register(Holdback)
 class HoldbackAdmin(admin.ModelAdmin):
-    list_display = ("invoice", "percentage", "accumulated", "released", "remaining")
+    list_display = ("invoice", "percentage_rate", "accumulated", "released", "remaining")
 
 
 @admin.register(WriteOff)
 class WriteOffAdmin(admin.ModelAdmin):
-    list_display = ("invoice", "amount", "justification", "created_at")
+    list_display = ("invoice", "amount", "reason", "created_at")
 
 
 @admin.register(InvoiceTemplate)
@@ -59,7 +59,7 @@ class InvoiceTemplateAdmin(admin.ModelAdmin):
 
 @admin.register(ClientLabel)
 class ClientLabelAdmin(admin.ModelAdmin):
-    list_display = ("client", "project", "label_key", "label_value")
+    list_display = ("project", "wbs_code", "client_label")
 
 
 @admin.register(DunningLevel)

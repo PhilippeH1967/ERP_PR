@@ -2,8 +2,10 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import apiClient from '@/plugins/axios'
+import { useAuth } from '@/shared/composables/useAuth'
 
 const router = useRouter()
+const { currentUser } = useAuth()
 
 interface UserInfo { id: number; username: string; email: string; is_active: boolean; is_staff: boolean; date_joined: string; roles: string[] }
 
@@ -154,7 +156,7 @@ onMounted(fetch)
                 <button class="btn-action" @click="startEditRole(user)">Rôle</button>
                 <button class="btn-action" @click="changingPasswordId = changingPasswordId === user.id ? null : user.id">Mdp</button>
                 <button class="btn-action" :class="user.is_active ? 'danger' : 'success'" @click="toggleActive(user)">{{ user.is_active ? 'Désactiver' : 'Activer' }}</button>
-                <button class="btn-action danger" @click="deleteUser(user)">Supprimer</button>
+                <button v-if="user.id !== currentUser?.id" class="btn-action danger" @click="deleteUser(user)">Supprimer</button>
               </td>
             </tr>
             <tr v-if="changingPasswordId === user.id">
