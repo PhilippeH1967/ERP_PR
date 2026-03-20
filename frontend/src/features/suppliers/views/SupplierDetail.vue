@@ -109,8 +109,9 @@ onMounted(fetch)
           {{ tag === 'st' ? 'Sous-traitant' : tag === 'partner' ? 'Partenaire' : 'Concurrent' }}
         </span>
         <button v-if="!editing" class="btn-primary" @click="startEdit">Modifier</button>
-        <button v-if="editing" class="btn-ghost" @click="stopEditing">Terminer</button>
-        <button v-if="editing" class="btn-danger" @click="showDeleteConfirm = true">Supprimer...</button>
+        <button v-if="editing" class="btn-primary" @click="save">Enregistrer</button>
+        <button v-if="editing" class="btn-ghost" @click="stopEditing">Annuler</button>
+        <button v-if="editing" class="btn-danger-text" @click="showDeleteConfirm = true">Supprimer...</button>
       </div>
     </div>
 
@@ -209,10 +210,7 @@ onMounted(fetch)
           <div class="form-group"><label>Transit</label><input v-model="(form.banking_info as BankingInfo).transit" placeholder="30000" /></div>
           <div class="form-group"><label>Compte</label><input v-model="(form.banking_info as BankingInfo).account" placeholder="1234567" /></div>
         </div>
-        <div class="form-actions">
-          <button class="btn-ghost" @click="editing = false">Annuler</button>
-          <button class="btn-primary" @click="save">Enregistrer</button>
-        </div>
+        <!-- Actions dans le header -->
       </div>
     </template>
   </div>
@@ -225,6 +223,8 @@ onMounted(fetch)
 .subtitle { font-size: 12px; color: var(--color-gray-500); }
 .header-actions { display: flex; align-items: center; gap: 6px; }
 .btn-danger { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; background: var(--color-danger); color: white; }
+.btn-danger-text { background: none; border: none; font-size: 11px; color: var(--color-gray-400); cursor: pointer; padding: 4px 8px; }
+.btn-danger-text:hover { color: var(--color-danger); }
 .alert-error { background: var(--color-danger-light); color: var(--color-danger); padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
 .alert-danger-banner { background: #FEE2E2; color: #DC2626; padding: 12px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
 .banner-actions { display: flex; gap: 8px; margin-top: 8px; }

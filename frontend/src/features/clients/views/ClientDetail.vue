@@ -225,8 +225,9 @@ async function deleteClient() {
         <div class="flex items-center gap-2">
           <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="store.currentClient.status === 'active' ? 'bg-success/10 text-success' : 'bg-text-muted/10 text-text-muted'">{{ store.currentClient.status }}</span>
           <button v-if="!isEditing" class="btn-primary" @click="isEditing = true">Modifier</button>
-          <button v-if="isEditing" class="btn-primary" @click="isEditing = false">Terminer</button>
-          <button v-if="!showDeleteConfirm" class="btn-ghost" style="color:var(--color-gray-400);font-size:11px;" @click="showDeleteConfirm = true">Supprimer...</button>
+          <button v-if="isEditing" class="btn-primary" @click="isEditing = false">Enregistrer</button>
+          <button v-if="isEditing" class="btn-ghost" @click="isEditing = false">Annuler</button>
+          <button v-if="isEditing && !showDeleteConfirm" class="btn-ghost" style="color:var(--color-gray-400);font-size:11px;" @click="showDeleteConfirm = true">Supprimer...</button>
         </div>
       </div>
       <div v-if="showDeleteConfirm" class="mt-2 flex items-center gap-3 rounded-md bg-danger/5 border border-danger/20 p-3">
