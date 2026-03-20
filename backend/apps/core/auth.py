@@ -111,6 +111,23 @@ def auth_me(request):
     )
 
 
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def user_delete(request, pk):
+    """Delete a user (admin only). Cannot delete yourself."""
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    if pk == request.user.pk:
+        return Response(
+            {"error": {"code": "SELF_DELETE", "message": "Impossible de supprimer votre propre compte."}},
+            status=400,
+        )
+    user = User.objects.get(pk=pk)
+    user.delete()
+    return Response(status=204)
+
+
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def user_update(request, pk):
@@ -126,6 +143,10 @@ def user_update(request, pk):
     if "is_active" in data:
         user.is_active = data["is_active"]
         user.save(update_fields=["is_active"])
+
+    if "password" in data and data["password"]:
+        user.set_password(data["password"])
+        user.save(update_fields=["password"])
 
     if "role" in data:
         tenant = Tenant.objects.first()

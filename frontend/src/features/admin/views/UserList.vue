@@ -57,6 +57,33 @@ async function saveRole(userId: number) {
   await fetch()
 }
 
+// Password change
+const changingPasswordId = ref<number | null>(null)
+const newPassword = ref('')
+
+async function savePassword(userId: number) {
+  if (!newPassword.value || newPassword.value.length < 8) {
+    error.value = 'Le mot de passe doit contenir au moins 8 caractères.'
+    return
+  }
+  error.value = ''
+  await apiClient.patch(`users/${userId}/`, { password: newPassword.value })
+  changingPasswordId.value = null
+  newPassword.value = ''
+}
+
+// Delete user
+async function deleteUser(user: UserInfo) {
+  if (!confirm(`Supprimer l'utilisateur "${user.username}" ? Cette action est irréversible.`)) return
+  error.value = ''
+  try {
+    await apiClient.delete(`users/${user.id}/delete/`)
+    await fetch()
+  } catch (e: unknown) {
+    error.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
+}
+
 onMounted(fetch)
 </script>
 
@@ -124,7 +151,20 @@ onMounted(fetch)
             <td class="text-muted">{{ user.date_joined?.substring(0, 10) }}</td>
             <td class="actions-cell">
               <button class="btn-action" @click="startEditRole(user)">Rôle</button>
+              <button class="btn-action" @click="changingPasswordId = changingPasswordId === user.id ? null : user.id">Mdp</button>
               <button class="btn-action" :class="user.is_active ? 'danger' : 'success'" @click="toggleActive(user)">{{ user.is_active ? 'Désactiver' : 'Activer' }}</button>
+              <button class="btn-action danger" @click="deleteUser(user)">Supprimer</button>
+            </td>
+          </tr>
+          <!-- Password change row -->
+          <tr v-if="changingPasswordId === user.id">
+            <td colspan="6" class="password-row">
+              <div class="password-form">
+                <span class="password-label">Nouveau mot de passe pour {{ user.username }} :</span>
+                <input v-model="newPassword" type="password" placeholder="Min. 8 caractères" class="password-input" />
+                <button class="btn-primary" @click="savePassword(user.id)">Changer</button>
+                <button class="btn-ghost" @click="changingPasswordId = null; newPassword = ''">Annuler</button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -163,4 +203,9 @@ onMounted(fetch)
 .inline-edit { display: inline-flex; align-items: center; gap: 4px; }
 .role-select { padding: 2px 6px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 11px; }
 .empty { text-align: center; padding: 30px; color: var(--color-gray-400); font-size: 13px; }
+.password-row { background: var(--color-gray-50); }
+.password-form { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.password-label { font-size: 12px; color: var(--color-gray-600); white-space: nowrap; }
+.password-input { padding: 5px 10px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; width: 200px; }
+.password-input:focus { outline: none; border-color: var(--color-primary); }
 </style>

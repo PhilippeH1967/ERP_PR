@@ -302,3 +302,24 @@ class TestUserManagement(TestCase):
         self.assertEqual(resp.status_code, 200)
         user.refresh_from_db()
         self.assertFalse(user.is_active)
+
+    def test_change_password(self):
+        """PATCH /users/{id}/ changes password."""
+        user = User.objects.create_user(username="pwduser", password="OldPass123!")
+        resp = self.client.patch(f"/api/v1/users/{user.id}/", {"password": "NewPass456!"}, format="json")
+        self.assertEqual(resp.status_code, 200)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("NewPass456!"))
+
+    def test_delete_user(self):
+        """DELETE /users/{id}/delete/ removes user."""
+        user = User.objects.create_user(username="deleteuser", password="x")
+        resp = self.client.delete(f"/api/v1/users/{user.id}/delete/")
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(User.objects.filter(username="deleteuser").exists())
+
+    def test_cannot_delete_self(self):
+        """DELETE /users/{id}/delete/ blocks self-deletion."""
+        resp = self.client.delete(f"/api/v1/users/{self.admin.id}/delete/")
+        self.assertEqual(resp.status_code, 400)
+        self.assertTrue(User.objects.filter(pk=self.admin.id).exists())
