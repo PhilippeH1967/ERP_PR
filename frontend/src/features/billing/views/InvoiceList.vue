@@ -10,8 +10,22 @@ const router = useRouter()
 const { fmt } = useLocale()
 
 const showCreate = ref(false)
-const createForm = ref({ project: '', notes: '' })
+const createForm = ref({ project: '', client: '', invoice_number: '' })
 const createError = ref('')
+
+// Auto-fill client when project changes
+async function onProjectChange() {
+  if (!createForm.value.project) return
+  try {
+    const resp = await billingApi.getInvoice  // unused, use apiClient
+    const { default: apiClient } = await import('@/plugins/axios')
+    const projResp = await apiClient.get(`projects/${createForm.value.project}/`)
+    const proj = projResp.data?.data || projResp.data
+    if (proj?.client) createForm.value.client = String(proj.client)
+  } catch { /* silent */ }
+  // Auto-generate invoice number
+  createForm.value.invoice_number = `PROV-${Date.now().toString().slice(-6)}`
+}
 
 const statusColors: Record<string, string> = {
   DRAFT: 'badge-gray',
@@ -34,11 +48,12 @@ async function createInvoice() {
   try {
     const resp = await billingApi.createInvoice({
       project: Number(createForm.value.project),
-      notes: createForm.value.notes,
+      client: Number(createForm.value.client),
+      invoice_number: createForm.value.invoice_number,
     })
     const data = resp.data?.data || resp.data
     showCreate.value = false
-    createForm.value = { project: '', notes: '' }
+    createForm.value = { project: '', client: '', invoice_number: '' }
     router.push(`/billing/${data.id}`)
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: { message?: string } } } }
@@ -61,14 +76,18 @@ onMounted(() => store.fetchInvoices())
       <div class="card-title">Nouvelle facture</div>
       <div v-if="createError" class="alert-error">{{ createError }}</div>
       <form @submit.prevent="createInvoice" class="create-form">
-        <div class="form-row">
+        <div class="form-row-3">
           <div class="form-group">
-            <label>ID Projet</label>
-            <input v-model="createForm.project" type="number" required placeholder="ID du projet" />
+            <label>Projet ID *</label>
+            <input v-model="createForm.project" type="number" required placeholder="Ex: 1" @change="onProjectChange" />
           </div>
           <div class="form-group">
-            <label>Notes (optionnel)</label>
-            <input v-model="createForm.notes" type="text" placeholder="Notes" />
+            <label>Client ID *</label>
+            <input v-model="createForm.client" type="number" required placeholder="Auto-rempli" />
+          </div>
+          <div class="form-group">
+            <label>No facture *</label>
+            <input v-model="createForm.invoice_number" type="text" required placeholder="PROV-XXXXXX" />
           </div>
         </div>
         <div class="form-actions">
@@ -126,6 +145,7 @@ onMounted(() => store.fetchInvoices())
 .card-table { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
 .alert-error { background: var(--color-danger-light); color: var(--color-danger); padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 .form-group { margin-bottom: 12px; }
 .form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--color-gray-600); margin-bottom: 4px; }
 .form-actions { display: flex; justify-content: flex-end; gap: 6px; }
