@@ -15,6 +15,8 @@ const { fmt } = useLocale()
 const activeTab = ref('identification')
 const showContactForm = ref(false)
 const showAddressForm = ref(false)
+const isEditing = ref(false)
+const showDeleteConfirm = ref(false)
 
 interface FinancialData {
   total_ca: string
@@ -104,27 +106,26 @@ async function deleteClient() {
 
 <template>
   <div v-if="store.currentClient">
-    <div class="mb-4 flex items-center justify-between">
-      <h1 class="text-2xl font-semibold text-text">
-        {{ store.currentClient.name }}
-        <span
-          v-if="store.currentClient.alias"
-          class="ml-2 text-lg text-text-muted"
-        >({{ store.currentClient.alias }})</span>
-      </h1>
-      <div class="flex items-center gap-3">
-        <span
-          class="rounded-full px-3 py-1 text-xs font-medium"
-          :class="store.currentClient.status === 'active' ? 'bg-success/10 text-success' : 'bg-text-muted/10 text-text-muted'"
-        >
-          {{ store.currentClient.status }}
-        </span>
-        <button
-          class="rounded bg-danger/10 px-3 py-1 text-xs font-medium text-danger hover:bg-danger/20"
-          @click="deleteClient"
-        >
-          Supprimer
-        </button>
+    <div class="mb-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <button class="text-xs text-text-muted hover:text-primary" style="background:none;border:none;padding:0;cursor:pointer;" @click="router.push('/clients')">&larr; Clients</button>
+          <h1 class="text-xl font-semibold text-text">
+            {{ store.currentClient.name }}
+            <span v-if="store.currentClient.alias" class="ml-1 text-base text-text-muted">({{ store.currentClient.alias }})</span>
+          </h1>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="store.currentClient.status === 'active' ? 'bg-success/10 text-success' : 'bg-text-muted/10 text-text-muted'">{{ store.currentClient.status }}</span>
+          <button v-if="!isEditing" class="btn-primary" @click="isEditing = true">Modifier</button>
+          <button v-if="isEditing" class="btn-primary" @click="isEditing = false">Terminer</button>
+          <button v-if="!showDeleteConfirm" class="btn-ghost" style="color:var(--color-gray-400);font-size:11px;" @click="showDeleteConfirm = true">Supprimer...</button>
+        </div>
+      </div>
+      <div v-if="showDeleteConfirm" class="mt-2 flex items-center gap-3 rounded-md bg-danger/5 border border-danger/20 p-3">
+        <span class="text-xs text-danger">Supprimer définitivement ce client et toutes ses données ?</span>
+        <button class="btn-danger" style="font-size:11px;padding:4px 10px;" @click="deleteClient">Confirmer la suppression</button>
+        <button class="btn-ghost" style="font-size:11px;padding:4px 10px;" @click="showDeleteConfirm = false">Annuler</button>
       </div>
     </div>
 
@@ -143,38 +144,27 @@ async function deleteClient() {
 
     <!-- Tab content -->
     <div class="rounded-lg border border-border bg-surface p-6">
-      <!-- Identification (inline edit) -->
+      <!-- Identification -->
       <div v-if="activeTab === 'identification'">
-        <div class="grid grid-cols-2 gap-4">
-          <EditableField
-            :value="store.currentClient.name"
-            label="Nom légal"
-            @save="(v) => saveField('name', v)"
-          />
-          <EditableField
-            :value="store.currentClient.alias"
-            label="Alias / Acronyme"
-            placeholder="Ajouter un alias"
-            @save="(v) => saveField('alias', v)"
-          />
-          <EditableField
-            :value="store.currentClient.legal_entity"
-            label="Entité juridique"
-            placeholder="Corporation, LLC..."
-            @save="(v) => saveField('legal_entity', v)"
-          />
-          <EditableField
-            :value="store.currentClient.sector"
-            label="Secteur"
-            placeholder="Public, Privé..."
-            @save="(v) => saveField('sector', v)"
-          />
+        <!-- Read mode -->
+        <div v-if="!isEditing" class="grid grid-cols-2 gap-4">
+          <div><label class="text-xs font-medium text-text-muted">Nom légal</label><p class="mt-0.5 text-sm font-medium">{{ store.currentClient.name || '—' }}</p></div>
+          <div><label class="text-xs font-medium text-text-muted">Alias / Acronyme</label><p class="mt-0.5 text-sm font-medium">{{ store.currentClient.alias || '—' }}</p></div>
+          <div><label class="text-xs font-medium text-text-muted">Entité juridique</label><p class="mt-0.5 text-sm font-medium">{{ store.currentClient.legal_entity || '—' }}</p></div>
+          <div><label class="text-xs font-medium text-text-muted">Secteur</label><p class="mt-0.5 text-sm font-medium">{{ store.currentClient.sector || '—' }}</p></div>
+        </div>
+        <!-- Edit mode -->
+        <div v-else class="grid grid-cols-2 gap-4">
+          <EditableField :value="store.currentClient.name" label="Nom légal" @save="(v) => saveField('name', v)" />
+          <EditableField :value="store.currentClient.alias" label="Alias / Acronyme" placeholder="Ajouter un alias" @save="(v) => saveField('alias', v)" />
+          <EditableField :value="store.currentClient.legal_entity" label="Entité juridique" placeholder="Corporation, LLC..." @save="(v) => saveField('legal_entity', v)" />
+          <EditableField :value="store.currentClient.sector" label="Secteur" placeholder="Public, Privé..." @save="(v) => saveField('sector', v)" />
         </div>
       </div>
 
       <!-- Contacts -->
       <div v-if="activeTab === 'contacts'">
-        <div class="mb-4 flex justify-end">
+        <div v-if="isEditing" class="mb-4 flex justify-end">
           <button
             class="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white"
             @click="showContactForm = !showContactForm"
@@ -184,7 +174,7 @@ async function deleteClient() {
         </div>
 
         <ContactForm
-          v-if="showContactForm"
+          v-if="showContactForm && isEditing"
           class="mb-4"
           @submit="onAddContact"
           @cancel="showContactForm = false"
@@ -207,7 +197,7 @@ async function deleteClient() {
             </div>
             <div class="flex items-center gap-2">
               <span class="text-xs text-text-muted">{{ contact.language_preference === 'fr' ? 'FR' : 'EN' }}</span>
-              <button class="text-xs text-danger hover:underline" @click="deleteContact(contact.id)">Supprimer</button>
+              <button v-if="isEditing" class="text-xs text-danger hover:underline" @click="deleteContact(contact.id)">Supprimer</button>
             </div>
           </div>
           <p class="mt-1 text-sm text-text-muted">
@@ -224,7 +214,7 @@ async function deleteClient() {
 
       <!-- Addresses -->
       <div v-if="activeTab === 'addresses'">
-        <div class="mb-4 flex justify-end">
+        <div v-if="isEditing" class="mb-4 flex justify-end">
           <button
             class="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white"
             @click="showAddressForm = !showAddressForm"
@@ -234,7 +224,7 @@ async function deleteClient() {
         </div>
 
         <AddressForm
-          v-if="showAddressForm"
+          v-if="showAddressForm && isEditing"
           class="mb-4"
           @submit="onAddAddress"
           @cancel="showAddressForm = false"
@@ -276,7 +266,7 @@ async function deleteClient() {
               class="rounded bg-text-muted/10 px-2 py-0.5 text-xs text-text-muted"
             >Bureau</span>
            </div>
-            <button class="text-xs text-danger hover:underline" @click="deleteAddress(addr.id)">Supprimer</button>
+            <button v-if="isEditing" class="text-xs text-danger hover:underline" @click="deleteAddress(addr.id)">Supprimer</button>
           </div>
         </div>
       </div>
@@ -409,40 +399,29 @@ async function deleteClient() {
 
       <!-- Billing (inline edit) -->
       <div v-if="activeTab === 'billing'">
-        <div class="grid grid-cols-2 gap-4">
-          <EditableField
-            :value="store.currentClient.payment_terms_days"
-            label="Termes de paiement (jours)"
-            type="number"
-            @save="(v) => saveField('payment_terms_days', v)"
-          />
-          <EditableField
-            :value="store.currentClient.default_invoice_template"
-            label="Template de facture"
-            placeholder="Standard"
-            @save="(v) => saveField('default_invoice_template', v)"
-          />
+        <div v-if="!isEditing" class="grid grid-cols-2 gap-4">
+          <div><label class="text-xs font-medium text-text-muted">Termes de paiement (jours)</label><p class="mt-0.5 text-sm font-medium">{{ store.currentClient.payment_terms_days || '—' }}</p></div>
+          <div><label class="text-xs font-medium text-text-muted">Template de facture</label><p class="mt-0.5 text-sm font-medium">{{ store.currentClient.default_invoice_template || 'Standard' }}</p></div>
+        </div>
+        <div v-else class="grid grid-cols-2 gap-4">
+          <EditableField :value="store.currentClient.payment_terms_days" label="Termes de paiement (jours)" type="number" @save="(v) => saveField('payment_terms_days', v)" />
+          <EditableField :value="store.currentClient.default_invoice_template" label="Template de facture" placeholder="Standard" @save="(v) => saveField('default_invoice_template', v)" />
         </div>
       </div>
 
       <!-- CRM (inline edit) -->
       <div v-if="activeTab === 'crm'">
-        <div class="grid grid-cols-2 gap-4">
-          <EditableField
-            :value="store.currentClient.associe_en_charge"
-            label="Associé en charge"
-            placeholder="Sélectionner..."
-            @save="(v) => saveField('associe_en_charge', v)"
-          />
+        <div v-if="!isEditing">
+          <div class="grid grid-cols-2 gap-4"><div><label class="text-xs font-medium text-text-muted">Associé en charge</label><p class="mt-0.5 text-sm font-medium">{{ store.currentClient.associe_en_charge || '—' }}</p></div></div>
+          <div class="mt-4"><label class="text-xs font-medium text-text-muted">Notes</label><p class="mt-0.5 text-sm whitespace-pre-wrap">{{ store.currentClient.notes || '—' }}</p></div>
         </div>
-        <div class="mt-4">
-          <EditableField
-            :value="store.currentClient.notes"
-            label="Notes"
-            type="textarea"
-            placeholder="Ajouter des notes..."
-            @save="(v) => saveField('notes', v)"
-          />
+        <div v-else>
+          <div class="grid grid-cols-2 gap-4">
+            <EditableField :value="store.currentClient.associe_en_charge" label="Associé en charge" placeholder="Sélectionner..." @save="(v) => saveField('associe_en_charge', v)" />
+          </div>
+          <div class="mt-4">
+            <EditableField :value="store.currentClient.notes" label="Notes" type="textarea" placeholder="Ajouter des notes..." @save="(v) => saveField('notes', v)" />
+          </div>
         </div>
       </div>
     </div>
