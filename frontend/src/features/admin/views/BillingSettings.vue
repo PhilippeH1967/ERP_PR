@@ -51,7 +51,8 @@ async function saveTmpl() {
     showTmplForm.value = false; await fetchData()
   } catch (e: unknown) { error.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
 }
-async function deleteTmpl(id: number) { if (!confirm('Supprimer ce template ?')) return; await apiClient.delete(`invoice_templates/${id}/`); await fetchData() }
+const confirmDeleteTmpl = ref<number | null>(null)
+async function deleteTmpl(id: number) { confirmDeleteTmpl.value = null; invoiceTemplates.value = invoiceTemplates.value.filter(t => t.id !== id); try { await apiClient.delete(`invoice_templates/${id}/`) } catch { /* ok */ } }
 
 // Dunning CRUD
 function openCreateDunning() { editDunningId.value = null; dunningForm.value = { level: '', days_overdue: '', email_template: '' }; showDunningForm.value = true }
@@ -65,7 +66,8 @@ async function saveDunning() {
     showDunningForm.value = false; await fetchData()
   } catch (e: unknown) { error.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
 }
-async function deleteDunning(id: number) { if (!confirm('Supprimer ?')) return; await apiClient.delete(`dunning_levels/${id}/`); await fetchData() }
+const confirmDeleteDunning = ref<number | null>(null)
+async function deleteDunning(id: number) { confirmDeleteDunning.value = null; dunningLevels.value = dunningLevels.value.filter(d => d.id !== id); try { await apiClient.delete(`dunning_levels/${id}/`) } catch { /* ok */ } }
 
 onMounted(fetchData)
 </script>
@@ -96,7 +98,11 @@ onMounted(fetchData)
               <td class="text-muted">{{ t.description }}</td>
               <td><span v-for="s in ((t.template_config?.sections as string[]) || [])" :key="s" class="section-tag">{{ s }}</span></td>
               <td><span :class="t.is_active ? 'flag-yes' : 'flag-no'">{{ t.is_active ? 'Actif' : 'Inactif' }}</span></td>
-              <td class="actions-cell"><button class="btn-action" @click="openEditTmpl(t)">Modifier</button><button class="btn-action danger" @click="deleteTmpl(t.id)">Supprimer</button></td>
+              <td class="actions-cell">
+                <button class="btn-action" @click="openEditTmpl(t)">Modifier</button>
+                <template v-if="confirmDeleteTmpl === t.id"><button class="btn-action danger" @click="deleteTmpl(t.id)">Confirmer</button><button class="btn-action" @click="confirmDeleteTmpl = null">Annuler</button></template>
+                <button v-else class="btn-action danger" @click="confirmDeleteTmpl = t.id">Supprimer</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -120,18 +126,21 @@ onMounted(fetchData)
               <td class="font-semibold">Niveau {{ d.level }}</td>
               <td>{{ d.days_overdue }} jours</td>
               <td class="text-muted template-cell">{{ d.email_template?.substring(0, 80) }}{{ d.email_template?.length > 80 ? '...' : '' }}</td>
-              <td class="actions-cell"><button class="btn-action" @click="openEditDunning(d)">Modifier</button><button class="btn-action danger" @click="deleteDunning(d.id)">Supprimer</button></td>
+              <td class="actions-cell">
+                <button class="btn-action" @click="openEditDunning(d)">Modifier</button>
+                <template v-if="confirmDeleteDunning === d.id"><button class="btn-action danger" @click="deleteDunning(d.id)">Confirmer</button><button class="btn-action" @click="confirmDeleteDunning = null">Annuler</button></template>
+                <button v-else class="btn-action danger" @click="confirmDeleteDunning = d.id">Supprimer</button>
+              </td>
             </tr>
           </tbody>
         </table>
         <div v-else class="empty">Aucun niveau de relance</div>
       </div>
 
-      <!-- Taxes -->
+      <!-- Taxes link -->
       <div class="card" style="margin-top: 16px;">
         <div class="card-title">Taxes</div>
-        <div class="tax-grid"><div><span class="tax-label">TPS</span><span class="tax-value">5.0%</span></div><div><span class="tax-label">TVQ</span><span class="tax-value">9.975%</span></div></div>
-        <p class="info-note" style="margin-top: 8px;">Configurable par entité via l'admin Django.</p>
+        <p class="info-note">Les schémas fiscaux (TPS+TVQ, TVH, etc.) sont configurables dans <a href="/admin/org" style="color:var(--color-primary);">Organisation → Schémas fiscaux</a>.</p>
       </div>
     </template>
   </div>
