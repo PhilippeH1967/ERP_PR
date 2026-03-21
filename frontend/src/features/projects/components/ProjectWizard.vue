@@ -267,8 +267,8 @@ onMounted(loadLookups)
             >
           </div>
 
-          <!-- Client searchable dropdown -->
-          <div class="col-span-2">
+          <!-- Client searchable dropdown (hidden for internal projects) -->
+          <div v-if="!form.is_internal" class="col-span-2">
             <label class="text-xs font-medium text-text-muted">Client *</label>
             <div class="relative mt-1">
               <template v-if="!selectedClientId">
@@ -391,6 +391,7 @@ onMounted(loadLookups)
               v-model="form.is_internal"
               type="checkbox"
               class="h-4 w-4 rounded border-border"
+              @change="if (form.is_internal) { form.client = null; selectedClientId = null; clientSearch = '' }"
             >
             <label for="is_internal" class="text-sm text-text">Projet interne (non facturable)</label>
           </div>
