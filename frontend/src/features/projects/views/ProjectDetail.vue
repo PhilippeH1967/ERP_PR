@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLocale } from '@/shared/composables/useLocale'
+import apiClient from '@/plugins/axios'
 import { projectApi } from '../api/projectApi'
 import { useProjectStore } from '../stores/useProjectStore'
 import AssignmentModal from '../components/AssignmentModal.vue'
@@ -39,6 +40,9 @@ const showWBSForm = ref(false)
 const wbsForm = ref({ standard_label: '', client_facing_label: '', element_type: 'PHASE', budgeted_hours: '0', phase: null as number | null })
 const editingWBSId = ref<number | null>(null)
 const editingWBSForm = ref({ standard_label: '', client_facing_label: '', budgeted_hours: '' })
+
+// Business Units for dropdown
+const businessUnits = ref<Array<{ id: number; name: string }>>([])
 
 // Inline edit project
 const editingProject = ref(false)
@@ -165,6 +169,7 @@ const statusColors: Record<string, string> = { ACTIVE: 'badge-green', ON_HOLD: '
 
 async function reload() {
   await store.fetchProject(projectId)
+  try { const r = await apiClient.get('business_units/'); const d = r.data?.data || r.data; businessUnits.value = Array.isArray(d) ? d : d?.results || [] } catch { businessUnits.value = [] }
   try { const r = await projectApi.dashboard(projectId); dashboard.value = r.data?.data || r.data } catch { dashboard.value = null }
   try { const r = await projectApi.listWBS(projectId); wbsTree.value = r.data?.data || r.data || [] } catch { wbsTree.value = [] }
   try { const r = await projectApi.listAssignments(projectId); assignments.value = r.data?.data || r.data || [] } catch { assignments.value = [] }
@@ -290,7 +295,12 @@ onMounted(reload)
         <h3 class="card-title-edit">Modifier le projet</h3>
         <div class="edit-grid">
           <div class="form-group"><label>Nom</label><input v-model="projectForm.name" /></div>
-          <div class="form-group"><label>Unité d'affaires</label><input v-model="projectForm.business_unit" /></div>
+          <div class="form-group"><label>Unité d'affaires</label>
+            <select v-model="projectForm.business_unit">
+              <option value="">— Aucune —</option>
+              <option v-for="bu in businessUnits" :key="bu.id" :value="bu.name">{{ bu.name }}</option>
+            </select>
+          </div>
           <div class="form-group"><label>Date début</label><input v-model="projectForm.start_date" type="date" /></div>
           <div class="form-group"><label>Date fin</label><input v-model="projectForm.end_date" type="date" /></div>
           <div class="form-group"><label>Chef de projet (ID)</label><input v-model="projectForm.pm" type="number" /></div>
