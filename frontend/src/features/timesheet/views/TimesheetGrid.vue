@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useTimesheetStore } from '../stores/useTimesheetStore'
 import TimesheetCell from '../components/TimesheetCell.vue'
 import WeekNavigator from '../components/WeekNavigator.vue'
@@ -92,6 +92,62 @@ async function addTask() {
   await store.fetchWeek()
 }
 
+// Collect rejection reasons grouped by project/phase
+interface RejectionInfo { project: string; phase: string; reason: string }
+const rejectionReasons = computed<RejectionInfo[]>(() => {
+  const seen = new Map<string, RejectionInfo>()
+  for (const group of store.projectGroups) {
+    for (const row of group.rows) {
+      for (const date of store.weekDates) {
+        const e = row.entries[date]
+        if (e && e.rejection_reason) {
+          const key = `${row.project_code}|${row.phase_name}|${e.rejection_reason}`
+          if (!seen.has(key)) {
+            seen.set(key, {
+              project: row.project_code + ' — ' + row.project_name,
+              phase: row.phase_name || row.client_label || '',
+              reason: e.rejection_reason,
+            })
+          }
+        }
+      }
+    }
+  }
+  return Array.from(seen.values())
+})
+
+// Row deletion — only if all entries on this row are DRAFT or empty
+function canDeleteRow(row: { entries: Record<string, { status: string } | null>; is_locked: boolean }): boolean {
+  if (row.is_locked) return false
+  for (const date of store.weekDates) {
+    const e = row.entries[date]
+    if (e && e.status !== 'DRAFT') return false
+  }
+  return true
+}
+
+const deletingRow = ref(false)
+async function onDeleteRow(row: { entries: Record<string, { id: number; status: string } | null> }) {
+  if (deletingRow.value) return
+  deletingRow.value = true
+  const ids: number[] = []
+  for (const date of store.weekDates) {
+    const e = row.entries[date]
+    if (e && e.id) ids.push(e.id)
+  }
+  console.log('[deleteRow] ids to delete:', ids)
+  try {
+    for (const id of ids) {
+      console.log('[deleteRow] deleting', id)
+      await apiClient.delete(`time_entries/${id}/`)
+    }
+  } catch (err) {
+    console.error('[deleteRow] error:', err)
+  }
+  await store.fetchWeek()
+  deletingRow.value = false
+}
+
 function normClass(total: number, norm: number): string {
   if (total === 0) return 'text-text-muted'
   if (total === norm) return 'text-success font-medium'
@@ -141,6 +197,30 @@ function normClass(total: number, norm: number): string {
       <span class="text-xs text-text-muted">Soumission avant samedi 18h</span>
     </div>
 
+    <!-- Modification requested banner -->
+    <div
+      v-if="store.hasModificationRequested"
+      class="mb-4 rounded-lg border border-warning/30 bg-warning/5 p-3"
+    >
+      <div class="flex items-center gap-2">
+        <span class="text-warning">&#9998;</span>
+        <span class="text-sm text-warning">
+          <strong>Modification demandee</strong> — Certaines lignes ont ete renvoyees par votre CP pour correction.
+          Les cellules editables sont celles qui necessitent votre attention.
+        </span>
+      </div>
+      <div v-if="rejectionReasons.length" class="mt-2 ml-6">
+        <div
+          v-for="(info, idx) in rejectionReasons"
+          :key="idx"
+          class="flex items-start gap-2 text-sm text-text mt-1"
+        >
+          <span class="text-warning mt-0.5">&#8227;</span>
+          <span><strong>{{ info.project }}</strong><template v-if="info.phase"> / {{ info.phase }}</template> : {{ info.reason }}</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Anomaly badge: average > contract -->
     <div
       v-if="store.weeklyStats.average_4_weeks > store.weeklyStats.contract_hours"
@@ -184,24 +264,19 @@ function normClass(total: number, norm: number): string {
         <div class="text-xs text-text-muted">
           Moyenne 4 sem.
         </div>
-        <!-- Sparkline (Fix #9) -->
-        <div class="mt-2 flex items-end justify-center gap-0.5">
+        <!-- Sparkline from real data -->
+        <div class="mt-2 flex items-end justify-center gap-1">
           <div
-            class="w-1.5 rounded-sm bg-warning"
-            style="height: 16px"
+            v-for="(val, i) in store.weeklyStats.week_totals"
+            :key="i"
+            class="w-2 rounded-sm"
+            :class="val > 45 ? 'bg-danger' : val > 40 ? 'bg-warning' : 'bg-primary'"
+            :style="{ height: Math.max(3, Math.round((val / 50) * 28)) + 'px' }"
+            :title="val + 'h'"
           />
-          <div
-            class="w-1.5 rounded-sm bg-warning"
-            style="height: 18px"
-          />
-          <div
-            class="w-1.5 rounded-sm bg-danger"
-            style="height: 22px"
-          />
-          <div
-            class="w-1.5 rounded-sm bg-warning"
-            style="height: 14px"
-          />
+        </div>
+        <div class="mt-1 text-text-muted" style="font-size: 9px;">
+          {{ store.weeklyStats.week_totals.map((v: number) => Math.round(v)).join(' → ') }}
         </div>
       </div>
       <div class="rounded-lg border border-border bg-surface p-4 text-center">
@@ -254,20 +329,21 @@ function normClass(total: number, norm: number): string {
 
     <!-- Grid with project grouping (HIGH #3) -->
     <div class="overflow-x-auto rounded-lg border border-border bg-surface">
-      <table class="w-full text-sm">
+      <table class="w-full" style="font-size: 12px;">
         <thead class="border-b border-border bg-surface-alt">
           <tr>
-            <th class="sticky left-0 z-10 bg-surface-alt px-4 py-2 text-left text-xs font-medium uppercase text-text-muted min-w-[250px]">
-              Tâche
+            <th class="sticky left-0 z-10 bg-surface-alt px-3 py-1 text-left font-medium uppercase text-text-muted min-w-[200px]" style="font-size: 10px;">
+              Tache
             </th>
             <th
               v-for="(date, i) in store.weekDates"
               :key="date"
-              class="min-w-[80px] px-3 py-2 text-center text-xs font-medium text-text-muted"
+              class="min-w-[60px] px-1 py-1 text-center font-medium text-text-muted"
+              style="font-size: 10px;"
             >
               {{ dayLabels[i] }} {{ date.slice(8) }}
             </th>
-            <th class="min-w-[70px] px-3 py-2 text-center text-xs font-medium text-text-muted">
+            <th class="min-w-[50px] px-1 py-1 text-center font-medium text-text-muted" style="font-size: 10px;">
               Total
             </th>
           </tr>
@@ -281,11 +357,12 @@ function normClass(total: number, norm: number): string {
             <tr class="border-b bg-primary/5">
               <td
                 :colspan="store.weekDates.length + 2"
-                class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary"
+                class="px-3 py-1 font-semibold uppercase tracking-wide text-primary"
+                style="font-size: 10px;"
               >
                 <span class="flex items-center gap-1">
                   <button
-                    class="text-sm"
+                    style="font-size: 12px;"
                     :class="isFavorite(group.project_id) ? 'text-warning' : 'text-text-muted/30 hover:text-warning/60'"
                     @click.stop="toggleFavorite(group.project_id)"
                   >
@@ -303,13 +380,21 @@ function normClass(total: number, norm: number): string {
               class="border-b border-border hover:bg-surface-alt"
               :class="{ 'bg-gray-50 opacity-60': row.is_locked }"
             >
-              <td class="sticky left-0 z-10 bg-surface px-4 py-2 pl-8">
-                <div class="flex items-center gap-2">
+              <td class="sticky left-0 z-10 bg-surface px-3 py-1 pl-6">
+                <div class="flex items-center gap-1">
                   <span
                     v-if="row.is_locked"
                     class="text-text-muted"
+                    style="font-size: 10px;"
                   >🔒</span>
-                  <span class="text-sm text-text">{{ row.client_label || row.phase_name }}</span>
+                  <span class="text-text" style="font-size: 11px;">{{ row.client_label || row.phase_name }}</span>
+                  <button
+                    v-if="canDeleteRow(row)"
+                    class="ml-auto"
+                    style="color: #DC2626; font-size: 13px; font-weight: bold; cursor: pointer; padding: 2px 6px; line-height: 1;"
+                    title="Retirer cette ligne"
+                    @click="onDeleteRow(row)"
+                  >&#10005;</button>
                 </div>
               </td>
               <TimesheetCell
@@ -319,11 +404,11 @@ function normClass(total: number, norm: number): string {
                 :project-id="row.project_id"
                 :phase-id="row.phase_id"
                 :date="date"
-                :is-locked="row.is_locked"
+                :is-locked="row.is_locked || (row.entries[date]?.status !== undefined && row.entries[date]?.status !== 'DRAFT')"
                 :aria-label="`${row.project_code} ${row.phase_name} ${date}`"
                 @save="onCellSave"
               />
-              <td class="px-3 py-2 text-center font-mono text-sm font-semibold text-text">
+              <td class="px-1 py-1 text-center font-mono font-semibold text-text" style="font-size: 11px;">
                 {{ row.row_total || '' }}
               </td>
             </tr>

@@ -10,7 +10,8 @@ export const timesheetApi = {
     }),
   submitWeek: (weekStart: string) =>
     apiClient.post('time_entries/submit_week/', { week_start: weekStart }),
-  weeklyStats: () => apiClient.get('time_entries/weekly_stats/'),
+  weeklyStats: (weekStart?: string) =>
+    apiClient.get('time_entries/weekly_stats/', { params: weekStart ? { week_start: weekStart } : {} }),
   copyPreviousWeek: (weekStart: string) =>
     apiClient.post('time_entries/copy_previous_week/', { week_start: weekStart }),
 
@@ -21,6 +22,15 @@ export const timesheetApi = {
   approveFinance: (id: number) => apiClient.post(`weekly_approvals/${id}/approve_finance/`),
   rejectPM: (id: number, reason: string) => apiClient.post(`weekly_approvals/${id}/reject_pm/`, { reason }),
   rejectFinance: (id: number) => apiClient.post(`weekly_approvals/${id}/reject_finance/`),
+  approvalEntries: (id: number) => apiClient.get(`weekly_approvals/${id}/entries/`),
+  pmDashboard: (weekStart?: string) =>
+    apiClient.get('weekly_approvals/pm_dashboard/', { params: weekStart ? { week_start: weekStart } : {} }),
+
+  // Per-entry PM actions
+  approveEntries: (entryIds: number[]) =>
+    apiClient.post('time_entries/approve_entries/', { entry_ids: entryIds }),
+  rejectEntries: (entryIds: number[], reason: string) =>
+    apiClient.post('time_entries/reject_entries/', { entry_ids: entryIds, reason }),
 
   // Period unlocks
   listUnlocks: () => apiClient.get('period_unlocks/'),

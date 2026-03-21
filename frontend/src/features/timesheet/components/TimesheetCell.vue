@@ -102,7 +102,8 @@ function onKeydown(event: KeyboardEvent) {
       min="0"
       max="15"
       :aria-label="ariaLabel || `${date}`"
-      class="h-10 w-full border-0 bg-transparent px-2 text-center font-mono text-sm focus:bg-primary/5 focus:outline-none"
+      class="w-full border-0 bg-transparent px-1 text-center font-mono focus:bg-primary/5 focus:outline-none"
+      style="height: 28px; font-size: 11px;"
       :class="{
         'bg-success/10': showFeedback,
         'bg-danger/10': showError,
@@ -117,6 +118,16 @@ function onKeydown(event: KeyboardEvent) {
 </template>
 
 <style scoped>
+/* Hide number input spinners */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 .cell-error-tooltip {
   position: absolute;
   bottom: 100%;

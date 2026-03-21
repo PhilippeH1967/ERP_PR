@@ -46,7 +46,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
   const isLoading = ref(false)
   const currentWeekStart = ref(getMondayOfWeek(new Date()))
   const saveError = ref<{ type: string; entryId?: number } | null>(null)
-  const weeklyStats = ref({ contract_hours: 40, average_4_weeks: 0, billable_rate_percent: 0 })
+  const weeklyStats = ref({ contract_hours: 40, average_4_weeks: 0, billable_rate_percent: 0, week_totals: [0, 0, 0, 0] as number[] })
 
   const weekDates = computed(() => getDatesForWeek(currentWeekStart.value))
   const weekEnd = computed(() => weekDates.value[6] || '')
@@ -78,13 +78,10 @@ export const useTimesheetStore = defineStore('timesheet', () => {
       row.row_total = roundTotal(
         weekDates.value.reduce((sum, date) => sum + safeHours(row.entries[date]?.hours), 0),
       )
-      // Locked by timesheet lock OR by submitted/approved status for THIS week only
+      // Row-level lock only from timesheet locks, NOT from entry status
+      // Per-cell locking is handled by TimesheetCell based on entry.status
       const hasLock = row.phase_id ? locks.value.some((l) => l.phase === row.phase_id) : false
-      const weekEntries = weekDates.value.map(d => row.entries[d]).filter(Boolean)
-      const hasSubmitted = weekEntries.length > 0 && weekEntries.some(
-        (e) => e && e.status !== 'DRAFT',
-      )
-      row.is_locked = hasLock || hasSubmitted
+      row.is_locked = hasLock
     }
     return Array.from(rowMap.values())
   })
@@ -162,6 +159,18 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     contractHours: weeklyStats.value.contract_hours || CONTRACT_HOURS,
   }))
 
+  // Detect if some entries were sent back for modification (DRAFT mixed with SUBMITTED on same week)
+  const hasModificationRequested = computed(() => {
+    const statuses = new Set<string>()
+    for (const row of gridRows.value) {
+      for (const date of weekDates.value) {
+        const e = row.entries[date]
+        if (e) statuses.add(e.status)
+      }
+    }
+    return statuses.has('DRAFT') && statuses.has('SUBMITTED')
+  })
+
   // Status banner
   const statusMessage = computed(() => {
     if (weeklyTotal.value >= WEEKLY_NORM) return { text: 'complete', color: 'green' }
@@ -182,9 +191,9 @@ export const useTimesheetStore = defineStore('timesheet', () => {
         locks.value = []
       }
       try {
-        const statsResp = await timesheetApi.weeklyStats()
+        const statsResp = await timesheetApi.weeklyStats(currentWeekStart.value)
         const stats = statsResp.data?.data || statsResp.data
-        if (stats?.contract_hours) weeklyStats.value = stats
+        if (stats) weeklyStats.value = { ...weeklyStats.value, ...stats }
       } catch {
         // Stats are optional
       }
@@ -193,7 +202,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     }
   }
 
-  function navigateWeek(direction: 'prev' | 'next' | 'today') {
+  async function navigateWeek(direction: 'prev' | 'next' | 'today') {
     if (direction === 'today') {
       currentWeekStart.value = getMondayOfWeek(new Date())
     } else {
@@ -201,7 +210,8 @@ export const useTimesheetStore = defineStore('timesheet', () => {
       current.setDate(current.getDate() + (direction === 'next' ? 7 : -7))
       currentWeekStart.value = current.toISOString().slice(0, 10)
     }
-    fetchWeek()
+    entries.value = [] // Clear immediately to avoid stale rows
+    await fetchWeek()
   }
 
   async function saveCell(
@@ -254,7 +264,8 @@ export const useTimesheetStore = defineStore('timesheet', () => {
   return {
     entries, isLoading, saveError, currentWeekStart, currentWeek,
     gridRows, projectGroups, dailyTotals, weeklyTotal, weekDates,
-    weeklyStats, statusMessage, fetchWeek, navigateWeek, saveCell,
+    weeklyStats, statusMessage, hasModificationRequested,
+    fetchWeek, navigateWeek, saveCell,
     submitWeek, copyPreviousWeek, canSaveHours,
     DAILY_NORM, WEEKLY_NORM, CONTRACT_HOURS, MAX_DAILY_HOURS,
   }

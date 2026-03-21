@@ -10,6 +10,7 @@ export interface TimeEntry {
   date: string
   hours: string
   notes: string
+  rejection_reason: string
   status: 'DRAFT' | 'SUBMITTED' | 'PM_APPROVED' | 'FINANCE_APPROVED' | 'LOCKED'
   is_favorite: boolean
   version: number
@@ -18,6 +19,7 @@ export interface TimeEntry {
 export interface WeeklyApproval {
   id: number
   employee: number
+  employee_name: string
   week_start: string
   week_end: string
   pm_status: 'PENDING' | 'APPROVED' | 'REJECTED'

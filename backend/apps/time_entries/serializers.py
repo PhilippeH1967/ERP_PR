@@ -20,12 +20,13 @@ class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
         fields = [
             "id", "employee", "project", "project_code", "project_name",
             "phase", "phase_name", "client_label",
-            "date", "hours", "notes", "status", "is_favorite", "version",
+            "date", "hours", "notes", "rejection_reason", "status", "is_favorite", "version",
             "created_at", "updated_at",
         ]
         read_only_fields = [
             "id", "employee", "project_code", "project_name",
-            "phase_name", "client_label", "created_at", "updated_at",
+            "phase_name", "client_label", "rejection_reason",
+            "created_at", "updated_at",
         ]
 
     def get_phase_name(self, obj):
@@ -40,15 +41,22 @@ class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
 
 
 class WeeklyApprovalSerializer(serializers.ModelSerializer):
+    employee_name = serializers.SerializerMethodField()
+
     class Meta:
         model = WeeklyApproval
         fields = [
-            "id", "employee", "week_start", "week_end",
+            "id", "employee", "employee_name", "week_start", "week_end",
             "pm_status", "pm_approved_by", "pm_approved_at",
             "finance_status", "finance_approved_by", "finance_approved_at",
             "created_at", "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+    def get_employee_name(self, obj):
+        u = obj.employee
+        full = f"{u.first_name} {u.last_name}".strip()
+        return full or u.email
 
 
 class TimesheetLockSerializer(serializers.ModelSerializer):

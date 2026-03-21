@@ -30,6 +30,7 @@ class TimeEntry(TenantScopedModel, VersionedModel):
     date = models.DateField(db_index=True)
     hours = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     notes = models.TextField(blank=True, default="")
+    rejection_reason = models.TextField(blank=True, default="")
     status = models.CharField(
         max_length=20, choices=TimeEntryStatus.choices, default=TimeEntryStatus.DRAFT
     )
