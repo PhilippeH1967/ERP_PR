@@ -170,10 +170,14 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     }
   }
 
-  function navigateWeek(direction: 'prev' | 'next') {
-    const current = new Date(currentWeekStart.value)
-    current.setDate(current.getDate() + (direction === 'next' ? 7 : -7))
-    currentWeekStart.value = current.toISOString().slice(0, 10)
+  function navigateWeek(direction: 'prev' | 'next' | 'today') {
+    if (direction === 'today') {
+      currentWeekStart.value = getMondayOfWeek(new Date())
+    } else {
+      const current = new Date(currentWeekStart.value)
+      current.setDate(current.getDate() + (direction === 'next' ? 7 : -7))
+      currentWeekStart.value = current.toISOString().slice(0, 10)
+    }
     fetchWeek()
   }
 
