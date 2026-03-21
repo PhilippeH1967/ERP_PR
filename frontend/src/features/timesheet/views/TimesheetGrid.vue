@@ -5,10 +5,38 @@ import TimesheetCell from '../components/TimesheetCell.vue'
 import WeekNavigator from '../components/WeekNavigator.vue'
 import SubmitWeekModal from '../components/SubmitWeekModal.vue'
 
+import apiClient from '@/plugins/axios'
+
 const store = useTimesheetStore()
 const showSubmitModal = ref(false)
 const showAddTask = ref(false)
-const newTask = ref({ project_id: '', phase_id: '' })
+
+// Add task with dropdowns
+interface ProjectOption { id: number; code: string; name: string }
+interface PhaseOption { id: number; name: string; client_facing_label: string }
+const availableProjects = ref<ProjectOption[]>([])
+const availablePhases = ref<PhaseOption[]>([])
+const selectedProjectId = ref<number | null>(null)
+const selectedPhaseId = ref<number | null>(null)
+
+async function loadProjects() {
+  try {
+    const resp = await apiClient.get('projects/', { params: { status: 'ACTIVE' } })
+    const data = resp.data?.data || resp.data
+    availableProjects.value = Array.isArray(data) ? data : data?.results || []
+  } catch { availableProjects.value = [] }
+}
+
+async function onProjectSelect() {
+  availablePhases.value = []
+  selectedPhaseId.value = null
+  if (!selectedProjectId.value) return
+  try {
+    const resp = await apiClient.get(`projects/${selectedProjectId.value}/phases/`)
+    const data = resp.data?.data || resp.data
+    availablePhases.value = Array.isArray(data) ? data : data?.results || []
+  } catch { availablePhases.value = [] }
+}
 
 const dayLabels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
@@ -39,17 +67,25 @@ async function onSubmitConfirm() {
   showSubmitModal.value = false
 }
 
+async function openAddTask() {
+  showAddTask.value = true
+  selectedProjectId.value = null
+  selectedPhaseId.value = null
+  availablePhases.value = []
+  await loadProjects()
+}
+
 async function addTask() {
-  if (!newTask.value.project_id) return
-  // Create a 0h entry to make the row appear
+  if (!selectedProjectId.value) return
   await store.saveCell(
-    Number(newTask.value.project_id),
-    newTask.value.phase_id ? Number(newTask.value.phase_id) : null,
+    selectedProjectId.value,
+    selectedPhaseId.value,
     store.weekDates[0] || '',
     '0',
   )
   showAddTask.value = false
-  newTask.value = { project_id: '', phase_id: '' }
+  selectedProjectId.value = null
+  selectedPhaseId.value = null
   await store.fetchWeek()
 }
 
@@ -185,24 +221,32 @@ function normClass(total: number, norm: number): string {
       </button>
       <button
         class="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-muted hover:bg-surface-alt"
-        @click="showAddTask = !showAddTask"
+        @click="openAddTask"
       >
         + Ajouter une tâche
       </button>
     </div>
 
     <!-- Add task form -->
-    <div v-if="showAddTask" class="mb-4 flex items-end gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
-      <div>
-        <label class="text-xs font-medium text-text-muted">Projet ID</label>
-        <input v-model="newTask.project_id" type="number" class="mt-1 block w-32 rounded border border-border px-2 py-1 text-sm" placeholder="ID projet" />
+    <div v-if="showAddTask" class="mb-4 rounded-lg border border-primary/20 bg-primary/5 p-3">
+      <div class="flex items-end gap-3">
+        <div style="min-width: 250px;">
+          <label class="text-xs font-medium text-text-muted">Projet *</label>
+          <select v-model="selectedProjectId" @change="onProjectSelect" class="mt-1 block w-full rounded border border-border px-2 py-1.5 text-sm">
+            <option :value="null">— Choisir un projet —</option>
+            <option v-for="p in availableProjects" :key="p.id" :value="p.id">{{ p.code }} — {{ p.name }}</option>
+          </select>
+        </div>
+        <div v-if="availablePhases.length" style="min-width: 200px;">
+          <label class="text-xs font-medium text-text-muted">Phase</label>
+          <select v-model="selectedPhaseId" class="mt-1 block w-full rounded border border-border px-2 py-1.5 text-sm">
+            <option :value="null">— Toutes phases —</option>
+            <option v-for="ph in availablePhases" :key="ph.id" :value="ph.id">{{ ph.client_facing_label || ph.name }}</option>
+          </select>
+        </div>
+        <button class="btn-primary" :disabled="!selectedProjectId" @click="addTask">Ajouter</button>
+        <button class="btn-ghost" @click="showAddTask = false">Annuler</button>
       </div>
-      <div>
-        <label class="text-xs font-medium text-text-muted">Phase ID (optionnel)</label>
-        <input v-model="newTask.phase_id" type="number" class="mt-1 block w-32 rounded border border-border px-2 py-1 text-sm" placeholder="ID phase" />
-      </div>
-      <button class="btn-primary" @click="addTask">Ajouter</button>
-      <button class="btn-ghost" @click="showAddTask = false">Annuler</button>
     </div>
 
     <!-- Grid with project grouping (HIGH #3) -->
