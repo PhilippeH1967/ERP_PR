@@ -274,6 +274,7 @@ onMounted(reload)
         <h1><span class="code">{{ store.currentProject.code }}</span> {{ store.currentProject.name }}</h1>
       </div>
       <div class="header-actions">
+        <span v-if="store.currentProject.is_internal" class="badge-internal">Interne</span>
         <!-- Status badge (clickable only in edit mode) -->
         <div class="relative">
           <button class="badge" :class="statusColors[store.currentProject.status]" @click="isEditing && (showEditStatus = !showEditStatus)" :style="isEditing ? 'cursor:pointer' : 'cursor:default'">
@@ -579,6 +580,7 @@ onMounted(reload)
 .btn-danger { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; background: var(--color-danger); color: white; }
 
 .badge { display: inline-flex; padding: 2px 10px; border-radius: 10px; font-size: 10px; font-weight: 600; cursor: pointer; border: none; background: var(--color-gray-100); }
+.badge-internal { display: inline-flex; padding: 2px 10px; border-radius: 10px; font-size: 10px; font-weight: 700; background: #EDE9FE; color: #7C3AED; }
 .badge-green { background: #DCFCE7; color: #15803D; } .badge-amber { background: #FEF3C7; color: #92400E; }
 .badge-gray { background: var(--color-gray-100); color: var(--color-gray-500); } .badge-red { background: #FEE2E2; color: #DC2626; }
 .badge-blue { background: #DBEAFE; color: #1D4ED8; }
