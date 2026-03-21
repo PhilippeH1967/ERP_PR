@@ -78,9 +78,12 @@ export const useTimesheetStore = defineStore('timesheet', () => {
       row.row_total = roundTotal(
         weekDates.value.reduce((sum, date) => sum + safeHours(row.entries[date]?.hours), 0),
       )
-      if (row.phase_id) {
-        row.is_locked = locks.value.some((l) => l.phase === row.phase_id)
-      }
+      // Locked by timesheet lock OR by submitted/approved status
+      const hasLock = row.phase_id ? locks.value.some((l) => l.phase === row.phase_id) : false
+      const hasSubmitted = Object.values(row.entries).some(
+        (e) => e && e.status !== 'DRAFT',
+      )
+      row.is_locked = hasLock || hasSubmitted
     }
     return Array.from(rowMap.values())
   })
