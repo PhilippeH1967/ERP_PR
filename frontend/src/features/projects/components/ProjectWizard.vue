@@ -121,7 +121,7 @@ async function onSubmit() {
       name: form.value.name,
       client: form.value.client,
       contract_type: form.value.contract_type,
-      business_unit: form.value.business_unit || '',
+      business_unit: businessUnits.value.find((bu: { id: number; name: string }) => bu.id === form.value.business_unit)?.name || '',
       is_internal: form.value.is_internal,
       legal_entity: form.value.legal_entity || '',
       start_date: form.value.start_date || null,
@@ -138,6 +138,21 @@ async function onSubmit() {
       project = resp
     }
     if (project?.id) {
+      // Create phases if not from template (template creates them automatically)
+      if (!form.value.template_id && phases.value.length) {
+        for (const phase of phases.value) {
+          try {
+            await apiClient.post(`projects/${project.id}/phases/`, {
+              name: phase.name,
+              client_facing_label: phase.client_facing_label,
+              billing_mode: phase.billing_mode,
+              budgeted_hours: phase.budgeted_hours || 0,
+              budgeted_cost: phase.budgeted_cost || 0,
+              phase_type: 'REALIZATION',
+            })
+          } catch { /* continue with other phases */ }
+        }
+      }
       router.push(`/projects/${project.id}`)
     }
   } catch (e: unknown) {
