@@ -561,7 +561,7 @@ onMounted(reload)
         <form @submit.prevent="createAmendment" class="form-row-3">
           <div class="form-group"><label>Description</label><input v-model="amendmentForm.description" type="text" required placeholder="Description de l'avenant" /></div>
           <div class="form-group"><label>Impact budget ($)</label><input v-model="amendmentForm.budget_impact" type="number" step="0.01" /></div>
-          <div class="form-group"><label>Statut</label><select v-model="amendmentForm.status"><option value="DRAFT">Brouillon</option><option value="PENDING">En attente</option><option value="APPROVED">Approuvé</option></select>
+          <div class="form-group"><label>Statut</label><select v-model="amendmentForm.status"><option value="DRAFT">Brouillon</option><option value="SUBMITTED">Soumis</option><option value="APPROVED">Approuvé</option></select>
             <div style="margin-top:6px;display:flex;gap:4px;justify-content:flex-end;"><button type="button" class="btn-ghost" @click="showAmendmentForm=false">Annuler</button><button type="submit" class="btn-primary">Créer</button></div>
           </div>
         </form>
@@ -579,8 +579,9 @@ onMounted(reload)
                 <td>
                   <select v-model="editAmendmentForm.status" class="inline-select">
                     <option value="DRAFT">Brouillon</option>
-                    <option value="PENDING">En attente</option>
+                    <option value="SUBMITTED">Soumis</option>
                     <option value="APPROVED">Approuvé</option>
+                    <option value="REJECTED">Rejeté</option>
                   </select>
                 </td>
                 <td class="text-muted">{{ am.created_at?.substring(0, 10) }}</td>
@@ -593,7 +594,7 @@ onMounted(reload)
                 <td class="font-mono font-semibold">#{{ am.amendment_number }}</td>
                 <td>{{ am.description }}</td>
                 <td class="text-right font-mono">{{ fmt.currency(am.budget_impact) }}</td>
-                <td><span class="badge" :class="am.status === 'APPROVED' ? 'badge-green' : am.status === 'PENDING' ? 'badge-amber' : 'badge-gray'">{{ am.status }}</span></td>
+                <td><span class="badge" :class="am.status === 'APPROVED' ? 'badge-green' : am.status === 'SUBMITTED' ? 'badge-amber' : 'badge-gray'">{{ am.status }}</span></td>
                 <td class="text-muted">{{ am.created_at?.substring(0, 10) }}</td>
                 <td class="text-right">
                   <template v-if="isEditing">
