@@ -116,21 +116,20 @@ async function onSubmit() {
   isSubmitting.value = true
   error.value = ''
   try {
-    const payload = {
+    const payload: Record<string, unknown> = {
       code: form.value.code,
       name: form.value.name,
       client: form.value.client,
-      pm: form.value.pm,
-      associate_in_charge: form.value.associate_in_charge,
-      invoice_approver: form.value.invoice_approver,
       contract_type: form.value.contract_type,
-      business_unit: form.value.business_unit,
+      business_unit: form.value.business_unit || '',
       is_internal: form.value.is_internal,
-      legal_entity: form.value.legal_entity,
+      legal_entity: form.value.legal_entity || '',
       start_date: form.value.start_date || null,
       end_date: form.value.end_date || null,
-      template_id: form.value.template_id,
     }
+    if (form.value.pm) payload.pm = Number(form.value.pm)
+    if (form.value.associate_in_charge) payload.associate_in_charge = Number(form.value.associate_in_charge)
+    if (form.value.invoice_approver) payload.invoice_approver = Number(form.value.invoice_approver)
     let project
     if (form.value.template_id) {
       project = await store.createFromTemplate(form.value.template_id, payload)
@@ -141,8 +140,14 @@ async function onSubmit() {
     if (project?.id) {
       router.push(`/projects/${project.id}`)
     }
-  } catch {
-    error.value = 'Erreur lors de la création du projet'
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: { message?: string; details?: Array<{ field?: string; message?: string }> } } } }
+    const details = err.response?.data?.error?.details
+    if (details?.length) {
+      error.value = details.map(d => `${d.field}: ${d.message}`).join(', ')
+    } else {
+      error.value = err.response?.data?.error?.message || 'Erreur lors de la création du projet'
+    }
   } finally {
     isSubmitting.value = false
   }
