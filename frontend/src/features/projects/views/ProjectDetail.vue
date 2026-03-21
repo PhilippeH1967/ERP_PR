@@ -234,21 +234,23 @@ function openAssignModal(phaseId: number | null, phaseName: string) {
 }
 
 async function deletePhase(phaseId: number) {
-  await projectApi.deletePhase(projectId, phaseId)
   confirmDeletePhase.value = null
-  await reload()
+  if (store.currentProject) {
+    store.currentProject.phases = store.currentProject.phases.filter((p: { id: number }) => p.id !== phaseId)
+  }
+  try { await projectApi.deletePhase(projectId, phaseId) } catch { /* ok */ }
 }
 
 async function deleteAssignment(assignId: number) {
-  await projectApi.deleteAssignment(projectId, assignId)
   confirmDeleteAssignment.value = null
-  await reload()
+  assignments.value = assignments.value.filter(a => a.id !== assignId)
+  try { await projectApi.deleteAssignment(projectId, assignId) } catch { /* ok */ }
 }
 
 async function deleteWBS(wbsId: number) {
-  await projectApi.deleteWBSElement(projectId, wbsId)
   confirmDeleteWBS.value = null
-  await reload()
+  wbsTree.value = wbsTree.value.filter(w => w.id !== wbsId)
+  try { await projectApi.deleteWBSElement(projectId, wbsId) } catch { /* ok */ }
 }
 
 async function createAmendment() {
@@ -262,9 +264,9 @@ async function createAmendment() {
 }
 
 async function deleteAmendment(id: number) {
-  await projectApi.deleteAmendment(projectId, id)
   confirmDeleteAmendment.value = null
-  await reload()
+  amendments.value = amendments.value.filter(a => a.id !== id)
+  try { await projectApi.deleteAmendment(projectId, id) } catch { /* ok */ }
 }
 
 onMounted(reload)
