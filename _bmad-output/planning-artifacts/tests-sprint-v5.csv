@@ -1,0 +1,19 @@
+ID;Module;Scénario de test;Prérequis;Étapes;Résultat attendu;Rôle testeur;Priorité;Statut
+V5-001;Timesheet;Saisie hebdomadaire;Employé assigné à projet;1. /timesheets 2. Saisir heures dans une cellule 3. Tab;Auto-save, feedback vert, totaux mis à jour;Employé;CRITIQUE;À tester
+V5-002;Timesheet;Navigation semaine;Aucun;1. Flèches ◀ ▶;Grille recharge avec données semaine;Employé;HAUTE;À tester
+V5-003;Timesheet;Bannière statut;Heures saisies;1. Vérifier bannière;Vert si >=40h, ambre sinon;Employé;HAUTE;À tester
+V5-004;Timesheet;KPI compteurs;Heures saisies;1. 4 cartes KPI;Semaine, contrat, moyenne, taux facturable;Employé;HAUTE;À tester
+V5-005;Timesheet;Copier semaine précédente;Semaine précédente saisie;1. "Copier semaine précédente";Entrées copiées en brouillon;Employé;HAUTE;À tester
+V5-006;Timesheet;Ajouter une tâche;Être connecté;1. "+ Ajouter une tâche" 2. Projet + phase 3. Ajouter;Nouvelle ligne dans grille;Employé;HAUTE;À tester
+V5-007;Timesheet;Favoris projet;Projets dans grille;1. Cliquer étoile ☆ → ★;Favori toggle, persisté;Employé;MOYENNE;À tester
+V5-008;Timesheet;Phase verrouillée;Phase bloquée;1. Vérifier 🔒 et cellules désactivées;Cellules grisées, pas de saisie possible;Employé;HAUTE;À tester
+V5-009;Timesheet;Soumettre la semaine;Heures saisies;1. "Soumettre" 2. Modal confirmation 3. Confirmer;Entrées en SUBMITTED;Employé;CRITIQUE;À tester
+V5-010;Timesheet;Sauvegarde auto;Saisie en cours;1. Vérifier "Sauvegarde automatique active";Texte vert visible;Employé;MOYENNE;À tester
+V5-011;Approbation;Approuver PM;Feuilles soumises;1. /approvals 2. "Approuver";Statut PM → Approuvé;PM;CRITIQUE;À tester
+V5-012;Approbation;Rejeter PM avec motif;Feuilles soumises;1. "Rejeter" 2. Saisir motif 3. "Confirmer le rejet";Statut PM → Rejeté, entrées reviennent en DRAFT;PM;CRITIQUE;À tester
+V5-013;Approbation;Anti-auto-approbation;Employé soumet sa feuille;1. L'employé tente d'approuver sa propre feuille;Erreur 403;Employé;CRITIQUE;À tester
+V5-014;Approbation;Approuver Finance;PM approuvé;1. Connexion Finance 2. "Approuver Finance";Statut Finance → Approuvé;Finance;CRITIQUE;À tester
+V5-015;Approbation;Rejeter Finance;PM approuvé;1. "Rejeter Finance";Statut Finance → Rejeté;Finance;HAUTE;À tester
+V5-016;Approbation;Filtres En attente/Toutes;Approbations mixtes;1. Cliquer "En attente" 2. Cliquer "Toutes";Liste filtrée correctement;PM;HAUTE;À tester
+V5-017;Approbation;Rejet impossible si déjà approuvé;PM a approuvé;1. Tenter de rejeter une feuille déjà approuvée;Erreur "Seules les feuilles en attente peuvent être rejetées";PM;HAUTE;À tester
+V5-018;Approbation;Labels statut en français;Aucun;1. Vérifier badges statut;"En attente", "Approuvé", "Rejeté" (pas PENDING/APPROVED/REJECTED);Tous;MOYENNE;À tester

@@ -48,7 +48,9 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
                 employee=self.request.user,
             )
         else:
-            serializer.save(employee=self.request.user)
+            from apps.core.models import Tenant
+
+            serializer.save(employee=self.request.user, tenant=Tenant.objects.first())
 
     @action(detail=False, methods=["post"])
     def submit_week(self, request):
@@ -196,6 +198,44 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
         approval.save()
         return Response(WeeklyApprovalSerializer(approval).data)
 
+    @action(detail=True, methods=["post"])
+    def reject_pm(self, request, pk=None):
+        """PM rejects timesheet with reason — sends back for modifications."""
+        approval = self.get_object()
+        if approval.pm_status != "PENDING":
+            return Response(
+                {"error": {"code": "INVALID_STATUS", "message": "Seules les feuilles en attente peuvent être rejetées."}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        reason = request.data.get("reason", "")
+        approval.pm_status = "REJECTED"
+        approval.save()
+
+        # Revert associated time entries back to DRAFT for modification
+        from .models import TimeEntry
+
+        TimeEntry.objects.filter(
+            employee=approval.employee,
+            date__gte=approval.week_start,
+            date__lt=approval.week_start + timezone.timedelta(days=7),
+            status="SUBMITTED",
+        ).update(status="DRAFT")
+
+        return Response(WeeklyApprovalSerializer(approval).data)
+
+    @action(detail=True, methods=["post"])
+    def reject_finance(self, request, pk=None):
+        """Finance rejects timesheet."""
+        approval = self.get_object()
+        if approval.finance_status != "PENDING":
+            return Response(
+                {"error": {"code": "INVALID_STATUS", "message": "Seules les feuilles en attente Finance peuvent être rejetées."}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        approval.finance_status = "REJECTED"
+        approval.save()
+        return Response(WeeklyApprovalSerializer(approval).data)
+
 
 class TimesheetLockViewSet(viewsets.ModelViewSet):
     """Phase and person-level locking."""
@@ -244,4 +284,6 @@ class PeriodUnlockViewSet(viewsets.ModelViewSet):
                 unlocked_by=self.request.user,
             )
         else:
-            serializer.save(unlocked_by=self.request.user)
+            from apps.core.models import Tenant
+
+            serializer.save(unlocked_by=self.request.user, tenant=Tenant.objects.first())

@@ -19,6 +19,12 @@ export const timesheetApi = {
     apiClient.get('weekly_approvals/', { params }),
   approvePM: (id: number) => apiClient.post(`weekly_approvals/${id}/approve_pm/`),
   approveFinance: (id: number) => apiClient.post(`weekly_approvals/${id}/approve_finance/`),
+  rejectPM: (id: number, reason: string) => apiClient.post(`weekly_approvals/${id}/reject_pm/`, { reason }),
+  rejectFinance: (id: number) => apiClient.post(`weekly_approvals/${id}/reject_finance/`),
+
+  // Period unlocks
+  listUnlocks: () => apiClient.get('period_unlocks/'),
+  createUnlock: (data: Record<string, unknown>) => apiClient.post('period_unlocks/', data),
 
   // Locks
   listLocks: (params?: Record<string, string>) => apiClient.get('timesheet_locks/', { params }),
