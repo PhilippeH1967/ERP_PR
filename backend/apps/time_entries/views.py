@@ -28,7 +28,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
     ordering = ["-date"]
 
     def get_queryset(self):
-        qs = TimeEntry.objects.all()
+        qs = TimeEntry.objects.filter(employee=self.request.user)
         if hasattr(self.request, "tenant_id") and self.request.tenant_id:
             qs = qs.filter(tenant_id=self.request.tenant_id)
         return qs.select_related("project", "phase")

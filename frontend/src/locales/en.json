@@ -21,6 +21,7 @@
     "management": "Management",
     "dashboard": "Dashboard",
     "timesheets": "Timesheets",
+    "approvals": "Approvals",
     "projects": "Projects",
     "clients": "Clients",
     "billing": "Billing",
