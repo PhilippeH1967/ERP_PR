@@ -79,10 +79,23 @@ function stopEditing() {
 async function saveProject() {
   actionError.value = ''
   try {
-    await projectApi.update(projectId, projectForm.value as Record<string, unknown>)
+    const payload: Record<string, unknown> = {
+      name: projectForm.value.name,
+      business_unit: projectForm.value.business_unit || '',
+      start_date: projectForm.value.start_date || null,
+      end_date: projectForm.value.end_date || null,
+    }
+    if (projectForm.value.pm) payload.pm = Number(projectForm.value.pm)
+    else payload.pm = null
+    if (projectForm.value.associate_in_charge) payload.associate_in_charge = Number(projectForm.value.associate_in_charge)
+    else payload.associate_in_charge = null
+    await projectApi.update(projectId, payload)
     editingProject.value = false
     await reload()
-  } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: { message?: string; details?: Array<{ field?: string; message?: string }> } } } }
+    actionError.value = err.response?.data?.error?.details?.[0]?.message || err.response?.data?.error?.message || 'Erreur'
+  }
 }
 
 // Inline edit phase
