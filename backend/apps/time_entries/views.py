@@ -59,8 +59,15 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         if not week_start:
             err = {"code": "MISSING_WEEK", "message": "week_start required", "details": []}
             return Response({"error": err}, status=status.HTTP_400_BAD_REQUEST)
+        from datetime import timedelta, date as date_type
+
+        if isinstance(week_start, str):
+            week_start_date = date_type.fromisoformat(week_start)
+        else:
+            week_start_date = week_start
+        week_end = week_start_date + timedelta(days=6)
         entries = TimeEntry.objects.filter(
-            employee=request.user, date__gte=week_start, status="DRAFT",
+            employee=request.user, date__gte=week_start_date, date__lte=week_end, status="DRAFT",
         )
         count = entries.update(status="SUBMITTED")
         return Response({"submitted_count": count})
