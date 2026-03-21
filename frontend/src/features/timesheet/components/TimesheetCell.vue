@@ -32,6 +32,21 @@ async function onBlur() {
   if (val === original) return
   if (val === '' && !props.entry) return
 
+  // Validate: max 15h per cell, no negative
+  const numVal = parseFloat(val || '0')
+  if (numVal < 0) {
+    localValue.value = original
+    showError.value = true
+    setTimeout(() => { showError.value = false }, 1500)
+    return
+  }
+  if (numVal > 15) {
+    localValue.value = original
+    showError.value = true
+    setTimeout(() => { showError.value = false }, 1500)
+    return
+  }
+
   showError.value = false
   try {
     emit('save', props.projectId, props.phaseId, props.date, val || '0')
@@ -41,7 +56,6 @@ async function onBlur() {
     }, 500)
   } catch {
     showError.value = true
-    // Revert on error
     localValue.value = original
   }
 }
@@ -69,7 +83,7 @@ function onKeydown(event: KeyboardEvent) {
       type="number"
       step="0.5"
       min="0"
-      max="24"
+      max="15"
       :aria-label="ariaLabel || `${date}`"
       class="h-10 w-full border-0 bg-transparent px-2 text-center font-mono text-sm focus:bg-primary/5 focus:outline-none"
       :class="{
