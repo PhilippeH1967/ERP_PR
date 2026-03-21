@@ -77,12 +77,15 @@ async function openAddTask() {
 
 async function addTask() {
   if (!selectedProjectId.value) return
-  await store.saveCell(
-    selectedProjectId.value,
-    selectedPhaseId.value,
-    store.weekDates[0] || '',
-    '0',
-  )
+  // Use a minimal value to force creation (0 is skipped by saveCell)
+  try {
+    await apiClient.post('time_entries/', {
+      project: selectedProjectId.value,
+      phase: selectedPhaseId.value,
+      date: store.weekDates[0] || '',
+      hours: '0',
+    })
+  } catch { /* ok */ }
   showAddTask.value = false
   selectedProjectId.value = null
   selectedPhaseId.value = null
