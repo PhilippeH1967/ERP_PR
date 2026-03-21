@@ -86,8 +86,12 @@ function removePhase(index: number) {
 
 function nextStep() {
   if (currentStep.value === 1) {
-    if (!form.value.code || !form.value.name || !form.value.client) {
-      error.value = 'Code, nom et client sont obligatoires'
+    if (!form.value.code || !form.value.name) {
+      error.value = 'Code et nom sont obligatoires'
+      return
+    }
+    if (!form.value.is_internal && !form.value.client) {
+      error.value = 'Le client est obligatoire pour un projet externe'
       return
     }
     error.value = ''
