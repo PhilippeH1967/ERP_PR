@@ -41,8 +41,13 @@ const wbsForm = ref({ standard_label: '', client_facing_label: '', element_type:
 const editingWBSId = ref<number | null>(null)
 const editingWBSForm = ref({ standard_label: '', client_facing_label: '', budgeted_hours: '' })
 
-// Business Units for dropdown
+// Business Units + Users for dropdowns
 const businessUnits = ref<Array<{ id: number; name: string }>>([])
+const allUsers = ref<Array<{ id: number; username: string; email: string }>>([])
+
+// Add phase form
+const showAddPhaseForm = ref(false)
+const newPhase = ref({ name: '', client_facing_label: '', billing_mode: 'FORFAIT', budgeted_hours: '0', phase_type: 'REALIZATION' })
 
 // Inline edit project
 const editingProject = ref(false)
@@ -74,6 +79,19 @@ function stopEditing() {
   confirmDeleteWBS.value = null
   confirmDeleteAssignment.value = null
   confirmDeleteAmendment.value = null
+}
+
+async function addPhase() {
+  actionError.value = ''
+  if (!newPhase.value.name.trim()) { actionError.value = 'Le nom de la phase est obligatoire.'; return }
+  try {
+    await projectApi.createPhase(projectId, newPhase.value as Record<string, unknown>)
+    showAddPhaseForm.value = false
+    newPhase.value = { name: '', client_facing_label: '', billing_mode: 'FORFAIT', budgeted_hours: '0', phase_type: 'REALIZATION' }
+    await reload()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
 }
 
 async function saveProject() {
@@ -183,6 +201,7 @@ const statusColors: Record<string, string> = { ACTIVE: 'badge-green', ON_HOLD: '
 async function reload() {
   await store.fetchProject(projectId)
   try { const r = await apiClient.get('business_units/'); const d = r.data?.data || r.data; businessUnits.value = Array.isArray(d) ? d : d?.results || [] } catch { businessUnits.value = [] }
+  try { const r = await apiClient.get('users/search/'); const d = r.data?.data || r.data; allUsers.value = Array.isArray(d) ? d : [] } catch { allUsers.value = [] }
   try { const r = await projectApi.dashboard(projectId); dashboard.value = r.data?.data || r.data } catch { dashboard.value = null }
   try { const r = await projectApi.listWBS(projectId); wbsTree.value = r.data?.data || r.data || [] } catch { wbsTree.value = [] }
   try { const r = await projectApi.listAssignments(projectId); assignments.value = r.data?.data || r.data || [] } catch { assignments.value = [] }
@@ -301,7 +320,7 @@ onMounted(reload)
       <!-- View mode -->
       <div v-if="!editingProject" class="info-grid">
         <div class="info-card"><h3>Informations <button v-if="isEditing" class="btn-action" @click="startEditProject">Modifier</button></h3><div class="info-pairs"><div><span>Type</span><p>{{ store.currentProject.contract_type }}</p></div><div><span>BU</span><p>{{ store.currentProject.business_unit || '—' }}</p></div><div><span>Début</span><p>{{ store.currentProject.start_date ? fmt.date(store.currentProject.start_date) : '—' }}</p></div><div><span>Fin</span><p>{{ store.currentProject.end_date ? fmt.date(store.currentProject.end_date) : '—' }}</p></div></div></div>
-        <div class="info-card"><h3>Direction</h3><div class="info-pairs single"><div><span>Chef de projet</span><p>{{ store.currentProject.pm || '—' }}</p></div><div><span>Associé en charge</span><p>{{ store.currentProject.associate_in_charge || '—' }}</p></div></div></div>
+        <div class="info-card"><h3>Direction</h3><div class="info-pairs single"><div><span>Chef de projet</span><p>{{ allUsers.find(u => u.id === store.currentProject?.pm)?.username || store.currentProject.pm || '—' }}</p></div><div><span>Associé en charge</span><p>{{ allUsers.find(u => u.id === store.currentProject?.associate_in_charge)?.username || store.currentProject.associate_in_charge || '—' }}</p></div></div></div>
       </div>
       <!-- Edit mode -->
       <div v-else class="card">
@@ -316,8 +335,18 @@ onMounted(reload)
           </div>
           <div class="form-group"><label>Date début</label><input v-model="projectForm.start_date" type="date" /></div>
           <div class="form-group"><label>Date fin</label><input v-model="projectForm.end_date" type="date" /></div>
-          <div class="form-group"><label>Chef de projet (ID)</label><input v-model="projectForm.pm" type="number" /></div>
-          <div class="form-group"><label>Associé en charge (ID)</label><input v-model="projectForm.associate_in_charge" type="number" /></div>
+          <div class="form-group"><label>Chef de projet</label>
+            <select v-model="projectForm.pm">
+              <option value="">— Aucun —</option>
+              <option v-for="u in allUsers" :key="u.id" :value="String(u.id)">{{ u.username }} ({{ u.email }})</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Associé en charge</label>
+            <select v-model="projectForm.associate_in_charge">
+              <option value="">— Aucun —</option>
+              <option v-for="u in allUsers" :key="u.id" :value="String(u.id)">{{ u.username }} ({{ u.email }})</option>
+            </select>
+          </div>
         </div>
         <div class="form-actions"><button class="btn-ghost" @click="editingProject = false">Annuler</button><button class="btn-primary" @click="saveProject">Enregistrer</button></div>
       </div>
@@ -325,6 +354,25 @@ onMounted(reload)
 
     <!-- ═══ Phases ═══ -->
     <template v-if="activeTab === 'phases'">
+      <div v-if="isEditing" class="section-actions" style="margin-bottom:10px;">
+        <button class="btn-primary" @click="showAddPhaseForm = !showAddPhaseForm">+ Ajouter une phase</button>
+      </div>
+      <div v-if="showAddPhaseForm && isEditing" class="card" style="margin-bottom:10px;">
+        <div class="form-row-3">
+          <div class="form-group"><label>Nom interne *</label><input v-model="newPhase.name" placeholder="Concept" /></div>
+          <div class="form-group"><label>Libellé client</label><input v-model="newPhase.client_facing_label" placeholder="Phase 1 — Concept" /></div>
+          <div class="form-group"><label>Mode</label>
+            <select v-model="newPhase.billing_mode"><option value="FORFAIT">Forfait</option><option value="HORAIRE">Horaire</option></select>
+          </div>
+        </div>
+        <div class="form-row-2">
+          <div class="form-group"><label>Heures budgetées</label><input v-model="newPhase.budgeted_hours" type="number" /></div>
+          <div class="form-group"><label>Type</label>
+            <select v-model="newPhase.phase_type"><option value="REALIZATION">Réalisation</option><option value="SUPPORT">Support</option></select>
+          </div>
+        </div>
+        <div class="form-actions"><button class="btn-ghost" @click="showAddPhaseForm = false">Annuler</button><button class="btn-primary" @click="addPhase">Ajouter</button></div>
+      </div>
       <div class="card-table">
         <table>
           <thead><tr><th>Phase</th><th>Libellé client</th><th>Type</th><th>Mode</th><th class="text-right">Heures</th><th class="text-right">Actions</th></tr></thead>
