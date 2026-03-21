@@ -222,10 +222,11 @@ async function changeStatus(newStatus: string) {
 }
 
 async function deleteProject() {
+  showDeleteConfirm.value = false
   try {
     await projectApi.delete(projectId)
-    router.push('/projects')
-  } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+  } catch { /* ok */ }
+  router.push('/projects')
 }
 
 function openAssignModal(phaseId: number | null, phaseName: string) {
