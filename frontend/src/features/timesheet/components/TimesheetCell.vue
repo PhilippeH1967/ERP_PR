@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import type { TimeEntry } from '../types/timesheet.types'
+import { useTimesheetStore } from '../stores/useTimesheetStore'
+
+const store = useTimesheetStore()
+const errorMessage = ref('')
 
 const props = defineProps<{
   entry: TimeEntry | null
@@ -43,11 +47,23 @@ async function onBlur() {
   if (numVal > 15) {
     localValue.value = original
     showError.value = true
-    setTimeout(() => { showError.value = false }, 1500)
+    errorMessage.value = 'Max 15h par cellule'
+    setTimeout(() => { showError.value = false; errorMessage.value = '' }, 2000)
+    return
+  }
+
+  // Check daily total
+  const check = store.canSaveHours(props.projectId, props.phaseId, props.date, val || '0')
+  if (!check.ok) {
+    localValue.value = original
+    showError.value = true
+    errorMessage.value = check.message
+    setTimeout(() => { showError.value = false; errorMessage.value = '' }, 3000)
     return
   }
 
   showError.value = false
+  errorMessage.value = ''
   try {
     emit('save', props.projectId, props.phaseId, props.date, val || '0')
     showFeedback.value = true
@@ -77,7 +93,8 @@ function onKeydown(event: KeyboardEvent) {
 </script>
 
 <template>
-  <td class="px-0 py-0">
+  <td class="px-0 py-0" style="position:relative;">
+    <div v-if="errorMessage" class="cell-error-tooltip">{{ errorMessage }}</div>
     <input
       v-model="localValue"
       type="number"
@@ -98,3 +115,20 @@ function onKeydown(event: KeyboardEvent) {
     >
   </td>
 </template>
+
+<style scoped>
+.cell-error-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #DC2626;
+  color: white;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 100;
+  pointer-events: none;
+}
+</style>

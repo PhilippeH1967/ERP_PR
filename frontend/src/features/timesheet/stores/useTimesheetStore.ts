@@ -128,6 +128,29 @@ export const useTimesheetStore = defineStore('timesheet', () => {
 
   const weeklyTotal = computed(() => roundTotal(dailyTotals.value.reduce((a, b) => a + b, 0)))
 
+  const MAX_DAILY_HOURS = 15
+
+  function getDailyTotal(date: string): number {
+    return roundTotal(
+      gridRows.value.reduce((sum, row) => sum + safeHours(row.entries[date]?.hours), 0),
+    )
+  }
+
+  function canSaveHours(projectId: number, phaseId: number | null, date: string, newHours: string): { ok: boolean; message: string } {
+    const newVal = parseFloat(newHours || '0')
+    // Get current value for this cell
+    const row = gridRows.value.find(r => r.project_id === projectId && r.phase_id === phaseId)
+    const currentVal = row?.entries[date] ? safeHours(row.entries[date]?.hours) : 0
+    const diff = newVal - currentVal
+    const currentDayTotal = getDailyTotal(date)
+    const newDayTotal = roundTotal(currentDayTotal + diff)
+
+    if (newDayTotal > MAX_DAILY_HOURS) {
+      return { ok: false, message: `Total journalier dépasserait ${MAX_DAILY_HOURS}h (actuellement ${currentDayTotal}h + ${newVal}h = ${newDayTotal}h)` }
+    }
+    return { ok: true, message: '' }
+  }
+
   const currentWeek = computed<TimesheetWeek>(() => ({
     weekStart: currentWeekStart.value,
     weekEnd: weekEnd.value,
@@ -232,7 +255,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     entries, isLoading, saveError, currentWeekStart, currentWeek,
     gridRows, projectGroups, dailyTotals, weeklyTotal, weekDates,
     weeklyStats, statusMessage, fetchWeek, navigateWeek, saveCell,
-    submitWeek, copyPreviousWeek,
-    DAILY_NORM, WEEKLY_NORM, CONTRACT_HOURS,
+    submitWeek, copyPreviousWeek, canSaveHours,
+    DAILY_NORM, WEEKLY_NORM, CONTRACT_HOURS, MAX_DAILY_HOURS,
   }
 })
