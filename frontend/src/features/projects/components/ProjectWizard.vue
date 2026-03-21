@@ -94,6 +94,10 @@ function nextStep() {
       error.value = 'Le client est obligatoire pour un projet externe'
       return
     }
+    if (form.value.start_date && form.value.end_date && form.value.end_date < form.value.start_date) {
+      error.value = 'La date de fin ne peut pas être antérieure à la date de début.'
+      return
+    }
     error.value = ''
     // If template selected, load phases from it
     if (form.value.template_id && phases.value.length === 0) {

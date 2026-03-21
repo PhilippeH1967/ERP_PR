@@ -96,6 +96,10 @@ async function addPhase() {
 
 async function saveProject() {
   actionError.value = ''
+  if (projectForm.value.start_date && projectForm.value.end_date && projectForm.value.end_date < projectForm.value.start_date) {
+    actionError.value = 'La date de fin ne peut pas être antérieure à la date de début.'
+    return
+  }
   try {
     const payload: Record<string, unknown> = {
       name: projectForm.value.name,
