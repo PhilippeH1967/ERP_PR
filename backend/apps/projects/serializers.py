@@ -105,7 +105,7 @@ class AmendmentSerializer(OptimisticLockMixin, serializers.ModelSerializer):
             "budget_impact", "requested_by", "approved_by", "approval_date",
             "version", "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "amendment_number", "requested_by", "approved_by", "approval_date", "created_at", "updated_at"]
 
 
 class FinancialPhaseSerializer(serializers.ModelSerializer):
