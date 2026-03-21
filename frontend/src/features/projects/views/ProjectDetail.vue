@@ -39,7 +39,7 @@ const assignPhaseName = ref('')
 const showWBSForm = ref(false)
 const wbsForm = ref({ standard_label: '', client_facing_label: '', element_type: 'PHASE', budgeted_hours: '0', phase: null as number | null })
 const editingWBSId = ref<number | null>(null)
-const editingWBSForm = ref({ standard_label: '', client_facing_label: '', budgeted_hours: '' })
+const editingWBSForm = ref({ standard_label: '', client_facing_label: '', budgeted_hours: '', element_type: 'TASK' })
 
 // Business Units + Users for dropdowns
 const businessUnits = ref<Array<{ id: number; name: string }>>([])
@@ -167,6 +167,7 @@ function startEditWBS(node: WBSNode) {
     standard_label: node.standard_label,
     client_facing_label: node.client_facing_label,
     budgeted_hours: node.budgeted_hours,
+    element_type: node.element_type,
   }
 }
 
@@ -458,8 +459,12 @@ onMounted(reload)
         <div v-for="node in wbsTree" :key="node.id" class="wbs-node">
           <div class="wbs-row">
             <template v-if="editingWBSId === node.id">
-              <div class="flex items-center gap-2" style="flex:1">
-                <span class="badge badge-blue">{{ node.element_type }}</span>
+              <div class="flex items-center gap-2 flex-wrap" style="flex:1">
+                <select v-model="editingWBSForm.element_type" class="inline-select">
+                  <option value="PHASE">Phase</option>
+                  <option value="TASK">Tâche</option>
+                  <option value="SUBTASK">Sous-tâche</option>
+                </select>
                 <input v-model="editingWBSForm.standard_label" class="inline-input" placeholder="Libellé standard" />
                 <input v-model="editingWBSForm.client_facing_label" class="inline-input" placeholder="Libellé client" />
                 <input v-model="editingWBSForm.budgeted_hours" type="number" class="inline-input-sm" />
