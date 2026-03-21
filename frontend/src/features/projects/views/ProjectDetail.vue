@@ -41,6 +41,10 @@ const wbsForm = ref({ standard_label: '', client_facing_label: '', element_type:
 const editingWBSId = ref<number | null>(null)
 const editingWBSForm = ref({ standard_label: '', client_facing_label: '', budgeted_hours: '', element_type: 'TASK' })
 
+// Amendment edit
+const editingAmendmentId = ref<number | null>(null)
+const editAmendmentForm = ref({ description: '', budget_impact: '', status: 'DRAFT' })
+
 // Business Units + Users for dropdowns
 const businessUnits = ref<Array<{ id: number; name: string }>>([])
 const allUsers = ref<Array<{ id: number; username: string; email: string }>>([])
@@ -262,6 +266,22 @@ async function createAmendment() {
     amendmentForm.value = { description: '', budget_impact: '0', status: 'DRAFT' }
     await reload()
   } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+}
+
+function startEditAmendment(am: Amendment) {
+  editingAmendmentId.value = am.id
+  editAmendmentForm.value = { description: am.description, budget_impact: am.budget_impact, status: am.status }
+}
+
+async function saveAmendment() {
+  if (!editingAmendmentId.value) return
+  try {
+    await projectApi.updateAmendment(projectId, editingAmendmentId.value, editAmendmentForm.value)
+    editingAmendmentId.value = null
+    await reload()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
 }
 
 async function deleteAmendment(id: number) {
@@ -552,20 +572,40 @@ onMounted(reload)
           <thead><tr><th>No</th><th>Description</th><th class="text-right">Impact ($)</th><th>Statut</th><th>Date</th><th></th></tr></thead>
           <tbody>
             <tr v-for="am in amendments" :key="am.id">
-              <td class="font-mono font-semibold">#{{ am.amendment_number }}</td>
-              <td>{{ am.description }}</td>
-              <td class="text-right font-mono">{{ fmt.currency(am.budget_impact) }}</td>
-              <td><span class="badge" :class="am.status === 'APPROVED' ? 'badge-green' : am.status === 'PENDING' ? 'badge-amber' : 'badge-gray'">{{ am.status }}</span></td>
-              <td class="text-muted">{{ am.created_at?.substring(0, 10) }}</td>
-              <td class="text-right">
-                <template v-if="isEditing">
-                  <template v-if="confirmDeleteAmendment === am.id">
-                    <button class="btn-action danger" @click="deleteAmendment(am.id)">Confirmer</button>
-                    <button class="btn-action" @click="confirmDeleteAmendment = null">Annuler</button>
+              <template v-if="editingAmendmentId === am.id">
+                <td class="font-mono font-semibold">#{{ am.amendment_number }}</td>
+                <td><input v-model="editAmendmentForm.description" class="inline-input" /></td>
+                <td><input v-model="editAmendmentForm.budget_impact" type="number" step="0.01" class="inline-input-sm" /></td>
+                <td>
+                  <select v-model="editAmendmentForm.status" class="inline-select">
+                    <option value="DRAFT">Brouillon</option>
+                    <option value="PENDING">En attente</option>
+                    <option value="APPROVED">Approuvé</option>
+                  </select>
+                </td>
+                <td class="text-muted">{{ am.created_at?.substring(0, 10) }}</td>
+                <td class="text-right">
+                  <button class="btn-action" @click="saveAmendment">OK</button>
+                  <button class="btn-action" @click="editingAmendmentId = null">×</button>
+                </td>
+              </template>
+              <template v-else>
+                <td class="font-mono font-semibold">#{{ am.amendment_number }}</td>
+                <td>{{ am.description }}</td>
+                <td class="text-right font-mono">{{ fmt.currency(am.budget_impact) }}</td>
+                <td><span class="badge" :class="am.status === 'APPROVED' ? 'badge-green' : am.status === 'PENDING' ? 'badge-amber' : 'badge-gray'">{{ am.status }}</span></td>
+                <td class="text-muted">{{ am.created_at?.substring(0, 10) }}</td>
+                <td class="text-right">
+                  <template v-if="isEditing">
+                    <button class="btn-action" @click="startEditAmendment(am)">Modifier</button>
+                    <template v-if="confirmDeleteAmendment === am.id">
+                      <button class="btn-action danger" @click="deleteAmendment(am.id)">Confirmer</button>
+                      <button class="btn-action" @click="confirmDeleteAmendment = null">Annuler</button>
+                    </template>
+                    <button v-else class="btn-action danger" @click="confirmDeleteAmendment = am.id">Supprimer...</button>
                   </template>
-                  <button v-else class="btn-action danger" @click="confirmDeleteAmendment = am.id">Supprimer...</button>
-                </template>
-              </td>
+                </td>
+              </template>
             </tr>
           </tbody>
         </table>
