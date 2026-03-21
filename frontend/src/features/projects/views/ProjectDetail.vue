@@ -459,21 +459,26 @@ onMounted(reload)
         <div v-for="node in wbsTree" :key="node.id" class="wbs-node">
           <div class="wbs-row">
             <template v-if="editingWBSId === node.id">
-              <div class="flex items-center gap-2 flex-wrap" style="flex:1">
-                <select v-model="editingWBSForm.element_type" class="inline-select">
-                  <option value="PHASE">Phase</option>
-                  <option value="TASK">Tâche</option>
-                  <option value="SUBTASK">Sous-tâche</option>
-                </select>
-                <input v-model="editingWBSForm.standard_label" class="inline-input" placeholder="Libellé standard" />
-                <input v-model="editingWBSForm.client_facing_label" class="inline-input" placeholder="Libellé client" />
-                <input v-model="editingWBSForm.budgeted_hours" type="number" class="inline-input-sm" />
-                <button class="btn-action" @click="saveWBS">OK</button>
-                <button class="btn-action" @click="editingWBSId = null">&times;</button>
+              <div class="wbs-edit-form">
+                <div class="wbs-edit-row">
+                  <div class="wbs-edit-field"><label>Type</label>
+                    <select v-model="editingWBSForm.element_type" class="inline-select">
+                      <option value="PHASE">Phase</option><option value="TASK">Tâche</option><option value="SUBTASK">Sous-tâche</option>
+                    </select>
+                  </div>
+                  <div class="wbs-edit-field"><label>Libellé standard</label><input v-model="editingWBSForm.standard_label" class="inline-input" /></div>
+                  <div class="wbs-edit-field"><label>Libellé client</label><input v-model="editingWBSForm.client_facing_label" class="inline-input" /></div>
+                  <div class="wbs-edit-field"><label>Heures</label><input v-model="editingWBSForm.budgeted_hours" type="number" class="inline-input-sm" /></div>
+                  <div class="wbs-edit-field" style="align-self:flex-end;"><button class="btn-primary" @click="saveWBS">Enregistrer</button><button class="btn-ghost" style="margin-left:4px;" @click="editingWBSId = null">Annuler</button></div>
+                </div>
               </div>
             </template>
             <template v-else>
-              <div><span class="badge badge-blue">{{ node.element_type }}</span> <span class="font-semibold">{{ node.client_facing_label || node.standard_label }}</span></div>
+              <div class="wbs-info">
+                <span class="badge badge-blue">{{ node.element_type === 'PHASE' ? 'Phase' : node.element_type === 'TASK' ? 'Tâche' : 'Sous-tâche' }}</span>
+                <span class="font-semibold">{{ node.standard_label }}</span>
+                <span v-if="node.client_facing_label && node.client_facing_label !== node.standard_label" class="text-muted">→ {{ node.client_facing_label }}</span>
+              </div>
               <div class="flex items-center gap-4"><span class="font-mono text-muted">{{ node.budgeted_hours }}h</span>
                 <template v-if="isEditing">
                   <button class="btn-action" @click="startEditWBS(node)">Modifier</button>
@@ -488,7 +493,11 @@ onMounted(reload)
           </div>
           <div v-if="node.children?.length" class="wbs-children">
             <div v-for="child in node.children" :key="child.id" class="wbs-child">
-              <span>{{ child.client_facing_label || child.standard_label }}</span>
+              <div>
+                <span class="badge badge-gray" style="font-size:9px;">{{ child.element_type === 'TASK' ? 'Tâche' : child.element_type === 'SUBTASK' ? 'Sous-tâche' : child.element_type }}</span>
+                <span style="margin-left:4px;">{{ child.standard_label }}</span>
+                <span v-if="child.client_facing_label && child.client_facing_label !== child.standard_label" class="text-muted"> → {{ child.client_facing_label }}</span>
+              </div>
               <span class="font-mono text-muted">{{ child.budgeted_hours }}h</span>
             </div>
           </div>
@@ -655,4 +664,9 @@ onMounted(reload)
 .inline-input { width: 100%; padding: 4px 8px; border: 1px solid var(--color-primary); border-radius: 3px; font-size: 12px; }
 .inline-input-sm { width: 70px; padding: 4px 6px; border: 1px solid var(--color-primary); border-radius: 3px; font-size: 12px; text-align: right; font-family: var(--font-mono); }
 .inline-select { padding: 4px 6px; border: 1px solid var(--color-primary); border-radius: 3px; font-size: 11px; }
+.wbs-edit-form { width: 100%; }
+.wbs-edit-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.wbs-edit-field { display: flex; flex-direction: column; }
+.wbs-edit-field label { font-size: 10px; font-weight: 600; color: var(--color-gray-500); margin-bottom: 2px; }
+.wbs-info { display: flex; align-items: center; gap: 6px; }
 </style>
