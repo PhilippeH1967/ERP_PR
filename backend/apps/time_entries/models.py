@@ -166,3 +166,23 @@ class PeriodUnlock(TenantScopedModel):
 
     def __str__(self):
         return f"Unlock {self.period_start}–{self.period_end} ({self.reason})"
+
+
+class PeriodFreeze(TenantScopedModel):
+    """Global freeze date — no entries allowed before this date."""
+
+    freeze_before = models.DateField(
+        help_text="No time entries can be created or modified before this date.",
+    )
+    frozen_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, related_name="period_freezes",
+    )
+    frozen_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "time_entries_period_freeze"
+        ordering = ["-frozen_at"]
+
+    def __str__(self):
+        return f"Freeze before {self.freeze_before}"

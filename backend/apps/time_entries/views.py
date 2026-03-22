@@ -62,18 +62,43 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
     def _check_period_locked(self, date_val):
         """Check if a period is locked globally on this date."""
-        qs = TimeEntry.objects.filter(
-            date=date_val,
-            status="LOCKED",
-        )
+        from .models import PeriodFreeze, PeriodUnlock
+
         tenant_id = getattr(self.request, "tenant_id", None)
+
+        # Check 1: global freeze date (with unlock exceptions)
+        freeze_qs = PeriodFreeze.objects.all()
+        if tenant_id:
+            freeze_qs = freeze_qs.filter(tenant_id=tenant_id)
+        latest_freeze = freeze_qs.order_by("-freeze_before").first()
+        if latest_freeze and date_val < latest_freeze.freeze_before:
+            # Check if there's an active unlock exception for this date
+            unlock_exception = PeriodUnlock.objects.filter(
+                period_start__lte=date_val, period_end__gte=date_val,
+            )
+            if tenant_id:
+                unlock_exception = unlock_exception.filter(tenant_id=tenant_id)
+            if not unlock_exception.exists():
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError(
+                    {"error": {"code": "PERIOD_FROZEN", "message": f"Les périodes avant le {latest_freeze.freeze_before} sont gelées. Impossible de saisir sur le {date_val}."}}
+                )
+
+        # Check 2: exact date has LOCKED entries (unless unlocked)
+        qs = TimeEntry.objects.filter(date=date_val, status="LOCKED")
         if tenant_id:
             qs = qs.filter(tenant_id=tenant_id)
         if qs.exists():
-            from rest_framework.exceptions import ValidationError
-            raise ValidationError(
-                {"error": {"code": "PERIOD_LOCKED", "message": f"La période du {date_val} est verrouillée. Impossible de modifier."}}
+            unlock_exception = PeriodUnlock.objects.filter(
+                period_start__lte=date_val, period_end__gte=date_val,
             )
+            if tenant_id:
+                unlock_exception = unlock_exception.filter(tenant_id=tenant_id)
+            if not unlock_exception.exists():
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError(
+                    {"error": {"code": "PERIOD_LOCKED", "message": f"La période du {date_val} est verrouillée. Impossible de modifier."}}
+                )
 
     def _require_lock_role(self):
         """Raise 403 if user lacks ADMIN/FINANCE/PAIE role."""
@@ -271,25 +296,49 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def is_period_locked(self, request):
-        """Check if a period has any LOCKED entries (global, not per-user)."""
+        """Check if a period is locked — via freeze date or direct lock, with unlock exceptions."""
         from datetime import date as date_type, timedelta
+
+        from .models import PeriodFreeze, PeriodUnlock
+
         week_start = request.query_params.get("week_start")
         if not week_start:
             return Response({"locked": False})
         ws = date_type.fromisoformat(week_start)
         we = ws + timedelta(days=6)
-        qs = TimeEntry.objects.filter(
-            date__gte=ws, date__lte=we, status="LOCKED",
-        )
         tenant_id = getattr(request, "tenant_id", None)
+
+        # Check for unlock exception on this week
+        unlock_qs = PeriodUnlock.objects.filter(
+            period_start__lte=ws, period_end__gte=we,
+        )
         if tenant_id:
-            qs = qs.filter(tenant_id=tenant_id)
-        locked = qs.exists()
-        return Response({"locked": locked})
+            unlock_qs = unlock_qs.filter(tenant_id=tenant_id)
+        has_unlock = unlock_qs.exists()
+
+        if has_unlock:
+            return Response({"locked": False, "reason": "Déverrouillée temporairement"})
+
+        # Check 1: global freeze date
+        freeze_qs = PeriodFreeze.objects.all()
+        if tenant_id:
+            freeze_qs = freeze_qs.filter(tenant_id=tenant_id)
+        latest_freeze = freeze_qs.order_by("-freeze_before").first()
+        if latest_freeze and we < latest_freeze.freeze_before:
+            return Response({"locked": True, "reason": f"Gelé avant le {latest_freeze.freeze_before}"})
+
+        # Check 2: direct locked entries in this week
+        locked_qs = TimeEntry.objects.filter(status="LOCKED")
+        if tenant_id:
+            locked_qs = locked_qs.filter(tenant_id=tenant_id)
+        if locked_qs.filter(date__gte=ws, date__lte=we).exists():
+            return Response({"locked": True})
+
+        return Response({"locked": False})
 
     @action(detail=False, methods=["post"])
     def unlock_period(self, request):
-        """Unlock a period — reverts LOCKED entries to PM_APPROVED."""
+        """Unlock a period — reverts LOCKED entries to DRAFT for corrections."""
         from datetime import date as date_type, timedelta
 
         denied = self._require_lock_role()
@@ -312,7 +361,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         tenant_id = getattr(request, "tenant_id", None)
         if tenant_id:
             qs = qs.filter(tenant_id=tenant_id)
-        count = qs.update(status="PM_APPROVED")
+        count = qs.update(status="DRAFT")
 
         return Response({"unlocked_count": count, "period_start": ps.isoformat(), "period_end": pe.isoformat()})
 
@@ -389,11 +438,28 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         bd = date_type.fromisoformat(before_date) if isinstance(before_date, str) else before_date
-        qs = TimeEntry.objects.filter(date__lt=bd).exclude(status="LOCKED")
+
+        from apps.core.models import Tenant
+        from .models import PeriodFreeze
+
         tenant_id = getattr(request, "tenant_id", None)
+
+        # Lock existing entries
+        qs = TimeEntry.objects.filter(date__lt=bd).exclude(status="LOCKED")
         if tenant_id:
             qs = qs.filter(tenant_id=tenant_id)
         count = qs.update(status="LOCKED")
+
+        # Create or update freeze date (prevents new entries on empty dates)
+        tenant = Tenant.objects.get(pk=tenant_id) if tenant_id else Tenant.objects.first()
+        existing_freeze = PeriodFreeze.objects.filter(tenant=tenant).order_by("-freeze_before").first()
+        if not existing_freeze or bd > existing_freeze.freeze_before:
+            PeriodFreeze.objects.create(
+                tenant=tenant,
+                freeze_before=bd,
+                frozen_by=request.user,
+            )
+
         return Response({"locked_count": count, "before_date": bd.isoformat()})
 
     @action(detail=False, methods=["post"])
