@@ -158,6 +158,17 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         else:
             week_start_date = week_start
         week_end = week_start_date + timedelta(days=6)
+
+        # Check period lock for all days in the week
+        for day_offset in range(7):
+            try:
+                self._check_period_locked(week_start_date + timedelta(days=day_offset))
+            except Exception:
+                return Response(
+                    {"error": {"code": "PERIOD_LOCKED", "message": f"La période est verrouillée. Impossible de soumettre."}},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         entries = TimeEntry.objects.filter(
             employee=request.user, date__gte=week_start_date, date__lte=week_end, status="DRAFT",
         )
@@ -268,6 +279,16 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             date__lte=prev_end,
         )
 
+        # Check if target week is locked
+        for day_offset in range(7):
+            try:
+                self._check_period_locked(current_start + timedelta(days=day_offset))
+            except Exception:
+                return Response(
+                    {"error": {"code": "PERIOD_LOCKED", "message": "La semaine cible est verrouillée. Impossible de copier."}},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         created = 0
         for entry in prev_entries:
             # Skip locked entries — don't copy from a locked period
@@ -361,7 +382,9 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         tenant_id = getattr(request, "tenant_id", None)
         if tenant_id:
             qs = qs.filter(tenant_id=tenant_id)
-        count = qs.update(status="DRAFT")
+        # Revert to SUBMITTED (not DRAFT) — preserves the workflow
+        # Employee must re-submit, PM must re-approve if changes needed
+        count = qs.update(status="SUBMITTED")
 
         return Response({"unlocked_count": count, "period_start": ps.isoformat(), "period_end": pe.isoformat()})
 
@@ -1298,3 +1321,16 @@ class PeriodUnlockViewSet(viewsets.ModelViewSet):
             from apps.core.models import Tenant
 
             serializer.save(unlocked_by=self.request.user, tenant=Tenant.objects.first())
+
+    def perform_destroy(self, instance):
+        """When revoking an unlock, re-lock entries in that period."""
+        # Re-lock entries that were unlocked (revert SUBMITTED/DRAFT back to LOCKED)
+        entries = TimeEntry.objects.filter(
+            date__gte=instance.period_start,
+            date__lte=instance.period_end,
+        ).exclude(status="LOCKED")
+        tenant_id = getattr(self.request, "tenant_id", None)
+        if tenant_id:
+            entries = entries.filter(tenant_id=tenant_id)
+        entries.update(status="LOCKED")
+        instance.delete()

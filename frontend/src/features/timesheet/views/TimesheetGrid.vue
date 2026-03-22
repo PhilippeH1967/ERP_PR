@@ -118,7 +118,7 @@ const rejectionReasons = computed<RejectionInfo[]>(() => {
 
 // Row deletion — only if all entries on this row are DRAFT or empty
 function canDeleteRow(row: { entries: Record<string, { status: string } | null>; is_locked: boolean }): boolean {
-  if (row.is_locked) return false
+  if (row.is_locked || store.periodLocked) return false
   for (const date of store.weekDates) {
     const e = row.entries[date]
     if (e && e.status !== 'DRAFT') return false
@@ -127,25 +127,26 @@ function canDeleteRow(row: { entries: Record<string, { status: string } | null>;
 }
 
 const deletingRow = ref(false)
-async function onDeleteRow(row: { entries: Record<string, { id: number; status: string } | null> }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleRemoveRow(row: any) {
   if (deletingRow.value) return
   deletingRow.value = true
-  const ids: number[] = []
-  for (const date of store.weekDates) {
-    const e = row.entries[date]
-    if (e && e.id) ids.push(e.id)
-  }
-  console.log('[deleteRow] ids to delete:', ids)
   try {
-    for (const id of ids) {
-      console.log('[deleteRow] deleting', id)
-      await apiClient.delete(`time_entries/${id}/`)
+    const ids: number[] = []
+    for (const date of store.weekDates) {
+      const e = row.entries[date]
+      if (e && e.id) ids.push(e.id)
     }
-  } catch (err) {
-    console.error('[deleteRow] error:', err)
+    if (ids.length === 0) return
+    for (const id of ids) {
+      try {
+        await apiClient.delete(`time_entries/${id}/`)
+      } catch { /* ignore 404 */ }
+    }
+    await store.fetchWeek()
+  } finally {
+    deletingRow.value = false
   }
-  await store.fetchWeek()
-  deletingRow.value = false
 }
 
 function normClass(total: number, norm: number): string {
@@ -404,7 +405,7 @@ function normClass(total: number, norm: number): string {
                     class="ml-auto"
                     style="color: #DC2626; font-size: 13px; font-weight: bold; cursor: pointer; padding: 2px 6px; line-height: 1;"
                     title="Retirer cette ligne"
-                    @click="onDeleteRow(row)"
+                    @click="handleRemoveRow(row)"
                   >&#10005;</button>
                 </div>
               </td>
