@@ -60,6 +60,12 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         ctx["if_match_version"] = self.request.headers.get("If-Match")
         return ctx
 
+    class PeriodLockError(Exception):
+        """Raised when an operation is blocked by period lock/freeze."""
+        def __init__(self, code, message):
+            self.code = code
+            self.message = message
+
     def _check_period_locked(self, date_val):
         """Check if a period is locked globally on this date."""
         from .models import PeriodFreeze, PeriodUnlock
@@ -72,17 +78,13 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             freeze_qs = freeze_qs.filter(tenant_id=tenant_id)
         latest_freeze = freeze_qs.order_by("-freeze_before").first()
         if latest_freeze and date_val < latest_freeze.freeze_before:
-            # Check if there's an active unlock exception for this date
             unlock_exception = PeriodUnlock.objects.filter(
                 period_start__lte=date_val, period_end__gte=date_val,
             )
             if tenant_id:
                 unlock_exception = unlock_exception.filter(tenant_id=tenant_id)
             if not unlock_exception.exists():
-                from rest_framework.exceptions import ValidationError
-                raise ValidationError(
-                    {"error": {"code": "PERIOD_FROZEN", "message": f"Les périodes avant le {latest_freeze.freeze_before} sont gelées. Impossible de saisir sur le {date_val}."}}
-                )
+                raise self.PeriodLockError("PERIOD_FROZEN", f"Les périodes avant le {latest_freeze.freeze_before} sont gelées.")
 
         # Check 2: exact date has LOCKED entries (unless unlocked)
         qs = TimeEntry.objects.filter(date=date_val, status="LOCKED")
@@ -95,10 +97,18 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             if tenant_id:
                 unlock_exception = unlock_exception.filter(tenant_id=tenant_id)
             if not unlock_exception.exists():
-                from rest_framework.exceptions import ValidationError
-                raise ValidationError(
-                    {"error": {"code": "PERIOD_LOCKED", "message": f"La période du {date_val} est verrouillée. Impossible de modifier."}}
-                )
+                raise self.PeriodLockError("PERIOD_LOCKED", f"La période du {date_val} est verrouillée.")
+
+    def _check_phase_locked(self, project_id, phase_id):
+        """Check if a phase is locked via TimesheetLock."""
+        from .models import TimesheetLock
+        tenant_id = getattr(self.request, "tenant_id", None)
+        lock_qs = TimesheetLock.objects.filter(project_id=project_id, lock_type="PHASE")
+        if tenant_id:
+            lock_qs = lock_qs.filter(tenant_id=tenant_id)
+        # Check specific phase lock or project-wide lock (phase=None)
+        if lock_qs.filter(phase_id=phase_id).exists() or lock_qs.filter(phase__isnull=True).exists():
+            raise self.PeriodLockError("PHASE_LOCKED", "Cette phase/tâche est verrouillée.")
 
     def _require_lock_role(self):
         """Raise 403 if user lacks ADMIN/FINANCE/PAIE role."""
@@ -110,8 +120,34 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             )
         return None
 
+    def _handle_lock_check(self, date_val, project_id=None, phase_id=None):
+        """Run all lock checks and return Response if blocked, None if ok."""
+        try:
+            self._check_period_locked(date_val)
+            if project_id is not None:
+                self._check_phase_locked(project_id, phase_id)
+        except self.PeriodLockError as e:
+            return Response(
+                {"error": {"code": e.code, "message": e.message}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return None
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        date_val = serializer.validated_data.get("date")
+        project_id = serializer.validated_data.get("project")
+        phase_id = serializer.validated_data.get("phase")
+        proj_id = project_id.id if hasattr(project_id, "id") else project_id
+        ph_id = phase_id.id if hasattr(phase_id, "id") else phase_id
+        blocked = self._handle_lock_check(date_val, proj_id, ph_id)
+        if blocked:
+            return blocked
+        self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
     def perform_create(self, serializer):
-        self._check_period_locked(serializer.validated_data.get("date"))
         tenant_id = getattr(self.request, "tenant_id", None)
         if tenant_id:
             from apps.core.models import Tenant
@@ -125,24 +161,33 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
             serializer.save(employee=self.request.user, tenant=Tenant.objects.first())
 
-    def perform_update(self, serializer):
-        entry = self.get_object()
-        if entry.status == "LOCKED":
-            from rest_framework.exceptions import ValidationError
-            raise ValidationError(
-                {"error": {"code": "ENTRY_LOCKED", "message": "Cette entrée est verrouillée."}}
-            )
-        self._check_period_locked(entry.date)
-        serializer.save()
-
-    def perform_destroy(self, instance):
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
         if instance.status == "LOCKED":
-            from rest_framework.exceptions import ValidationError
-            raise ValidationError(
-                {"error": {"code": "ENTRY_LOCKED", "message": "Cette entrée est verrouillée."}}
+            return Response(
+                {"error": {"code": "ENTRY_LOCKED", "message": "Cette entrée est verrouillée."}},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-        self._check_period_locked(instance.date)
+        blocked = self._handle_lock_check(instance.date, instance.project_id, instance.phase_id)
+        if blocked:
+            return blocked
+        serializer = self.get_serializer(instance, data=request.data, partial=kwargs.get("partial", False))
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.status == "LOCKED":
+            return Response(
+                {"error": {"code": "ENTRY_LOCKED", "message": "Cette entrée est verrouillée."}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        blocked = self._handle_lock_check(instance.date, instance.project_id, instance.phase_id)
+        if blocked:
+            return blocked
         instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=["post"])
     def submit_week(self, request):
