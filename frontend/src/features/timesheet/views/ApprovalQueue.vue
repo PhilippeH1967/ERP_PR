@@ -607,17 +607,13 @@ onMounted(() => { initView(); fetchDashboard() })
                   <span v-if="emp.pm_status === 'APPROVED'" class="status-done">Approuve</span>
                   <span v-if="emp.pm_status === 'REJECTED'" class="status-rejected">Rejete</span>
                 </template>
-                <!-- Finance actions -->
+                <!-- Finance actions (lecture seule) -->
                 <template v-if="activeView === 'finance'">
-                  <button v-if="emp.pm_status === 'APPROVED' && emp.finance_status === 'PENDING' && emp.approval_id" class="icon-btn approve" title="Approuver Finance" @click="approveFinance(emp.approval_id!)">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  <button v-if="emp.approval_id" class="icon-btn detail" title="Voir detail" @click="showDetail(emp)">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                   </button>
-                  <button v-if="emp.pm_status === 'APPROVED' && emp.finance_status === 'PENDING' && emp.approval_id" class="icon-btn reject" title="Rejeter Finance" @click="rejectFinance(emp.approval_id!)">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                  </button>
-                  <span v-if="emp.finance_status === 'APPROVED'" class="status-done">Finance approuve</span>
-                  <span v-if="emp.finance_status === 'REJECTED'" class="status-rejected">Finance rejete</span>
-                  <span v-if="emp.pm_status !== 'APPROVED'" class="status-pending">En attente PM</span>
+                  <span v-if="emp.pm_status === 'APPROVED'" class="status-done">CP approuve</span>
+                  <span v-else-if="emp.pm_status === 'PENDING'" class="status-pending">En attente CP</span>
                 </template>
                 <!-- Paie actions -->
                 <template v-if="activeView === 'paie'">
