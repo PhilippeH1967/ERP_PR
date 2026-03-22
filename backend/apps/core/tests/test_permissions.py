@@ -92,8 +92,8 @@ class TestRBACPredicates:
         assert cannot_approve_own(self.user_pm, self.user_basic.pk) is True
         assert cannot_approve_own(self.user_pm, self.user_pm.pk) is False
 
-    def test_all_8_roles_available(self):
-        assert len(Role.choices) == 8
+    def test_all_9_roles_available(self):
+        assert len(Role.choices) == 9
         role_values = [r[0] for r in Role.choices]
         assert "EMPLOYEE" in role_values
         assert "PM" in role_values

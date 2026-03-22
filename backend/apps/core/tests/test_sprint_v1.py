@@ -72,11 +72,11 @@ class TestFR66_RBAC(TestCase):
         self.tenant = Tenant.objects.create(name="Test", slug="test-rbac")
         self.client = APIClient()
 
-    def test_all_8_roles_exist(self):
-        """All 8 roles are defined in Role TextChoices."""
+    def test_all_9_roles_exist(self):
+        """All 9 roles are defined in Role TextChoices."""
         roles = [r[0] for r in Role.choices]
-        self.assertEqual(len(roles), 8)
-        expected = {"EMPLOYEE", "PM", "PROJECT_DIRECTOR", "BU_DIRECTOR", "FINANCE", "DEPT_ASSISTANT", "PROPOSAL_MANAGER", "ADMIN"}
+        self.assertEqual(len(roles), 9)
+        expected = {"EMPLOYEE", "PM", "PROJECT_DIRECTOR", "BU_DIRECTOR", "FINANCE", "PAIE", "DEPT_ASSISTANT", "PROPOSAL_MANAGER", "ADMIN"}
         self.assertEqual(set(roles), expected)
 
     def test_project_role_assignment(self):
