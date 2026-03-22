@@ -180,6 +180,19 @@ interface ProjectGroup {
   total: number
   entryIds: number[]  // all entry IDs for this project
 }
+// Detail KPIs computed from loaded entries
+const detailTotalHours = computed(() => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return Math.round((detailEntries.value as any[]).reduce((s: number, e: any) => s + (parseFloat(e.hours) || 0), 0) * 10) / 10
+})
+const detailProjectHours = computed(() => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return Math.round((detailEntries.value as any[]).filter((e: any) => !e.project_name?.toLowerCase().includes('interne')).reduce((s: number, e: any) => s + (parseFloat(e.hours) || 0), 0) * 10) / 10
+})
+const detailBillableRate = computed(() => {
+  return detailTotalHours.value > 0 ? Math.round(detailProjectHours.value / detailTotalHours.value * 100) : 0
+})
+
 const detailGroups = computed<ProjectGroup[]>(() => {
   const map = new Map<number, ProjectGroup>()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -683,22 +696,22 @@ onMounted(() => { initView(); fetchDashboard() })
           </button>
         </div>
 
-        <!-- Detail KPIs -->
+        <!-- Detail KPIs (calculated from loaded entries) -->
         <div class="detail-kpis">
           <div class="detail-kpi">
-            <div class="detail-kpi-val text-green-600">{{ detailEmployee.total_week_hours }}h</div>
+            <div class="detail-kpi-val text-green-600">{{ detailTotalHours }}h</div>
             <div class="detail-kpi-label">Total sem.</div>
           </div>
           <div class="detail-kpi">
-            <div class="detail-kpi-val">{{ detailEmployee.project_hours }}h</div>
+            <div class="detail-kpi-val">{{ detailProjectHours }}h</div>
             <div class="detail-kpi-label">Heures projet</div>
           </div>
           <div class="detail-kpi">
-            <div class="detail-kpi-val">{{ Math.round(detailEmployee.total_week_hours - detailEmployee.project_hours) }}h</div>
+            <div class="detail-kpi-val">{{ Math.round(detailTotalHours - detailProjectHours) }}h</div>
             <div class="detail-kpi-label">Hors projet</div>
           </div>
           <div class="detail-kpi">
-            <div class="detail-kpi-val">{{ detailEmployee.billable_rate }}%</div>
+            <div class="detail-kpi-val">{{ detailBillableRate }}%</div>
             <div class="detail-kpi-label">Taux fact.</div>
           </div>
         </div>
