@@ -507,25 +507,28 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             )
         bd = date_type.fromisoformat(before_date) if isinstance(before_date, str) else before_date
 
+        from django.db import transaction
+
         from apps.core.models import Tenant
         from .models import PeriodFreeze
 
         tenant_id = getattr(request, "tenant_id", None)
 
-        # Lock existing entries
-        qs = TimeEntry.objects.filter(date__lt=bd).exclude(status="LOCKED")
-        if tenant_id:
-            qs = qs.filter(tenant_id=tenant_id)
-        count = qs.update(status="LOCKED")
+        with transaction.atomic():
+            # Lock existing entries
+            qs = TimeEntry.objects.filter(date__lt=bd).exclude(status="LOCKED")
+            if tenant_id:
+                qs = qs.filter(tenant_id=tenant_id)
+            count = qs.update(status="LOCKED")
 
-        # Create or update freeze date (prevents new entries on empty dates)
-        tenant = Tenant.objects.get(pk=tenant_id) if tenant_id else Tenant.objects.first()
-        existing_freeze = PeriodFreeze.objects.filter(tenant=tenant).order_by("-freeze_before").first()
-        if not existing_freeze or bd > existing_freeze.freeze_before:
-            PeriodFreeze.objects.create(
-                tenant=tenant,
-                freeze_before=bd,
-                frozen_by=request.user,
+            # Create or update freeze date (prevents new entries on empty dates)
+            tenant = Tenant.objects.get(pk=tenant_id) if tenant_id else Tenant.objects.first()
+            existing_freeze = PeriodFreeze.objects.filter(tenant=tenant).order_by("-freeze_before").first()
+            if not existing_freeze or bd > existing_freeze.freeze_before:
+                PeriodFreeze.objects.create(
+                    tenant=tenant,
+                    freeze_before=bd,
+                    frozen_by=request.user,
             )
 
         return Response({"locked_count": count, "before_date": bd.isoformat()})
@@ -717,6 +720,14 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
         qs = WeeklyApproval.objects.all()
         if hasattr(self.request, "tenant_id") and self.request.tenant_id:
             qs = qs.filter(tenant_id=self.request.tenant_id)
+        # Restrict visibility: employees see only their own, PM/Finance/Paie/Admin see all
+        from apps.core.models import ProjectRole, Role
+        user_roles = set(
+            ProjectRole.objects.filter(user=self.request.user).values_list("role", flat=True)
+        )
+        privileged_roles = {Role.ADMIN, Role.FINANCE, Role.PAIE, Role.PM, Role.PROJECT_DIRECTOR}
+        if not user_roles & privileged_roles:
+            qs = qs.filter(employee=self.request.user)
         return qs
 
     @action(detail=True, methods=["post"])
@@ -762,6 +773,8 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
                 {"error": {"code": "INVALID_STATUS", "message": "Seules les feuilles en attente peuvent être rejetées."}},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        from datetime import timedelta
+
         reason = request.data.get("reason", "")
         approval.pm_status = "REJECTED"
         approval.save()
@@ -772,7 +785,7 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
         TimeEntry.objects.filter(
             employee=approval.employee,
             date__gte=approval.week_start,
-            date__lt=approval.week_start + timezone.timedelta(days=7),
+            date__lt=approval.week_start + timedelta(days=7),
             status="SUBMITTED",
         ).update(status="DRAFT", rejection_reason=reason)
 
@@ -1234,12 +1247,14 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Validate
-        entries.filter(status="PM_APPROVED").update(status="PAIE_VALIDATED")
-        approval.paie_status = "APPROVED"
-        approval.paie_validated_by = request.user
-        approval.paie_validated_at = timezone.now()
-        approval.save()
+        # Validate (atomic)
+        from django.db import transaction
+        with transaction.atomic():
+            entries.filter(status="PM_APPROVED").update(status="PAIE_VALIDATED")
+            approval.paie_status = "APPROVED"
+            approval.paie_validated_by = request.user
+            approval.paie_validated_at = timezone.now()
+            approval.save()
         return Response(WeeklyApprovalSerializer(approval).data)
 
     @action(detail=False, methods=["post"])
@@ -1253,6 +1268,8 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
                 {"error": {"code": "MISSING_IDS", "message": "approval_ids required"}},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        from django.db import transaction
 
         validated = 0
         skipped = []
@@ -1276,11 +1293,12 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
                 skipped.append({"id": aid, "reason": "Not all PM approved"})
                 continue
 
-            entries.filter(status="PM_APPROVED").update(status="PAIE_VALIDATED")
-            approval.paie_status = "APPROVED"
-            approval.paie_validated_by = request.user
-            approval.paie_validated_at = timezone.now()
-            approval.save()
+            with transaction.atomic():
+                entries.filter(status="PM_APPROVED").update(status="PAIE_VALIDATED")
+                approval.paie_status = "APPROVED"
+                approval.paie_validated_by = request.user
+                approval.paie_validated_at = timezone.now()
+                approval.save()
             validated += 1
 
         return Response({
@@ -1317,7 +1335,7 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
 
 
 class TimesheetLockViewSet(viewsets.ModelViewSet):
-    """Phase and person-level locking."""
+    """Phase and person-level locking. Write operations require ADMIN/FINANCE/PAIE."""
 
     serializer_class = TimesheetLockSerializer
     permission_classes = [IsAuthenticated]
@@ -1328,7 +1346,14 @@ class TimesheetLockViewSet(viewsets.ModelViewSet):
             qs = qs.filter(tenant_id=self.request.tenant_id)
         return qs.select_related("project", "phase", "locked_by")
 
+    def _require_lock_permission(self):
+        tenant_id = getattr(self.request, "tenant_id", None)
+        if not _has_lock_role(self.request.user, tenant_id):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Seuls les rôles ADMIN, FINANCE ou PAIE peuvent gérer les verrouillages.")
+
     def perform_create(self, serializer):
+        self._require_lock_permission()
         tenant_id = getattr(self.request, "tenant_id", None)
         if tenant_id:
             from apps.core.models import Tenant
@@ -1340,9 +1365,13 @@ class TimesheetLockViewSet(viewsets.ModelViewSet):
         else:
             serializer.save(locked_by=self.request.user)
 
+    def perform_destroy(self, instance):
+        self._require_lock_permission()
+        instance.delete()
+
 
 class PeriodUnlockViewSet(viewsets.ModelViewSet):
-    """Temporary period unlocks for corrections."""
+    """Temporary period unlocks for corrections. Write operations require ADMIN/FINANCE/PAIE."""
 
     serializer_class = PeriodUnlockSerializer
     permission_classes = [IsAuthenticated]
@@ -1353,7 +1382,14 @@ class PeriodUnlockViewSet(viewsets.ModelViewSet):
             qs = qs.filter(tenant_id=self.request.tenant_id)
         return qs
 
+    def _require_lock_permission(self):
+        tenant_id = getattr(self.request, "tenant_id", None)
+        if not _has_lock_role(self.request.user, tenant_id):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Seuls les rôles ADMIN, FINANCE ou PAIE peuvent gérer les déverrouillages.")
+
     def perform_create(self, serializer):
+        self._require_lock_permission()
         tenant_id = getattr(self.request, "tenant_id", None)
         if tenant_id:
             from apps.core.models import Tenant
@@ -1369,6 +1405,7 @@ class PeriodUnlockViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         """When revoking an unlock, re-lock entries in that period."""
+        self._require_lock_permission()
         # Re-lock entries that were unlocked (revert SUBMITTED/DRAFT back to LOCKED)
         entries = TimeEntry.objects.filter(
             date__gte=instance.period_start,
