@@ -19,6 +19,18 @@ from .serializers import (
 )
 
 
+def _has_lock_role(user, tenant_id=None):
+    """Check if user has ADMIN, FINANCE, or PAIE role."""
+    from apps.core.models import ProjectRole, Role
+
+    qs = ProjectRole.objects.filter(
+        user=user, role__in=[Role.ADMIN, Role.FINANCE, Role.PAIE],
+    )
+    if tenant_id:
+        qs = qs.filter(tenant_id=tenant_id)
+    return qs.exists()
+
+
 class TimeEntryFilter(django_filters.FilterSet):
     date__gte = django_filters.DateFilter(field_name="date", lookup_expr="gte")
     date__lte = django_filters.DateFilter(field_name="date", lookup_expr="lte")
@@ -50,15 +62,28 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
     def _check_period_locked(self, date_val):
         """Check if a period is locked globally on this date."""
-        locked_exists = TimeEntry.objects.filter(
+        qs = TimeEntry.objects.filter(
             date=date_val,
             status="LOCKED",
-        ).exists()
-        if locked_exists:
+        )
+        tenant_id = getattr(self.request, "tenant_id", None)
+        if tenant_id:
+            qs = qs.filter(tenant_id=tenant_id)
+        if qs.exists():
             from rest_framework.exceptions import ValidationError
             raise ValidationError(
                 {"error": {"code": "PERIOD_LOCKED", "message": f"La période du {date_val} est verrouillée. Impossible de modifier."}}
             )
+
+    def _require_lock_role(self):
+        """Raise 403 if user lacks ADMIN/FINANCE/PAIE role."""
+        tenant_id = getattr(self.request, "tenant_id", None)
+        if not _has_lock_role(self.request.user, tenant_id):
+            return Response(
+                {"error": {"code": "FORBIDDEN", "message": "Seuls les rôles ADMIN, FINANCE ou PAIE peuvent verrouiller/déverrouiller."}},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return None
 
     def perform_create(self, serializer):
         self._check_period_locked(serializer.validated_data.get("date"))
@@ -91,6 +116,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             raise ValidationError(
                 {"error": {"code": "ENTRY_LOCKED", "message": "Cette entrée est verrouillée."}}
             )
+        self._check_period_locked(instance.date)
         instance.delete()
 
     @action(detail=False, methods=["post"])
@@ -219,6 +245,9 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
         created = 0
         for entry in prev_entries:
+            # Skip locked entries — don't copy from a locked period
+            if entry.status == "LOCKED":
+                continue
             new_date = entry.date + timedelta(weeks=1)
             if not TimeEntry.objects.filter(
                 employee=request.user,
@@ -249,10 +278,43 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             return Response({"locked": False})
         ws = date_type.fromisoformat(week_start)
         we = ws + timedelta(days=6)
-        locked = TimeEntry.objects.filter(
+        qs = TimeEntry.objects.filter(
             date__gte=ws, date__lte=we, status="LOCKED",
-        ).exists()
+        )
+        tenant_id = getattr(request, "tenant_id", None)
+        if tenant_id:
+            qs = qs.filter(tenant_id=tenant_id)
+        locked = qs.exists()
         return Response({"locked": locked})
+
+    @action(detail=False, methods=["post"])
+    def unlock_period(self, request):
+        """Unlock a period — reverts LOCKED entries to PM_APPROVED."""
+        from datetime import date as date_type, timedelta
+
+        denied = self._require_lock_role()
+        if denied:
+            return denied
+
+        period_start = request.data.get("period_start")
+        period_end = request.data.get("period_end")
+        if not period_start or not period_end:
+            return Response(
+                {"error": {"code": "MISSING_DATES", "message": "period_start and period_end required"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        ps = date_type.fromisoformat(period_start) if isinstance(period_start, str) else period_start
+        pe = date_type.fromisoformat(period_end) if isinstance(period_end, str) else period_end
+
+        qs = TimeEntry.objects.filter(
+            date__gte=ps, date__lte=pe, status="LOCKED",
+        )
+        tenant_id = getattr(request, "tenant_id", None)
+        if tenant_id:
+            qs = qs.filter(tenant_id=tenant_id)
+        count = qs.update(status="PM_APPROVED")
+
+        return Response({"unlocked_count": count, "period_start": ps.isoformat(), "period_end": pe.isoformat()})
 
     @action(detail=False, methods=["get"])
     def period_summary(self, request):
@@ -263,8 +325,17 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
         from django.db.models import Count, Min, Max, Sum
 
+        denied = self._require_lock_role()
+        if denied:
+            return denied
+
+        tenant_id = getattr(request, "tenant_id", None)
+        base_qs = TimeEntry.objects.all()
+        if tenant_id:
+            base_qs = base_qs.filter(tenant_id=tenant_id)
+
         # Find date range
-        bounds = TimeEntry.objects.aggregate(min=Min("date"), max=Max("date"))
+        bounds = base_qs.aggregate(min=Min("date"), max=Max("date"))
         if not bounds["min"]:
             return Response({"weeks": []})
 
@@ -279,7 +350,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         current = first_sunday
         while current <= last_saturday:
             week_end = current + timedelta(days=6)
-            entries = TimeEntry.objects.filter(date__gte=current, date__lte=week_end)
+            entries = base_qs.filter(date__gte=current, date__lte=week_end)
             count = entries.count()
             if count > 0:
                 total_hours = float(entries.aggregate(t=Sum("hours"))["t"] or Decimal("0"))
@@ -307,6 +378,10 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         """Lock all entries before a given date."""
         from datetime import date as date_type
 
+        denied = self._require_lock_role()
+        if denied:
+            return denied
+
         before_date = request.data.get("before_date")
         if not before_date:
             return Response(
@@ -314,15 +389,21 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         bd = date_type.fromisoformat(before_date) if isinstance(before_date, str) else before_date
-        count = TimeEntry.objects.filter(
-            date__lt=bd,
-        ).exclude(status="LOCKED").update(status="LOCKED")
+        qs = TimeEntry.objects.filter(date__lt=bd).exclude(status="LOCKED")
+        tenant_id = getattr(request, "tenant_id", None)
+        if tenant_id:
+            qs = qs.filter(tenant_id=tenant_id)
+        count = qs.update(status="LOCKED")
         return Response({"locked_count": count, "before_date": bd.isoformat()})
 
     @action(detail=False, methods=["post"])
     def lock_period(self, request):
         """Lock all entries in a period — sets status to LOCKED."""
         from datetime import date as date_type
+
+        denied = self._require_lock_role()
+        if denied:
+            return denied
 
         period_start = request.data.get("period_start")
         period_end = request.data.get("period_end")
@@ -348,9 +429,13 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        count = TimeEntry.objects.filter(
+        qs = TimeEntry.objects.filter(
             date__gte=ps, date__lte=pe,
-        ).exclude(status="LOCKED").update(status="LOCKED")
+        ).exclude(status="LOCKED")
+        tenant_id = getattr(request, "tenant_id", None)
+        if tenant_id:
+            qs = qs.filter(tenant_id=tenant_id)
+        count = qs.update(status="LOCKED")
 
         return Response({"locked_count": count, "period_start": ps.isoformat(), "period_end": pe.isoformat()})
 
@@ -1107,7 +1192,7 @@ class TimesheetLockViewSet(viewsets.ModelViewSet):
         qs = TimesheetLock.objects.all()
         if hasattr(self.request, "tenant_id") and self.request.tenant_id:
             qs = qs.filter(tenant_id=self.request.tenant_id)
-        return qs
+        return qs.select_related("project", "phase", "locked_by")
 
     def perform_create(self, serializer):
         tenant_id = getattr(self.request, "tenant_id", None)

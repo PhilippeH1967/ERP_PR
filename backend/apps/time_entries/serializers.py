@@ -61,13 +61,31 @@ class WeeklyApprovalSerializer(serializers.ModelSerializer):
 
 
 class TimesheetLockSerializer(serializers.ModelSerializer):
+    project_name = serializers.CharField(source="project.name", read_only=True)
+    project_code = serializers.CharField(source="project.code", read_only=True)
+    phase_name = serializers.SerializerMethodField()
+    locked_by_name = serializers.SerializerMethodField()
+
     class Meta:
         model = TimesheetLock
         fields = [
-            "id", "project", "phase", "person", "lock_type",
-            "locked_by", "locked_at",
+            "id", "project", "project_name", "project_code",
+            "phase", "phase_name",
+            "person", "lock_type",
+            "locked_by", "locked_by_name", "locked_at",
         ]
-        read_only_fields = ["id", "locked_at"]
+        read_only_fields = ["id", "locked_at", "project_name", "project_code", "phase_name", "locked_by_name"]
+
+    def get_phase_name(self, obj):
+        if obj.phase:
+            return obj.phase.name
+        return ""
+
+    def get_locked_by_name(self, obj):
+        if obj.locked_by:
+            full = f"{obj.locked_by.first_name} {obj.locked_by.last_name}".strip()
+            return full or obj.locked_by.email
+        return ""
 
 
 class PeriodUnlockSerializer(serializers.ModelSerializer):

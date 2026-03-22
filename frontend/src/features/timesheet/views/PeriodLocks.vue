@@ -27,9 +27,31 @@ interface PeriodUnlock {
   unlocked_by: number
   unlocked_at: string
 }
+interface TaskLock {
+  id: number
+  project: number
+  project_name: string
+  project_code: string
+  phase: number | null
+  phase_name: string
+  lock_type: string
+  locked_by: number
+  locked_by_name: string
+  locked_at: string
+}
+interface ProjectOption {
+  id: number
+  code: string
+  name: string
+}
+interface PhaseOption {
+  id: number
+  name: string
+}
 
 const weeks = ref<WeekSummary[]>([])
 const unlocks = ref<PeriodUnlock[]>([])
+const taskLocks = ref<TaskLock[]>([])
 const isLoading = ref(false)
 const actionError = ref('')
 const actionSuccess = ref('')
@@ -37,6 +59,23 @@ const actionSuccess = ref('')
 // Lock before form
 const showLockBefore = ref(false)
 const lockBeforeDate = ref('')
+
+// Task lock form
+const showTaskLockForm = ref(false)
+const taskLockProjectId = ref<number | null>(null)
+const taskLockPhaseId = ref<number | null>(null)
+const projectOptions = ref<ProjectOption[]>([])
+const phaseOptions = ref<PhaseOption[]>([])
+const loadingPhases = ref(false)
+const projectSearch = ref('')
+
+const filteredProjects = computed(() => {
+  if (!projectSearch.value) return projectOptions.value
+  const q = projectSearch.value.toLowerCase()
+  return projectOptions.value.filter(
+    p => p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)
+  )
+})
 
 // Unlock form
 const showUnlockForm = ref(false)
@@ -53,14 +92,73 @@ const unlockJustification = ref('')
 async function fetchData() {
   isLoading.value = true
   try {
-    const [weeksResp, unlocksResp] = await Promise.all([
+    const [weeksResp, unlocksResp, locksResp, projectsResp] = await Promise.all([
       apiClient.get('time_entries/period_summary/'),
       apiClient.get('period_unlocks/'),
+      apiClient.get('timesheet_locks/'),
+      apiClient.get('projects/', { params: { status: 'ACTIVE' } }),
     ])
     weeks.value = (weeksResp.data?.data || weeksResp.data)?.weeks || []
     unlocks.value = unlocksResp.data?.data || unlocksResp.data || []
+    const locksData = locksResp.data?.data || locksResp.data
+    taskLocks.value = Array.isArray(locksData) ? locksData : locksData?.results || []
+    const projData = projectsResp.data?.data || projectsResp.data
+    projectOptions.value = Array.isArray(projData) ? projData : projData?.results || []
   } finally {
     isLoading.value = false
+  }
+}
+
+async function onProjectSelect(projectId: number) {
+  taskLockProjectId.value = projectId
+  taskLockPhaseId.value = null
+  phaseOptions.value = []
+  if (!projectId) return
+  loadingPhases.value = true
+  try {
+    const resp = await apiClient.get(`projects/${projectId}/phases/`)
+    const data = resp.data?.data || resp.data
+    phaseOptions.value = Array.isArray(data) ? data : data?.results || []
+  } finally {
+    loadingPhases.value = false
+  }
+}
+
+async function createTaskLock() {
+  actionError.value = ''
+  actionSuccess.value = ''
+  if (!taskLockProjectId.value) {
+    actionError.value = 'Selectionnez un projet'
+    return
+  }
+  try {
+    const payload: Record<string, unknown> = {
+      project: taskLockProjectId.value,
+      lock_type: 'PHASE',
+    }
+    if (taskLockPhaseId.value) {
+      payload.phase = taskLockPhaseId.value
+    }
+    await apiClient.post('timesheet_locks/', payload)
+    actionSuccess.value = 'Verrouillage par tache cree'
+    showTaskLockForm.value = false
+    taskLockProjectId.value = null
+    taskLockPhaseId.value = null
+    projectSearch.value = ''
+    await fetchData()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur lors de la creation du verrouillage'
+  }
+}
+
+async function deleteTaskLock(id: number) {
+  actionError.value = ''
+  try {
+    await apiClient.delete(`timesheet_locks/${id}/`)
+    actionSuccess.value = 'Verrouillage supprime'
+    await fetchData()
+  } catch {
+    actionError.value = 'Erreur lors de la suppression du verrouillage'
   }
 }
 
@@ -102,6 +200,12 @@ async function createUnlock() {
   const d = new Date(unlockWeekStart.value + 'T00:00:00')
   if (d.getDay() !== 0) { actionError.value = 'La date doit etre un dimanche'; return }
   try {
+    // 1. Revert LOCKED entries to PM_APPROVED
+    await apiClient.post('time_entries/unlock_period/', {
+      period_start: unlockWeekStart.value,
+      period_end: unlockWeekEnd.value,
+    })
+    // 2. Record the unlock for audit trail
     await apiClient.post('period_unlocks/', {
       period_start: unlockWeekStart.value,
       period_end: unlockWeekEnd.value,
@@ -289,6 +393,83 @@ onMounted(fetchData)
       </table>
       <div v-else class="empty">Aucun deverrouillage enregistre</div>
     </div>
+
+    <!-- Task/Phase locking -->
+    <div class="section-card">
+      <div class="section-header">
+        <h3>Verrouillage par tache</h3>
+        <button v-if="canManage" class="btn-add-task-lock" @click="showTaskLockForm = !showTaskLockForm">
+          {{ showTaskLockForm ? 'Annuler' : 'Nouveau verrouillage' }}
+        </button>
+      </div>
+
+      <!-- Create task lock form -->
+      <div v-if="showTaskLockForm && canManage" class="form-card form-card-inline">
+        <div class="form-row">
+          <div class="form-field">
+            <label>Projet</label>
+            <input
+              v-model="projectSearch"
+              type="text"
+              placeholder="Rechercher un projet..."
+              class="search-input"
+            />
+            <select
+              :value="taskLockProjectId"
+              @change="onProjectSelect(Number(($event.target as HTMLSelectElement).value))"
+              class="project-select"
+            >
+              <option :value="null" disabled selected>-- Choisir un projet --</option>
+              <option v-for="p in filteredProjects" :key="p.id" :value="p.id">
+                {{ p.code }} — {{ p.name }}
+              </option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Phase (optionnel)</label>
+            <select v-model="taskLockPhaseId" :disabled="!taskLockProjectId || loadingPhases">
+              <option :value="null">-- Toutes les phases --</option>
+              <option v-for="ph in phaseOptions" :key="ph.id" :value="ph.id">
+                {{ ph.name }}
+              </option>
+            </select>
+            <span v-if="loadingPhases" class="text-muted" style="font-size: 10px;">Chargement...</span>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-danger" @click="createTaskLock">Verrouiller</button>
+          <button class="btn-ghost" @click="showTaskLockForm = false">Annuler</button>
+        </div>
+      </div>
+
+      <!-- Task locks list -->
+      <table v-if="taskLocks.length">
+        <thead>
+          <tr>
+            <th>Projet</th>
+            <th>Phase</th>
+            <th>Verrouille par</th>
+            <th>Date</th>
+            <th v-if="canManage">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="lock in taskLocks" :key="lock.id">
+            <td>
+              <span class="font-semibold">{{ lock.project_code }}</span>
+              <span class="text-muted"> — {{ lock.project_name }}</span>
+            </td>
+            <td>{{ lock.phase_name || 'Toutes' }}</td>
+            <td class="text-muted">{{ lock.locked_by_name }}</td>
+            <td class="text-muted font-mono">{{ formatDateTime(lock.locked_at) }}</td>
+            <td v-if="canManage">
+              <button class="btn-sm-revoke" @click="deleteTaskLock(lock.id)">Supprimer</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-else class="empty">Aucun verrouillage par tache</div>
+    </div>
   </div>
 </template>
 
@@ -356,4 +537,10 @@ tbody td { padding: 8px 12px; color: var(--color-gray-700); }
 .reason-audit { background: #F3E8FF; color: #7C3AED; }
 
 .empty { padding: 24px; text-align: center; color: var(--color-gray-400); font-size: 13px; }
+
+.btn-add-task-lock { padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; background: #2563EB; color: white; border: none; cursor: pointer; }
+.btn-add-task-lock:hover { background: #1D4ED8; }
+.form-card-inline { border-top: 1px solid var(--color-gray-200); border-radius: 0; margin-bottom: 0; }
+.search-input { margin-bottom: 4px; }
+.project-select { margin-top: 0; }
 </style>
