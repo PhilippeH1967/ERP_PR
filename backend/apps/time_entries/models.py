@@ -12,6 +12,7 @@ class TimeEntryStatus(models.TextChoices):
     SUBMITTED = "SUBMITTED", "Soumis"
     PM_APPROVED = "PM_APPROVED", "Approuvé PM"
     FINANCE_APPROVED = "FINANCE_APPROVED", "Approuvé Finance"
+    PAIE_VALIDATED = "PAIE_VALIDATED", "Validé Paie"
     LOCKED = "LOCKED", "Verrouillé"
 
 
@@ -85,6 +86,15 @@ class WeeklyApproval(TenantScopedModel):
         null=True, blank=True, related_name="finance_approvals",
     )
     finance_approved_at = models.DateTimeField(null=True, blank=True)
+    # Level 3: Paie
+    paie_status = models.CharField(
+        max_length=10, choices=ApprovalStatus.choices, default=ApprovalStatus.PENDING
+    )
+    paie_validated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="paie_validations",
+    )
+    paie_validated_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "time_entries_weekly_approval"

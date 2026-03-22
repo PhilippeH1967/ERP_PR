@@ -137,6 +137,137 @@ class TestApprovalWorkflow(BaseV5Test):
         self.assertEqual(resp.status_code, 400)
 
 
+class TestPaieWorkflow(BaseV5Test):
+    """Tests for the PAIE (Payroll) role."""
+
+    def setUp(self):
+        super().setUp()
+        self.paie = User.objects.create_user(username="v5paie", password="x")
+        UserTenantAssociation.objects.create(user=self.paie, tenant=self.tenant)
+        ProjectRole.objects.create(user=self.paie, tenant=self.tenant, role=Role.PAIE)
+        # Create entries and approval
+        self.project.pm = self.pm
+        self.project.save()
+        self.entry1 = TimeEntry.objects.create(
+            tenant=self.tenant, employee=self.employee, project=self.project,
+            phase=self.phase, date="2026-03-16", hours=8, status="PM_APPROVED",
+        )
+        self.entry2 = TimeEntry.objects.create(
+            tenant=self.tenant, employee=self.employee, project=self.project,
+            phase=self.phase, date="2026-03-17", hours=7, status="PM_APPROVED",
+        )
+        self.approval = WeeklyApproval.objects.create(
+            tenant=self.tenant, employee=self.employee,
+            week_start="2026-03-16", week_end="2026-03-22",
+            pm_status="APPROVED", finance_status="PENDING",
+        )
+
+    def test_paie_dashboard(self):
+        c = APIClient()
+        c.force_authenticate(user=self.paie)
+        resp = c.get("/api/v1/weekly_approvals/paie_dashboard/?week_start=2026-03-16")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json().get("data", resp.json())
+        self.assertGreater(data["kpis"]["pm_approved"], 0)
+
+    def test_validate_paie_succeeds_when_all_pm_approved(self):
+        c = APIClient()
+        c.force_authenticate(user=self.paie)
+        resp = c.post(f"/api/v1/weekly_approvals/{self.approval.id}/validate_paie/")
+        self.assertEqual(resp.status_code, 200)
+        self.approval.refresh_from_db()
+        self.assertEqual(self.approval.paie_status, "APPROVED")
+        self.entry1.refresh_from_db()
+        self.assertEqual(self.entry1.status, "PAIE_VALIDATED")
+
+    def test_validate_paie_fails_when_not_all_pm_approved(self):
+        self.entry2.status = "SUBMITTED"
+        self.entry2.save()
+        c = APIClient()
+        c.force_authenticate(user=self.paie)
+        resp = c.post(f"/api/v1/weekly_approvals/{self.approval.id}/validate_paie/")
+        self.assertEqual(resp.status_code, 400)
+        data = resp.json().get("data", resp.json())
+        error = data.get("error", {})
+        self.assertEqual(error.get("code"), "NOT_ALL_PM_APPROVED")
+
+    def test_validate_paie_self_approval_blocked(self):
+        """Paie user cannot validate own timesheet."""
+        self.approval.employee = self.paie
+        self.approval.save()
+        self.entry1.employee = self.paie
+        self.entry1.save()
+        self.entry2.employee = self.paie
+        self.entry2.save()
+        c = APIClient()
+        c.force_authenticate(user=self.paie)
+        resp = c.post(f"/api/v1/weekly_approvals/{self.approval.id}/validate_paie/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_bulk_validate_paie(self):
+        c = APIClient()
+        c.force_authenticate(user=self.paie)
+        resp = c.post("/api/v1/weekly_approvals/bulk_validate_paie/", {
+            "approval_ids": [self.approval.id],
+        }, format="json")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json().get("data", resp.json())
+        self.assertEqual(data["validated_count"], 1)
+
+    def test_bulk_validate_skips_non_approved(self):
+        self.entry2.status = "SUBMITTED"
+        self.entry2.save()
+        c = APIClient()
+        c.force_authenticate(user=self.paie)
+        resp = c.post("/api/v1/weekly_approvals/bulk_validate_paie/", {
+            "approval_ids": [self.approval.id],
+        }, format="json")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json().get("data", resp.json())
+        self.assertEqual(data["validated_count"], 0)
+        self.assertEqual(data["skipped_count"], 1)
+
+    def test_reject_paie(self):
+        # First validate
+        self.approval.paie_status = "APPROVED"
+        self.approval.save()
+        self.entry1.status = "PAIE_VALIDATED"
+        self.entry1.save()
+        self.entry2.status = "PAIE_VALIDATED"
+        self.entry2.save()
+        c = APIClient()
+        c.force_authenticate(user=self.paie)
+        resp = c.post(f"/api/v1/weekly_approvals/{self.approval.id}/reject_paie/")
+        self.assertEqual(resp.status_code, 200)
+        self.approval.refresh_from_db()
+        self.assertEqual(self.approval.paie_status, "REJECTED")
+        self.entry1.refresh_from_db()
+        self.assertEqual(self.entry1.status, "PM_APPROVED")
+
+    def test_status_flow_complete(self):
+        """Full flow: DRAFT -> SUBMITTED -> PM_APPROVED -> PAIE_VALIDATED."""
+        entry = TimeEntry.objects.create(
+            tenant=self.tenant, employee=self.employee, project=self.project,
+            phase=self.phase, date="2026-03-18", hours=6, status="DRAFT",
+        )
+        # Submit
+        c = APIClient()
+        c.force_authenticate(user=self.employee)
+        c.post("/api/v1/time_entries/submit_week/", {"week_start": "2026-03-16"}, format="json")
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, "SUBMITTED")
+        # PM approve
+        c.force_authenticate(user=self.pm)
+        c.post("/api/v1/time_entries/approve_entries/", {"entry_ids": [entry.id]}, format="json")
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, "PM_APPROVED")
+        # Paie validate
+        c.force_authenticate(user=self.paie)
+        c.post(f"/api/v1/weekly_approvals/{self.approval.id}/validate_paie/")
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, "PAIE_VALIDATED")
+
+
 class TestPeriodUnlock(BaseV5Test):
     def test_create_unlock(self):
         c = APIClient()

@@ -49,6 +49,7 @@ class WeeklyApprovalSerializer(serializers.ModelSerializer):
             "id", "employee", "employee_name", "week_start", "week_end",
             "pm_status", "pm_approved_by", "pm_approved_at",
             "finance_status", "finance_approved_by", "finance_approved_at",
+            "paie_status", "paie_validated_by", "paie_validated_at",
             "created_at", "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]

@@ -97,13 +97,14 @@ class VersionedModel(models.Model):
 
 
 class Role(models.TextChoices):
-    """The 8 RBAC roles for per-project authorization."""
+    """The 9 RBAC roles for per-project authorization."""
 
     EMPLOYEE = "EMPLOYEE", "Employee"
     PM = "PM", "Project Manager"
     PROJECT_DIRECTOR = "PROJECT_DIRECTOR", "Associé en charge"
     BU_DIRECTOR = "BU_DIRECTOR", "Directeur d'unité"
     FINANCE = "FINANCE", "Finance"
+    PAIE = "PAIE", "Paie"
     DEPT_ASSISTANT = "DEPT_ASSISTANT", "Adjoint(e) de département"
     PROPOSAL_MANAGER = "PROPOSAL_MANAGER", "Gestionnaire de propositions"
     ADMIN = "ADMIN", "Administrateur"

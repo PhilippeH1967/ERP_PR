@@ -58,7 +58,7 @@ function toggleLocale() {
 const isUserAdmin = computed(() => currentUser.value?.roles?.includes('ADMIN'))
 const canApprove = computed(() => {
   const roles = currentUser.value?.roles || []
-  return roles.includes('PM') || roles.includes('PROJECT_DIRECTOR') || roles.includes('FINANCE') || roles.includes('ADMIN')
+  return roles.includes('PM') || roles.includes('PROJECT_DIRECTOR') || roles.includes('FINANCE') || roles.includes('PAIE') || roles.includes('ADMIN')
 })
 
 const navSections = computed(() => {

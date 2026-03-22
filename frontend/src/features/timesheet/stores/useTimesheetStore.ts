@@ -171,6 +171,21 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     return statuses.has('DRAFT') && statuses.has('SUBMITTED')
   })
 
+  // All submitted — no DRAFT entries remaining
+  const allSubmitted = computed(() => {
+    let hasEntries = false
+    for (const row of gridRows.value) {
+      for (const date of weekDates.value) {
+        const e = row.entries[date]
+        if (e) {
+          hasEntries = true
+          if (e.status === 'DRAFT') return false
+        }
+      }
+    }
+    return hasEntries
+  })
+
   // Status banner
   const statusMessage = computed(() => {
     if (weeklyTotal.value >= WEEKLY_NORM) return { text: 'complete', color: 'green' }
@@ -264,7 +279,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
   return {
     entries, isLoading, saveError, currentWeekStart, currentWeek,
     gridRows, projectGroups, dailyTotals, weeklyTotal, weekDates,
-    weeklyStats, statusMessage, hasModificationRequested,
+    weeklyStats, statusMessage, hasModificationRequested, allSubmitted,
     fetchWeek, navigateWeek, saveCell,
     submitWeek, copyPreviousWeek, canSaveHours,
     DAILY_NORM, WEEKLY_NORM, CONTRACT_HOURS, MAX_DAILY_HOURS,

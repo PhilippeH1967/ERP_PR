@@ -1,7 +1,22 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
 import { timesheetApi } from '../api/timesheetApi'
+import { useAuth } from '@/shared/composables/useAuth'
 import type { TimeEntry } from '../types/timesheet.types'
+
+const { currentUser } = useAuth()
+const userRoles = computed(() => currentUser.value?.roles || [])
+const isFinance = computed(() => userRoles.value.includes('FINANCE'))
+const isPM = computed(() => userRoles.value.includes('PM') || userRoles.value.includes('PROJECT_DIRECTOR'))
+const isPaie = computed(() => userRoles.value.includes('PAIE'))
+const isAdmin = computed(() => userRoles.value.includes('ADMIN'))
+
+// Active view tab (for users with multiple roles)
+const activeView = ref<'pm' | 'finance' | 'paie'>('pm')
+const expandedAlerts = ref<number | null>(null)
+function toggleAlerts(empId: number) {
+  expandedAlerts.value = expandedAlerts.value === empId ? null : empId
+}
 
 // Dashboard data
 interface EmployeeRow {
@@ -84,19 +99,43 @@ function sparkColor(val: number): string {
 const pendingEmployees = computed(() => employees.value.filter(e => e.pm_status === 'PENDING'))
 const approvedEmployees = computed(() => employees.value.filter(e => e.pm_status === 'APPROVED'))
 
+// Determine initial view
+function initView() {
+  if (isPM.value) activeView.value = 'pm'
+  else if (isPaie.value) activeView.value = 'paie'
+  else if (isFinance.value) activeView.value = 'finance'
+  else if (isAdmin.value) activeView.value = 'paie'
+}
+
 async function fetchDashboard() {
   isLoading.value = true
   try {
-    const resp = await timesheetApi.pmDashboard()
-    const data = resp.data?.data || resp.data
+    let data
+    if (activeView.value === 'pm') {
+      const resp = await timesheetApi.pmDashboard()
+      data = resp.data?.data || resp.data
+      projects.value = data.projects || []
+    } else if (activeView.value === 'paie') {
+      const resp = await timesheetApi.paieDashboard()
+      data = resp.data?.data || resp.data
+      projects.value = []
+    } else {
+      const resp = await timesheetApi.financeDashboard()
+      data = resp.data?.data || resp.data
+      projects.value = []
+    }
     employees.value = data.employees || []
-    projects.value = data.projects || []
     kpis.value = data.kpis || {}
     weekStart.value = data.week_start || ''
     weekEnd.value = data.week_end || ''
   } finally {
     isLoading.value = false
   }
+}
+
+function switchView(view: 'pm' | 'finance' | 'paie') {
+  activeView.value = view
+  fetchDashboard()
 }
 
 // Detail slide-over
@@ -258,6 +297,17 @@ async function approveAllProject(group: ProjectGroup) {
   }
 }
 
+// Approve all SUBMITTED entries on my projects for an employee
+async function approveAllMyForEmployee(emp: EmployeeRow) {
+  actionError.value = ''
+  try {
+    await timesheetApi.approveAllMyEntries(emp.employee_id, weekStart.value)
+    await fetchDashboard()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
+}
+
 // Legacy per-approval actions (kept for batch from list)
 async function approvePM(approvalId: number) {
   actionError.value = ''
@@ -283,36 +333,107 @@ async function rejectPM(approvalId: number) {
   }
 }
 
+async function approveFinance(approvalId: number) {
+  actionError.value = ''
+  try {
+    await timesheetApi.approveFinance(approvalId)
+    await fetchDashboard()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
+}
+
+async function rejectFinance(approvalId: number) {
+  actionError.value = ''
+  try {
+    await timesheetApi.rejectFinance(approvalId)
+    await fetchDashboard()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
+}
+
+async function validatePaie(approvalId: number) {
+  actionError.value = ''
+  try {
+    await timesheetApi.validatePaie(approvalId)
+    await fetchDashboard()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
+}
+
+async function bulkValidatePaie() {
+  actionError.value = ''
+  const ids = employees.value
+    .filter(e => e.all_pm_approved && e.paie_status !== 'APPROVED' && e.approval_id)
+    .map(e => e.approval_id!)
+  if (!ids.length) return
+  try {
+    const resp = await timesheetApi.bulkValidatePaie(ids)
+    const data = resp.data?.data || resp.data
+    if (data.skipped_count > 0) {
+      actionError.value = `${data.validated_count} validees, ${data.skipped_count} ignorees`
+    }
+    await fetchDashboard()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
+}
+
+async function rejectFromPaie(approvalId: number) {
+  actionError.value = ''
+  try {
+    // Paie rejects — reverts PM approval, sends back for PM re-review
+    await timesheetApi.rejectPM(approvalId, rejectReason.value)
+    rejectingId.value = null
+    rejectReason.value = ''
+    await fetchDashboard()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
+}
+
+async function rejectPaie(approvalId: number) {
+  actionError.value = ''
+  try {
+    await timesheetApi.rejectPaie(approvalId)
+    await fetchDashboard()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
+}
+
 async function approveAll() {
   actionError.value = ''
   for (const emp of pendingEmployees.value) {
-    if (emp.approval_id) {
-      try {
-        await timesheetApi.approvePM(emp.approval_id)
-      } catch { /* continue */ }
-    }
+    try {
+      await timesheetApi.approveAllMyEntries(emp.employee_id, weekStart.value)
+    } catch { /* continue */ }
   }
   await fetchDashboard()
 }
 
-onMounted(fetchDashboard)
+onMounted(() => { initView(); fetchDashboard() })
 </script>
 
 <template>
   <div>
     <h1 class="page-title">Validation des feuilles de temps</h1>
 
-    <!-- KPI Cards -->
-    <div class="kpi-row">
+    <!-- View tabs (for multi-role users) -->
+    <div v-if="(isPM ? 1 : 0) + (isFinance ? 1 : 0) + (isPaie ? 1 : 0) + (isAdmin ? 1 : 0) > 1" class="view-tabs">
+      <button v-if="isPM" class="view-tab" :class="{ active: activeView === 'pm' }" @click="switchView('pm')">Chef de projet</button>
+      <button v-if="isFinance || isAdmin" class="view-tab" :class="{ active: activeView === 'finance' }" @click="switchView('finance')">Finance</button>
+      <button v-if="isPaie || isAdmin" class="view-tab" :class="{ active: activeView === 'paie' }" @click="switchView('paie')">Paie</button>
+    </div>
+
+    <!-- KPI Cards — PM view -->
+    <div v-if="activeView === 'pm'" class="kpi-row">
       <div v-for="proj in projects" :key="proj.id" class="kpi-card">
         <div class="kpi-label">{{ proj.code }} — {{ proj.name }}</div>
         <div class="kpi-value">{{ proj.week_hours }}h</div>
         <div class="kpi-sub">cette semaine ({{ proj.employee_count }} pers.)</div>
-      </div>
-      <div v-if="!projects.length" class="kpi-card">
-        <div class="kpi-label">Projets</div>
-        <div class="kpi-value">—</div>
-        <div class="kpi-sub">Aucun projet gere</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Taux facturable</div>
@@ -326,13 +447,69 @@ onMounted(fetchDashboard)
       </div>
     </div>
 
+    <!-- KPI Cards — Finance view -->
+    <div v-if="activeView === 'finance'" class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Total feuilles</div>
+        <div class="kpi-value">{{ kpis.total_approvals }}</div>
+        <div class="kpi-sub">cette semaine</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">En attente Finance</div>
+        <div class="kpi-value" style="color: #D97706;">{{ kpis.pending_finance }}</div>
+        <div class="kpi-sub">a approuver</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Approuvees</div>
+        <div class="kpi-value" style="color: #16A34A;">{{ kpis.approved_finance }}</div>
+        <div class="kpi-sub">completees</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Rejetees</div>
+        <div class="kpi-value" style="color: #DC2626;">{{ kpis.rejected_finance }}</div>
+        <div class="kpi-sub">renvoyees</div>
+      </div>
+    </div>
+
+    <!-- KPI Cards — Paie view -->
+    <div v-if="activeView === 'paie'" class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Employes actifs</div>
+        <div class="kpi-value">{{ kpis.total_employees }}</div>
+        <div class="kpi-sub">cette semaine</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">CP approuvees</div>
+        <div class="kpi-value" style="color: #D97706;">{{ kpis.pm_approved }}</div>
+        <div class="kpi-sub">pretes pour validation</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Validees paie</div>
+        <div class="kpi-value" style="color: #16A34A;">{{ kpis.validated }}</div>
+        <div class="kpi-sub">completees</div>
+      </div>
+      <div class="kpi-card" :style="kpis.alerts_error > 0 ? 'border-color: #DC2626; background: #FEF2F2;' : ''">
+        <div class="kpi-label">Anomalies</div>
+        <div class="kpi-value" style="color: #DC2626;">{{ kpis.alerts_error || 0 }}</div>
+        <div class="kpi-sub">{{ kpis.alerts_error || 0 }} bloquante(s), {{ kpis.alerts_warning || 0 }} avert.</div>
+      </div>
+      <div class="kpi-card" :style="kpis.missing > 0 ? 'border-color: #DC2626; background: #FEF2F2;' : ''">
+        <div class="kpi-label">Manquantes</div>
+        <div class="kpi-value" style="color: #DC2626;">{{ kpis.missing }}</div>
+        <div class="kpi-sub">non soumises</div>
+      </div>
+    </div>
+
     <div v-if="actionError" class="alert-error">{{ actionError }}</div>
 
     <!-- Employee table -->
     <div class="card-table">
       <div class="table-header">
-        <h3>Heures a valider — Semaine du {{ weekStart }}</h3>
-        <button v-if="pendingEmployees.length > 1" class="btn-batch" @click="approveAll">
+        <h3>{{ activeView === 'paie' ? 'Validation paie' : 'Heures a valider' }} — Semaine du {{ weekStart }}</h3>
+        <button v-if="activeView === 'paie'" class="btn-batch" @click="bulkValidatePaie" :disabled="!employees.some(e => e.all_pm_approved && e.paie_status !== 'APPROVED')">
+          Valider toutes les paies eligibles
+        </button>
+        <button v-else-if="pendingEmployees.length > 1" class="btn-batch" @click="approveAll">
           Approuver les {{ pendingEmployees.length }} en lot
         </button>
       </div>
@@ -341,69 +518,146 @@ onMounted(fetchDashboard)
         <thead>
           <tr>
             <th class="text-left px-4">Employe</th>
-            <th class="text-center">Heures projet</th>
+            <th v-if="activeView === 'pm'" class="text-center">Heures projet</th>
             <th class="text-center">Heures totales sem.</th>
-            <th class="text-center">Tendance 4 sem.</th>
-            <th class="text-center">Taux fact.</th>
+            <th v-if="activeView === 'pm'" class="text-center">Tendance 4 sem.</th>
+            <th v-if="activeView === 'pm'" class="text-center">Taux fact.</th>
+            <th v-if="activeView === 'finance'" class="text-center">Statut PM</th>
+            <th v-if="activeView === 'finance'" class="text-center">Statut Finance</th>
+            <th v-if="activeView === 'paie'" class="text-center">CP approuve</th>
+            <th v-if="activeView === 'paie'" class="text-center">Controles</th>
+            <th v-if="activeView === 'paie'" class="text-center">Statut Paie</th>
             <th class="text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="emp in employees" :key="emp.employee_id" class="emp-row" :class="{ 'anomaly-row': emp.total_week_hours > 45 }">
+          <template v-for="emp in employees" :key="emp.employee_id">
+          <tr class="emp-row" :class="{ 'anomaly-row': emp.total_week_hours > 45, 'row-error': activeView === 'paie' && emp.severity === 'error', 'row-warning': activeView === 'paie' && emp.severity === 'warning' }">
             <td class="px-4 py-3">
               <div class="emp-cell">
                 <div class="emp-avatar" :class="{ 'avatar-danger': emp.total_week_hours > 45 }">{{ emp.employee_initials }}</div>
                 <div>
                   <div class="emp-name">{{ emp.employee_name }}</div>
                   <div v-if="emp.total_week_hours > 45" class="emp-alert">Surcharge detectee</div>
-                  <div v-else-if="emp.pm_status === 'APPROVED'" class="emp-ok">Approuve par vous</div>
+                  <div v-else-if="activeView === 'pm' && emp.pm_status === 'APPROVED'" class="emp-ok">Approuve par vous</div>
                   <div v-else-if="emp.pm_status === 'REJECTED'" class="emp-rejected">Rejete</div>
                   <div v-else-if="emp.approved_by_other" class="emp-pending">En attente — approuve par {{ emp.approved_by_other }}</div>
                   <div v-else class="emp-pending">En attente</div>
                 </div>
               </div>
             </td>
-            <td class="text-center py-3 font-semibold">{{ emp.project_hours }}h</td>
+            <td v-if="activeView === 'pm'" class="text-center py-3 font-semibold">{{ emp.project_hours }}h</td>
             <td class="text-center py-3">
               <span class="total-badge" :class="{ 'total-danger': emp.total_week_hours > 45, 'total-ok': emp.total_week_hours <= 45 }">
                 {{ emp.total_week_hours }}h
               </span>
             </td>
-            <td class="text-center py-3">
+            <td v-if="activeView === 'pm'" class="text-center py-3">
               <div class="sparkline">
                 <div v-for="(val, i) in emp.trend_4w" :key="i" class="bar" :class="sparkColor(val)" :style="{ height: sparkHeight(val) }"></div>
               </div>
               <div class="trend-values">{{ emp.trend_4w.map(v => Math.round(v)).join(' → ') }}</div>
             </td>
-            <td class="text-center py-3">
+            <td v-if="activeView === 'pm'" class="text-center py-3">
               <span class="font-medium text-primary">{{ emp.billable_rate }}%</span>
+            </td>
+            <td v-if="activeView === 'finance'" class="text-center py-3">
+              <span class="badge" :class="{ 'badge-green': emp.pm_status === 'APPROVED', 'badge-amber': emp.pm_status === 'PENDING', 'badge-red': emp.pm_status === 'REJECTED' }">
+                {{ emp.pm_status === 'APPROVED' ? 'Approuve' : emp.pm_status === 'PENDING' ? 'En attente' : 'Rejete' }}
+              </span>
+            </td>
+            <td v-if="activeView === 'finance'" class="text-center py-3">
+              <span class="badge" :class="{ 'badge-green': emp.finance_status === 'APPROVED', 'badge-amber': emp.finance_status === 'PENDING', 'badge-red': emp.finance_status === 'REJECTED' }">
+                {{ emp.finance_status === 'APPROVED' ? 'Approuve' : emp.finance_status === 'PENDING' ? 'En attente' : 'Rejete' }}
+              </span>
+            </td>
+            <td v-if="activeView === 'paie'" class="text-center py-3">
+              <span v-if="emp.all_pm_approved" class="badge badge-green">Oui</span>
+              <span v-else-if="emp.has_submitted" class="badge badge-amber">Partiel</span>
+              <span v-else class="badge badge-red">Non soumis</span>
+            </td>
+            <td v-if="activeView === 'paie'" class="text-center py-3">
+              <button v-if="emp.alerts && emp.alerts.length > 0" class="control-indicator" :class="'control-' + emp.severity" @click="toggleAlerts(emp.employee_id)" :title="emp.alerts.length + ' controle(s)'">
+                <span class="control-dot" :class="'dot-severity-' + emp.severity"></span>
+                {{ emp.alerts.length }}
+              </button>
+              <span v-else class="control-ok" title="Aucune anomalie">&#10003;</span>
+            </td>
+            <td v-if="activeView === 'paie'" class="text-center py-3">
+              <span class="badge" :class="{ 'badge-green': emp.paie_status === 'APPROVED', 'badge-amber': emp.paie_status === 'PENDING', 'badge-red': emp.paie_status === 'REJECTED' }">
+                {{ emp.paie_status === 'APPROVED' ? 'Validee' : emp.paie_status === 'REJECTED' ? 'Rejetee' : 'En attente' }}
+              </span>
             </td>
             <td class="text-center py-3">
               <div class="action-btns">
-                <!-- Approuver -->
-                <button v-if="emp.pm_status === 'PENDING' && emp.approval_id" class="icon-btn approve" title="Approuver" @click="approvePM(emp.approval_id!)">
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                </button>
-                <!-- Demander correction -->
-                <button v-if="emp.pm_status === 'PENDING' && emp.approval_id" class="icon-btn correction" title="Demander modification" @click="rejectingId = rejectingId === emp.approval_id ? null : emp.approval_id!; rejectReason = ''">
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                </button>
-                <!-- Voir detail -->
-                <button v-if="emp.approval_id" class="icon-btn detail" title="Voir detail" @click="showDetail(emp)">
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                </button>
-                <!-- Rejeter -->
-                <button v-if="emp.pm_status === 'PENDING' && emp.approval_id" class="icon-btn reject" title="Rejeter" @click="rejectPM(emp.approval_id!)">
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-                <!-- Approved label -->
-                <span v-if="emp.pm_status === 'APPROVED'" class="status-done">Approuve</span>
-                <span v-if="emp.pm_status === 'REJECTED'" class="status-rejected">Rejete</span>
+                <!-- PM actions -->
+                <template v-if="activeView === 'pm'">
+                  <button v-if="emp.pm_status === 'PENDING' && emp.approval_id" class="icon-btn approve" title="Approuver toutes mes heures" @click="approveAllMyForEmployee(emp)">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  </button>
+                  <button v-if="emp.pm_status === 'PENDING' && emp.approval_id" class="icon-btn correction" title="Demander modification" @click="rejectingId = rejectingId === emp.approval_id ? null : emp.approval_id!; rejectReason = ''">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                  </button>
+                  <button v-if="emp.approval_id" class="icon-btn detail" title="Voir detail" @click="showDetail(emp)">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                  </button>
+                  <button v-if="emp.pm_status === 'PENDING' && emp.approval_id" class="icon-btn reject" title="Rejeter" @click="rejectPM(emp.approval_id!)">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                  <span v-if="emp.pm_status === 'APPROVED'" class="status-done">Approuve</span>
+                  <span v-if="emp.pm_status === 'REJECTED'" class="status-rejected">Rejete</span>
+                </template>
+                <!-- Finance actions -->
+                <template v-if="activeView === 'finance'">
+                  <button v-if="emp.pm_status === 'APPROVED' && emp.finance_status === 'PENDING' && emp.approval_id" class="icon-btn approve" title="Approuver Finance" @click="approveFinance(emp.approval_id!)">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  </button>
+                  <button v-if="emp.pm_status === 'APPROVED' && emp.finance_status === 'PENDING' && emp.approval_id" class="icon-btn reject" title="Rejeter Finance" @click="rejectFinance(emp.approval_id!)">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                  <span v-if="emp.finance_status === 'APPROVED'" class="status-done">Finance approuve</span>
+                  <span v-if="emp.finance_status === 'REJECTED'" class="status-rejected">Finance rejete</span>
+                  <span v-if="emp.pm_status !== 'APPROVED'" class="status-pending">En attente PM</span>
+                </template>
+                <!-- Paie actions -->
+                <template v-if="activeView === 'paie'">
+                  <!-- Valider -->
+                  <button v-if="emp.all_pm_approved && emp.paie_status !== 'APPROVED' && emp.approval_id" class="icon-btn approve" title="Valider paie" @click="validatePaie(emp.approval_id!)">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  </button>
+                  <!-- Demander modification (renvoyer au PM) -->
+                  <button v-if="emp.has_submitted && emp.paie_status !== 'APPROVED' && emp.approval_id" class="icon-btn correction" title="Demander modification" @click="rejectingId = rejectingId === emp.approval_id ? null : emp.approval_id!; rejectReason = ''">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                  </button>
+                  <!-- Voir detail -->
+                  <button v-if="emp.approval_id" class="icon-btn detail" title="Voir detail" @click="showDetail(emp)">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                  </button>
+                  <!-- Rejeter / annuler validation -->
+                  <button v-if="emp.paie_status === 'APPROVED' && emp.approval_id" class="icon-btn reject" title="Annuler validation" @click="rejectPaie(emp.approval_id!)">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                  <!-- Status labels -->
+                  <span v-if="emp.paie_status === 'APPROVED'" class="status-done">Validee</span>
+                  <span v-if="!emp.all_pm_approved && emp.has_submitted && emp.paie_status !== 'APPROVED'" class="status-pending">En attente CP</span>
+                  <span v-if="!emp.has_submitted" class="status-rejected">Non soumis</span>
+                </template>
               </div>
             </td>
           </tr>
+          <!-- Alerts detail row (expandable) -->
+          <tr v-if="activeView === 'paie' && expandedAlerts === emp.employee_id && emp.alerts && emp.alerts.length > 0">
+            <td :colspan="8" class="alerts-cell">
+              <div v-for="(alert, ai) in emp.alerts" :key="ai" class="alert-row" :class="'alert-' + alert.severity">
+                <span class="alert-severity-dot" :class="'dot-severity-' + alert.severity"></span>
+                <span class="alert-code">{{ alert.code }}</span>
+                <span class="alert-message">{{ alert.message }}</span>
+              </div>
+            </td>
+          </tr>
+          </template>
           <tr v-if="!employees.length && !isLoading">
-            <td colspan="6" class="empty-state">Aucune feuille soumise sur vos projets cette semaine</td>
+            <td colspan="8" class="empty-state">Aucune feuille soumise cette semaine</td>
           </tr>
         </tbody>
       </table>
@@ -412,7 +666,7 @@ onMounted(fetchDashboard)
       <div v-if="rejectingId" class="reject-bar">
         <span class="reject-label">Motif de la demande de modification :</span>
         <input v-model="rejectReason" type="text" placeholder="Motif (optionnel)..." class="reject-input" />
-        <button class="btn-danger-sm" @click="rejectPM(rejectingId!)">Confirmer</button>
+        <button class="btn-danger-sm" @click="activeView === 'paie' ? rejectFromPaie(rejectingId!) : rejectPM(rejectingId!)">Confirmer</button>
         <button class="btn-ghost-sm" @click="rejectingId = null; rejectReason = ''">Annuler</button>
       </div>
     </div>
@@ -571,6 +825,12 @@ onMounted(fetchDashboard)
 <style scoped>
 .page-title { font-size: 20px; font-weight: 700; color: var(--color-gray-900); margin-bottom: 16px; }
 
+/* View tabs */
+.view-tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 2px solid var(--color-gray-200); }
+.view-tab { padding: 8px 20px; font-size: 13px; font-weight: 500; border: none; background: none; cursor: pointer; color: var(--color-gray-500); border-bottom: 2px solid transparent; margin-bottom: -2px; }
+.view-tab:hover { color: var(--color-gray-700); }
+.view-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 600; }
+
 /* KPI Cards */
 .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .kpi-card { background: white; border: 1px solid var(--color-gray-200); border-radius: 8px; padding: 16px; }
@@ -629,6 +889,31 @@ tbody tr:hover { background: var(--color-gray-50); }
 .icon-btn.reject:hover { background: #FECACA; }
 .status-done { font-size: 11px; color: #16A34A; font-weight: 600; }
 .status-rejected { font-size: 11px; color: #DC2626; font-weight: 600; }
+.status-pending { font-size: 11px; color: var(--color-gray-400); }
+
+/* Payroll controls */
+.row-error { background: #FEF2F2 !important; }
+.row-warning { background: #FFFBEB !important; }
+.control-indicator { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; }
+.control-error { background: #FEE2E2; color: #DC2626; }
+.control-warning { background: #FEF3C7; color: #92400E; }
+.control-info { background: #DBEAFE; color: #1D4ED8; }
+.control-ok { color: #16A34A; font-size: 14px; font-weight: 700; }
+.control-dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot-severity-error { background: #DC2626; }
+.dot-severity-warning { background: #F59E0B; }
+.dot-severity-info { background: #3B82F6; }
+.dot-severity-ok { background: #16A34A; }
+
+/* Alerts detail row */
+.alerts-cell { padding: 8px 16px !important; background: var(--color-gray-50); }
+.alert-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
+.alert-error { color: #DC2626; }
+.alert-warning { color: #92400E; }
+.alert-info { color: #1D4ED8; }
+.alert-severity-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.alert-code { font-weight: 600; font-size: 10px; padding: 1px 6px; border-radius: 4px; background: var(--color-gray-100); color: var(--color-gray-600); }
+.alert-message { flex: 1; }
 
 /* Reject bar */
 .reject-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: #FEF3C7; border-top: 1px solid #FCD34D; }
