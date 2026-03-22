@@ -197,6 +197,17 @@ function normClass(total: number, norm: number): string {
       <span class="text-xs text-text-muted">Soumission avant samedi 18h</span>
     </div>
 
+    <!-- Period locked banner -->
+    <div
+      v-if="store.periodLocked"
+      class="mb-4 flex items-center gap-2 rounded-lg border border-danger/30 bg-danger/5 p-3"
+    >
+      <span>&#128274;</span>
+      <span class="text-sm text-danger font-medium">
+        Cette periode est verrouillee. Aucune modification n'est possible.
+      </span>
+    </div>
+
     <!-- Modification requested banner -->
     <div
       v-if="store.hasModificationRequested"
@@ -404,7 +415,7 @@ function normClass(total: number, norm: number): string {
                 :project-id="row.project_id"
                 :phase-id="row.phase_id"
                 :date="date"
-                :is-locked="row.is_locked || (row.entries[date]?.status !== undefined && row.entries[date]?.status !== 'DRAFT')"
+                :is-locked="row.is_locked || store.periodLocked || (row.entries[date]?.status !== undefined && row.entries[date]?.status !== 'DRAFT')"
                 :aria-label="`${row.project_code} ${row.phase_name} ${date}`"
                 @save="onCellSave"
               />

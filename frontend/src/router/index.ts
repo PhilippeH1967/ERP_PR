@@ -69,6 +69,11 @@ const router = createRouter({
           name: 'approvals',
           component: () => import('@/features/timesheet/views/ApprovalQueue.vue'),
         },
+        {
+          path: 'period-locks',
+          name: 'period-locks',
+          component: () => import('@/features/timesheet/views/PeriodLocks.vue'),
+        },
         // Billing
         {
           path: 'billing',

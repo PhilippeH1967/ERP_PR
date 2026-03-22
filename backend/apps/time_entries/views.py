@@ -48,7 +48,20 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         ctx["if_match_version"] = self.request.headers.get("If-Match")
         return ctx
 
+    def _check_period_locked(self, date_val):
+        """Check if a period is locked globally on this date."""
+        locked_exists = TimeEntry.objects.filter(
+            date=date_val,
+            status="LOCKED",
+        ).exists()
+        if locked_exists:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError(
+                {"error": {"code": "PERIOD_LOCKED", "message": f"La période du {date_val} est verrouillée. Impossible de modifier."}}
+            )
+
     def perform_create(self, serializer):
+        self._check_period_locked(serializer.validated_data.get("date"))
         tenant_id = getattr(self.request, "tenant_id", None)
         if tenant_id:
             from apps.core.models import Tenant
@@ -61,6 +74,24 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             from apps.core.models import Tenant
 
             serializer.save(employee=self.request.user, tenant=Tenant.objects.first())
+
+    def perform_update(self, serializer):
+        entry = self.get_object()
+        if entry.status == "LOCKED":
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError(
+                {"error": {"code": "ENTRY_LOCKED", "message": "Cette entrée est verrouillée."}}
+            )
+        self._check_period_locked(entry.date)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.status == "LOCKED":
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError(
+                {"error": {"code": "ENTRY_LOCKED", "message": "Cette entrée est verrouillée."}}
+            )
+        instance.delete()
 
     @action(detail=False, methods=["post"])
     def submit_week(self, request):
@@ -208,6 +239,120 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
                 created += 1
 
         return Response({"copied_count": created})
+
+    @action(detail=False, methods=["get"])
+    def is_period_locked(self, request):
+        """Check if a period has any LOCKED entries (global, not per-user)."""
+        from datetime import date as date_type, timedelta
+        week_start = request.query_params.get("week_start")
+        if not week_start:
+            return Response({"locked": False})
+        ws = date_type.fromisoformat(week_start)
+        we = ws + timedelta(days=6)
+        locked = TimeEntry.objects.filter(
+            date__gte=ws, date__lte=we, status="LOCKED",
+        ).exists()
+        return Response({"locked": locked})
+
+    @action(detail=False, methods=["get"])
+    def period_summary(self, request):
+        """Return all weeks that have entries, with lock status."""
+        from collections import defaultdict
+        from datetime import timedelta
+        from decimal import Decimal
+
+        from django.db.models import Count, Min, Max, Sum
+
+        # Find date range
+        bounds = TimeEntry.objects.aggregate(min=Min("date"), max=Max("date"))
+        if not bounds["min"]:
+            return Response({"weeks": []})
+
+        # Walk from first Sunday to last Saturday
+        first = bounds["min"]
+        # Go back to Sunday
+        first_sunday = first - timedelta(days=(first.weekday() + 1) % 7)
+        last = bounds["max"]
+        last_saturday = last + timedelta(days=(5 - last.weekday()) % 7)
+
+        weeks = []
+        current = first_sunday
+        while current <= last_saturday:
+            week_end = current + timedelta(days=6)
+            entries = TimeEntry.objects.filter(date__gte=current, date__lte=week_end)
+            count = entries.count()
+            if count > 0:
+                total_hours = float(entries.aggregate(t=Sum("hours"))["t"] or Decimal("0"))
+                statuses = list(entries.values_list("status", flat=True).distinct())
+                employee_count = entries.values("employee").distinct().count()
+                all_locked = all(s == "LOCKED" for s in statuses)
+                has_locked = "LOCKED" in statuses
+
+                weeks.append({
+                    "week_start": current.isoformat(),
+                    "week_end": week_end.isoformat(),
+                    "entry_count": count,
+                    "total_hours": round(total_hours, 1),
+                    "employee_count": employee_count,
+                    "statuses": statuses,
+                    "status": "locked" if all_locked else "partial" if has_locked else "open",
+                })
+            current += timedelta(days=7)
+
+        weeks.reverse()  # Most recent first
+        return Response({"weeks": weeks})
+
+    @action(detail=False, methods=["post"])
+    def lock_before(self, request):
+        """Lock all entries before a given date."""
+        from datetime import date as date_type
+
+        before_date = request.data.get("before_date")
+        if not before_date:
+            return Response(
+                {"error": {"code": "MISSING_DATE", "message": "before_date required"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        bd = date_type.fromisoformat(before_date) if isinstance(before_date, str) else before_date
+        count = TimeEntry.objects.filter(
+            date__lt=bd,
+        ).exclude(status="LOCKED").update(status="LOCKED")
+        return Response({"locked_count": count, "before_date": bd.isoformat()})
+
+    @action(detail=False, methods=["post"])
+    def lock_period(self, request):
+        """Lock all entries in a period — sets status to LOCKED."""
+        from datetime import date as date_type
+
+        period_start = request.data.get("period_start")
+        period_end = request.data.get("period_end")
+        if not period_start or not period_end:
+            return Response(
+                {"error": {"code": "MISSING_DATES", "message": "period_start and period_end required"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        ps = date_type.fromisoformat(period_start) if isinstance(period_start, str) else period_start
+        pe = date_type.fromisoformat(period_end) if isinstance(period_end, str) else period_end
+
+        # Validate: must be Sunday to Saturday (full week)
+        if ps.weekday() != 6:  # 6 = Sunday
+            return Response(
+                {"error": {"code": "INVALID_PERIOD", "message": "La date de debut doit etre un dimanche"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from datetime import timedelta
+        expected_end = ps + timedelta(days=6)
+        if pe != expected_end:
+            return Response(
+                {"error": {"code": "INVALID_PERIOD", "message": f"La date de fin doit etre le samedi ({expected_end.isoformat()})"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        count = TimeEntry.objects.filter(
+            date__gte=ps, date__lte=pe,
+        ).exclude(status="LOCKED").update(status="LOCKED")
+
+        return Response({"locked_count": count, "period_start": ps.isoformat(), "period_end": pe.isoformat()})
 
     @action(detail=False, methods=["post"])
     def approve_entries(self, request):
@@ -493,8 +638,15 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
 
         User = get_user_model()
 
-        # Find projects managed by current user
-        my_projects = Project.objects.filter(pm=request.user)
+        # Find projects — PM sees their own, ADMIN/PAIE see all
+        from apps.core.models import ProjectRole, Role
+        user_roles = set(
+            ProjectRole.objects.filter(user=request.user).values_list("role", flat=True)
+        )
+        if Role.ADMIN in user_roles or Role.PAIE in user_roles:
+            my_projects = Project.objects.all()
+        else:
+            my_projects = Project.objects.filter(pm=request.user)
         if not my_projects.exists():
             return Response({"projects": [], "employees": [], "kpis": {}})
 

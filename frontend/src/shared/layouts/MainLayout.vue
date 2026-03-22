@@ -60,6 +60,10 @@ const canApprove = computed(() => {
   const roles = currentUser.value?.roles || []
   return roles.includes('PM') || roles.includes('PROJECT_DIRECTOR') || roles.includes('FINANCE') || roles.includes('PAIE') || roles.includes('ADMIN')
 })
+const canLockPeriod = computed(() => {
+  const roles = currentUser.value?.roles || []
+  return roles.includes('FINANCE') || roles.includes('PAIE') || roles.includes('ADMIN')
+})
 
 const navSections = computed(() => {
   const sections = [
@@ -69,6 +73,7 @@ const navSections = computed(() => {
         { name: 'nav.dashboard', path: '/dashboard', icon: '📊' },
         { name: 'nav.timesheets', path: '/timesheets', icon: '🕐' },
         ...(canApprove.value ? [{ name: 'nav.approvals', path: '/approvals', icon: '✅' }] : []),
+        ...(canLockPeriod.value ? [{ name: 'Periodes', path: '/period-locks', icon: '🔒' }] : []),
         { name: 'nav.projects', path: '/projects', icon: '📁' },
         { name: 'nav.clients', path: '/clients', icon: '🤝' },
       ],

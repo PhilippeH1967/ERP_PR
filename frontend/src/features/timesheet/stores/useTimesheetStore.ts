@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import apiClient from '@/plugins/axios'
 import { timesheetApi } from '../api/timesheetApi'
 import type {
   TimeEntry,
@@ -159,6 +160,9 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     contractHours: weeklyStats.value.contract_hours || CONTRACT_HOURS,
   }))
 
+  // Period locked — checked globally via API
+  const periodLocked = ref(false)
+
   // Detect if some entries were sent back for modification (DRAFT mixed with SUBMITTED on same week)
   const hasModificationRequested = computed(() => {
     const statuses = new Set<string>()
@@ -204,6 +208,13 @@ export const useTimesheetStore = defineStore('timesheet', () => {
         locks.value = lockResp.data?.data || lockResp.data || []
       } catch {
         locks.value = []
+      }
+      try {
+        const lockCheckResp = await apiClient.get('time_entries/is_period_locked/', { params: { week_start: currentWeekStart.value } })
+        const lockData = lockCheckResp.data?.data || lockCheckResp.data
+        periodLocked.value = lockData?.locked || false
+      } catch {
+        periodLocked.value = false
       }
       try {
         const statsResp = await timesheetApi.weeklyStats(currentWeekStart.value)
@@ -279,7 +290,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
   return {
     entries, isLoading, saveError, currentWeekStart, currentWeek,
     gridRows, projectGroups, dailyTotals, weeklyTotal, weekDates,
-    weeklyStats, statusMessage, hasModificationRequested, allSubmitted,
+    weeklyStats, statusMessage, hasModificationRequested, allSubmitted, periodLocked,
     fetchWeek, navigateWeek, saveCell,
     submitWeek, copyPreviousWeek, canSaveHours,
     DAILY_NORM, WEEKLY_NORM, CONTRACT_HOURS, MAX_DAILY_HOURS,

@@ -101,10 +101,10 @@ const approvedEmployees = computed(() => employees.value.filter(e => e.pm_status
 
 // Determine initial view
 function initView() {
-  if (isPM.value) activeView.value = 'pm'
+  if (isAdmin.value) activeView.value = 'paie'
+  else if (isPM.value) activeView.value = 'pm'
   else if (isPaie.value) activeView.value = 'paie'
   else if (isFinance.value) activeView.value = 'finance'
-  else if (isAdmin.value) activeView.value = 'paie'
 }
 
 async function fetchDashboard() {
@@ -435,8 +435,8 @@ onMounted(() => { initView(); fetchDashboard() })
     <h1 class="page-title">Validation des feuilles de temps</h1>
 
     <!-- View tabs (for multi-role users) -->
-    <div v-if="(isPM ? 1 : 0) + (isFinance ? 1 : 0) + (isPaie ? 1 : 0) + (isAdmin ? 1 : 0) > 1" class="view-tabs">
-      <button v-if="isPM" class="view-tab" :class="{ active: activeView === 'pm' }" @click="switchView('pm')">Chef de projet</button>
+    <div v-if="isAdmin || (isPM ? 1 : 0) + (isFinance ? 1 : 0) + (isPaie ? 1 : 0) > 1" class="view-tabs">
+      <button v-if="isPM || isAdmin || isPaie" class="view-tab" :class="{ active: activeView === 'pm' }" @click="switchView('pm')">Chef de projet</button>
       <button v-if="isFinance || isAdmin" class="view-tab" :class="{ active: activeView === 'finance' }" @click="switchView('finance')">Finance</button>
       <button v-if="isPaie || isAdmin" class="view-tab" :class="{ active: activeView === 'paie' }" @click="switchView('paie')">Paie</button>
     </div>
