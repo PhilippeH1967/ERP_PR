@@ -35,10 +35,13 @@ documentCounts:
   referenceData: 1
   ootiAnalysis: 16
 date: 2026-03-03
+lastUpdated: 2026-04-01
 author: Philippe
 ---
 
 # Product Requirements Document - ERP
+
+> **Version History:** v1.1.012 (2026-04-01) — Added PAIE role (9th role), time entry status flow (DRAFT→SUBMITTED→PM_APPROVED→FINANCE_APPROVED→PAIE_VALIDATED→LOCKED), period locking (PeriodFreeze/PeriodUnlock/TimesheetLock), 11 payroll controls, billing permissions matrix, per-entry PM approval with multi-PM color coding, MVP-1.5 deferred backlog from Sprint V5 and BMAD audits. All additions marked "(Added v1.1.012)" or "(Updated v1.1.012)".
 
 ## Executive Summary
 
@@ -109,13 +112,13 @@ The solution draws functional inspiration from two reference applications — Ch
 ### In Scope
 
 - **Project Management** — 4-step creation wizard, two-axis structure (sequential phases + transversal support services), virtual resource profiles, multi-employee assignment, WBS hierarchy, contract management, subcontractor management, internal projects, project dashboard
-- **Time Tracking** — Authorization-based visibility, weekly entry, 2-level approval, phase/person blocking, correction workflows, favorites and quick-switch
+- **Time Tracking** — Authorization-based visibility, weekly entry, 3-level approval (PM → Finance → PAIE), per-entry PM approval, multi-PM color coding, period locking (freeze/unlock), phase/person blocking, payroll controls, correction workflows, favorites and quick-switch
 - **Invoicing & Financial Layer** — Dual project layers (realization + financial), mixed billing modes, dual hourly rates, 7-column invoice preparation, CA/Salary ratio tracking, 10+ billing templates, billing dossiers, invoice workflow, payment tracking, Intact export
 - **Expense Reports** — Expense entry with receipt upload, 3-level approval, per-project refundability, configurable categories, reporting, Intact export
 - **Supplier Payment Tracking** — 3-state lifecycle, PM authorization + Finance payment, cross-project reporting
 - **Service Proposals** — Proposal creation and lifecycle, time tracking, conversion to project, commercial reporting
 - **Consortium Management** — Consortium entity, multi-project support, dual financial views, profit-sharing calculation
-- **User & Access Management** — SSO Microsoft Entra ID, 8 roles with RBAC, salary data visibility enforcement, audit trail, delegation
+- **User & Access Management** — SSO Microsoft Entra ID, 9 roles with RBAC (including PAIE), salary data visibility enforcement, audit trail, delegation
 - **Client Management** — 5-tab client interface, duplicate detection, financial history
 - **Dashboards & Reporting** — Role-based dashboards, financial KPIs, hours reports, system health
 - **Localization** — Bilingual French/English, locale-aware formatting, jurisdiction-specific labor and expense rules
@@ -175,7 +178,7 @@ The solution draws functional inspiration from two reference applications — Ch
 **Daily Dashboard:**
 1. Jean-François opens his personalized dashboard showing all projects with health indicators (green/yellow/red).
 2. He sees budget consumed, hours consumed vs planned, team status, and phase completion per project.
-3. He approves pending timesheets (first-level) and reviews any budget alerts.
+3. He approves pending time entries individually (per-entry, not per-sheet) for his projects. Color coding distinguishes his projects (blue), already-approved entries (green), and other PMs' projects (grey). *(Updated v1.1.012)*
 
 ### Journey 3: Nathalie — Finance/Controller
 
@@ -219,7 +222,7 @@ The solution draws functional inspiration from two reference applications — Ch
 
 **System Management:**
 1. Admin configures SSO via Microsoft Entra ID with auto-provisioning.
-2. Assigns roles (8 distinct roles) with granular permissions through the admin interface.
+2. Assigns roles (9 distinct roles, including PAIE) with granular permissions through the admin interface. *(Updated v1.1.012)*
 3. Monitors system health: response times, error rates, adoption by BU.
 4. Manages data migration from ChangePoint (10+ years of data).
 5. Configures templates, formats, categories, positions, and tax settings without code changes.
@@ -266,7 +269,7 @@ The ERP operates in the professional services domain, specifically for architect
 
 4. **Consortium Dual View** — A toggle between "Provencher view" (invoices issued to consortium + profit share = firm's CA) and "Consortium view" (client revenue, member costs, margin, profit sharing). The critical accounting rule — consortium client revenue excluded from Provencher's CA — is enforced at the data model level.
 
-5. **Phase/Person Blocking** — Two-level blocking mechanism: phase-level blocking (no one can enter time on a completed phase) and person-level blocking (specific individual blocked but others can still enter). This granular control prevents unauthorized time entry while maintaining flexibility.
+5. **Phase/Person Blocking & Period Locking** — Multi-level blocking mechanism: phase-level blocking (no one can enter time on a completed phase), person-level blocking (specific individual blocked but others can still enter), and global period freeze (no entries before a cutoff date, with targeted unlock exceptions). This granular control prevents unauthorized time entry while maintaining flexibility. *(Updated v1.1.012)*
 
 6. **4-Step Project Creation Wizard** — Structured creation flow (Metadata → Budget → Resources & Planning → Subcontractors) with optional Step 4 and post-creation completion capabilities. Balances thoroughness with speed — projects can be created quickly and refined over time.
 
@@ -303,7 +306,7 @@ The ERP operates in the professional services domain, specifically for architect
 - SSO via Microsoft Entra ID (OIDC/SAML 2.0) — no local passwords
 - JWT authentication with short-lived access tokens (15min) + refresh tokens (7 days)
 - All data encrypted in transit (TLS 1.3) and at rest (AES-256)
-- Role-based access control with 8 distinct roles and delegation
+- Role-based access control with 9 distinct roles (including PAIE) and delegation *(Updated v1.1.012)*
 - Real salary costs restricted via PostgreSQL RLS
 - Complete audit trail on all financial entity modifications
 - OWASP Top 10 compliance
@@ -353,11 +356,11 @@ AI-powered features, advanced analytics, opportunity pipeline, multi-tenant SaaS
 | Module | Key Capabilities |
 |---|---|
 | **Project Management** | 4-step wizard, templates, WBS hierarchy, virtual profiles, subcontractors, project dashboard, internal projects |
-| **Time Tracking** | Weekly entry, 2-level approval, phase/person blocking, favorites, reminders, correction workflows |
+| **Time Tracking** | Weekly entry, 3-level approval (PM per-entry → Finance → PAIE), multi-PM color coding, phase/person blocking, period freeze/unlock, 11 payroll controls, favorites, reminders, correction workflows |
 | **Invoicing & Financial Layer** | Dual layers, mixed billing, dual rates, 7-column prep screen, CA/Salary ratio, templates, dossiers, Intact export |
 | **Expense Reports** | Entry with receipts, 3-level approval, refacturable tracking, categories, Intact export |
 | **Supplier Payment Tracking** | 3-state lifecycle, PM authorization, Finance payment, cross-project reporting |
-| **Cross-Cutting** | SSO, RBAC (8 roles), audit trail, dashboards, bilingual, client management, notifications |
+| **Cross-Cutting** | SSO, RBAC (9 roles including PAIE), audit trail, dashboards, bilingual, client management, notifications |
 
 ### MVP-1.5 Features
 
@@ -372,6 +375,30 @@ AI-powered features, advanced analytics, opportunity pipeline, multi-tenant SaaS
 | **Invoice currency per client** | Exchange rate management |
 | **Dual currency display** | Financial screens show both currencies |
 | **Client group membership** | Client grouping capability |
+
+### MVP-1.5 Deferred Items — Identified During MVP-1 Development (Added v1.1.012)
+
+The following items were identified during Sprint V1-V5 development and BMAD audits as important improvements with manual workarounds in MVP-1:
+
+| Area | Item | Origin |
+|---|---|---|
+| **Timesheets** | Accounting view (monthly by project, hours by week, billing status, "Generate report" button) | Mockup audit |
+| **Timesheets** | Late submission reminders (auto-email Wed/Fri, escalate to manager) | Sprint V5 |
+| **Timesheets** | Per-employee contract hours (replace hardcoded 40h with actual part-time/forfaitaire) | Sprint V5 |
+| **Timesheets** | Separate PeriodLock model (decouple from TimeEntry status to preserve workflow) | BMAD audit |
+| **Timesheets** | Audit trail for lock/unlock operations (dedicated model) | BMAD audit |
+| **Timesheets** | Auto-expiry of PeriodUnlock after N days | BMAD audit |
+| **Timesheets** | WebSocket/polling for real-time lock status refresh | BMAD audit |
+| **Projects** | Amendments as mini-contracts (own phases, resources, billing) | Sprint V4 |
+| **Projects** | Auto-numbered amendments ({code}-AV-{seq}) | Sprint V4 |
+| **Projects** | Team tab with "+ Assign member" button, employee names instead of IDs | Mockup audit |
+| **Projects** | Assignment % control (max 100% per phase, auto-calculate remaining) | Sprint V4 |
+| **UX** | Project-centric billing (invoice from project detail) | Mockup audit |
+| **UX** | i18n on all business pages | Sprint V3 |
+| **UX** | Searchable dropdowns everywhere (unified pattern) | Mockup audit |
+| **Security** | Tenant filtering on approve/reject entry endpoints | BMAD audit |
+| **Security** | N+1 query optimization on PM dashboard | BMAD audit |
+| **Security** | Week boundary consistency (Mon-Sun vs Sun-Sat) | BMAD audit |
 
 ### MVP-2 Features
 
@@ -496,8 +523,9 @@ The two legal entities (Provencher_Roy Prod, PRAA) are handled as follows:
 - **FR18:** [MVP-1] Employee can see daily total indicators when different from the norm (7.5h or 8h)
 - **FR19:** [MVP-1] Employee can save timesheet as draft and submit weekly for approval
 - **FR20:** [MVP-1] PM, Finance, or Admin can block a phase (no one can enter time) or block a specific person on a phase
-- **FR21:** [MVP-1] PM can approve submitted timesheets as first-level approver
+- **FR21:** [MVP-1] PM can approve submitted time entries individually (per-entry, not per-sheet) as first-level approver. Multi-PM support with color coding: blue = my projects, green = already approved, grey = other PM's projects *(Updated v1.1.012)*
 - **FR22:** [MVP-1] Finance/Direction can approve timesheets as second-level approver
+- **FR22c:** [MVP-1] PAIE can validate timesheets as third-level approver after Finance approval, with 11 automated payroll controls run before validation *(Added v1.1.012)*
 - **FR22b:** [MVP-1] System enforces anti-self-approval: a secondary timesheet approver is assigned per project. No employee can approve their own time entries
 - **FR23:** [MVP-1] PM or Finance defines billing mode per task (fixed-price or hourly). Employees do not choose billing categorization
 - **FR23b:** [MVP-1] Mandatory phases "Gestion de projet" and "Qualité" are included in every project template by default
@@ -509,6 +537,68 @@ The two legal entities (Provencher_Roy Prod, PRAA) are handled as follows:
 - **FR27c:** [MVP-1.5] Finance or Admin can unlock a closed time period for a specific employee with justification (e.g., late correction). Unlocking creates an audit entry and re-locks automatically after a configurable delay (default 48h)
 - **FR27d:** [MVP-1.5] Finance can perform bulk time corrections: transfer hours from one project/phase/task to another for a specific employee and period, with before/after audit trail
 - **FR27e:** [MVP-1] If an employee's project assignment changes after they have submitted (but not yet approved) a timesheet, the system flags the affected entries for PM review rather than silently invalidating them
+
+### Time Entry Status Flow (Added v1.1.012)
+
+The time entry lifecycle follows a 6-state workflow reflecting the 3-level approval chain:
+
+```
+DRAFT → SUBMITTED → PM_APPROVED → FINANCE_APPROVED → PAIE_VALIDATED → LOCKED
+```
+
+| Status | Description | Who transitions |
+|---|---|---|
+| **DRAFT** | Employee is editing, not yet submitted | Employee (auto on create) |
+| **SUBMITTED** | Employee submitted for review | Employee |
+| **PM_APPROVED** | Project Manager approved the individual entry | PM (per-entry) |
+| **FINANCE_APPROVED** | Finance validated the week | Finance |
+| **PAIE_VALIDATED** | Payroll controls passed and PAIE validated | PAIE role |
+| **LOCKED** | Period frozen — no further modifications | System (on period freeze) |
+
+Rejection at any level returns the entry to DRAFT with a rejection reason visible to the employee. Anti-self-approval is enforced at all levels.
+
+### Period Locking (Added v1.1.012)
+
+Three complementary locking mechanisms protect time entry integrity:
+
+- **FR27f:** [MVP-1] **PeriodFreeze** — Finance, Admin, or PAIE can set a global freeze date. No time entries can be created or modified before this date across the entire tenant. Only one active freeze date exists at a time (latest wins). Used to close payroll periods permanently.
+- **FR27g:** [MVP-1] **PeriodUnlock** — Finance or Admin can grant temporary exceptions to a frozen period for a specific date range. Each unlock requires a reason (Correction, Amendment, or Audit) and a justification note. Enables late corrections without unfreezing the entire period. *(MVP-1.5: auto-expiry after configurable delay, audit trail model)*
+- **FR27h:** [MVP-1] **TimesheetLock** — PM, Finance, or Admin can lock a specific phase (all employees blocked) or a specific person on a phase. Granular blocking independent of period freeze. Used for completed phases or personnel changes.
+- **FR27i:** [MVP-1] Lock/unlock/freeze operations are restricted to ADMIN, FINANCE, and PAIE roles. All operations are recorded with user and timestamp.
+
+### Payroll Controls (Added v1.1.012)
+
+- **FR27j:** [MVP-1] The PAIE role has access to 11 automated payroll validation controls that run on each employee's weekly timesheet before validation. Controls produce alerts at three severity levels (error, warning, info):
+
+| # | Code | Severity | Rule |
+|---|---|---|---|
+| 1 | INCOMPLETE_HOURS | warning | Total hours < contract hours with no declared absence |
+| 2 | OVERTIME_WITH_SICK | error | Overtime declared in the same week as sick leave — forbidden |
+| 3 | OVERTIME_WITH_LEAVE | warning | Overtime declared in the same week as other leave — adjusted threshold |
+| 4 | OVERTIME | warning/error | Hours exceed contract threshold (error if >10h overtime) |
+| 5 | DAY_OVER_10H | warning | Single day exceeds 10 hours |
+| 6 | WEEKEND_WORK | warning | Hours entered on Saturday or Sunday |
+| 7 | SICK_AND_WORK_SAME_DAY | error | Sick leave and work hours on the same day — forbidden |
+| 8 | UNUSUAL_TREND | info | Weekly hours deviate >20% from 4-week rolling average |
+| 9 | CONSECUTIVE_OVERTIME | error | 3+ consecutive weeks of overtime — burn-out risk |
+| 10 | PM_NOT_APPROVED | error | Entries still in SUBMITTED status (PM has not approved) |
+| 11 | LEGAL_MAX_50H | error | Total hours exceed 50h/week (LNT Québec legal maximum) |
+
+- **FR27k:** [MVP-1] PAIE can validate individual employees or perform bulk validation. Validation with outstanding error-level alerts requires explicit override.
+- **FR27l:** [MVP-1] PAIE can reject entries back to DRAFT with a rejection reason visible to the employee.
+
+### Billing Permissions (Added v1.1.012)
+
+- **FR27m:** [MVP-1] Billing module access is governed by a role-based permission matrix:
+
+| Operation | ADMIN | FINANCE | PM | PROJECT_DIRECTOR |
+|---|---|---|---|---|
+| **View** invoices, templates, payments | Yes | Yes | Yes (own projects) | Yes (own projects) |
+| **Create/Edit** invoices, credit notes, payments | Yes | Yes | No | No |
+| **Submit** invoices for approval | Yes | Yes | Yes | No |
+| **Approve** invoices | Yes | Yes | No | Yes |
+
+- **FR27n:** [MVP-1] EMPLOYEE, DEPT_ASSISTANT, PAIE, BU_DIRECTOR, and PROPOSAL_MANAGER roles have no direct billing access unless granted via delegation.
 
 ### Invoicing & Financial Layer
 
@@ -615,7 +705,23 @@ The two legal entities (Provencher_Roy Prod, PRAA) are handled as follows:
 ### User & Access Management
 
 - **FR65:** [MVP-1] User can authenticate via SSO Microsoft Entra ID (OIDC/SAML 2.0) with automatic user provisioning. No local passwords
-- **FR66:** [MVP-1] Admin can assign roles with granular permissions: Employee, PM, Associé en charge (Project Director), Dept. Assistant, Finance/Controller, Associate/BU Director, Proposal Manager, Admin
+- **FR66:** [MVP-1] Admin can assign roles with granular permissions: Employee, PM, Associé en charge (Project Director), Dept. Assistant, Finance/Controller, Paie, Associate/BU Director, Proposal Manager, Admin *(Updated v1.1.012 — added PAIE role)*
+- **FR66b:** [MVP-1] The PAIE (Payroll) role is the 9th RBAC role, responsible for: (1) third-level timesheet validation after Finance approval, (2) running and reviewing 11 automated payroll controls per employee per week, (3) bulk or individual validation/rejection of timesheets, (4) period freeze management (setting global freeze dates), (5) period unlock for late corrections. The PAIE role has no access to billing, project creation, or expense approval. *(Added v1.1.012)*
+
+- **FR66c:** [MVP-1] Complete role list with primary responsibilities *(Added v1.1.012)*:
+
+| Role | Key Responsibilities |
+|---|---|
+| EMPLOYEE | Time entry, expense submission, view own data |
+| PM | Project management, first-level time approval (per-entry), expense approval, budget tracking |
+| PROJECT_DIRECTOR | Invoice approval, project oversight, financial performance |
+| BU_DIRECTOR | BU-level reporting, personnel lending, executive dashboards |
+| FINANCE | Billing, second-level time approval, expense validation, period management, Intact export |
+| PAIE | Third-level time validation, payroll controls, period freeze/unlock |
+| DEPT_ASSISTANT | Clerical support for PMs, delegation-based access |
+| PROPOSAL_MANAGER | Service proposal lifecycle |
+| ADMIN | System configuration, user management, data migration, full access |
+
 - **FR67:** [MVP-1] System enforces role-based visibility on salary cost data: real salary costs restricted to Finance/Direction/Project Director via PostgreSQL RLS
 - **FR68:** [MVP-1] System maintains a complete audit trail on all modifications to critical entities (financial transactions, time corrections, budget changes, leadership role changes)
 - **FR69:** [MVP-1] Any role holder can delegate their tasks and permissions to another person for a defined scope and period

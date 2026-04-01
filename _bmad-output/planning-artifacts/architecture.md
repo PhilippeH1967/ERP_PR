@@ -79,7 +79,7 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 - Primary domain: Full-stack web application (Django 5 + DRF backend, Vue 3 + Pinia frontend)
 - Complexity level: Enterprise
 - Estimated architectural components: 14+ Django apps, 12+ Vue feature modules
-- User roles: 8 distinct roles with granular RBAC and delegation
+- User roles: 9 distinct roles with granular RBAC and delegation (Added v1.1.012: PAIE role)
 - Concurrent users: 400+ (peak during Monday morning and monthly billing cycle)
 - Historical data: 10+ years with partitioning requirement
 - Phasing: MVP-1 (operational foundation), MVP-1.5 (productivity), MVP-2 (strategic intelligence + SaaS)
@@ -120,7 +120,7 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 
 ### Cross-Cutting Concerns Identified
 
-1. **RBAC & Permissions** — 8 roles with per-project, per-BU, and delegation-based access. Anti-self-approval enforcement (FR22b). Affects every API endpoint and UI component. Must support "acting as delegate" context switching with audit trail. Mockups confirm: role matrix with visibility rules (salary cost, billing, admin), delegation banner, and role-scoped views per module.
+1. **RBAC & Permissions** — 9 roles (Added v1.1.012: PAIE) with per-project, per-BU, and delegation-based access. Anti-self-approval enforcement (FR22b). Affects every API endpoint and UI component. Must support "acting as delegate" context switching with audit trail. Mockups confirm: role matrix with visibility rules (salary cost, billing, admin), delegation banner, and role-scoped views per module.
 
 2. **Audit Trail** — Complete modification history on all financial entities (invoices, credit notes, payments, time corrections, budget changes, holdbacks, amendments, leadership role changes, expense reversals, ST disputes). Required for annual audit. Spans all modules. Mockups confirm: audit log table with delegation context tracking.
 
@@ -236,7 +236,7 @@ npm create vue@latest erp-frontend
 - Multi-tenancy strategy (shared schema + RLS)
 - Authentication method (SSO Microsoft Entra ID via django-allauth)
 - API authentication (JWT)
-- RBAC model (django-rules + custom ProjectRole, 8 roles)
+- RBAC model (django-rules + custom ProjectRole, 9 roles incl. PAIE — Added v1.1.012)
 - Hosting (on-premise Docker)
 - Django version (6.0)
 - Optimistic locking strategy (NFR31)
@@ -290,6 +290,69 @@ npm create vue@latest erp-frontend
 - Rationale: NFR31 mandates no silent overwrites on financial data
 - Affects: All financial model serializers, frontend error handling
 
+**(Added v1.1.012) PeriodFreeze Model — Global Freeze-Before Date:**
+- Decision: New `PeriodFreeze` model in `apps/time_entries/models.py`
+- Stores a per-tenant `freeze_before` date — no time entries can be created or modified before this date
+- Fields: `freeze_before` (DateField), `frozen_by` (FK to user), `frozen_at` (auto timestamp), `tenant` (inherited from TenantScopedModel)
+- Latest freeze per tenant takes precedence (ordered by `-frozen_at`)
+- Freeze can be temporarily overridden by `PeriodUnlock` records for corrections/amendments/audit
+- Rationale: Payroll and accounting require hard cutoff dates to prevent retroactive timesheet modifications
+- Affects: All time entry create/update operations, period lock checks
+
+**(Added v1.1.012) WeeklyApproval — 3-Level Approval with PAIE:**
+- Decision: Extended `WeeklyApproval` model with third approval level for payroll (PAIE)
+- New fields: `paie_status` (PENDING/APPROVED/REJECTED), `paie_validated_by` (FK to user), `paie_validated_at` (DateTimeField)
+- Approval flow: PM approval (level 1) → Finance approval (level 2) → PAIE validation (level 3)
+- PAIE validation transitions time entries from `PM_APPROVED` → `PAIE_VALIDATED` status
+- Rationale: Payroll team needs explicit sign-off before salary processing, separate from finance approval
+- Affects: WeeklyApproval model, time entry status flow, payroll dashboard
+
+**(Added v1.1.012) TimeEntryStatus Flow — PAIE_VALIDATED:**
+- Decision: New status `PAIE_VALIDATED` added to `TimeEntryStatus` enum between `FINANCE_APPROVED` and `LOCKED`
+- Complete flow: `DRAFT` → `SUBMITTED` → `PM_APPROVED` → `FINANCE_APPROVED` → `PAIE_VALIDATED` → `LOCKED`
+- PAIE validation is performed atomically (`transaction.atomic`) — all entries in a week updated together
+- Bulk validation endpoint supports validating multiple weeks at once
+- Rationale: Explicit payroll validation step ensures hours are verified before salary calculation
+- Affects: TimeEntry model, approval workflows, payroll controls, lock operations
+
+**(Added v1.1.012) Payroll Controls Engine:**
+- Decision: Dedicated `payroll_controls.py` module with `run_controls(employee, week_start, week_end, entries, all_entries_qs)` function
+- 11 automated checks with severity levels (error/warning/info):
+  1. `INCOMPLETE_HOURS` — weekly hours below contract without declared absence (warning)
+  2. `OVERTIME_WITH_SICK` — overtime declared same week as sick leave (error)
+  3. `OVERTIME_WITH_LEAVE` — overtime with vacation, adjusted threshold calculation (warning)
+  4. `OVERTIME` — hours exceeding contract without absence; >10h overtime = error, else warning
+  5. `DAY_OVER_10H` — single day exceeding 10 hours (warning)
+  6. `WEEKEND_WORK` — hours on Saturday/Sunday (warning)
+  7. `SICK_AND_WORK_SAME_DAY` — sick leave and work hours on same day (error)
+  8. `UNUSUAL_TREND` — >20% deviation from 4-week rolling average (info)
+  9. `CONSECUTIVE_OVERTIME` — 3+ consecutive weeks with overtime, burn-out risk (error)
+  10. `PM_NOT_APPROVED` — entries still in SUBMITTED status, not yet approved by PM (error)
+  11. `LEGAL_MAX_50H` — exceeds Quebec LNT 50h/week legal maximum (error)
+- Absence detection via project name pattern matching (keywords: maladie, sick, conge, vacance, ferie, etc.)
+- Trend analysis uses 4-week historical lookback via `all_entries_qs` queryset
+- Rationale: Automated payroll validation reduces manual review effort and catches compliance issues
+- Affects: PAIE validation workflow, payroll dashboard alerts
+
+**(Added v1.1.012) Period Lock Mechanism:**
+- Decision: Multi-layer lock checking via `_check_period_locked` and `_check_phase_locked` in `TimeEntryViewSet`:
+  - Layer 1: Global freeze (`PeriodFreeze.freeze_before`) — blocks all entries before date, unless a `PeriodUnlock` exception covers the date
+  - Layer 2: Locked entries — dates with `LOCKED` status entries are blocked, unless a `PeriodUnlock` exception exists
+  - Layer 3: Phase locks (`TimesheetLock` with `lock_type=PHASE`) — blocks specific phase or entire project
+- `_handle_lock_check(date_val, project_id, phase_id)` runs all layers and returns 400 error response if blocked
+- `_require_lock_role()` enforces ADMIN/FINANCE/PAIE role for lock/unlock operations
+- Custom `PeriodLockError` exception with code and message for structured error responses
+- Rationale: Layered locking ensures data integrity across payroll cycles while allowing authorized corrections
+- Affects: Time entry create/update/submit/copy operations
+
+**(Added v1.1.012) Transaction Atomicity:**
+- Decision: `transaction.atomic()` used for all multi-step operations:
+  - Period freeze: bulk-locking existing entries + creating freeze record
+  - PAIE validation: updating entry statuses + approval record in single transaction
+  - Bulk PAIE validation: each week validated in its own atomic block
+- Rationale: Prevents partial state on failure (e.g., entries locked but approval not recorded)
+- Affects: All views performing multi-model writes
+
 **Caching Strategy: Redis 7**
 - Decision: Redis serves four roles:
   1. **Application cache**: Dashboard KPIs, project summaries (invalidated on write)
@@ -323,12 +386,22 @@ npm create vue@latest erp-frontend
 **RBAC: django-rules + Custom ProjectRole Model**
 - Decision: Hybrid approach:
   - `django-rules` for predicate-based permission checks (e.g., `is_project_pm`, `can_approve_invoice`)
-  - Custom `ProjectRole` model: `(user_id, project_id, role)` where role is one of: EMPLOYEE, PM, PROJECT_DIRECTOR, BU_DIRECTOR, FINANCE, DEPT_ASSISTANT, PROPOSAL_MANAGER, ADMIN
+  - Custom `ProjectRole` model: `(user_id, project_id, role)` where role is one of: EMPLOYEE, PM, PROJECT_DIRECTOR, BU_DIRECTOR, FINANCE, DEPT_ASSISTANT, PROPOSAL_MANAGER, ADMIN, PAIE (Added v1.1.012: 9 roles total, PAIE added for payroll validation)
   - Anti-self-approval enforced via predicate (FR22b): `cannot_approve_own_timesheet`
   - Delegation modeled as `Delegation(delegator, delegate, project, permissions[], start_date, end_date)`
   - DRF permissions classes compose django-rules predicates
+  - (Added v1.1.012) Helper functions in views: `_has_lock_role(user, tenant_id)` checks ADMIN/FINANCE/PAIE roles for lock operations; `_get_tenant(request)` resolves tenant from request attribute, user association, or fallback
 - Rationale: Predicates are lightweight, role-per-project is explicit, delegation is first-class
 - Affects: Every API endpoint, every Vue component (role-based visibility), middleware
+
+**(Added v1.1.012) Billing Permissions Architecture:**
+- Decision: Role-matrix-based DRF permission classes in `apps/billing/views.py`:
+  - `CanViewBilling`: read access for ADMIN, FINANCE, PM, PROJECT_DIRECTOR; write access for ADMIN, FINANCE
+  - `CanWriteBilling`: same matrix as CanViewBilling (read=view roles, write=write roles)
+  - Additional role sets: `BILLING_APPROVE_ROLES` (ADMIN, FINANCE, PROJECT_DIRECTOR), `BILLING_SUBMIT_ROLES` (ADMIN, FINANCE, PM)
+- Helper: `_user_roles(user)` returns set of all roles for a user across projects
+- Rationale: Fine-grained billing access control separating view/write/approve/submit operations
+- Affects: All billing API endpoints (invoices, credit notes, payments, holdbacks, write-offs)
 
 **API Authentication: JWT (djangorestframework-simplejwt)**
 - Decision: JWT with short-lived access tokens (15min) + refresh tokens (7 days)
@@ -375,7 +448,7 @@ npm create vue@latest erp-frontend
   {"error": {"code": "VALIDATION_ERROR", "message": "...", "details": [{"field": "...", "message": "..."}]}}
   ```
 - DRF exception handler customized to produce consistent format
-- Business errors: specific codes → `BUDGET_EXCEEDED`, `PHASE_LOCKED`, `INVOICE_ALREADY_SENT`, `VERSION_CONFLICT`, `HOLDBACK_PENDING`
+- Business errors: specific codes → `BUDGET_EXCEEDED`, `PHASE_LOCKED`, `INVOICE_ALREADY_SENT`, `VERSION_CONFLICT`, `HOLDBACK_PENDING`, `PERIOD_FROZEN`, `PERIOD_LOCKED` (Added v1.1.012)
 - Frontend Axios interceptor maps errors to user-friendly messages
 - Affects: DRF exception handler, frontend error handling
 
@@ -642,7 +715,7 @@ Version conflict (409):
 **Error Handling:**
 - Backend: custom DRF exception handler → standardized format (see above)
 - Frontend: global Axios interceptor for 401 (refresh token), 403 (redirect), 409 (conflict dialog), 500 (Sentry + toast)
-- Business errors: specific codes → `BUDGET_EXCEEDED`, `PHASE_LOCKED`, `INVOICE_ALREADY_SENT`, `VERSION_CONFLICT`, `HOLDBACK_PENDING`, `AMENDMENT_REQUIRES_APPROVAL`
+- Business errors: specific codes → `BUDGET_EXCEEDED`, `PHASE_LOCKED`, `INVOICE_ALREADY_SENT`, `VERSION_CONFLICT`, `HOLDBACK_PENDING`, `AMENDMENT_REQUIRES_APPROVAL`, `PERIOD_FROZEN`, `PERIOD_LOCKED` (Added v1.1.012)
 - Logging: `structlog` with context bindings → `log.info("invoice.created", invoice_id=42, project_id=7, version=1)`
 
 **Loading States:**
@@ -824,9 +897,12 @@ erp-provencher/
 │   │   │   ├── signals.py
 │   │   │   └── tests/
 │   │   ├── time_entries/
-│   │   │   ├── models.py             → TimeEntry, TimesheetLock, WeeklyApproval, PeriodUnlock
+│   │   │   ├── models.py             → TimeEntry, TimesheetLock, WeeklyApproval, PeriodUnlock,
+│   │   │   │                            PeriodFreeze (Added v1.1.012)
 │   │   │   ├── serializers.py
-│   │   │   ├── views.py
+│   │   │   ├── views.py              → _has_lock_role, _get_tenant helpers,
+│   │   │   │                            _check_period_locked, _check_phase_locked (Added v1.1.012)
+│   │   │   ├── payroll_controls.py   → 11 automated payroll checks (Added v1.1.012)
 │   │   │   ├── urls.py
 │   │   │   ├── permissions.py         → anti-self-approval predicate (FR22b)
 │   │   │   ├── filters.py
@@ -838,7 +914,8 @@ erp-provencher/
 │   │   │   │                            BillingDossier, InvoiceTemplate, ClientLabel,
 │   │   │   │                            DunningLevel, DunningAction
 │   │   │   ├── serializers.py
-│   │   │   ├── views.py
+│   │   │   ├── views.py              → CanViewBilling, CanWriteBilling role-matrix permissions
+│   │   │   │                            (Added v1.1.012)
 │   │   │   ├── urls.py
 │   │   │   ├── permissions.py         → can_approve_invoice, can_send_dunning
 │   │   │   ├── filters.py
@@ -1127,7 +1204,7 @@ erp-provencher/
 | FR15h (Project closing) | `apps/projects/services.py` | `features/projects/components/ProjectClosingChecklist.vue` | Checklist workflow |
 | FR15k-l (Amendments) | `apps/projects/models.py:Amendment` | `features/projects/components/AmendmentHistory.vue` | 3-level budget |
 | FR15n (Rebaseline) | `apps/projects/models.py` | `features/projects/components/BudgetThreeLevelView.vue` | Original/contract/plan |
-| FR16-FR27 (Time tracking) | `apps/time_entries/` | `features/timesheet/` | Weekly grid |
+| FR16-FR27 (Time tracking) | `apps/time_entries/` | `features/timesheet/` | Weekly grid, PAIE validation, payroll controls (Added v1.1.012) |
 | FR22b (Anti-self-approval) | `apps/time_entries/permissions.py` | N/A (server-side only) | Predicate check |
 | FR28-FR30 (Invoice prep) | `apps/billing/services.py` | `features/billing/views/InvoicePreparation.vue` | 7-col, WebSocket |
 | FR33b (Client labels) | `apps/billing/models.py:ClientLabel` | `features/billing/components/` | Per-project config |
@@ -1154,7 +1231,7 @@ erp-provencher/
 | Concern | Backend Files | Frontend Files |
 |---------|--------------|----------------|
 | Authentication (SSO) | `config/settings/base.py`, `apps/employees/signals.py` | `shared/composables/useAuth.ts`, `plugins/axios.ts`, `router/guards.ts` |
-| RBAC | `apps/core/permissions.py`, `apps/employees/models.py:ProjectRole` | `shared/composables/usePermissions.ts` |
+| RBAC | `apps/core/permissions.py`, `apps/employees/models.py:ProjectRole`, `apps/billing/views.py:CanViewBilling/CanWriteBilling` (Added v1.1.012) | `shared/composables/usePermissions.ts` |
 | Multi-tenancy (RLS) | `apps/core/middleware.py`, `apps/core/models.py:TenantScopedModel` | Transparent (JWT contains tenant_id) |
 | Audit trail | `apps/core/models.py:AuditMixin` + django-simple-history | N/A (backend only) |
 | Optimistic locking | `apps/core/mixins.py:OptimisticLockMixin`, `apps/core/models.py:VersionedModel` | `shared/composables/useOptimisticLock.ts`, `shared/components/ConflictDialog.vue` |
@@ -1218,13 +1295,13 @@ The 14 Django apps map directly to the 14 FR domains. Component boundaries are r
 | Domain | FRs | Architecture Support |
 |--------|-----|---------------------|
 | Projects (FR1-FR15n) | 20+ | `apps/projects/` — models, phases, templates, WBS, virtual profiles, amendments, lifecycle, rebaseline |
-| Time Tracking (FR16-FR27e) | 12+ | `apps/time_entries/` — weekly grid, locks, approvals, anti-self-approval, bulk corrections, period unlock |
+| Time Tracking (FR16-FR27e) | 12+ | `apps/time_entries/` — weekly grid, locks, approvals, anti-self-approval, bulk corrections, period unlock, PeriodFreeze, PAIE validation, 11 payroll controls (Added v1.1.012) |
 | Billing (FR28-FR39i) | 18+ | `apps/billing/` — invoices, credit notes, holdbacks, payment allocation, write-offs, dossiers, dunning, exports |
 | Expenses (FR40-FR46c) | 10+ | `apps/expenses/` — reports, 4-role approval, receipts, categories, reversal, rejection, exports |
 | Suppliers (FR47-FR52f) | 10+ | `apps/suppliers/` — ST invoices, credit notes, disputes, partial payments, holdbacks, attachments |
 | Proposals (FR53-FR58) | 8 | `apps/proposals/` — lifecycle, checklist, team, competitors, conversion, KPIs |
 | Consortiums (FR59-FR64m) | 18+ | `apps/consortiums/` — members, rates, profit distribution, treasury, tax, fiscal compliance, import |
-| Users/RBAC (FR65-FR71) | 7 | `apps/employees/` + `apps/core/` — 8 roles, delegation, audit |
+| Users/RBAC (FR65-FR71) | 7 | `apps/employees/` + `apps/core/` — 9 roles (Added v1.1.012: PAIE), delegation, audit |
 | Dashboards (FR72-FR75) | 4 | `apps/dashboards/` — KPI aggregation, real-time widgets |
 | Localization (FR76-FR85b) | 12+ | `apps/core/` + `shared/plugins/i18n` — locale-aware, migration, parallel run |
 | Clients (FR86-FR88b) | 6 | `apps/clients/` — 5-tab interface, contacts, duplicate detection, groups |

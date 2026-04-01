@@ -452,24 +452,24 @@ Every story is considered "done" only when ALL of the following are met:
 
 ## Epic List
 
-### Epic 1: Foundation & Platform Setup
+### Epic 1: Foundation & Platform Setup — DONE (Updated v1.1.012)
 Developers and admins can start: project scaffolding, SSO authentication, RBAC with 8 roles, multi-tenancy RLS, audit trail, bilingual support, Docker infrastructure, optimistic locking framework, real-time presence framework.
 **FRs covered:** FR65, FR66, FR67, FR68, FR76, FR76b, FR77
 
-### Epic 2: Client & Organization Management
+### Epic 2: Client & Organization Management — DONE (Updated v1.1.012)
 Finance and Admin can manage the client database via a 5-tab interface with duplicate detection, contacts, financial history, and the shared External Organizations registry used across modules.
 **FRs covered:** FR86, FR86b, FR86c, FR86e, FR87, FR88, FR88b
 
-### Epic 3: Project Creation & Management
+### Epic 3: Project Creation & Management — DONE (Updated v1.1.012)
 PMs can create projects via the 4-step wizard, manage WBS with dual labels, position virtual resource profiles, assign real employees, manage subcontractor budgets, track project health on dashboard, and close projects.
 **FRs covered:** FR1-FR1g, FR2, FR3, FR4, FR5, FR6, FR7, FR7b, FR8, FR9, FR11, FR12, FR13, FR14, FR15, FR15b, FR15c, FR15d, FR15e, FR15f, FR15g, FR15h, FR23, FR23b
 
-### Epic 4: Time Tracking & Approval
-Employees enter time on assigned projects in a weekly grid, PMs approve as first level, Finance as second level. Phase/person blocking, anti-self-approval, automated reminders, favorites.
+### Epic 4: Time Tracking & Approval — DONE (Updated v1.1.012)
+Employees enter time on assigned projects in a weekly grid, PMs approve as first level, Finance as second level. Phase/person blocking, anti-self-approval, automated reminders, favorites. Extended with PAIE role, 11 payroll controls, period freeze/unlock, and phase-level locking.
 **FRs covered:** FR16, FR17, FR18, FR19, FR20, FR21, FR22, FR22b, FR24, FR25, FR26, FR27, FR27e
 
-### Epic 5: Invoicing & Financial Layer
-Finance defines financial phases, sets dual rates, prepares invoices via the 7-column screen with CA/Salary ratio, manages payments (partial + multi-allocation), tracks holdbacks, assembles billing dossiers, and exports to Intact.
+### Epic 5: Invoicing & Financial Layer — DONE (Updated v1.1.012)
+Finance defines financial phases, sets dual rates, prepares invoices via the 7-column screen with CA/Salary ratio, manages payments (partial + multi-allocation), tracks holdbacks, assembles billing dossiers, and exports to Intact. Extended with RBAC billing permissions and print preview.
 **FRs covered:** FR28, FR29, FR30, FR30b, FR30c, FR31, FR32, FR33, FR33b, FR34, FR34b, FR35, FR36, FR37, FR38, FR39, FR39d, FR39f, FR39g, FR39h
 
 ### Epic 6: Expense Management
@@ -488,8 +488,8 @@ Each role sees a personalized dashboard with relevant KPIs, centralized notifica
 Users can delegate responsibilities with defined scope and period, delegate sees banner and acts within permissions, all actions logged with delegation context, Dept. Assistant delegation for PMs and Finance.
 **FRs covered:** FR69, FR70, FR71
 
-### Epic 10: Configuration & Regional Settings
-Admin configures HR labor rules per jurisdiction, overtime thresholds, expense policies, BUs, position profiles, project templates, invoice formats, and tax settings — all without code changes.
+### Epic 10: Configuration & Regional Settings — DONE (Updated v1.1.012)
+Admin configures HR labor rules per jurisdiction, overtime thresholds, expense policies, BUs, position profiles, project templates, invoice formats, tax settings, and user management — all without code changes.
 **FRs covered:** FR78, FR79, FR80, FR83
 
 ### Epic 11: ChangePoint Data Migration
@@ -526,11 +526,11 @@ Advanced consortium features (guided profit distribution, treasury, tax declarat
 
 ---
 
-## Epic 1: Foundation & Platform Setup
+## Epic 1: Foundation & Platform Setup — DONE (Updated v1.1.012)
 
 Developers and admins can start: project scaffolding, SSO authentication, RBAC with 8 roles, multi-tenancy RLS, audit trail, bilingual support, Docker infrastructure.
 
-### Story 1.1: Project Scaffolding & Docker Infrastructure
+### Story 1.1: Project Scaffolding & Docker Infrastructure — DONE
 
 As a **developer**,
 I want a fully scaffolded Django 6 + Vue 3 project with Docker Compose running all services,
@@ -547,7 +547,7 @@ So that I can start building features on a production-ready foundation.
 **And** ruff (Python) and eslint (TypeScript) are configured and passing
 **And** pytest and vitest run with 0 tests passing (empty test suites)
 
-### Story 1.2: Core Models, Multi-Tenancy & Audit Trail
+### Story 1.2: Core Models, Multi-Tenancy & Audit Trail — DONE
 
 As a **developer**,
 I want the core infrastructure models (Tenant, TenantScopedModel, VersionedModel, AuditMixin) and PostgreSQL RLS middleware,
@@ -565,7 +565,7 @@ So that all future models inherit multi-tenancy isolation, optimistic locking, a
 **And** RLS policies are created via `python manage.py setup_rls`
 **And** Unit tests verify tenant isolation (user A cannot see user B's data)
 
-### Story 1.3: SSO Authentication & JWT
+### Story 1.3: SSO Authentication & JWT — DONE
 
 As an **employee**,
 I want to log in via my corporate Microsoft account (SSO),
@@ -583,7 +583,7 @@ So that I don't need separate credentials and my access is managed centrally.
 **And** The Axios interceptor automatically refreshes expired access tokens
 **And** If Entra ID is temporarily unavailable, a graceful error message is shown (NFR19)
 
-### Story 1.4: RBAC Framework & Role Assignment
+### Story 1.4: RBAC Framework & Role Assignment — DONE
 
 As an **admin**,
 I want to assign one of 8 roles to users with per-project granularity,
@@ -601,7 +601,7 @@ So that each user sees only what their role permits.
 **And** The `usePermissions` Vue composable exposes role checks to frontend components
 **And** Anti-self-approval predicate is available for future use (FR22b)
 
-### Story 1.5: Bilingual Support & Locale-Aware Formatting
+### Story 1.5: Bilingual Support & Locale-Aware Formatting — DONE
 
 As an **employee**,
 I want to use the application in French or English with properly formatted dates and numbers,
@@ -619,7 +619,7 @@ So that I can work in my preferred language.
 **And** Vue I18n is configured with externalized translation files (no hardcoded text — FR76b)
 **And** The frontend uses system font stack with monospace for financial amounts
 
-### Story 1.6: Frontend Shell & Design System Foundation
+### Story 1.6: Frontend Shell & Design System Foundation — DONE
 
 As a **user**,
 I want a consistent application shell with sidebar navigation, top bar, and role-based landing page,
@@ -638,11 +638,11 @@ So that I can navigate the application efficiently.
 **And** The DRF API returns standardized responses: `{"data": ...}` for success, `{"error": {...}}` for errors
 **And** Axios interceptor handles 401 (refresh), 403 (redirect), 409 (conflict dialog), 500 (Sentry + toast)
 
-## Epic 2: Client & Organization Management
+## Epic 2: Client & Organization Management — DONE (Updated v1.1.012)
 
 Finance and Admin can manage the client database via a 5-tab interface with duplicate detection, contacts, financial history, and the shared External Organizations registry.
 
-### Story 2.1: Client CRUD & 5-Tab Interface
+### Story 2.1: Client CRUD & 5-Tab Interface — DONE
 
 As a **Finance user**,
 I want to create and manage clients via a 5-tab interface,
@@ -660,7 +660,7 @@ So that all client information is centralized and structured.
 **And** the client is persisted with `tenant_id` and full audit trail
 **And** the client list view shows all clients with search, filter by sector/entity, and pagination
 
-### Story 2.2: Client Duplicate Detection & Alias Search
+### Story 2.2: Client Duplicate Detection & Alias Search — DONE
 
 As a **Finance user**,
 I want the system to detect potential duplicate clients on creation and search clients by alias,
@@ -676,7 +676,7 @@ So that the client registry stays clean and findable.
 **And** each client has a unique alias/acronym searchable across the application (FR86c)
 **And** the global search includes client aliases in results
 
-### Story 2.3: Client Financial History & Project Linking
+### Story 2.3: Client Financial History & Project Linking — DONE
 
 As a **Finance user**,
 I want to see per-client financial history and linked projects,
@@ -708,11 +708,11 @@ So that the same firm doesn't get entered multiple times across modules.
 **And** deduplication check runs on creation (name + NEQ matching)
 **And** the registry is used by: ST management, consortium member selection, and proposal competitor tracking
 
-## Epic 3: Project Creation & Management
+## Epic 3: Project Creation & Management — DONE (Updated v1.1.012)
 
 PMs can create projects via the 4-step wizard, manage WBS with dual labels, position virtual resource profiles, assign real employees, manage subcontractor budgets, track project health, and close projects.
 
-### Story 3.1: Project Model & Template System
+### Story 3.1: Project Model & Template System — DONE
 
 As a **PM**,
 I want to select a project template by contract type,
@@ -728,7 +728,7 @@ So that I don't start from a blank page every time.
 **And** the Project model includes: code, name, client FK, BU, entity, contract type, start/end dates, lifecycle status (FR15c)
 **And** templates are configurable by Admin without code changes
 
-### Story 3.2: Project Wizard Step 1 — Metadata
+### Story 3.2: Project Wizard Step 1 — Metadata — DONE
 
 As a **PM**,
 I want to enter project identification, dates, and leadership roles in Step 1,
@@ -745,7 +745,7 @@ So that the project is properly identified and assigned.
 **And** I can add, remove, or reorder phases (FR7b)
 **And** I can set billing mode per phase: fixed-price or hourly (FR23)
 
-### Story 3.3: Project Wizard Step 2 — Budget
+### Story 3.3: Project Wizard Step 2 — Budget — DONE
 
 As a **PM**,
 I want to configure hours and costs per phase/task in Step 2,
@@ -760,7 +760,7 @@ So that the project has a clear budget baseline.
 **And** I can track contract value per WBS element (FR8)
 **And** the budget summary shows: total honoraires, total ST, total project cost
 
-### Story 3.4: Project Wizard Step 3 — Resources & Planning
+### Story 3.4: Project Wizard Step 3 — Resources & Planning — DONE
 
 As a **PM**,
 I want to position virtual resource profiles on phases and see a Gantt timeline,
@@ -775,7 +775,7 @@ So that I can plan capacity before assigning real people.
 **And** I can edit start/end dates per phase on the Gantt
 **And** I can allocate budgets for support services (FR14)
 
-### Story 3.5: Project Wizard Step 4 — Subcontractors & Confirmation
+### Story 3.5: Project Wizard Step 4 — Subcontractors & Confirmation — DONE
 
 As a **PM**,
 I want to optionally configure subcontractor budgets and finalize creation,
@@ -791,7 +791,7 @@ So that the project is complete with all budget layers.
 **And** on confirmation, project is created with status "Active"
 **And** confirmation screen shows summary with invitation to Associé en charge (FR1g)
 
-### Story 3.6: Virtual-to-Real Resource Assignment
+### Story 3.6: Virtual-to-Real Resource Assignment — DONE
 
 As a **PM**,
 I want to replace virtual profiles with real employees,
@@ -806,7 +806,7 @@ So that my team is assigned and can start entering time.
 **And** assignment automatically creates timesheet permissions
 **And** partial assignment is allowed
 
-### Story 3.7: WBS Management & Dual Labels
+### Story 3.7: WBS Management & Dual Labels — DONE
 
 As a **PM**,
 I want to manage a multi-level WBS with standard and client-facing labels,
@@ -851,7 +851,7 @@ So that non-client work and inter-BU costs are tracked.
 **And** personnel lending tracked with CA repatriation to home BU (FR13)
 **And** internal projects distinguishable in all lists
 
-### Story 3.10: Project Lifecycle & Leadership Management
+### Story 3.10: Project Lifecycle & Leadership Management — DONE
 
 As a **PM or Finance user**,
 I want to manage lifecycle status and leadership changes with full history,
@@ -866,11 +866,11 @@ So that project governance is maintained.
 **And** all changes immutably recorded (FR15g)
 **And** project closing via checklist workflow with final margin (FR15h)
 
-## Epic 4: Time Tracking & Approval
+## Epic 4: Time Tracking & Approval — DONE (Updated v1.1.012)
 
-Employees enter time on assigned projects, PMs approve first level, Finance second. Blocking, reminders, favorites.
+Employees enter time on assigned projects, PMs approve first level, Finance second. Blocking, reminders, favorites. Extended with PAIE role, payroll controls, period freeze/unlock, and phase-level locking.
 
-### Story 4.1: Weekly Timesheet Entry Grid
+### Story 4.1: Weekly Timesheet Entry Grid — DONE
 
 As an **employee**,
 I want to enter hours in a weekly grid showing only my assigned projects,
@@ -886,7 +886,7 @@ So that I can complete my timesheet quickly and accurately.
 **And** Tab navigation between cells, auto-save <500ms (NFR2)
 **And** daily totals with norm indicators (FR18)
 
-### Story 4.2: Timesheet Draft, Submit & Favorites
+### Story 4.2: Timesheet Draft, Submit & Favorites — DONE
 
 As an **employee**,
 I want to save drafts, submit weekly, and use favorites,
@@ -901,7 +901,7 @@ So that I can work incrementally.
 **And** favorites and quick-switch available (FR27)
 **And** assignment change after submission flags entries for PM review (FR27e)
 
-### Story 4.3: Phase & Person Blocking
+### Story 4.3: Phase & Person Blocking — DONE
 
 As a **PM**,
 I want to block phases or specific persons from time entry,
@@ -915,7 +915,7 @@ So that I control who enters time where.
 **And** phase block = no one; person block = only that individual
 **And** single-click blocking, immediate WebSocket update
 
-### Story 4.4: Two-Level Timesheet Approval
+### Story 4.4: Two-Level Timesheet Approval — DONE
 
 As a **PM**,
 I want to approve submitted timesheets as first-level approver,
@@ -930,7 +930,7 @@ So that project hours are validated.
 **And** bulk approval available
 **And** anti-self-approval enforced (FR22b)
 
-### Story 4.5: Finance Second-Level Approval & Corrections
+### Story 4.5: Finance Second-Level Approval & Corrections — DONE
 
 As a **Finance user**,
 I want second-level approval and correction capabilities,
@@ -957,11 +957,75 @@ So that submission rates stay at 100%.
 **And** configurable frequency
 **And** PM dashboard shows missing count
 
-## Epic 5: Invoicing & Financial Layer
+### Story 4.7: Per-Entry PM Approval with Multi-PM Support — DONE (Added v1.1.012)
 
-Finance defines financial phases, sets dual rates, prepares invoices via 7-column screen, manages payments, holdbacks, and exports to Intact.
+As a **PM**,
+I want to approve individual timesheet entries rather than entire sheets, with multi-PM color coding,
+So that each PM approves only their own project entries independently.
 
-### Story 5.1: Financial Phases & Dual Rate Configuration
+**Acceptance Criteria:**
+
+**Given** submitted timesheet entries spanning multiple projects
+**When** a PM opens the approval queue
+**Then** entries are approvable individually per project/phase (not per sheet)
+**And** color coding distinguishes: blue = my projects, green = already approved, gray = other PM's projects
+**And** multiple PMs can approve entries on the same employee's timesheet independently
+**And** rejection includes comments visible to the employee (banner + project/phase detail)
+
+### Story 4.8: PAIE Role with Payroll Controls Dashboard — DONE (Added v1.1.012)
+
+As a **PAIE user**,
+I want a dedicated payroll validation dashboard with automated controls,
+So that payroll anomalies are detected before processing.
+
+**Acceptance Criteria:**
+
+**Given** an authenticated PAIE user
+**When** I open the PAIE tab in approvals
+**Then** I see 11 payroll controls: overtime + sick leave, >10h/day, weekend work, LNT 50h weekly cap, statutory holidays, consecutive days, missing submissions, negative hours, future entries, cross-project daily limit, part-time overflow
+**And** I can validate or reject entries with bulk operations
+**And** completeness checks flag employees with missing timesheets
+**And** PAIE role has dedicated permissions (ADMIN/FINANCE/PAIE) on lock/unlock/freeze operations
+
+### Story 4.9: Period Freeze with Unlock Exceptions — DONE (Added v1.1.012)
+
+As a **Finance or Admin user**,
+I want to freeze all time entry before a given date with per-employee unlock exceptions,
+So that payroll periods are locked while allowing corrections when needed.
+
+**Acceptance Criteria:**
+
+**Given** a configured period freeze date
+**When** PeriodFreeze is activated
+**Then** no employee can create or modify time entries before the freeze date
+**And** PeriodUnlock exceptions can be granted per employee with justification
+**And** only ADMIN, FINANCE, or PAIE roles can freeze/unfreeze periods
+**And** all freeze/unlock operations use transaction.atomic for data integrity
+
+### Story 4.10: Phase-Level Locking (TimesheetLock) — DONE (Added v1.1.012)
+
+As a **PM or Finance user**,
+I want to lock time entry at the phase/task level,
+So that completed phases cannot receive new time entries.
+
+**Acceptance Criteria:**
+
+**Given** a project with completed phases
+**When** I lock a phase via TimesheetLock
+**Then** no employee can enter time on that phase
+**And** lock applies at the task level within the phase
+**And** locked phases show visual lock indicator in the timesheet grid
+**And** only PM, Finance, or Admin can lock/unlock phases
+
+### Story 4.11 (Deferred MVP-1.5): Daily Validation Max 15h — (Updated v1.1.012)
+
+> Note: Daily validation logic (max 15h per day) is implemented as part of the 11 payroll controls in Story 4.8.
+
+## Epic 5: Invoicing & Financial Layer — DONE (Updated v1.1.012)
+
+Finance defines financial phases, sets dual rates, prepares invoices via 7-column screen, manages payments, holdbacks, and exports to Intact. Extended with RBAC billing permissions.
+
+### Story 5.1: Financial Phases & Dual Rate Configuration — DONE
 
 As a **Finance user**,
 I want to define financial phases and configure dual rates,
@@ -975,7 +1039,7 @@ So that billing reflects contractual terms.
 **And** mixed modes per project supported
 **And** dual hourly rates: internal cost + contractual client, via manual or Excel import (FR29)
 
-### Story 5.2: 7-Column Invoice Preparation Screen
+### Story 5.2: 7-Column Invoice Preparation Screen — DONE
 
 As a **Finance user**,
 I want to prepare invoices via the 7-column screen,
@@ -1034,7 +1098,7 @@ So that clients receive complete documentation.
 **And** generates in <30s as Celery task (NFR6)
 **And** downloadable PDF
 
-### Story 5.6: Invoice Approval Workflow & Status Tracking
+### Story 5.6: Invoice Approval Workflow & Status Tracking — DONE
 
 As a **PM**,
 I want to approve invoices via accordion list with preview,
@@ -1048,7 +1112,7 @@ So that billing is validated before sending.
 **And** workflow: Draft → Submitted → Approved → Sent → Paid (FR36)
 **And** optimistic locking prevents concurrent edits
 
-### Story 5.7: Payment Recording, Aging & Holdback Tracking
+### Story 5.7: Payment Recording, Aging & Holdback Tracking — DONE
 
 As a **Finance user**,
 I want to record payments, track aging, and manage holdbacks,
@@ -1077,6 +1141,33 @@ So that all costs are visible and accounting syncs.
 **Then** non-billable tracked for cost visibility (FR39)
 **And** Intact export in CSV/Excel (FR38)
 **And** valid importable files (NFR23)
+
+### Story 5.9: Billing RBAC Permissions — DONE (Added v1.1.012)
+
+As a **Finance user**,
+I want role-based access control on all billing operations,
+So that only authorized users can create, approve, send, and record payments on invoices.
+
+**Acceptance Criteria:**
+
+**Given** the invoice workflow (Draft -> Submitted -> Approved -> Sent -> Paid)
+**When** a user attempts a billing action
+**Then** permissions are enforced per role: Finance can create/edit, PM can approve, Finance can send/record payment
+**And** print preview is available to authorized users at the appropriate workflow stages
+**And** unauthorized actions return 403 Forbidden
+
+### Story 5.10: Invoice Print Preview — DONE (Added v1.1.012)
+
+As a **Finance or PM user**,
+I want a print-ready invoice preview (brouillon),
+So that I can review the invoice before sending.
+
+**Acceptance Criteria:**
+
+**Given** an invoice in Submitted or Approved status
+**When** I open print preview
+**Then** I see a formatted brouillon with 5 columns, banking references, and complete formatting (FR34b)
+**And** the preview is accessible via slide-over from the approval accordion list
 
 ## Epic 6: Expense Management
 
@@ -1293,11 +1384,11 @@ So that I support my BU efficiently.
 **And** each delegation has distinct scope
 **And** delegation auto-expires, history preserved
 
-## Epic 10: Configuration & Regional Settings
+## Epic 10: Configuration & Regional Settings — DONE (Updated v1.1.012)
 
-Admin configures regional parameters, categories, templates, formats, tax — all without code.
+Admin configures regional parameters, categories, templates, formats, tax — all without code. Extended with user management.
 
-### Story 10.1: HR Labor Rules & Overtime Configuration
+### Story 10.1: HR Labor Rules & Overtime Configuration — DONE
 
 As an **Admin**,
 I want to configure HR rules per jurisdiction,
@@ -1310,7 +1401,7 @@ So that work rules are enforced regionally.
 **Then** per jurisdiction: work week, overtime, holidays, vacation, pay period (FR78)
 **And** overtime flagged automatically, holidays highlighted in timesheet (FR79)
 
-### Story 10.2: Expense Policies & Business Configuration
+### Story 10.2: Expense Policies & Business Configuration — DONE
 
 As an **Admin**,
 I want to configure expense policies and business parameters,
@@ -1323,6 +1414,21 @@ So that operational rules are consistent.
 **Then** expense policies per jurisdiction (FR80)
 **And** BUs, positions (31 profiles), templates, invoice formats, tax settings (FR83)
 **And** no code changes required (NFR30)
+
+### Story 10.3: User Management — DONE (Added v1.1.012)
+
+As an **Admin**,
+I want to manage users, assign roles, and configure BU membership,
+So that organizational structure is maintained in the system.
+
+**Acceptance Criteria:**
+
+**Given** Admin access
+**When** I manage users
+**Then** I can create, edit, deactivate users
+**And** assign roles (8 roles) and BU membership
+**And** configure position profiles from the 31-profile reference list
+**And** user changes are audited
 
 ## Epic 11: ChangePoint Data Migration
 
@@ -1832,3 +1938,41 @@ So that financial closing is managed.
 **Then** adjustment entries at project/consortium level (FR98)
 **And** bank reconciliation with transaction matching (FR99)
 **And** project transfer between entities (FR15m)
+
+---
+
+## MVP-1.5 Deferred Stories (Added v1.1.012)
+
+The following stories were identified during MVP-1 sprints V1-V5 and BMAD audits as important but non-blocking. They are prioritized for MVP-1.5 implementation.
+
+### Deferred 1: Vue comptabilite conforme au mockup
+
+As a **Finance or PAIE user**,
+I want the accounting view to match the validated mockup (timesheet-mockups.html section "Comptabilite"),
+So that monthly reporting is complete and usable.
+
+**Scope:** Monthly view per project with hours by week, billing status, "Generer rapport" button, and list of unsubmitted timesheets.
+
+### Deferred 2: Relance des retardataires
+
+As a **PAIE user**,
+I want a "Relancer" button per employee and automated email reminders,
+So that late timesheet submissions are systematically followed up.
+
+**Scope:** Manual "Relancer" button in PAIE view, automated email reminders Wednesday and Friday, escalation to manager if not submitted after deadline.
+
+### Deferred 3: PeriodLock dedicated model (replace status-based locking)
+
+As a **developer**,
+I want a dedicated PeriodLock model instead of using LOCKED status on TimeEntry,
+So that the workflow status field is preserved for its intended purpose (DRAFT/SUBMITTED/APPROVED/VALIDATED).
+
+**Scope:** New PeriodLock model, migration from status-based locking, audit trail for lock/unlock operations, automatic re-lock after PeriodUnlock expiration.
+
+### Deferred 4: Heures contrat par employe (replace hardcoded 40h)
+
+As a **Finance or HR user**,
+I want per-employee contractual hours instead of the hardcoded 40h default,
+So that part-time employees and special contracts are handled correctly in payroll controls.
+
+**Scope:** Add contractual_hours field to employee profile, use in all payroll controls and norm calculations, support part-time and forfaitaire contracts.
