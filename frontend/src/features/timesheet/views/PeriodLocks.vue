@@ -153,6 +153,7 @@ async function createTaskLock() {
 
 async function deleteTaskLock(id: number) {
   actionError.value = ''
+  actionSuccess.value = ''
   try {
     await apiClient.delete(`timesheet_locks/${id}/`)
     actionSuccess.value = 'Verrouillage supprime'

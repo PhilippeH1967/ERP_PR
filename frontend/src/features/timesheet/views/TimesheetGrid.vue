@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useTimesheetStore } from '../stores/useTimesheetStore'
 import TimesheetCell from '../components/TimesheetCell.vue'
 import WeekNavigator from '../components/WeekNavigator.vue'
@@ -58,6 +58,12 @@ function isFavorite(projectId: number) {
 
 onMounted(() => store.fetchWeek())
 
+// Reset UI state when week changes
+watch(() => store.currentWeekStart, () => {
+  showAddTask.value = false
+  addTaskError.value = ''
+})
+
 function onCellSave(projectId: number, phaseId: number | null, date: string, hours: string) {
   store.saveCell(projectId, phaseId, date, hours)
 }
@@ -68,6 +74,7 @@ async function onSubmitConfirm() {
 }
 
 async function openAddTask() {
+  addTaskError.value = ''
   showAddTask.value = true
   selectedProjectId.value = null
   selectedPhaseId.value = null
@@ -75,9 +82,24 @@ async function openAddTask() {
   await loadProjects()
 }
 
+const addTaskError = ref('')
+
 async function addTask() {
   if (!selectedProjectId.value) return
-  // Use a minimal value to force creation (0 is skipped by saveCell)
+  addTaskError.value = ''
+
+  // Block if period is locked
+  if (store.periodLocked) {
+    addTaskError.value = 'Cette periode est verrouillee. Aucune modification possible.'
+    return
+  }
+
+  // Block if all entries are already submitted
+  if (store.allSubmitted) {
+    addTaskError.value = 'La feuille de temps a deja ete soumise. Contactez votre gestionnaire pour modification.'
+    return
+  }
+
   try {
     await apiClient.post('time_entries/', {
       project: selectedProjectId.value,
@@ -85,11 +107,23 @@ async function addTask() {
       date: store.weekDates[0] || '',
       hours: '0',
     })
-  } catch { /* ok */ }
-  showAddTask.value = false
-  selectedProjectId.value = null
-  selectedPhaseId.value = null
-  await store.fetchWeek()
+    showAddTask.value = false
+    selectedProjectId.value = null
+    selectedPhaseId.value = null
+    await store.fetchWeek()
+  } catch (e: unknown) {
+    const resp = (e as { response?: { data?: { error?: { message?: string; code?: string } } } }).response
+    const error = resp?.data?.error
+    if (error?.code === 'PHASE_LOCKED') {
+      addTaskError.value = 'Cette tache est verrouillee et ne peut pas etre ajoutee.'
+    } else if (error?.code === 'PERIOD_LOCKED' || error?.code === 'PERIOD_FROZEN') {
+      addTaskError.value = 'Cette periode est verrouillee. Aucune modification possible.'
+    } else if (error?.message) {
+      addTaskError.value = error.message
+    } else {
+      addTaskError.value = 'Impossible d\'ajouter cette tache.'
+    }
+  }
 }
 
 // Collect rejection reasons grouped by project/phase
@@ -311,6 +345,8 @@ function normClass(total: number, norm: number): string {
       </button>
       <button
         class="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-muted hover:bg-surface-alt"
+        :class="{ 'opacity-50 cursor-not-allowed': store.periodLocked }"
+        :disabled="store.periodLocked"
         @click="openAddTask"
       >
         + Ajouter une tâche
@@ -334,8 +370,11 @@ function normClass(total: number, norm: number): string {
             <option v-for="ph in availablePhases" :key="ph.id" :value="ph.id">{{ ph.client_facing_label || ph.name }}</option>
           </select>
         </div>
-        <button class="btn-primary" :disabled="!selectedProjectId" @click="addTask">Ajouter</button>
-        <button class="btn-ghost" @click="showAddTask = false">Annuler</button>
+        <button class="btn-primary" :disabled="!selectedProjectId || store.periodLocked" @click="addTask">Ajouter</button>
+        <button class="btn-ghost" @click="showAddTask = false; addTaskError = ''">Annuler</button>
+      </div>
+      <div v-if="addTaskError" class="mt-2 rounded-lg border border-danger/30 bg-danger/5 p-2 text-sm text-danger">
+        {{ addTaskError }}
       </div>
     </div>
 

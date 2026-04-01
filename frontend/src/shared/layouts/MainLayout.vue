@@ -73,7 +73,7 @@ const navSections = computed(() => {
         { name: 'nav.dashboard', path: '/dashboard', icon: '📊' },
         { name: 'nav.timesheets', path: '/timesheets', icon: '🕐' },
         ...(canApprove.value ? [{ name: 'nav.approvals', path: '/approvals', icon: '✅' }] : []),
-        ...(canLockPeriod.value ? [{ name: 'Periodes', path: '/period-locks', icon: '🔒' }] : []),
+        ...(canLockPeriod.value ? [{ name: 'nav.periods', path: '/period-locks', icon: '🔒' }] : []),
         { name: 'nav.projects', path: '/projects', icon: '📁' },
         { name: 'nav.clients', path: '/clients', icon: '🤝' },
       ],

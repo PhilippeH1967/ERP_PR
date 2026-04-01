@@ -237,6 +237,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
       currentWeekStart.value = current.toISOString().slice(0, 10)
     }
     entries.value = [] // Clear immediately to avoid stale rows
+    periodLocked.value = false // Reset until fetchWeek updates it
     await fetchWeek()
   }
 

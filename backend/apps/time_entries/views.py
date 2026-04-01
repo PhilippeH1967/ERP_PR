@@ -1381,9 +1381,11 @@ class TimesheetLockViewSet(viewsets.ModelViewSet):
             from apps.core.models import Tenant
             serializer.save(locked_by=self.request.user, tenant=_get_tenant(self.request))
 
-    def perform_destroy(self, instance):
+    def destroy(self, request, *args, **kwargs):
         self._require_lock_permission()
+        instance = self.get_object()
         instance.delete()
+        return Response({"deleted": True}, status=status.HTTP_200_OK)
 
 
 class PeriodUnlockViewSet(viewsets.ModelViewSet):
@@ -1419,16 +1421,18 @@ class PeriodUnlockViewSet(viewsets.ModelViewSet):
 
             serializer.save(unlocked_by=self.request.user, tenant=_get_tenant(self.request))
 
-    def perform_destroy(self, instance):
+    def destroy(self, request, *args, **kwargs):
         """When revoking an unlock, re-lock entries in that period."""
         self._require_lock_permission()
+        instance = self.get_object()
         # Re-lock entries that were unlocked (revert SUBMITTED/DRAFT back to LOCKED)
         entries = TimeEntry.objects.filter(
             date__gte=instance.period_start,
             date__lte=instance.period_end,
         ).exclude(status="LOCKED")
-        tenant_id = getattr(self.request, "tenant_id", None)
+        tenant_id = getattr(request, "tenant_id", None)
         if tenant_id:
             entries = entries.filter(tenant_id=tenant_id)
-        entries.update(status="LOCKED")
+        count = entries.update(status="LOCKED")
         instance.delete()
+        return Response({"deleted": True, "relocked_count": count}, status=status.HTTP_200_OK)
