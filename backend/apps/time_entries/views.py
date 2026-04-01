@@ -31,6 +31,21 @@ def _has_lock_role(user, tenant_id=None):
     return qs.exists()
 
 
+def _get_tenant(request):
+    """Get tenant from request or user association. Never returns None."""
+    from apps.core.models import Tenant, UserTenantAssociation
+
+    tenant_id = getattr(request, "tenant_id", None)
+    if tenant_id:
+        return Tenant.objects.get(pk=tenant_id)
+    # Fallback: user's tenant association
+    assoc = UserTenantAssociation.objects.filter(user=request.user).first()
+    if assoc:
+        return assoc.tenant
+    # Last resort
+    return Tenant.objects.first()
+
+
 class TimeEntryFilter(django_filters.FilterSet):
     date__gte = django_filters.DateFilter(field_name="date", lookup_expr="gte")
     date__lte = django_filters.DateFilter(field_name="date", lookup_expr="lte")
@@ -159,7 +174,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         else:
             from apps.core.models import Tenant
 
-            serializer.save(employee=self.request.user, tenant=Tenant.objects.first())
+            serializer.save(employee=self.request.user, tenant=_get_tenant(self.request))
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -224,7 +239,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             tenant_id = getattr(request, "tenant_id", None)
             if not tenant_id:
                 from apps.core.models import Tenant
-                tenant = Tenant.objects.first()
+                tenant = _get_tenant(self.request)
                 tenant_id = tenant.id if tenant else None
             if tenant_id:
                 from apps.core.models import Tenant
@@ -522,7 +537,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             count = qs.update(status="LOCKED")
 
             # Create or update freeze date (prevents new entries on empty dates)
-            tenant = Tenant.objects.get(pk=tenant_id) if tenant_id else Tenant.objects.first()
+            tenant = Tenant.objects.get(pk=tenant_id) if tenant_id else _get_tenant(self.request)
             existing_freeze = PeriodFreeze.objects.filter(tenant=tenant).order_by("-freeze_before").first()
             if not existing_freeze or bd > existing_freeze.freeze_before:
                 PeriodFreeze.objects.create(
@@ -1363,7 +1378,8 @@ class TimesheetLockViewSet(viewsets.ModelViewSet):
                 locked_by=self.request.user,
             )
         else:
-            serializer.save(locked_by=self.request.user)
+            from apps.core.models import Tenant
+            serializer.save(locked_by=self.request.user, tenant=_get_tenant(self.request))
 
     def perform_destroy(self, instance):
         self._require_lock_permission()
@@ -1401,7 +1417,7 @@ class PeriodUnlockViewSet(viewsets.ModelViewSet):
         else:
             from apps.core.models import Tenant
 
-            serializer.save(unlocked_by=self.request.user, tenant=Tenant.objects.first())
+            serializer.save(unlocked_by=self.request.user, tenant=_get_tenant(self.request))
 
     def perform_destroy(self, instance):
         """When revoking an unlock, re-lock entries in that period."""
