@@ -41,7 +41,7 @@ author: Philippe
 
 # Product Requirements Document - ERP
 
-> **Version History:** v1.1.012 (2026-04-01) — Added PAIE role (9th role), time entry status flow (DRAFT→SUBMITTED→PM_APPROVED→FINANCE_APPROVED→PAIE_VALIDATED→LOCKED), period locking (PeriodFreeze/PeriodUnlock/TimesheetLock), 11 payroll controls, billing permissions matrix, per-entry PM approval with multi-PM color coding, MVP-1.5 deferred backlog from Sprint V5 and BMAD audits. All additions marked "(Added v1.1.012)" or "(Updated v1.1.012)".
+> **Version History:** v1.1.012 (2026-04-01) — Added PAIE role (9th role), time entry status flow (DRAFT→SUBMITTED→PM_APPROVED→FINANCE_APPROVED→PAIE_VALIDATED→LOCKED), period locking (PeriodFreeze/PeriodUnlock/TimesheetLock), 11 payroll controls, billing permissions matrix, per-entry PM approval with multi-PM color coding, MVP-1.5 deferred backlog from Sprint V5 and BMAD audits. Added project-linked invoices, free invoices, ST refacturable lines, invoiced hours tracking, mark-hours-invoiced action, project Budget tab with phase-level editing (Added v1.1.012). All additions marked "(Added v1.1.012)" or "(Updated v1.1.012)".
 
 ## Executive Summary
 
@@ -393,13 +393,11 @@ The following items were identified during Sprint V1-V5 development and BMAD aud
 | **Projects** | Auto-numbered amendments ({code}-AV-{seq}) | Sprint V4 |
 | **Projects** | Team tab with "+ Assign member" button, employee names instead of IDs | Mockup audit |
 | **Projects** | Assignment % control (max 100% per phase, auto-calculate remaining) | Sprint V4 |
-| **UX** | Project-centric billing (invoice from project detail) | Mockup audit |
 | **UX** | i18n on all business pages | Sprint V3 |
 | **UX** | Searchable dropdowns everywhere (unified pattern) | Mockup audit |
 | **Security** | Tenant filtering on approve/reject entry endpoints | BMAD audit |
 | **Security** | N+1 query optimization on PM dashboard | BMAD audit |
 | **Security** | Week boundary consistency (Mon-Sun vs Sun-Sat) | BMAD audit |
-| **Billing** | Onglet Budget dans fiche projet — saisie des montants budgétés par phase, pré-remplissage automatique des lignes de facture | Sprint V5 (Added v1.1.012) |
 | **Billing** | Calcul automatique TPS/TVQ — taxes calculées automatiquement sur les lignes de facture | Sprint V5 (Added v1.1.012) |
 | **Billing** | Allocation de paiements multi-factures — répartir un paiement sur plusieurs factures (PaymentAllocation) | Sprint V5 (Added v1.1.012) |
 
@@ -610,6 +608,13 @@ Three complementary locking mechanisms protect time entry integrity:
 - **FR30:** [MVP-1] Finance can prepare invoices via a 7-column screen with phase/task hierarchy: (1) deliverable name, (2) total contract amount, (3) invoiced to date, (4) % billing advancement, (5) % hours advancement (fixed-price) or supplier invoice amounts (subcontractors), (6) amount to bill this month (editable), (7) % advancement after billing. Sections: forfait, horaire, ST, dépenses, retenue, taxes. Double CA/Salary ratio banner
 - **FR30b:** [MVP-1] Dashboard "Heures sans facturation prévue ce mois" with slide-over project detail for hours without planned billing
 - **FR30c:** [MVP-1] Provisional invoice numbers (PROV-xxxx) assigned at creation, definitive number assigned at send time
+- **FR30d:** [MVP-1] Project-linked invoices — "Créer facture" from project Budget tab auto-populates all billable phases as invoice lines with budget amounts from project phases. For HORAIRE phases, only uninvoiced PM_APPROVED hours are included. For FORFAITAIRE phases, the full phase budget is used as the line amount *(Added v1.1.012)*
+- **FR30e:** [MVP-1] Free invoices — Simple invoices without project link, with manual lines using libre labels. Used for miscellaneous billing not tied to a specific project *(Added v1.1.012)*
+- **FR30f:** [MVP-1] Sub-contractor lines — ST invoices marked as refacturable are automatically included in project invoices with line_type=ST. These lines appear in the ST section of the invoice alongside internal fee lines *(Added v1.1.012)*
+- **FR30g:** [MVP-1] Free lines — Manual lines (Dépense, Autre) can be added at the bottom of any invoice for ad-hoc charges not covered by project phases or ST invoices *(Added v1.1.012)*
+- **FR30h:** [MVP-1] Invoiced hours tracking — TimeEntry.is_invoiced field marks hours that have been included in a sent invoice. For HORAIRE phases, only uninvoiced PM_APPROVED hours are included when creating new invoices. A "$" badge is displayed on timesheet cells for invoiced entries *(Added v1.1.012)*
+- **FR30i:** [MVP-1] Mark hours invoiced — Action on SENT or PAID invoices marks all matching time entries as invoiced (is_invoiced=True). This prevents double-billing of the same hours on subsequent invoices *(Added v1.1.012)*
+- **FR30j:** [MVP-1] Project Budget tab — Phase-level budget editing accessible to ADMIN and FINANCE roles. Displays KPI cards: total budget, total invoiced, % consumed, remaining budget. Each phase row shows budgeted amount, invoiced amount, and remaining. Budget changes are tracked in audit trail *(Added v1.1.012)*
 - **FR31:** [MVP-1] Finance can view visual alerts when hours advancement diverges from billing advancement by more than 10 points (red when hours > billing, green when billing ahead, yellow badge at >90%)
 - **FR32:** [MVP-1] Finance can view a real-time CA/Salary ratio banner above the invoice preparation screen: ratio before billing (invoiced to date / salaries to date) and ratio after billing (with current month), compared to firm target (configurable)
 - **FR33:** [MVP-1] Finance can create invoices using 10+ configurable billing templates per client

@@ -156,12 +156,13 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             # Calculate invoiced_to_date: sum of amount_to_bill from previous
             # invoice lines linked to the same phase (via financial_phase or
             # matching deliverable_name on the same project)
+            # Only count lines from SUBMITTED+ invoices (not DRAFT brouillons)
             invoiced_to_date = (
                 InvoiceLine.objects.filter(
                     invoice__project=project,
+                    invoice__status__in=["SUBMITTED", "APPROVED", "SENT", "PAID"],
                     deliverable_name=phase.client_facing_label or phase.name,
                 )
-                .exclude(invoice=invoice)
                 .aggregate(total=Sum("amount_to_bill"))["total"]
                 or Decimal("0")
             )
@@ -242,6 +243,23 @@ class InvoiceViewSet(viewsets.ModelViewSet):
                 {"error": {"code": "INVALID_STATUS", "message": "Seule une facture brouillon peut être soumise."}},
                 status=400,
             )
+        # Assign definitive sequential invoice number on submission
+        if invoice.invoice_number.startswith("PROV-"):
+            from django.utils import timezone
+            year = timezone.now().year
+            # Global sequential number — ensures chronological audit trail
+            last = Invoice.objects.filter(
+                invoice_number__regex=r"^FAC-\d{4}-\d+$",
+            ).exclude(status="DRAFT").order_by("-id").first()
+            if last:
+                try:
+                    seq = int(last.invoice_number.split("-")[-1]) + 1
+                except ValueError:
+                    seq = 1
+            else:
+                seq = 1
+            invoice.invoice_number = f"FAC-{year}-{seq:05d}"
+
         invoice.status = "SUBMITTED"
         invoice.submitted_by = request.user
         invoice.save()

@@ -170,6 +170,17 @@ async function createInvoice() {
   }
 }
 
+// Separate drafts from real invoices
+const draftInvoices = computed(() => (store.invoices || []).filter((i: { status: string }) => i.status === 'DRAFT'))
+const realInvoices = computed(() => (store.invoices || []).filter((i: { status: string }) => i.status !== 'DRAFT'))
+
+async function deleteDraft(id: number) {
+  try {
+    await billingApi.deleteInvoice(id)
+    await store.fetchInvoices()
+  } catch { /* silent */ }
+}
+
 onMounted(() => store.fetchInvoices())
 </script>
 
@@ -279,8 +290,46 @@ onMounted(() => store.fetchInvoices())
       </form>
     </div>
 
-    <!-- Table -->
+    <!-- Brouillons -->
+    <div v-if="draftInvoices.length" class="section-card draft-section">
+      <div class="section-header">
+        <h3>Brouillons ({{ draftInvoices.length }})</h3>
+        <span class="section-hint">Les brouillons ne comptent pas dans le facture a ce jour</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>No provisoire</th>
+            <th>Projet</th>
+            <th>Client</th>
+            <th class="text-right">Montant</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="invoice in draftInvoices" :key="invoice.id">
+            <td class="font-mono text-muted">{{ invoice.invoice_number }}</td>
+            <td>{{ invoice.project_code || '—' }}</td>
+            <td class="text-muted">{{ invoice.client_name || '—' }}</td>
+            <td class="text-right font-mono">{{ fmt.currency(invoice.total_amount) }}</td>
+            <td class="text-muted">{{ fmt.date(invoice.date_created) }}</td>
+            <td>
+              <div style="display: flex; gap: 6px;">
+                <button class="btn-sm-edit" @click="router.push(`/billing/${invoice.id}`)">Modifier</button>
+                <button class="btn-sm-delete" @click.stop="deleteDraft(invoice.id)">Supprimer</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Factures reelles -->
     <div class="card-table">
+      <div class="section-header">
+        <h3>Factures ({{ realInvoices.length }})</h3>
+      </div>
       <table>
         <thead>
           <tr>
@@ -294,7 +343,7 @@ onMounted(() => store.fetchInvoices())
         </thead>
         <tbody>
           <tr
-            v-for="invoice in store.invoices"
+            v-for="invoice in realInvoices"
             :key="invoice.id"
             class="row-link"
             @click="router.push(`/billing/${invoice.id}`)"
@@ -310,8 +359,8 @@ onMounted(() => store.fetchInvoices())
             </td>
             <td class="text-muted">{{ fmt.date(invoice.date_created) }}</td>
           </tr>
-          <tr v-if="!store.invoices?.length">
-            <td colspan="6" class="empty">Aucune facture</td>
+          <tr v-if="!realInvoices.length">
+            <td colspan="6" class="empty">Aucune facture soumise</td>
           </tr>
         </tbody>
       </table>
@@ -363,4 +412,16 @@ onMounted(() => store.fetchInvoices())
 .choice-icon { width: 36px; height: 36px; border-radius: 50%; background: var(--color-primary-light); color: var(--color-primary); font-weight: 700; font-size: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; }
 .choice-label { font-size: 14px; font-weight: 600; color: var(--color-gray-800); margin-bottom: 4px; }
 .choice-desc { font-size: 11px; color: var(--color-gray-500); line-height: 1.4; }
+
+/* Sections */
+.section-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; margin-bottom: 16px; }
+.draft-section { border: 1px dashed var(--color-gray-300); }
+.section-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--color-gray-200); background: var(--color-gray-50); }
+.section-header h3 { font-size: 13px; font-weight: 600; color: var(--color-gray-700); }
+.section-hint { font-size: 10px; color: var(--color-gray-400); font-style: italic; }
+
+.btn-sm-edit { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; background: var(--color-primary-light); color: var(--color-primary); border: none; cursor: pointer; }
+.btn-sm-edit:hover { background: var(--color-primary); color: white; }
+.btn-sm-delete { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; background: none; border: 1px solid #DC2626; color: #DC2626; cursor: pointer; }
+.btn-sm-delete:hover { background: #FEE2E2; }
 </style>

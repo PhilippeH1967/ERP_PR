@@ -99,6 +99,13 @@ Every story is considered "done" only when ALL of the following are met:
 - FR30: [MVP-1] Finance can prepare invoices via a 7-column screen with phase/task hierarchy and billing sections
 - FR30b: [MVP-1] Dashboard "Heures sans facturation prévue ce mois" with slide-over project detail
 - FR30c: [MVP-1] Provisional invoice numbers (PROV-xxxx) assigned at creation, definitive number assigned at send time
+- FR30d: [MVP-1] Project-linked invoices — "Créer facture" from project Budget tab auto-populates all billable phases as invoice lines (Added v1.1.012)
+- FR30e: [MVP-1] Free invoices — Simple invoices without project link, manual lines with libre labels (Added v1.1.012)
+- FR30f: [MVP-1] Sub-contractor lines — ST invoices (refacturable) automatically included in project invoices with line_type=ST (Added v1.1.012)
+- FR30g: [MVP-1] Free lines — Manual lines (Dépense, Autre) can be added at bottom of any invoice (Added v1.1.012)
+- FR30h: [MVP-1] Invoiced hours tracking — TimeEntry.is_invoiced marks hours included in a sent invoice, "$" badge on timesheet cells (Added v1.1.012)
+- FR30i: [MVP-1] Mark hours invoiced — Action on SENT/PAID invoices marks matching time entries as invoiced (Added v1.1.012)
+- FR30j: [MVP-1] Project Budget tab — Phase-level budget editing by ADMIN/FINANCE, KPI cards (Added v1.1.012)
 - FR31: [MVP-1] Finance can view visual alerts when hours advancement diverges from billing advancement by more than 10 points
 - FR32: [MVP-1] Finance can view a real-time CA/Salary ratio banner comparing to firm target (configurable)
 - FR33: [MVP-1] Finance can create invoices using 10+ configurable billing templates per client
@@ -469,8 +476,8 @@ Employees enter time on assigned projects in a weekly grid, PMs approve as first
 **FRs covered:** FR16, FR17, FR18, FR19, FR20, FR21, FR22, FR22b, FR24, FR25, FR26, FR27, FR27e
 
 ### Epic 5: Invoicing & Financial Layer — DONE (Updated v1.1.012)
-Finance defines financial phases, sets dual rates, prepares invoices via the 7-column screen with CA/Salary ratio, manages payments (partial + multi-allocation), tracks holdbacks, assembles billing dossiers, and exports to Intact. Extended with RBAC billing permissions and print preview.
-**FRs covered:** FR28, FR29, FR30, FR30b, FR30c, FR31, FR32, FR33, FR33b, FR34, FR34b, FR35, FR36, FR37, FR38, FR39, FR39d, FR39f, FR39g, FR39h
+Finance defines financial phases, sets dual rates, prepares invoices via the 7-column screen with CA/Salary ratio, manages payments (partial + multi-allocation), tracks holdbacks, assembles billing dossiers, and exports to Intact. Extended with RBAC billing permissions, print preview, project-linked invoices, free invoices, ST refacturable lines, invoiced hours tracking, and project Budget tab.
+**FRs covered:** FR28, FR29, FR30, FR30b, FR30c, FR30d, FR30e, FR30f, FR30g, FR30h, FR30i, FR30j, FR31, FR32, FR33, FR33b, FR34, FR34b, FR35, FR36, FR37, FR38, FR39, FR39d, FR39f, FR39g, FR39h
 
 ### Epic 6: Expense Management
 Employees create expense reports with receipts, 4-role approval workflow (Employee → Approver → Finance Analyst → Finance Payment), refacturable tracking, categories configuration, reporting, and Intact export.
@@ -1023,7 +1030,7 @@ So that completed phases cannot receive new time entries.
 
 ## Epic 5: Invoicing & Financial Layer — DONE (Updated v1.1.012)
 
-Finance defines financial phases, sets dual rates, prepares invoices via 7-column screen, manages payments, holdbacks, and exports to Intact. Extended with RBAC billing permissions.
+Finance defines financial phases, sets dual rates, prepares invoices via 7-column screen, manages payments, holdbacks, and exports to Intact. Extended with RBAC billing permissions, print preview, project-linked invoices, free invoices, ST refacturable lines, invoiced hours tracking, and project Budget tab.
 
 ### Story 5.1: Financial Phases & Dual Rate Configuration — DONE
 
@@ -1168,6 +1175,79 @@ So that I can review the invoice before sending.
 **When** I open print preview
 **Then** I see a formatted brouillon with 5 columns, banking references, and complete formatting (FR34b)
 **And** the preview is accessible via slide-over from the approval accordion list
+
+### Story 5.11: Project-Linked Invoice Creation — DONE (Added v1.1.012)
+
+As a **Finance user**,
+I want to create an invoice directly from a project's Budget tab with auto-populated lines,
+So that all billable phases are pre-filled as invoice lines with correct amounts from the project budget.
+
+**Acceptance Criteria:**
+
+**Given** a project with defined phases and budgets
+**When** I click "Créer facture" from the project Budget tab
+**Then** the system creates a new invoice linked to the project
+**And** all billable phases are auto-populated as invoice lines with budget amounts from project phases (FR30d)
+**And** for HORAIRE phases, only uninvoiced PM_APPROVED hours are included
+**And** for FORFAITAIRE phases, the full phase budget is used as the line amount
+
+### Story 5.12: Free Invoices Without Project Reference — DONE (Added v1.1.012)
+
+As a **Finance user**,
+I want to create simple invoices without linking to a project,
+So that I can bill for miscellaneous services not tied to a specific project.
+
+**Acceptance Criteria:**
+
+**Given** the invoice creation screen
+**When** I create a free invoice without selecting a project
+**Then** the system allows manual line entry with libre labels (FR30e)
+**And** the invoice follows the same workflow (Draft → Submitted → Approved → Sent → Paid)
+**And** free lines (Dépense, Autre) can be added at the bottom of any invoice for ad-hoc charges (FR30g)
+
+### Story 5.13: Sub-Contractor Refacturable Lines in Invoices — DONE (Added v1.1.012)
+
+As a **Finance user**,
+I want ST invoices marked as refacturable to be automatically included in project invoices,
+So that sub-contractor costs are correctly passed through to the client.
+
+**Acceptance Criteria:**
+
+**Given** a project with refacturable ST invoices
+**When** I create or view a project-linked invoice
+**Then** refacturable ST invoices are automatically included as invoice lines with line_type=ST (FR30f)
+**And** ST lines appear in the ST section of the invoice alongside internal fee lines
+
+### Story 5.14: Invoiced Hours Tracking on TimeEntry — DONE (Added v1.1.012)
+
+As a **Finance user**,
+I want time entries included in sent invoices to be marked as invoiced,
+So that the same hours are never double-billed on subsequent invoices.
+
+**Acceptance Criteria:**
+
+**Given** an invoice in SENT or PAID status
+**When** the mark-hours-invoiced action is triggered
+**Then** all matching time entries are marked with is_invoiced=True (FR30i)
+**And** a "$" badge is displayed on timesheet cells for invoiced entries (FR30h)
+**And** for HORAIRE phases, only uninvoiced PM_APPROVED hours are included when creating new invoices
+**And** the is_invoiced flag prevents double-billing of the same hours
+
+### Story 5.15: Project Budget Tab with Phase-Level Editing — DONE (Added v1.1.012)
+
+As an **ADMIN or Finance user**,
+I want a Budget tab on the project detail page with phase-level budget editing and KPI cards,
+So that I can manage project budgets and track invoicing progress at the phase level.
+
+**Acceptance Criteria:**
+
+**Given** a project detail page
+**When** I navigate to the Budget tab
+**Then** I see KPI cards: total budget, total invoiced, % consumed, remaining budget (FR30j)
+**And** each phase row shows budgeted amount, invoiced amount, and remaining
+**And** ADMIN and FINANCE roles can edit phase-level budgets
+**And** budget changes are tracked in the audit trail
+**And** a "Créer facture" button is available to generate project-linked invoices (FR30d)
 
 ## Epic 6: Expense Management
 

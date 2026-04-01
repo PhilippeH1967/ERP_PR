@@ -134,6 +134,16 @@ async function markHoursInvoiced() {
   }
 }
 
+async function deleteDraft() {
+  if (!invoice.value || invoice.value.status !== 'DRAFT') return
+  try {
+    await billingApi.deleteInvoice(invoiceId)
+    router.push('/billing')
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur lors de la suppression'
+  }
+}
+
 function openPrint() {
   const token = localStorage.getItem('access_token')
   // Open print view with auth — fetch HTML and open in new window
@@ -337,12 +347,13 @@ function cancelOverride() {
               <td class="cell-name">
                 <span class="line-type-badge">{{ line.line_type }}</span>
                 {{ line.deliverable_name }}
-                <router-link
+                <a
                   v-if="invoice.project"
-                  :to="`/projects/${invoice.project}`"
+                  :href="`/projects/${invoice.project}`"
+                  target="_blank"
                   class="budget-link"
-                  title="Voir le budget du projet"
-                >&#8599;</router-link>
+                  title="Voir le budget du projet (nouvel onglet)"
+                >&#8599;</a>
               </td>
               <td class="cell-mono cell-readonly">{{ fmt.currency(line.total_contract_amount) }}</td>
               <td class="cell-mono cell-readonly">{{ fmt.currency(line.invoiced_to_date) }}</td>
@@ -476,7 +487,10 @@ function cancelOverride() {
 
     <!-- 9. Footer action bar -->
     <div class="footer-actions">
-      <button class="btn-ghost" @click="router.push('/billing')">&larr; Retour a la liste</button>
+      <div class="footer-left">
+        <button class="btn-ghost" @click="router.push('/billing')">&larr; Retour a la liste</button>
+        <button v-if="invoice.status === 'DRAFT'" class="btn-danger-outline" @click="deleteDraft">Supprimer ce brouillon</button>
+      </div>
       <div class="footer-right">
         <button class="btn-ghost" @click="openPrint">Imprimer</button>
 
@@ -676,7 +690,10 @@ tfoot td { padding: 8px 12px; font-size: 13px; }
   position: sticky; bottom: 12px; z-index: 10;
   border: 1px solid var(--color-gray-200);
 }
+.footer-left { display: flex; align-items: center; gap: 8px; }
 .footer-right { display: flex; align-items: center; gap: 8px; }
+.btn-danger-outline { padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; background: none; border: 1px solid #DC2626; color: #DC2626; }
+.btn-danger-outline:hover { background: #FEE2E2; }
 
 /* ── Buttons ──────────────────────────────────────────── */
 .btn-primary {

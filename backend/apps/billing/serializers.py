@@ -80,17 +80,21 @@ class InvoiceSerializer(OptimisticLockMixin, serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    project_code = serializers.CharField(source="project.code", read_only=True, default="")
+    project_name = serializers.CharField(source="project.name", read_only=True, default="")
+    client_name = serializers.CharField(source="client.name", read_only=True, default="")
 
     class Meta:
         model = Invoice
         fields = [
-            "id", "project", "client", "invoice_number", "status",
+            "id", "project", "project_code", "project_name",
+            "client", "client_name", "invoice_number", "status",
             "total_amount", "tax_tps", "tax_tvq",
             "submitted_by", "approved_by", "template",
             "date_created", "date_sent", "date_paid",
             "version", "lines", "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "date_created", "created_at", "updated_at"]
+        read_only_fields = ["id", "date_created", "created_at", "updated_at", "project_code", "project_name", "client_name"]
 
 
 class InvoiceListSerializer(serializers.ModelSerializer):
