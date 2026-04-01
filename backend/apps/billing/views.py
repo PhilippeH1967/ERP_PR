@@ -93,6 +93,140 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         else:
             serializer.save()
 
+    @action(detail=False, methods=["post"], url_path="create_from_project")
+    def create_from_project(self, request):
+        """Create invoice with all billable phases pre-populated as lines."""
+        from decimal import Decimal
+
+        from django.db.models import Sum
+
+        from apps.projects.models import Phase, Project
+
+        project_id = request.data.get("project_id")
+        if not project_id:
+            return Response(
+                {"error": {"code": "MISSING_FIELD", "message": "project_id est requis."}},
+                status=400,
+            )
+
+        try:
+            project = Project.objects.select_related("client").get(pk=project_id)
+        except Project.DoesNotExist:
+            return Response(
+                {"error": {"code": "NOT_FOUND", "message": "Projet introuvable."}},
+                status=404,
+            )
+
+        if not project.client:
+            return Response(
+                {"error": {"code": "NO_CLIENT", "message": "Ce projet n'a pas de client associé."}},
+                status=400,
+            )
+
+        # Generate provisional invoice number
+        import time
+
+        invoice_number = f"PROV-{str(int(time.time()))[-6:]}"
+
+        # Determine tenant
+        tenant = None
+        tenant_id = getattr(request, "tenant_id", None)
+        if tenant_id:
+            from apps.core.models import Tenant
+
+            tenant = Tenant.objects.get(pk=tenant_id)
+        elif hasattr(project, "tenant"):
+            tenant = project.tenant
+
+        # Create draft invoice
+        invoice = Invoice.objects.create(
+            project=project,
+            client=project.client,
+            invoice_number=invoice_number,
+            status="DRAFT",
+            tenant=tenant,
+        )
+
+        # Create lines for each billable phase
+        phases = Phase.objects.filter(
+            project=project, budgeted_cost__gt=0
+        ).order_by("order")
+
+        for phase in phases:
+            # Calculate invoiced_to_date: sum of amount_to_bill from previous
+            # invoice lines linked to the same phase (via financial_phase or
+            # matching deliverable_name on the same project)
+            invoiced_to_date = (
+                InvoiceLine.objects.filter(
+                    invoice__project=project,
+                    deliverable_name=phase.client_facing_label or phase.name,
+                )
+                .exclude(invoice=invoice)
+                .aggregate(total=Sum("amount_to_bill"))["total"]
+                or Decimal("0")
+            )
+
+            amount_to_bill = Decimal("0")
+
+            # For HORAIRE phases, calculate from uninvoiced approved time entries
+            if phase.billing_mode == "HORAIRE":
+                from apps.time_entries.models import TimeEntry
+
+                uninvoiced_entries = TimeEntry.objects.filter(
+                    project=project,
+                    phase=phase,
+                    status="PM_APPROVED",
+                    is_invoiced=False,
+                )
+                total_hours = uninvoiced_entries.aggregate(
+                    h=Sum("hours")
+                )["h"] or Decimal("0")
+                hourly_rate = Decimal("85")  # default rate
+                amount_to_bill = total_hours * hourly_rate
+
+            InvoiceLine.objects.create(
+                invoice=invoice,
+                deliverable_name=phase.client_facing_label or phase.name,
+                line_type=phase.billing_mode,  # FORFAIT or HORAIRE
+                total_contract_amount=phase.budgeted_cost,
+                invoiced_to_date=invoiced_to_date,
+                amount_to_bill=amount_to_bill,
+                order=phase.order,
+                tenant=tenant,
+            )
+
+        # Create lines for refacturable ST invoices
+        from apps.suppliers.models import STInvoice
+
+        st_invoices = STInvoice.objects.filter(
+            project=project,
+            budget_refacturable__gt=0,
+        ).select_related("supplier")
+
+        max_order = phases.count()
+        for idx, st_inv in enumerate(st_invoices, start=1):
+            InvoiceLine.objects.create(
+                invoice=invoice,
+                deliverable_name=f"ST — {st_inv.supplier.name}",
+                line_type="ST",
+                total_contract_amount=st_inv.budget_refacturable,
+                invoiced_to_date=Decimal("0"),
+                amount_to_bill=st_inv.budget_refacturable,
+                order=max_order + idx,
+                tenant=tenant,
+            )
+
+        # Recalculate totals
+        total = invoice.lines.aggregate(t=Sum("amount_to_bill"))["t"] or Decimal("0")
+        Invoice.objects.filter(pk=invoice.pk).update(
+            total_amount=total,
+            tax_tps=round(total * Decimal("0.05"), 2),
+            tax_tvq=round(total * Decimal("0.09975"), 2),
+        )
+        invoice.refresh_from_db()
+
+        return Response(InvoiceSerializer(invoice).data, status=201)
+
     @action(detail=True, methods=["post"])
     def submit(self, request, pk=None):
         """Submit invoice for approval. Requires ADMIN/FINANCE/PM."""
@@ -251,6 +385,36 @@ class InvoiceViewSet(viewsets.ModelViewSet):
 </body>
 </html>"""
         return HttpResponse(html, content_type="text/html")
+
+    @action(detail=True, methods=["post"])
+    def mark_hours_invoiced(self, request, pk=None):
+        """Mark time entries as invoiced for HORAIRE lines on SENT/PAID invoices."""
+        invoice = self.get_object()
+        if invoice.status not in ("SENT", "PAID"):
+            return Response(
+                {"error": {"code": "INVALID_STATUS", "message": "La facture doit être envoyée ou payée."}},
+                status=400,
+            )
+
+        from apps.time_entries.models import TimeEntry
+
+        total_marked = 0
+        for line in invoice.lines.filter(line_type="HORAIRE"):
+            entries = TimeEntry.objects.filter(
+                project=invoice.project,
+                phase__name=line.deliverable_name,
+                status="PM_APPROVED",
+                is_invoiced=False,
+            ) | TimeEntry.objects.filter(
+                project=invoice.project,
+                phase__client_facing_label=line.deliverable_name,
+                status="PM_APPROVED",
+                is_invoiced=False,
+            )
+            count = entries.distinct().update(is_invoiced=True, invoiced_on=invoice)
+            total_marked += count
+
+        return Response({"marked_count": total_marked})
 
     @action(detail=True, methods=["get"])
     def aging_analysis(self, request, pk=None):

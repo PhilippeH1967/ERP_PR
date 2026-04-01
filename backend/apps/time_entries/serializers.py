@@ -20,12 +20,13 @@ class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
         fields = [
             "id", "employee", "project", "project_code", "project_name",
             "phase", "phase_name", "client_label",
-            "date", "hours", "notes", "rejection_reason", "status", "is_favorite", "version",
+            "date", "hours", "notes", "rejection_reason", "status", "is_favorite",
+            "is_invoiced", "version",
             "created_at", "updated_at",
         ]
         read_only_fields = [
             "id", "employee", "project_code", "project_name",
-            "phase_name", "client_label", "rejection_reason",
+            "phase_name", "client_label", "rejection_reason", "is_invoiced",
             "created_at", "updated_at",
         ]
 

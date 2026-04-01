@@ -15,7 +15,9 @@ const showPaymentForm = ref(false)
 const paymentForm = ref({ amount: '', payment_date: '', reference: '', method: 'CHEQUE' })
 const isEditingLines = ref(false)
 const showAddLine = ref(false)
-const newLine = ref({ deliverable_name: '', line_type: 'FORFAIT', total_contract_amount: '0', amount_to_bill: '0' })
+const newLine = ref({ deliverable_name: '', line_type: 'DEPENSE', total_contract_amount: '0', amount_to_bill: '0' })
+const markingHours = ref(false)
+const markHoursResult = ref('')
 const confirmDeleteLine = ref<number | null>(null)
 const actionError = ref('')
 
@@ -100,7 +102,7 @@ async function createLine() {
   try {
     await billingApi.createLine(invoiceId, newLine.value)
     showAddLine.value = false
-    newLine.value = { deliverable_name: '', line_type: 'FORFAIT', total_contract_amount: '0', amount_to_bill: '0' }
+    newLine.value = { deliverable_name: '', line_type: 'DEPENSE', total_contract_amount: '0', amount_to_bill: '0' }
     await reload()
   } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
 }
@@ -115,6 +117,21 @@ function stopEditingLines() {
   isEditingLines.value = false
   showAddLine.value = false
   confirmDeleteLine.value = null
+}
+
+async function markHoursInvoiced() {
+  markingHours.value = true
+  markHoursResult.value = ''
+  actionError.value = ''
+  try {
+    const resp = await billingApi.markHoursInvoiced(invoiceId)
+    const data = resp.data?.data || resp.data
+    markHoursResult.value = `${data.marked_count} entree(s) de temps marquee(s) comme facturee(s).`
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  } finally {
+    markingHours.value = false
+  }
 }
 
 function openPrint() {
@@ -301,37 +318,6 @@ function cancelOverride() {
         </div>
       </div>
 
-      <!-- Add line form (inline, below header) -->
-      <div v-if="showAddLine" class="add-line-row">
-        <form @submit.prevent="createLine" class="add-line-form">
-          <div class="form-group" style="flex: 2.5;">
-            <label>Livrable</label>
-            <input v-model="newLine.deliverable_name" required />
-          </div>
-          <div class="form-group" style="flex: 0.8;">
-            <label>Type</label>
-            <select v-model="newLine.line_type">
-              <option value="FORFAIT">Forfait</option>
-              <option value="HORAIRE">Horaire</option>
-              <option value="ST">ST</option>
-              <option value="DEPENSE">Depense</option>
-            </select>
-          </div>
-          <div class="form-group" style="flex: 0.8;">
-            <label>Montant contrat</label>
-            <input v-model="newLine.total_contract_amount" type="number" step="0.01" class="no-spinners input-right" />
-          </div>
-          <div class="form-group" style="flex: 0.8;">
-            <label>A facturer</label>
-            <input v-model="newLine.amount_to_bill" type="number" step="0.01" class="no-spinners input-right" />
-          </div>
-          <div class="form-group" style="flex: 0.8; display: flex; align-items: flex-end; gap: 4px;">
-            <button type="button" class="btn-ghost" @click="showAddLine = false">Annuler</button>
-            <button type="submit" class="btn-primary">Ajouter</button>
-          </div>
-        </form>
-      </div>
-
       <div class="table-scroll">
         <table>
           <thead>
@@ -433,6 +419,38 @@ function cancelOverride() {
       </div>
     </div>
 
+    <!-- 7b. Add free line form (after table) -->
+    <div v-if="showAddLine" class="card add-line-card">
+      <div class="card-title" style="padding: 12px 20px 0;">Ajouter une ligne libre</div>
+      <div class="add-line-row">
+        <form @submit.prevent="createLine" class="add-line-form">
+          <div class="form-group" style="flex: 2.5;">
+            <label>Libelle</label>
+            <input v-model="newLine.deliverable_name" required placeholder="Description de la ligne" />
+          </div>
+          <div class="form-group" style="flex: 0.8;">
+            <label>Type</label>
+            <select v-model="newLine.line_type">
+              <option value="DEPENSE">Depense</option>
+              <option value="AUTRE">Autre</option>
+              <option value="ST">ST</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex: 0.8;">
+            <label>Montant</label>
+            <input v-model="newLine.amount_to_bill" type="number" step="0.01" class="no-spinners input-right" />
+          </div>
+          <div class="form-group" style="flex: 0.8; display: flex; align-items: flex-end; gap: 4px;">
+            <button type="button" class="btn-ghost" @click="showAddLine = false">Annuler</button>
+            <button type="submit" class="btn-primary">Ajouter</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 7c. Mark hours as invoiced -->
+    <div v-if="markHoursResult" class="alert-success">{{ markHoursResult }}</div>
+
     <!-- 8. Aging Analysis -->
     <div v-if="agingData" class="aging-section">
       <h3 class="section-title">Analyse d'anciennete</h3>
@@ -479,7 +497,12 @@ function cancelOverride() {
         <button v-if="invoice.status === 'APPROVED'" class="btn-primary" @click="markSent">Marquer envoyee</button>
 
         <!-- SENT -->
-        <button v-if="invoice.status === 'SENT'" class="btn-success" @click="showPaymentForm = !showPaymentForm">Enregistrer paiement</button>
+        <template v-if="invoice.status === 'SENT'">
+          <button class="btn-ghost" :disabled="markingHours" @click="markHoursInvoiced">
+            {{ markingHours ? 'En cours...' : 'Marquer les heures comme facturees' }}
+          </button>
+          <button class="btn-success" @click="showPaymentForm = !showPaymentForm">Enregistrer paiement</button>
+        </template>
       </div>
     </div>
   </div>
@@ -533,6 +556,7 @@ function cancelOverride() {
 .alert-error { background: #FEE2E2; color: #DC2626; padding: 10px 16px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; border: 1px solid #FECACA; }
 .line-error { background: #FEE2E2; color: #DC2626; padding: 8px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 8px; }
 .line-warning { background: #FEF3C7; color: #92400E; padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 8px; border: 1px solid #FCD34D; }
+.alert-success { background: #DCFCE7; color: #15803D; padding: 10px 16px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; border: 1px solid #BBF7D0; }
 .warning-actions { display: flex; gap: 8px; margin-top: 6px; }
 .btn-warning-confirm { padding: 4px 12px; border-radius: 4px; font-size: 11px; font-weight: 600; background: #D97706; color: white; border: none; cursor: pointer; }
 .btn-warning-confirm:hover { background: #B45309; }
@@ -562,7 +586,8 @@ function cancelOverride() {
 .legend-edit { background: #FFFBEB; border: 1px solid #FCD34D; }
 .legend-readonly { background: var(--color-gray-50); border: 1px solid var(--color-gray-200); }
 
-.add-line-row { padding: 10px 20px; border-bottom: 1px solid var(--color-gray-200); background: var(--color-gray-50); }
+.add-line-card { margin-bottom: 16px; overflow: hidden; }
+.add-line-row { padding: 10px 20px; background: var(--color-gray-50); }
 .add-line-form { display: flex; gap: 10px; align-items: flex-end; }
 
 .table-scroll { overflow-x: auto; }

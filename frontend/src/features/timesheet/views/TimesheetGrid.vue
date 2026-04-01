@@ -456,6 +456,7 @@ function normClass(total: number, norm: number): string {
                 :phase-id="row.phase_id"
                 :date="date"
                 :is-locked="row.is_locked || store.periodLocked || (row.entries[date]?.status !== undefined && row.entries[date]?.status !== 'DRAFT')"
+                :is-invoiced="!!row.entries[date]?.is_invoiced"
                 :aria-label="`${row.project_code} ${row.phase_name} ${date}`"
                 @save="onCellSave"
               />

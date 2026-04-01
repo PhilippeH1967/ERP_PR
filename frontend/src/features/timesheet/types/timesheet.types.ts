@@ -13,6 +13,7 @@ export interface TimeEntry {
   rejection_reason: string
   status: 'DRAFT' | 'SUBMITTED' | 'PM_APPROVED' | 'FINANCE_APPROVED' | 'LOCKED'
   is_favorite: boolean
+  is_invoiced: boolean
   version: number
 }
 

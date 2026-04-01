@@ -11,6 +11,8 @@ const router = useRouter()
 const { fmt } = useLocale()
 
 const showCreate = ref(false)
+const showCreateChoice = ref(false)
+const createMode = ref<'libre' | null>(null)
 const createError = ref('')
 
 // Lookup data
@@ -104,7 +106,20 @@ async function loadLookups() {
   } catch { /* silent */ }
 }
 
-function openCreate() {
+function openCreateChoice() {
+  showCreateChoice.value = true
+  showCreate.value = false
+  createMode.value = null
+}
+
+function chooseFactureProjet() {
+  showCreateChoice.value = false
+  router.push('/projects')
+}
+
+function chooseFactureLibre() {
+  showCreateChoice.value = false
+  createMode.value = 'libre'
   showCreate.value = true
   selectedClientId.value = null
   selectedProjectId.value = null
@@ -132,17 +147,20 @@ const statusLabels: Record<string, string> = {
 
 async function createInvoice() {
   createError.value = ''
-  if (!selectedProjectId.value || !selectedClientId.value) {
-    createError.value = 'Sélectionnez un client et un projet.'
+  if (!selectedClientId.value) {
+    createError.value = 'Sélectionnez un client.'
     return
   }
   try {
     const invoiceNumber = `PROV-${Date.now().toString().slice(-6)}`
-    const resp = await billingApi.createInvoice({
-      project: selectedProjectId.value,
+    const payload: Record<string, unknown> = {
       client: selectedClientId.value,
       invoice_number: invoiceNumber,
-    })
+    }
+    if (selectedProjectId.value) {
+      payload.project = selectedProjectId.value
+    }
+    const resp = await billingApi.createInvoice(payload)
     const data = resp.data?.data || resp.data
     showCreate.value = false
     router.push(`/billing/${data.id}`)
@@ -159,12 +177,32 @@ onMounted(() => store.fetchInvoices())
   <div>
     <div class="page-header">
       <h1>Facturation</h1>
-      <button class="btn-primary" @click="openCreate">+ Nouvelle facture</button>
+      <button class="btn-primary" @click="openCreateChoice">+ Nouvelle facture</button>
     </div>
 
-    <!-- Create form -->
-    <div v-if="showCreate" class="card" style="margin-bottom: 12px;">
-      <div class="card-title">Nouvelle facture</div>
+    <!-- Create choice modal -->
+    <div v-if="showCreateChoice" class="card" style="margin-bottom: 12px;">
+      <div class="card-title">Nouvelle facture — choisir le type</div>
+      <div class="create-choice-grid">
+        <button class="choice-card" @click="chooseFactureProjet">
+          <div class="choice-icon">P</div>
+          <div class="choice-label">Facture projet</div>
+          <div class="choice-desc">Depuis un projet existant, avec lignes pré-remplies depuis les phases</div>
+        </button>
+        <button class="choice-card" @click="chooseFactureLibre">
+          <div class="choice-icon">L</div>
+          <div class="choice-label">Facture libre</div>
+          <div class="choice-desc">Sans lien projet obligatoire, lignes saisies manuellement</div>
+        </button>
+      </div>
+      <div class="form-actions" style="margin-top: 12px;">
+        <button type="button" class="btn-ghost" @click="showCreateChoice = false">Annuler</button>
+      </div>
+    </div>
+
+    <!-- Create free invoice form -->
+    <div v-if="showCreate && createMode === 'libre'" class="card" style="margin-bottom: 12px;">
+      <div class="card-title">Nouvelle facture libre</div>
       <div v-if="createError" class="alert-error">{{ createError }}</div>
       <form @submit.prevent="createInvoice" class="create-form">
         <div class="form-row-2">
@@ -199,9 +237,9 @@ onMounted(() => store.fetchInvoices())
             </div>
           </div>
 
-          <!-- Project list (filtered by client, shown automatically) -->
+          <!-- Project list (optional for free invoices) -->
           <div class="form-group">
-            <label>2. Projet (actifs uniquement) *</label>
+            <label>2. Projet (optionnel)</label>
             <div class="search-dropdown">
               <template v-if="!selectedProjectId">
                 <input
@@ -236,7 +274,7 @@ onMounted(() => store.fetchInvoices())
 
         <div class="form-actions">
           <button type="button" class="btn-ghost" @click="showCreate = false">Annuler</button>
-          <button type="submit" class="btn-primary" :disabled="!selectedProjectId || !selectedClientId">Créer la facture</button>
+          <button type="submit" class="btn-primary" :disabled="!selectedClientId">Créer la facture</button>
         </div>
       </form>
     </div>
@@ -262,8 +300,8 @@ onMounted(() => store.fetchInvoices())
             @click="router.push(`/billing/${invoice.id}`)"
           >
             <td class="font-mono font-medium">{{ invoice.invoice_number }}</td>
-            <td>{{ invoice.project_code }}</td>
-            <td class="text-muted">{{ invoice.client_name }}</td>
+            <td>{{ invoice.project_code || '—' }}</td>
+            <td class="text-muted">{{ invoice.client_name || '—' }}</td>
             <td class="text-right font-mono">{{ fmt.currency(invoice.total_amount) }}</td>
             <td>
               <span class="badge" :class="statusColors[invoice.status]">
@@ -318,4 +356,11 @@ onMounted(() => store.fetchInvoices())
 .badge-green { background: #DCFCE7; color: #15803D; }
 .badge-amber { background: #FEF3C7; color: #92400E; }
 .badge-green-solid { background: #15803D; color: white; }
+
+.create-choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.choice-card { background: var(--color-gray-50); border: 2px solid var(--color-gray-200); border-radius: 8px; padding: 20px 16px; cursor: pointer; text-align: center; transition: border-color 0.15s, box-shadow 0.15s; }
+.choice-card:hover { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.choice-icon { width: 36px; height: 36px; border-radius: 50%; background: var(--color-primary-light); color: var(--color-primary); font-weight: 700; font-size: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; }
+.choice-label { font-size: 14px; font-weight: 600; color: var(--color-gray-800); margin-bottom: 4px; }
+.choice-desc { font-size: 11px; color: var(--color-gray-500); line-height: 1.4; }
 </style>

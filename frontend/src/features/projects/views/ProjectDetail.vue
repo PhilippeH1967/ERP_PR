@@ -5,6 +5,7 @@ import { useLocale } from '@/shared/composables/useLocale'
 import { useAuth } from '@/shared/composables/useAuth'
 import apiClient from '@/plugins/axios'
 import { projectApi } from '../api/projectApi'
+import { billingApi } from '@/features/billing/api/billingApi'
 import { useProjectStore } from '../stores/useProjectStore'
 import AssignmentModal from '../components/AssignmentModal.vue'
 
@@ -50,6 +51,22 @@ const editAmendmentForm = ref({ description: '', budget_impact: '', status: 'DRA
 // Budget tab
 const budgetSaving = ref<number | null>(null)
 const budgetError = ref('')
+const creatingInvoice = ref(false)
+
+async function createInvoiceFromProject() {
+  budgetError.value = ''
+  creatingInvoice.value = true
+  try {
+    const resp = await billingApi.createFromProject(projectId)
+    const data = resp.data?.data || resp.data
+    router.push(`/billing/${data.id}`)
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: { message?: string } } } }
+    budgetError.value = err.response?.data?.error?.message || 'Erreur lors de la création de la facture'
+  } finally {
+    creatingInvoice.value = false
+  }
+}
 
 const canEditBudget = computed(() => {
   const roles = currentUser.value?.roles || []
@@ -662,6 +679,14 @@ onMounted(reload)
 
     <!-- ═══ Budget ═══ -->
     <template v-if="activeTab === 'budget'">
+      <!-- Header with create invoice button -->
+      <div class="budget-header">
+        <div></div>
+        <button class="btn-primary" :disabled="creatingInvoice || budgetTotal <= 0" @click="createInvoiceFromProject">
+          {{ creatingInvoice ? 'Création...' : 'Créer une facture' }}
+        </button>
+      </div>
+
       <!-- Summary cards -->
       <div class="kpi-grid-4">
         <div class="kpi-card">
@@ -851,4 +876,6 @@ onMounted(reload)
 .budget-input.saving { opacity: 0.5; pointer-events: none; }
 
 .budget-hint { font-size: 11px; color: var(--color-gray-400); margin-top: 12px; font-style: italic; }
+
+.budget-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 </style>

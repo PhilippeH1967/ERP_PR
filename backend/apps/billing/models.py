@@ -19,7 +19,8 @@ class Invoice(TenantScopedModel, VersionedModel):
     """Client invoice with 7-column line items."""
 
     project = models.ForeignKey(
-        "projects.Project", on_delete=models.CASCADE, related_name="invoices"
+        "projects.Project", on_delete=models.CASCADE, related_name="invoices",
+        null=True, blank=True,
     )
     client = models.ForeignKey(
         "clients.Client", on_delete=models.PROTECT, related_name="invoices"
@@ -56,7 +57,7 @@ class Invoice(TenantScopedModel, VersionedModel):
         ordering = ["-date_created"]
 
     def __str__(self):
-        return f"{self.invoice_number} — {self.project.code}"
+        return f"{self.invoice_number} — {self.project.code if self.project else 'Libre'}"
 
 
 class LineType(models.TextChoices):
@@ -64,6 +65,7 @@ class LineType(models.TextChoices):
     HORAIRE = "HORAIRE", "Horaire"
     ST = "ST", "Sous-traitant"
     DEPENSE = "DEPENSE", "Dépense"
+    AUTRE = "AUTRE", "Autre (libre)"
 
 
 class InvoiceLine(TenantScopedModel):

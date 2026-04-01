@@ -6,9 +6,11 @@ export const billingApi = {
   createInvoice: (data: Record<string, unknown>) => apiClient.post('invoices/', data),
   updateInvoice: (id: number, data: Record<string, unknown>) => apiClient.patch(`invoices/${id}/`, data),
   deleteInvoice: (id: number) => apiClient.delete(`invoices/${id}/`),
+  createFromProject: (projectId: number) => apiClient.post('invoices/create_from_project/', { project_id: projectId }),
   submitInvoice: (id: number) => apiClient.post(`invoices/${id}/submit/`),
   approveInvoice: (id: number) => apiClient.post(`invoices/${id}/approve/`),
   agingAnalysis: (id: number) => apiClient.get(`invoices/${id}/aging_analysis/`),
+  markHoursInvoiced: (id: number) => apiClient.post(`invoices/${id}/mark_hours_invoiced/`),
   printView: (id: number) => `${apiClient.defaults.baseURL}invoices/${id}/print/`,
 
   // Lines

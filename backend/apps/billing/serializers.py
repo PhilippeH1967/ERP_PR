@@ -75,6 +75,11 @@ class InvoiceLineSerializer(serializers.ModelSerializer):
 
 class InvoiceSerializer(OptimisticLockMixin, serializers.ModelSerializer):
     lines = InvoiceLineSerializer(many=True, read_only=True)
+    project = serializers.PrimaryKeyRelatedField(
+        queryset=Invoice.project.field.related_model.objects.all(),
+        required=False,
+        allow_null=True,
+    )
 
     class Meta:
         model = Invoice
@@ -89,8 +94,8 @@ class InvoiceSerializer(OptimisticLockMixin, serializers.ModelSerializer):
 
 
 class InvoiceListSerializer(serializers.ModelSerializer):
-    project_code = serializers.CharField(source="project.code", read_only=True)
-    client_name = serializers.CharField(source="client.name", read_only=True)
+    project_code = serializers.CharField(source="project.code", read_only=True, default="—")
+    client_name = serializers.CharField(source="client.name", read_only=True, default="—")
 
     class Meta:
         model = Invoice

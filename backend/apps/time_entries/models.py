@@ -36,6 +36,11 @@ class TimeEntry(TenantScopedModel, VersionedModel):
         max_length=20, choices=TimeEntryStatus.choices, default=TimeEntryStatus.DRAFT
     )
     is_favorite = models.BooleanField(default=False)
+    is_invoiced = models.BooleanField(default=False)
+    invoiced_on = models.ForeignKey(
+        "billing.Invoice", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="invoiced_entries",
+    )
 
     history = HistoricalRecords()
 

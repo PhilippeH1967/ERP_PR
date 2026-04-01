@@ -12,6 +12,7 @@ const props = defineProps<{
   phaseId: number | null
   date: string
   isLocked: boolean
+  isInvoiced?: boolean
   ariaLabel?: string
 }>()
 
@@ -94,6 +95,7 @@ function onKeydown(event: KeyboardEvent) {
 
 <template>
   <td class="px-0 py-0" style="position:relative;">
+    <span v-if="isInvoiced" class="invoiced-badge" title="Facture">$</span>
     <div v-if="errorMessage" class="cell-error-tooltip">{{ errorMessage }}</div>
     <input
       v-model="localValue"
@@ -126,6 +128,21 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 input[type="number"] {
   -moz-appearance: textfield;
+}
+
+.invoiced-badge {
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  font-size: 8px;
+  font-weight: 700;
+  color: #15803D;
+  background: #DCFCE7;
+  border-radius: 2px;
+  padding: 0 2px;
+  line-height: 1.2;
+  z-index: 5;
+  pointer-events: none;
 }
 
 .cell-error-tooltip {
