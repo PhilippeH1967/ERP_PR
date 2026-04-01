@@ -270,11 +270,35 @@ class InvoiceLineViewSet(viewsets.ModelViewSet):
     permission_classes = [CanWriteBilling]
 
     def get_queryset(self):
-        return InvoiceLine.objects.filter(invoice_id=self.kwargs["invoice_pk"])
+        return InvoiceLine.objects.filter(invoice_id=self.kwargs["invoice_pk"]).select_related("invoice", "financial_phase")
+
+    def _recalculate_invoice_totals(self, invoice):
+        """Recalculate invoice totals from lines."""
+        from decimal import Decimal
+        from django.db.models import Sum
+        total = invoice.lines.aggregate(t=Sum("amount_to_bill"))["t"] or Decimal("0")
+        # Use update() to avoid VersionedModel/HistoricalRecords F() conflict
+        Invoice.objects.filter(pk=invoice.pk).update(
+            total_amount=total,
+            tax_tps=round(total * Decimal("0.05"), 2),
+            tax_tvq=round(total * Decimal("0.09975"), 2),
+        )
 
     def perform_create(self, serializer):
         invoice = Invoice.objects.get(pk=self.kwargs["invoice_pk"])
         serializer.save(invoice=invoice, tenant=invoice.tenant)
+        self._recalculate_invoice_totals(invoice)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        self._recalculate_invoice_totals(instance.invoice)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        invoice = instance.invoice
+        instance.delete()
+        self._recalculate_invoice_totals(invoice)
+        return Response({"deleted": True}, status=200)
 
 
 class CreditNoteViewSet(viewsets.ModelViewSet):

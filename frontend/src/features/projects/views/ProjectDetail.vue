@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLocale } from '@/shared/composables/useLocale'
+import { useAuth } from '@/shared/composables/useAuth'
 import apiClient from '@/plugins/axios'
 import { projectApi } from '../api/projectApi'
 import { useProjectStore } from '../stores/useProjectStore'
@@ -11,6 +12,7 @@ const route = useRoute()
 const router = useRouter()
 const store = useProjectStore()
 const { fmt } = useLocale()
+const { currentUser } = useAuth()
 const projectId = Number(route.params.id)
 const activeTab = ref('overview')
 const actionError = ref('')
@@ -44,6 +46,50 @@ const editingWBSForm = ref({ standard_label: '', client_facing_label: '', budget
 // Amendment edit
 const editingAmendmentId = ref<number | null>(null)
 const editAmendmentForm = ref({ description: '', budget_impact: '', status: 'DRAFT' })
+
+// Budget tab
+const budgetSaving = ref<number | null>(null)
+const budgetError = ref('')
+
+const canEditBudget = computed(() => {
+  const roles = currentUser.value?.roles || []
+  return roles.includes('ADMIN') || roles.includes('FINANCE')
+})
+
+const budgetTotal = computed(() => {
+  const phases = store.currentProject?.phases || []
+  return phases.reduce((sum: number, p: { budgeted_cost: string | number }) => sum + Number(p.budgeted_cost || 0), 0)
+})
+
+const budgetInvoiced = computed(() => 0) // placeholder — will come from invoices
+
+const budgetConsumedPercent = computed(() => {
+  if (budgetTotal.value <= 0) return 0
+  return Math.round((budgetInvoiced.value / budgetTotal.value) * 100 * 10) / 10
+})
+
+const budgetRemaining = computed(() => budgetTotal.value - budgetInvoiced.value)
+
+function formatAmount(value: number | string): string {
+  const n = Number(value)
+  if (isNaN(n)) return '0,00'
+  return n.toLocaleString('fr-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+async function saveBudget(phaseId: number, newValue: string) {
+  budgetError.value = ''
+  const parsed = parseFloat(newValue.replace(/\s/g, '').replace(',', '.'))
+  if (isNaN(parsed) || parsed < 0) { budgetError.value = 'Montant invalide'; return }
+  budgetSaving.value = phaseId
+  try {
+    await projectApi.updatePhase(projectId, phaseId, { budgeted_cost: parsed } as Record<string, unknown>)
+    await reload()
+  } catch (e: unknown) {
+    budgetError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
+  } finally {
+    budgetSaving.value = null
+  }
+}
 
 // Business Units + Users for dropdowns
 const businessUnits = ref<Array<{ id: number; name: string }>>([])
@@ -616,17 +662,82 @@ onMounted(reload)
 
     <!-- ═══ Budget ═══ -->
     <template v-if="activeTab === 'budget'">
-      <div class="card" v-if="dashboard">
-        <div class="progress-row">
-          <div class="progress-bar"><div class="progress-fill" :class="{ green: dashboard.health==='green', amber: dashboard.health==='yellow', red: dashboard.health==='red' }" :style="{ width: Math.min(100, dashboard.budget_utilization_percent) + '%' }" /></div>
-          <span class="font-mono font-semibold">{{ dashboard.budget_utilization_percent }}%</span>
+      <!-- Summary cards -->
+      <div class="kpi-grid-4">
+        <div class="kpi-card">
+          <div class="kpi-value mono">{{ formatAmount(budgetTotal) }}&nbsp;$</div>
+          <div class="kpi-label">Budget total</div>
         </div>
-        <div class="budget-grid">
-          <div><span class="text-muted">Heures consommées</span><p class="font-mono font-semibold">{{ fmt.hours(dashboard.hours_consumed) }}</p></div>
-          <div><span class="text-muted">Budget total</span><p class="font-mono font-semibold">{{ fmt.hours(dashboard.budget_hours) }}</p></div>
+        <div class="kpi-card">
+          <div class="kpi-value mono">{{ formatAmount(budgetInvoiced) }}&nbsp;$</div>
+          <div class="kpi-label">Facturé à ce jour</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value" :class="{ success: budgetConsumedPercent < 75, warning: budgetConsumedPercent >= 75 && budgetConsumedPercent < 90, danger: budgetConsumedPercent >= 90 }">{{ budgetConsumedPercent }}&nbsp;%</div>
+          <div class="kpi-label">% consommé</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value mono" :class="{ danger: budgetRemaining < 0 }">{{ formatAmount(budgetRemaining) }}&nbsp;$</div>
+          <div class="kpi-label">Solde restant</div>
         </div>
       </div>
-      <div v-else class="card empty-card">Aucune donnée budgétaire</div>
+
+      <div v-if="budgetError" class="alert-error">{{ budgetError }}</div>
+
+      <!-- Phase budget table -->
+      <div class="card-table">
+        <table class="budget-table">
+          <thead>
+            <tr>
+              <th>Phase</th>
+              <th>Type</th>
+              <th class="text-right">Budget ($)</th>
+              <th class="text-right">Facturé ($)</th>
+              <th class="text-right">%</th>
+              <th class="text-right">Solde ($)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="phase in store.currentProject?.phases" :key="phase.id">
+              <td class="font-semibold">{{ phase.client_facing_label || phase.name }}</td>
+              <td><span class="badge" :class="phase.phase_type === 'SUPPORT' ? 'badge-amber' : 'badge-blue'">{{ phase.phase_type === 'SUPPORT' ? 'Support' : 'Réalisation' }}</span></td>
+              <td class="text-right">
+                <template v-if="canEditBudget">
+                  <input
+                    class="budget-input"
+                    :class="{ saving: budgetSaving === phase.id }"
+                    :value="phase.budgeted_cost"
+                    type="text"
+                    inputmode="decimal"
+                    @blur="(e: Event) => saveBudget(phase.id, (e.target as HTMLInputElement).value)"
+                    @keydown.enter="(e: Event) => (e.target as HTMLInputElement).blur()"
+                  />
+                </template>
+                <template v-else>
+                  <span class="font-mono">{{ formatAmount(phase.budgeted_cost) }}</span>
+                </template>
+              </td>
+              <td class="text-right font-mono">{{ formatAmount(0) }}</td>
+              <td class="text-right font-mono">{{ Number(phase.budgeted_cost) > 0 ? '0,0' : '—' }}&nbsp;%</td>
+              <td class="text-right font-mono">{{ formatAmount(phase.budgeted_cost) }}</td>
+            </tr>
+            <tr v-if="!store.currentProject?.phases?.length">
+              <td colspan="6" class="empty">Aucune phase — ajoutez des phases dans l'onglet Phases</td>
+            </tr>
+          </tbody>
+          <tfoot v-if="store.currentProject?.phases?.length">
+            <tr class="budget-total-row">
+              <td class="font-semibold" colspan="2">Total</td>
+              <td class="text-right font-mono font-semibold">{{ formatAmount(budgetTotal) }}</td>
+              <td class="text-right font-mono font-semibold">{{ formatAmount(budgetInvoiced) }}</td>
+              <td class="text-right font-mono font-semibold">{{ budgetConsumedPercent }}&nbsp;%</td>
+              <td class="text-right font-mono font-semibold">{{ formatAmount(budgetRemaining) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <p class="budget-hint">Les lignes de facturation référenceront le budget de chaque phase.</p>
     </template>
 
     <AssignmentModal :open="showAssignModal" :project-id="projectId" :phase-id="assignPhaseId" :phase-name="assignPhaseName" @close="showAssignModal = false" @assigned="reload" />
@@ -710,4 +821,34 @@ onMounted(reload)
 .wbs-edit-field { display: flex; flex-direction: column; }
 .wbs-edit-field label { font-size: 10px; font-weight: 600; color: var(--color-gray-500); margin-bottom: 2px; }
 .wbs-info { display: flex; align-items: center; gap: 6px; }
+
+/* Budget tab */
+.kpi-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+
+.budget-table { width: 100%; }
+.budget-table th, .budget-table td { padding: 8px 12px; border-bottom: 1px solid var(--color-gray-200); font-size: 12px; }
+.budget-table thead th { font-size: 10px; font-weight: 600; color: var(--color-gray-500); text-transform: uppercase; background: var(--color-gray-50); }
+.budget-table tbody td { font-size: 13px; }
+.budget-table tfoot td { border-top: 2px solid var(--color-gray-300); border-bottom: none; background: var(--color-gray-50); }
+
+.budget-total-row td { padding: 10px 12px; }
+
+.budget-input {
+  width: 110px;
+  padding: 4px 8px;
+  border: 1px solid var(--color-gray-300);
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  text-align: right;
+  background: white;
+  transition: border-color 0.15s;
+  -moz-appearance: textfield;
+}
+.budget-input::-webkit-outer-spin-button,
+.budget-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.budget-input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+.budget-input.saving { opacity: 0.5; pointer-events: none; }
+
+.budget-hint { font-size: 11px; color: var(--color-gray-400); margin-top: 12px; font-style: italic; }
 </style>

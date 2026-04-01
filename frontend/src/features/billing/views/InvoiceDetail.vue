@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLocale } from '@/shared/composables/useLocale'
 import { billingApi } from '../api/billingApi'
@@ -130,56 +130,155 @@ function openPrint() {
     })
 }
 
-async function updateLine(lineId: number, field: string, value: string) {
-  await billingApi.updateLine(invoiceId, lineId, { [field]: value })
-  await reload()
+const lineError = ref('')
+const lineWarning = ref('')
+const pendingOverride = ref<{ lineId: number; field: string; value: string } | null>(null)
+
+// Auto-calculated totals
+const subtotal = computed(() => {
+  if (!invoice.value?.lines) return 0
+  return invoice.value.lines.reduce((sum: number, line: { amount_to_bill: string | number }) => sum + (parseFloat(String(line.amount_to_bill)) || 0), 0)
+})
+const taxTPS = computed(() => Math.round(subtotal.value * 0.05 * 100) / 100)
+const taxTVQ = computed(() => Math.round(subtotal.value * 0.09975 * 100) / 100)
+const totalTTC = computed(() => Math.round((subtotal.value + taxTPS.value + taxTVQ.value) * 100) / 100)
+
+async function updateLine(lineId: number, field: string, value: string, force = false) {
+  lineError.value = ''
+  lineWarning.value = ''
+  pendingOverride.value = null
+  try {
+    const payload: Record<string, unknown> = { [field]: value }
+    if (force) payload.force_override = true
+    await billingApi.updateLine(invoiceId, lineId, payload)
+    await reload()
+  } catch (e: unknown) {
+    const resp = (e as { response?: { data?: Record<string, unknown> } }).response
+    const data = resp?.data as Record<string, unknown> | undefined
+    const error = data?.error as Record<string, unknown> | undefined
+    const details = error?.details as Array<{ field: string; message: string }> | undefined
+    const msg = details?.length ? details.map(d => d.message).join('. ') : String(error?.message || 'Erreur')
+    if (msg.includes('Confirmez pour continuer')) {
+      lineWarning.value = msg.replace(' Confirmez pour continuer.', '')
+      pendingOverride.value = { lineId, field, value }
+    } else {
+      lineError.value = msg
+    }
+  }
+}
+function confirmOverride() {
+  if (pendingOverride.value) {
+    updateLine(pendingOverride.value.lineId, pendingOverride.value.field, pendingOverride.value.value, true)
+  }
+}
+function cancelOverride() {
+  lineWarning.value = ''
+  pendingOverride.value = null
+  reload()
 }
 </script>
 
 <template>
-  <div v-if="invoice">
-    <!-- Header -->
+  <div v-if="invoice" class="invoice-detail">
+    <!-- 1. Breadcrumb -->
+    <div class="breadcrumb">
+      <a href="#" @click.prevent="router.push('/billing')">Facturation</a>
+      <span>&gt;</span>
+      <span>{{ invoice.project_code }}</span>
+      <span>&gt;</span>
+      <span>{{ invoice.invoice_number }}</span>
+    </div>
+
+    <!-- 2. Header -->
     <div class="page-header">
       <div>
-        <button class="btn-back" @click="router.push('/billing')">&larr; Facturation</button>
-        <h1>
-          <span class="font-mono">{{ invoice.invoice_number }}</span>
-        </h1>
-        <p class="subtitle">Projet {{ invoice.project_code }} · {{ invoice.client_name }}</p>
-      </div>
-      <div class="header-actions">
-        <span class="badge" :class="statusColors[invoice.status]">{{ statusLabels[invoice.status] }}</span>
-        <button v-if="invoice.status === 'DRAFT'" class="btn-primary" @click="submitInvoice">Soumettre</button>
-        <button v-if="invoice.status === 'SUBMITTED'" class="btn-success" @click="approveInvoice">Approuver</button>
-        <button v-if="invoice.status === 'APPROVED'" class="btn-primary" @click="markSent">Marquer envoyée</button>
-        <button v-if="invoice.status === 'SENT'" class="btn-success" @click="showPaymentForm = !showPaymentForm">Enregistrer paiement</button>
-        <button class="btn-ghost" @click="openPrint">Imprimer</button>
+        <h1>Preparation de facture — {{ invoice.project_name || invoice.client_name }}</h1>
+        <div class="subtitle">
+          {{ invoice.project_code }} &bull; {{ invoice.client_name }} &bull; {{ invoice.invoice_number }} &bull;
+          Statut: <span class="badge" :class="statusColors[invoice.status]">{{ statusLabels[invoice.status] }}</span>
+        </div>
       </div>
     </div>
 
-    <div v-if="actionError" class="alert-error">{{ actionError }}</div>
+    <!-- 3. Workflow bar -->
+    <div class="workflow-bar">
+      <div
+        class="wf-step"
+        :class="{
+          'wf-done': ['SUBMITTED','APPROVED','SENT','PAID'].includes(invoice.status),
+          'wf-active': invoice.status === 'DRAFT'
+        }"
+      >
+        <div class="wf-num">1</div>
+        <span>Brouillon</span>
+      </div>
+      <span class="wf-arrow">&#9654;</span>
+      <div
+        class="wf-step"
+        :class="{
+          'wf-done': ['APPROVED','SENT','PAID'].includes(invoice.status),
+          'wf-active': invoice.status === 'SUBMITTED'
+        }"
+      >
+        <div class="wf-num">2</div>
+        <span>Soumise</span>
+      </div>
+      <span class="wf-arrow">&#9654;</span>
+      <div
+        class="wf-step"
+        :class="{
+          'wf-done': ['SENT','PAID'].includes(invoice.status),
+          'wf-active': invoice.status === 'APPROVED'
+        }"
+      >
+        <div class="wf-num">3</div>
+        <span>Approuvee</span>
+      </div>
+      <span class="wf-arrow">&#9654;</span>
+      <div
+        class="wf-step"
+        :class="{
+          'wf-done': invoice.status === 'PAID',
+          'wf-active': invoice.status === 'SENT'
+        }"
+      >
+        <div class="wf-num">4</div>
+        <span>Envoyee / Payee</span>
+      </div>
+    </div>
 
-    <!-- Payment form -->
-    <div v-if="showPaymentForm" class="card" style="margin-bottom: 12px;">
+    <!-- 4. Error / warning banners -->
+    <div v-if="actionError" class="alert-error">{{ actionError }}</div>
+    <div v-if="lineError" class="line-error">{{ lineError }}</div>
+    <div v-if="lineWarning" class="line-warning">
+      <span>&#9888; {{ lineWarning }}</span>
+      <div class="warning-actions">
+        <button class="btn-warning-confirm" @click="confirmOverride">Confirmer le depassement</button>
+        <button class="btn-ghost-sm" @click="cancelOverride">Annuler</button>
+      </div>
+    </div>
+
+    <!-- 5. Payment form -->
+    <div v-if="showPaymentForm" class="card payment-card">
       <div class="card-title">Enregistrer un paiement</div>
       <form @submit.prevent="recordPayment" class="payment-form">
         <div class="form-row-4">
           <div class="form-group">
             <label>Montant</label>
-            <input v-model="paymentForm.amount" type="number" step="0.01" required :placeholder="invoice.total_amount" />
+            <input v-model="paymentForm.amount" type="number" step="0.01" required :placeholder="invoice.total_amount" class="no-spinners" />
           </div>
           <div class="form-group">
             <label>Date</label>
             <input v-model="paymentForm.payment_date" type="date" required />
           </div>
           <div class="form-group">
-            <label>Référence</label>
-            <input v-model="paymentForm.reference" type="text" placeholder="No chèque / virement" />
+            <label>Reference</label>
+            <input v-model="paymentForm.reference" type="text" placeholder="No cheque / virement" />
           </div>
           <div class="form-group">
-            <label>Méthode</label>
+            <label>Methode</label>
             <select v-model="paymentForm.method">
-              <option value="CHEQUE">Chèque</option>
+              <option value="CHEQUE">Cheque</option>
               <option value="VIREMENT">Virement</option>
               <option value="CARTE">Carte</option>
             </select>
@@ -192,100 +291,151 @@ async function updateLine(lineId: number, field: string, value: string) {
       </form>
     </div>
 
-    <!-- Amounts banner -->
-    <div class="amounts-banner">
-      <div class="amount-item">
-        <div class="amount-value primary">{{ fmt.currency(invoice.total_amount) }}</div>
-        <div class="amount-label">Montant total</div>
+    <!-- 6. Seven-column table -->
+    <div class="card table-card">
+      <div class="table-header">
+        <div class="card-title">Lignes de facturation — 7 colonnes</div>
+        <div class="table-legend">
+          <span class="legend-item"><span class="legend-swatch legend-edit"></span> Cellules editables</span>
+          <span class="legend-item"><span class="legend-swatch legend-readonly"></span> Lecture seule</span>
+        </div>
       </div>
-      <div class="amount-sep" />
-      <div class="amount-item">
-        <div class="amount-value">{{ fmt.currency(invoice.tax_tps) }}</div>
-        <div class="amount-label">TPS</div>
+
+      <!-- Add line form (inline, below header) -->
+      <div v-if="showAddLine" class="add-line-row">
+        <form @submit.prevent="createLine" class="add-line-form">
+          <div class="form-group" style="flex: 2.5;">
+            <label>Livrable</label>
+            <input v-model="newLine.deliverable_name" required />
+          </div>
+          <div class="form-group" style="flex: 0.8;">
+            <label>Type</label>
+            <select v-model="newLine.line_type">
+              <option value="FORFAIT">Forfait</option>
+              <option value="HORAIRE">Horaire</option>
+              <option value="ST">ST</option>
+              <option value="DEPENSE">Depense</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex: 0.8;">
+            <label>Montant contrat</label>
+            <input v-model="newLine.total_contract_amount" type="number" step="0.01" class="no-spinners input-right" />
+          </div>
+          <div class="form-group" style="flex: 0.8;">
+            <label>A facturer</label>
+            <input v-model="newLine.amount_to_bill" type="number" step="0.01" class="no-spinners input-right" />
+          </div>
+          <div class="form-group" style="flex: 0.8; display: flex; align-items: flex-end; gap: 4px;">
+            <button type="button" class="btn-ghost" @click="showAddLine = false">Annuler</button>
+            <button type="submit" class="btn-primary">Ajouter</button>
+          </div>
+        </form>
       </div>
-      <div class="amount-sep" />
-      <div class="amount-item">
-        <div class="amount-value">{{ fmt.currency(invoice.tax_tvq) }}</div>
-        <div class="amount-label">TVQ</div>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th class="th-label" style="min-width: 240px;">Phase / Tache</th>
+              <th class="th-mono" style="min-width: 100px;">Montant contrat</th>
+              <th class="th-mono" style="min-width: 100px;">Facture a ce jour</th>
+              <th class="th-mono" style="min-width: 70px;">% Fact.</th>
+              <th class="th-mono" style="min-width: 70px;">% Heures</th>
+              <th class="th-mono th-editable" style="min-width: 120px;">Facturer ce mois</th>
+              <th class="th-mono" style="min-width: 70px;">% apres</th>
+              <th v-if="invoice.status === 'DRAFT' && isEditingLines" class="th-mono" style="min-width: 60px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="line in invoice.lines" :key="line.id" class="data-row">
+              <td class="cell-name">
+                <span class="line-type-badge">{{ line.line_type }}</span>
+                {{ line.deliverable_name }}
+                <router-link
+                  v-if="invoice.project"
+                  :to="`/projects/${invoice.project}`"
+                  class="budget-link"
+                  title="Voir le budget du projet"
+                >&#8599;</router-link>
+              </td>
+              <td class="cell-mono cell-readonly">{{ fmt.currency(line.total_contract_amount) }}</td>
+              <td class="cell-mono cell-readonly">{{ fmt.currency(line.invoiced_to_date) }}</td>
+              <td class="cell-mono cell-readonly">{{ line.pct_billing_advancement }}%</td>
+              <td class="cell-mono cell-readonly">{{ line.pct_hours_advancement }}%</td>
+              <td class="cell-editable">
+                <input
+                  :value="line.amount_to_bill"
+                  type="number"
+                  step="0.01"
+                  class="bill-input no-spinners"
+                  :class="{ 'bill-input-active': invoice.status === 'DRAFT' && isEditingLines }"
+                  :disabled="!(invoice.status === 'DRAFT' && isEditingLines)"
+                  @blur="(e) => updateLine(line.id, 'amount_to_bill', (e.target as HTMLInputElement).value)"
+                />
+              </td>
+              <td class="cell-mono cell-after">{{ line.pct_after_billing }}%</td>
+              <td v-if="invoice.status === 'DRAFT' && isEditingLines" class="cell-delete">
+                <template v-if="confirmDeleteLine === line.id">
+                  <button class="btn-action danger" @click="deleteLine(line.id)">Confirmer</button>
+                  <button class="btn-action" @click="confirmDeleteLine = null">Annuler</button>
+                </template>
+                <button v-else class="btn-action danger" @click="confirmDeleteLine = line.id">&times;</button>
+              </td>
+            </tr>
+            <tr v-if="!invoice.lines?.length">
+              <td :colspan="invoice.status === 'DRAFT' && isEditingLines ? 8 : 7" class="empty">Aucune ligne</td>
+            </tr>
+          </tbody>
+          <!-- 7. Table footer with totals -->
+          <tfoot>
+            <tr class="row-subtotal">
+              <td>Sous-total</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td class="cell-mono cell-total-edit">{{ fmt.currency(subtotal) }}</td>
+              <td></td>
+              <td v-if="invoice.status === 'DRAFT' && isEditingLines"></td>
+            </tr>
+            <tr class="row-tax">
+              <td>TPS (5%)</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td class="cell-mono">{{ fmt.currency(taxTPS) }}</td>
+              <td></td>
+              <td v-if="invoice.status === 'DRAFT' && isEditingLines"></td>
+            </tr>
+            <tr class="row-tax">
+              <td>TVQ (9.975%)</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td class="cell-mono">{{ fmt.currency(taxTVQ) }}</td>
+              <td></td>
+              <td v-if="invoice.status === 'DRAFT' && isEditingLines"></td>
+            </tr>
+            <tr class="row-total-ttc">
+              <td>TOTAL TTC</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td class="cell-mono cell-grand-total">{{ fmt.currency(totalTTC) }}</td>
+              <td></td>
+              <td v-if="invoice.status === 'DRAFT' && isEditingLines"></td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
     </div>
 
-    <!-- Line management -->
-    <div v-if="invoice.status === 'DRAFT'" class="line-actions">
-      <button v-if="!isEditingLines" class="btn-primary" @click="isEditingLines = true">Modifier les lignes</button>
-      <template v-else>
-        <button class="btn-ghost" @click="showAddLine = !showAddLine">+ Ajouter ligne</button>
-        <button class="btn-ghost" @click="stopEditingLines">Terminer</button>
-      </template>
-    </div>
-    <div v-if="showAddLine" class="card" style="margin-bottom: 8px;">
-      <form @submit.prevent="createLine" class="form-row-4">
-        <div class="form-group"><label>Livrable</label><input v-model="newLine.deliverable_name" required /></div>
-        <div class="form-group"><label>Type</label><select v-model="newLine.line_type"><option value="FORFAIT">Forfait</option><option value="HORAIRE">Horaire</option><option value="ST">ST</option><option value="DEPENSE">Dépense</option></select></div>
-        <div class="form-group"><label>Montant contrat</label><input v-model="newLine.total_contract_amount" type="number" step="0.01" /></div>
-        <div class="form-group"><label>À facturer</label><input v-model="newLine.amount_to_bill" type="number" step="0.01" /><div style="margin-top:4px;display:flex;gap:4px;justify-content:flex-end;"><button type="button" class="btn-ghost" @click="showAddLine=false">Annuler</button><button type="submit" class="btn-primary">Ajouter</button></div></div>
-      </form>
-    </div>
-
-    <!-- 7-Column Grid -->
-    <div class="card-table">
-      <table>
-        <thead>
-          <tr>
-            <th style="min-width: 180px;">Livrable</th>
-            <th class="text-right mono-th" style="min-width: 90px;">Contrat</th>
-            <th class="text-right mono-th" style="min-width: 90px;">Facturé</th>
-            <th class="text-right mono-th" style="min-width: 60px;">% Fact.</th>
-            <th class="text-right mono-th" style="min-width: 60px;">% Heures</th>
-            <th class="text-right mono-th" style="min-width: 100px;">À facturer</th>
-            <th class="text-right mono-th" style="min-width: 60px;">% Après</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="line in invoice.lines" :key="line.id">
-            <td>
-              <span class="line-type-badge">{{ line.line_type }}</span>
-              {{ line.deliverable_name }}
-              <router-link
-                v-if="line.project_id"
-                :to="`/projects/${line.project_id}`"
-                class="budget-link"
-                title="Voir le budget du projet"
-              >&#8599;</router-link>
-            </td>
-            <td class="text-right font-mono">{{ fmt.currency(line.total_contract_amount) }}</td>
-            <td class="text-right font-mono">{{ fmt.currency(line.invoiced_to_date) }}</td>
-            <td class="text-right font-mono">{{ line.pct_billing_advancement }}%</td>
-            <td class="text-right font-mono">{{ line.pct_hours_advancement }}%</td>
-            <td class="text-right">
-              <input
-                :value="line.amount_to_bill"
-                type="number"
-                step="0.01"
-                class="bill-input"
-                :disabled="!(invoice.status === 'DRAFT' && isEditingLines)"
-                @blur="(e) => updateLine(line.id, 'amount_to_bill', (e.target as HTMLInputElement).value)"
-              />
-            </td>
-            <td class="text-right font-mono text-muted">{{ line.pct_after_billing }}%</td>
-            <td v-if="invoice.status === 'DRAFT' && isEditingLines" class="text-right">
-              <template v-if="confirmDeleteLine === line.id">
-                <button class="btn-action danger" @click="deleteLine(line.id)">Confirmer</button>
-                <button class="btn-action" @click="confirmDeleteLine = null">Annuler</button>
-              </template>
-              <button v-else class="btn-action danger" @click="confirmDeleteLine = line.id">×</button>
-            </td>
-          </tr>
-          <tr v-if="!invoice.lines?.length">
-            <td colspan="7" class="empty">Aucune ligne</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Aging Analysis -->
+    <!-- 8. Aging Analysis -->
     <div v-if="agingData" class="aging-section">
-      <h3 class="section-title">Analyse d'ancienneté</h3>
+      <h3 class="section-title">Analyse d'anciennete</h3>
       <div class="aging-grid">
         <div class="aging-card">
           <span class="aging-label">0-30 jours</span>
@@ -305,61 +455,232 @@ async function updateLine(lineId: number, field: string, value: string) {
         </div>
       </div>
     </div>
+
+    <!-- 9. Footer action bar -->
+    <div class="footer-actions">
+      <button class="btn-ghost" @click="router.push('/billing')">&larr; Retour a la liste</button>
+      <div class="footer-right">
+        <button class="btn-ghost" @click="openPrint">Imprimer</button>
+
+        <!-- DRAFT actions -->
+        <template v-if="invoice.status === 'DRAFT'">
+          <button v-if="!isEditingLines" class="btn-ghost" @click="isEditingLines = true">Modifier les lignes</button>
+          <template v-else>
+            <button class="btn-ghost" @click="showAddLine = !showAddLine">+ Ajouter ligne</button>
+            <button class="btn-ghost" @click="stopEditingLines">Terminer</button>
+          </template>
+          <button class="btn-primary" @click="submitInvoice">Soumettre pour approbation &rarr;</button>
+        </template>
+
+        <!-- SUBMITTED -->
+        <button v-if="invoice.status === 'SUBMITTED'" class="btn-success" @click="approveInvoice">Approuver</button>
+
+        <!-- APPROVED -->
+        <button v-if="invoice.status === 'APPROVED'" class="btn-primary" @click="markSent">Marquer envoyee</button>
+
+        <!-- SENT -->
+        <button v-if="invoice.status === 'SENT'" class="btn-success" @click="showPaymentForm = !showPaymentForm">Enregistrer paiement</button>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 16px; }
-.page-header h1 { font-size: 20px; font-weight: 700; color: var(--color-gray-900); margin-top: 2px; }
-.btn-back { background: none; border: none; font-size: 12px; color: var(--color-gray-500); cursor: pointer; padding: 0; }
-.subtitle { font-size: 12px; color: var(--color-gray-500); }
-.header-actions { display: flex; align-items: center; gap: 8px; }
-.btn-success { padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; background: var(--color-success); color: white; }
-.alert-error { background: var(--color-danger-light); color: var(--color-danger); padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
+/* ── Layout ───────────────────────────────────────────── */
+.invoice-detail { max-width: 1200px; margin: 0 auto; padding-bottom: 80px; }
 
-.badge { display: inline-flex; padding: 2px 10px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+/* ── Breadcrumb ───────────────────────────────────────── */
+.breadcrumb { font-size: 12px; color: var(--color-gray-500); margin-bottom: 8px; display: flex; gap: 6px; align-items: center; }
+.breadcrumb a { color: var(--color-primary); text-decoration: none; }
+.breadcrumb a:hover { text-decoration: underline; }
+
+/* ── Header ───────────────────────────────────────────── */
+.page-header { margin-bottom: 16px; }
+.page-header h1 { font-size: 22px; font-weight: 700; color: var(--color-gray-900); margin: 0 0 4px 0; }
+.subtitle { font-size: 13px; color: var(--color-gray-500); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+
+/* ── Badge ────────────────────────────────────────────── */
+.badge { display: inline-flex; padding: 2px 10px; border-radius: 10px; font-size: 10px; font-weight: 600; vertical-align: middle; }
 .badge-gray { background: var(--color-gray-100); color: var(--color-gray-500); }
 .badge-blue { background: #DBEAFE; color: #1D4ED8; }
 .badge-green { background: #DCFCE7; color: #15803D; }
 .badge-amber { background: #FEF3C7; color: #92400E; }
 .badge-green-solid { background: #15803D; color: white; }
 
-.card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 16px; }
-.card-title { font-size: 14px; font-weight: 600; color: var(--color-gray-800); margin-bottom: 12px; }
-.card-table { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow-x: auto; margin-bottom: 16px; }
+/* ── Workflow bar ─────────────────────────────────────── */
+.workflow-bar {
+  display: flex; align-items: center; gap: 0; margin-bottom: 16px;
+  background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  padding: 10px 16px; overflow-x: auto;
+}
+.wf-step {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 14px; border-radius: 6px;
+  font-size: 12px; font-weight: 500; color: var(--color-gray-400);
+  background: var(--color-gray-100); white-space: nowrap;
+}
+.wf-step.wf-active { background: var(--color-primary); color: white; font-weight: 600; }
+.wf-step.wf-done { background: #DCFCE7; color: #15803D; font-weight: 600; }
+.wf-num {
+  width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.3); color: inherit;
+}
+.wf-step.wf-active .wf-num { background: rgba(255,255,255,0.25); }
+.wf-step.wf-done .wf-num { background: rgba(21,128,61,0.15); }
+.wf-arrow { color: var(--color-gray-300); margin: 0 8px; font-size: 10px; }
 
-.amounts-banner { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 12px; }
-.amount-item { text-align: center; }
-.amount-value { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--color-gray-800); }
-.amount-value.primary { color: var(--color-primary); }
-.amount-label { font-size: 10px; color: var(--color-gray-500); }
-.amount-sep { width: 1px; height: 28px; background: var(--color-gray-200); }
+/* ── Alerts ───────────────────────────────────────────── */
+.alert-error { background: #FEE2E2; color: #DC2626; padding: 10px 16px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; border: 1px solid #FECACA; }
+.line-error { background: #FEE2E2; color: #DC2626; padding: 8px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 8px; }
+.line-warning { background: #FEF3C7; color: #92400E; padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 8px; border: 1px solid #FCD34D; }
+.warning-actions { display: flex; gap: 8px; margin-top: 6px; }
+.btn-warning-confirm { padding: 4px 12px; border-radius: 4px; font-size: 11px; font-weight: 600; background: #D97706; color: white; border: none; cursor: pointer; }
+.btn-warning-confirm:hover { background: #B45309; }
+.btn-ghost-sm { padding: 4px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; background: none; border: 1px solid var(--color-gray-300); color: var(--color-gray-600); }
 
-.text-right { text-align: right; }
-.text-muted { color: var(--color-gray-500); }
-.font-mono { font-family: var(--font-mono); font-size: 12px; }
-.mono-th { font-family: var(--font-mono); }
-.line-type-badge { font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; background: var(--color-gray-100); color: var(--color-gray-500); margin-right: 4px; }
-.budget-link { font-size: 11px; color: var(--color-primary); text-decoration: none; margin-left: 4px; opacity: 0.6; }
-.budget-link:hover { opacity: 1; text-decoration: underline; }
-.bill-input { width: 100%; padding: 4px 8px; border: 1px solid var(--color-primary); border-radius: 3px; background: rgba(37,99,235,0.05); text-align: right; font-family: var(--font-mono); font-size: 12px; }
-.bill-input:disabled { background: transparent; border-color: var(--color-gray-200); color: var(--color-gray-500); }
-.empty { text-align: center; padding: 30px; color: var(--color-gray-400); }
-.line-actions { display: flex; gap: 8px; margin-bottom: 8px; }
-.btn-action { background: none; border: none; font-size: 11px; cursor: pointer; color: var(--color-primary); padding: 2px 6px; font-weight: 600; }
-.btn-action:hover { text-decoration: underline; } .btn-action.danger { color: var(--color-danger); }
-
+/* ── Card / Payment ───────────────────────────────────── */
+.card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.card-title { font-size: 14px; font-weight: 600; color: var(--color-gray-800); }
+.payment-card { padding: 16px; margin-bottom: 12px; }
 .form-row-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .form-group { margin-bottom: 12px; }
-.form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--color-gray-600); margin-bottom: 4px; }
+.form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--color-gray-600); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+.form-group input, .form-group select { width: 100%; padding: 6px 8px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; }
+.form-group input:focus, .form-group select:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(37,99,235,0.12); }
 .form-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.input-right { text-align: right; }
 
-.aging-section { margin-top: 16px; }
+/* ── Table card ───────────────────────────────────────── */
+.table-card { margin-bottom: 16px; overflow: hidden; }
+.table-header {
+  padding: 14px 20px; display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--color-gray-200);
+}
+.table-legend { display: flex; gap: 16px; font-size: 12px; color: var(--color-gray-500); }
+.legend-item { display: flex; align-items: center; gap: 4px; }
+.legend-swatch { width: 10px; height: 10px; border-radius: 2px; }
+.legend-edit { background: #FFFBEB; border: 1px solid #FCD34D; }
+.legend-readonly { background: var(--color-gray-50); border: 1px solid var(--color-gray-200); }
+
+.add-line-row { padding: 10px 20px; border-bottom: 1px solid var(--color-gray-200); background: var(--color-gray-50); }
+.add-line-form { display: flex; gap: 10px; align-items: flex-end; }
+
+.table-scroll { overflow-x: auto; }
+
+table { width: 100%; border-collapse: collapse; }
+
+/* ── Table head ───────────────────────────────────────── */
+thead th {
+  padding: 10px 12px; text-align: right; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.4px; color: var(--color-gray-500);
+  background: var(--color-gray-50); border-bottom: 2px solid var(--color-gray-200);
+  white-space: nowrap;
+}
+.th-label { text-align: left !important; min-width: 240px; }
+.th-mono { font-family: var(--font-mono); }
+.th-editable { background: #FFFBEB !important; }
+
+/* ── Table body ───────────────────────────────────────── */
+.data-row { border-bottom: 1px solid var(--color-gray-100); }
+.data-row:hover { background: var(--color-gray-50); }
+
+td { padding: 8px 12px; font-size: 14px; color: var(--color-gray-700); }
+.cell-name { text-align: left; font-weight: 500; }
+.cell-mono { text-align: right; font-family: var(--font-mono); font-size: 13px; }
+.cell-readonly { color: var(--color-gray-600); }
+.cell-after { text-align: right; font-family: var(--font-mono); font-size: 13px; color: var(--color-gray-500); }
+.cell-editable { text-align: right; background: rgba(37,99,235,0.04); }
+.cell-delete { text-align: right; white-space: nowrap; }
+
+.line-type-badge { font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; background: var(--color-gray-100); color: var(--color-gray-500); margin-right: 4px; text-transform: uppercase; }
+.budget-link { font-size: 11px; color: var(--color-primary); text-decoration: none; margin-left: 4px; opacity: 0.6; }
+.budget-link:hover { opacity: 1; text-decoration: underline; }
+
+.bill-input {
+  width: 100%; max-width: 110px; padding: 4px 8px; text-align: right;
+  font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+  border: 1px solid var(--color-gray-200); border-radius: 3px;
+  background: transparent; color: var(--color-gray-500);
+}
+.bill-input-active {
+  background: #FFFBEB; border-color: #FCD34D; color: var(--color-gray-900);
+}
+.bill-input-active:focus {
+  border-color: var(--color-primary); background: rgba(37,99,235,0.06);
+  outline: none; box-shadow: 0 0 0 2px rgba(37,99,235,0.15);
+}
+.bill-input:disabled { cursor: default; }
+
+.empty { text-align: center; padding: 30px; color: var(--color-gray-400); font-size: 13px; }
+
+/* ── Table footer (totals) ────────────────────────────── */
+tfoot td { padding: 8px 12px; font-size: 13px; }
+
+.row-subtotal {
+  background: var(--color-gray-50); border-top: 2px solid var(--color-gray-300);
+}
+.row-subtotal td { font-weight: 700; color: var(--color-gray-700); }
+.cell-total-edit { font-weight: 700; font-size: 15px; background: rgba(37,99,235,0.08); }
+
+.row-tax td { color: var(--color-gray-500); background: var(--color-gray-50); }
+.row-tax .cell-mono { font-size: 13px; }
+
+.row-total-ttc {
+  background: var(--color-gray-800) !important;
+}
+.row-total-ttc td {
+  color: white !important; font-weight: 700; font-size: 14px; padding: 10px 12px;
+}
+.cell-grand-total { font-size: 16px !important; color: #93c5fd !important; }
+
+/* ── Aging ────────────────────────────────────────────── */
+.aging-section { margin-bottom: 16px; }
 .section-title { font-size: 14px; font-weight: 600; color: var(--color-gray-800); margin-bottom: 10px; }
 .aging-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-.aging-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 14px; }
-.aging-label { display: block; font-size: 11px; color: var(--color-gray-500); text-transform: uppercase; font-weight: 600; margin-bottom: 4px; }
+.aging-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); padding: 14px; }
+.aging-label { display: block; font-size: 11px; color: var(--color-gray-500); text-transform: uppercase; font-weight: 600; margin-bottom: 4px; letter-spacing: 0.3px; }
 .aging-value { font-size: 20px; font-weight: 700; font-family: var(--font-mono); color: var(--color-gray-900); }
 .aging-value.warning { color: var(--color-warning); }
 .aging-value.danger { color: var(--color-danger); }
+
+/* ── Footer action bar ────────────────────────────────── */
+.footer-actions {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 20px; background: white; border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-top: 16px;
+  position: sticky; bottom: 12px; z-index: 10;
+  border: 1px solid var(--color-gray-200);
+}
+.footer-right { display: flex; align-items: center; gap: 8px; }
+
+/* ── Buttons ──────────────────────────────────────────── */
+.btn-primary {
+  padding: 7px 16px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  cursor: pointer; border: none; background: var(--color-primary); color: white;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: #1D4ED8; }
+
+.btn-success {
+  padding: 7px 16px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  cursor: pointer; border: none; background: var(--color-success); color: white;
+  transition: background 0.15s;
+}
+.btn-success:hover { filter: brightness(0.9); }
+
+.btn-ghost {
+  padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 500;
+  cursor: pointer; background: none; border: 1px solid var(--color-gray-300);
+  color: var(--color-gray-600); transition: all 0.15s;
+}
+.btn-ghost:hover { background: var(--color-gray-50); border-color: var(--color-gray-400); }
+
+.btn-action { background: none; border: none; font-size: 11px; cursor: pointer; color: var(--color-primary); padding: 2px 6px; font-weight: 600; }
+.btn-action:hover { text-decoration: underline; }
+.btn-action.danger { color: var(--color-danger); }
+
+/* ── No spinners ──────────────────────────────────────── */
+.no-spinners::-webkit-outer-spin-button,
+.no-spinners::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.no-spinners { -moz-appearance: textfield; }
 </style>

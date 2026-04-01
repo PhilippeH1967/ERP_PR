@@ -44,19 +44,32 @@ class InvoiceLineSerializer(serializers.ModelSerializer):
         return ""
 
     def validate(self, data):
-        amount_to_bill = data.get("amount_to_bill", 0) or 0
+        amount_to_bill = data.get("amount_to_bill")
+        if amount_to_bill is None and self.instance:
+            amount_to_bill = self.instance.amount_to_bill
+        if amount_to_bill is None:
+            return data
+
         total_contract = data.get("total_contract_amount") or (self.instance.total_contract_amount if self.instance else 0)
         invoiced_to_date = data.get("invoiced_to_date") or (self.instance.invoiced_to_date if self.instance else 0)
 
-        remaining = float(total_contract) - float(invoiced_to_date)
-        if float(amount_to_bill) > remaining and remaining >= 0:
-            raise serializers.ValidationError({
-                "amount_to_bill": f"Le montant à facturer ({amount_to_bill}) dépasse le solde disponible ({remaining:.2f})."
-            })
         if float(amount_to_bill) < 0:
             raise serializers.ValidationError({
                 "amount_to_bill": "Le montant à facturer ne peut pas être négatif."
             })
+
+        # Warning: if amount exceeds contract, add a flag but don't block
+        # Blocking is only if force_override is not set in context
+        if float(total_contract) > 0:
+            remaining = float(total_contract) - float(invoiced_to_date)
+            if float(amount_to_bill) > remaining:
+                request = self.context.get("request")
+                force = request.data.get("force_override") if request else False
+                if not force:
+                    raise serializers.ValidationError({
+                        "amount_to_bill": f"Le montant à facturer ({amount_to_bill}) dépasse le solde disponible ({remaining:.2f}). Confirmez pour continuer.",
+                        "requires_confirmation": True,
+                    })
         return data
 
 
