@@ -3,8 +3,38 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
+
+from apps.core.models import ProjectRole, Role
+
+# Billing roles
+BILLING_VIEW_ROLES = {Role.ADMIN, Role.FINANCE, Role.PM, Role.PROJECT_DIRECTOR}
+BILLING_WRITE_ROLES = {Role.ADMIN, Role.FINANCE}
+BILLING_APPROVE_ROLES = {Role.ADMIN, Role.FINANCE, Role.PROJECT_DIRECTOR}
+BILLING_SUBMIT_ROLES = {Role.ADMIN, Role.FINANCE, Role.PM}
+
+
+def _user_roles(user):
+    return set(ProjectRole.objects.filter(user=user).values_list("role", flat=True))
+
+
+class CanViewBilling(BasePermission):
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        if request.method in ("GET", "HEAD", "OPTIONS"):
+            return bool(_user_roles(request.user) & BILLING_VIEW_ROLES)
+        return bool(_user_roles(request.user) & BILLING_WRITE_ROLES)
+
+
+class CanWriteBilling(BasePermission):
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        if request.method in ("GET", "HEAD", "OPTIONS"):
+            return bool(_user_roles(request.user) & BILLING_VIEW_ROLES)
+        return bool(_user_roles(request.user) & BILLING_WRITE_ROLES)
 
 from .models import (
     CreditNote,
@@ -32,7 +62,7 @@ from .serializers import (
 class InvoiceViewSet(viewsets.ModelViewSet):
     """Full invoice CRUD with workflow actions."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CanViewBilling]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["invoice_number", "project__code"]
     filterset_fields = ["status", "project", "client"]
@@ -65,8 +95,19 @@ class InvoiceViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def submit(self, request, pk=None):
-        """Submit invoice for approval."""
+        """Submit invoice for approval. Requires ADMIN/FINANCE/PM."""
+        roles = _user_roles(request.user)
+        if not roles & BILLING_SUBMIT_ROLES:
+            return Response(
+                {"error": {"code": "FORBIDDEN", "message": "Vous n'avez pas le droit de soumettre une facture."}},
+                status=403,
+            )
         invoice = self.get_object()
+        if invoice.status != "DRAFT":
+            return Response(
+                {"error": {"code": "INVALID_STATUS", "message": "Seule une facture brouillon peut être soumise."}},
+                status=400,
+            )
         invoice.status = "SUBMITTED"
         invoice.submitted_by = request.user
         invoice.save()
@@ -74,8 +115,25 @@ class InvoiceViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
-        """Approve invoice."""
+        """Approve invoice. Requires ADMIN/FINANCE/PROJECT_DIRECTOR. Anti-self-approval."""
+        roles = _user_roles(request.user)
+        if not roles & BILLING_APPROVE_ROLES:
+            return Response(
+                {"error": {"code": "FORBIDDEN", "message": "Vous n'avez pas le droit d'approuver une facture."}},
+                status=403,
+            )
         invoice = self.get_object()
+        if invoice.status != "SUBMITTED":
+            return Response(
+                {"error": {"code": "INVALID_STATUS", "message": "Seule une facture soumise peut être approuvée."}},
+                status=400,
+            )
+        # Anti-self-approval
+        if invoice.submitted_by_id == request.user.id:
+            return Response(
+                {"error": {"code": "SELF_APPROVAL", "message": "Vous ne pouvez pas approuver votre propre facture."}},
+                status=403,
+            )
         invoice.status = "APPROVED"
         invoice.approved_by = request.user
         invoice.save()
@@ -83,7 +141,13 @@ class InvoiceViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def send(self, request, pk=None):
-        """Mark invoice as sent to client."""
+        """Mark invoice as sent to client. Requires ADMIN/FINANCE."""
+        roles = _user_roles(request.user)
+        if not roles & BILLING_WRITE_ROLES:
+            return Response(
+                {"error": {"code": "FORBIDDEN", "message": "Vous n'avez pas le droit d'envoyer une facture."}},
+                status=403,
+            )
         from django.utils import timezone
 
         invoice = self.get_object()
@@ -99,9 +163,15 @@ class InvoiceViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def mark_paid(self, request, pk=None):
-        """Mark invoice as paid."""
+        """Mark invoice as paid. Requires ADMIN/FINANCE."""
         from django.utils import timezone
 
+        roles = _user_roles(request.user)
+        if not roles & BILLING_WRITE_ROLES:
+            return Response(
+                {"error": {"code": "FORBIDDEN", "message": "Vous n'avez pas le droit d'enregistrer un paiement."}},
+                status=403,
+            )
         invoice = self.get_object()
         if invoice.status != "SENT":
             return Response(
@@ -197,7 +267,7 @@ class InvoiceLineViewSet(viewsets.ModelViewSet):
     """CRUD for invoice line items (7-column)."""
 
     serializer_class = InvoiceLineSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CanWriteBilling]
 
     def get_queryset(self):
         return InvoiceLine.objects.filter(invoice_id=self.kwargs["invoice_pk"])
@@ -209,7 +279,7 @@ class InvoiceLineViewSet(viewsets.ModelViewSet):
 
 class CreditNoteViewSet(viewsets.ModelViewSet):
     serializer_class = CreditNoteSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CanWriteBilling]
     filterset_fields = ["status", "project"]
 
     def get_queryset(self):
@@ -221,7 +291,7 @@ class CreditNoteViewSet(viewsets.ModelViewSet):
 
 class PaymentViewSet(viewsets.ModelViewSet):
     serializer_class = PaymentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CanWriteBilling]
 
     def get_queryset(self):
         qs = Payment.objects.all()
@@ -232,7 +302,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
 class HoldbackViewSet(viewsets.ModelViewSet):
     serializer_class = HoldbackSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CanWriteBilling]
 
     def get_queryset(self):
         qs = Holdback.objects.all()
@@ -243,7 +313,7 @@ class HoldbackViewSet(viewsets.ModelViewSet):
 
 class WriteOffViewSet(viewsets.ModelViewSet):
     serializer_class = WriteOffSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CanWriteBilling]
 
     def get_queryset(self):
         qs = WriteOff.objects.all()
@@ -254,7 +324,7 @@ class WriteOffViewSet(viewsets.ModelViewSet):
 
 class InvoiceTemplateViewSet(viewsets.ModelViewSet):
     serializer_class = InvoiceTemplateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CanWriteBilling]
 
     def get_queryset(self):
         qs = InvoiceTemplate.objects.filter(is_active=True)
@@ -278,7 +348,7 @@ class DunningLevelViewSet(viewsets.ModelViewSet):
     """CRUD for dunning escalation levels."""
 
     serializer_class = DunningLevelSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [CanWriteBilling]
 
     def get_queryset(self):
         qs = DunningLevel.objects.all()
