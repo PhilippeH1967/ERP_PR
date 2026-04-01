@@ -399,6 +399,9 @@ The following items were identified during Sprint V1-V5 development and BMAD aud
 | **Security** | Tenant filtering on approve/reject entry endpoints | BMAD audit |
 | **Security** | N+1 query optimization on PM dashboard | BMAD audit |
 | **Security** | Week boundary consistency (Mon-Sun vs Sun-Sat) | BMAD audit |
+| **Billing** | Onglet Budget dans fiche projet — saisie des montants budgétés par phase, pré-remplissage automatique des lignes de facture | Sprint V5 (Added v1.1.012) |
+| **Billing** | Calcul automatique TPS/TVQ — taxes calculées automatiquement sur les lignes de facture | Sprint V5 (Added v1.1.012) |
+| **Billing** | Allocation de paiements multi-factures — répartir un paiement sur plusieurs factures (PaymentAllocation) | Sprint V5 (Added v1.1.012) |
 
 ### MVP-2 Features
 

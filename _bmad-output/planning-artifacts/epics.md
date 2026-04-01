@@ -1976,3 +1976,27 @@ I want per-employee contractual hours instead of the hardcoded 40h default,
 So that part-time employees and special contracts are handled correctly in payroll controls.
 
 **Scope:** Add contractual_hours field to employee profile, use in all payroll controls and norm calculations, support part-time and forfaitaire contracts.
+
+### Deferred 5: Onglet Budget projet avec montants par phase (Added v1.1.012)
+
+As a **Chef de projet or Finance user**,
+I want a Budget tab in the project detail view with budgeted amounts per phase,
+So that invoice lines can be pre-filled automatically from the approved budget.
+
+**Scope:** Budget tab in project detail, amount entry per phase, link between budget lines and invoice line pre-fill, validation that invoiced amounts do not exceed budget.
+
+### Deferred 6: Calcul automatique TPS/TVQ sur lignes de facture (Added v1.1.012)
+
+As a **Finance user**,
+I want TPS and TVQ taxes to be calculated automatically on invoice lines,
+So that tax amounts are always correct and I do not have to compute them manually.
+
+**Scope:** Automatic TPS (5%) and TVQ (9.975%) calculation on each invoice line, tax summary on invoice, support for tax-exempt lines, recalculation on line edit.
+
+### Deferred 7: Allocation de paiements multi-factures (Added v1.1.012)
+
+As a **Finance user**,
+I want to allocate a single payment across multiple invoices via the PaymentAllocation model,
+So that partial payments and batch payments are tracked accurately.
+
+**Scope:** UI for PaymentAllocation creation, split a payment across selected invoices, automatic update of invoice paid/remaining amounts, validation that total allocations equal payment amount.

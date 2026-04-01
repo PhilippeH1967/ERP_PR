@@ -21,6 +21,9 @@ from .models import (
 
 
 class InvoiceLineSerializer(serializers.ModelSerializer):
+    project_id = serializers.SerializerMethodField()
+    phase_name = serializers.SerializerMethodField()
+
     class Meta:
         model = InvoiceLine
         fields = [
@@ -28,8 +31,33 @@ class InvoiceLineSerializer(serializers.ModelSerializer):
             "total_contract_amount", "invoiced_to_date",
             "pct_billing_advancement", "pct_hours_advancement",
             "amount_to_bill", "pct_after_billing", "order",
+            "project_id", "phase_name",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "project_id", "phase_name"]
+
+    def get_project_id(self, obj):
+        return obj.invoice.project_id if obj.invoice else None
+
+    def get_phase_name(self, obj):
+        if obj.financial_phase:
+            return obj.financial_phase.name
+        return ""
+
+    def validate(self, data):
+        amount_to_bill = data.get("amount_to_bill", 0) or 0
+        total_contract = data.get("total_contract_amount") or (self.instance.total_contract_amount if self.instance else 0)
+        invoiced_to_date = data.get("invoiced_to_date") or (self.instance.invoiced_to_date if self.instance else 0)
+
+        remaining = float(total_contract) - float(invoiced_to_date)
+        if float(amount_to_bill) > remaining and remaining >= 0:
+            raise serializers.ValidationError({
+                "amount_to_bill": f"Le montant à facturer ({amount_to_bill}) dépasse le solde disponible ({remaining:.2f})."
+            })
+        if float(amount_to_bill) < 0:
+            raise serializers.ValidationError({
+                "amount_to_bill": "Le montant à facturer ne peut pas être négatif."
+            })
+        return data
 
 
 class InvoiceSerializer(OptimisticLockMixin, serializers.ModelSerializer):

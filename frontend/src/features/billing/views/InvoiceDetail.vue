@@ -246,6 +246,12 @@ async function updateLine(lineId: number, field: string, value: string) {
             <td>
               <span class="line-type-badge">{{ line.line_type }}</span>
               {{ line.deliverable_name }}
+              <router-link
+                v-if="line.project_id"
+                :to="`/projects/${line.project_id}`"
+                class="budget-link"
+                title="Voir le budget du projet"
+              >&#8599;</router-link>
             </td>
             <td class="text-right font-mono">{{ fmt.currency(line.total_contract_amount) }}</td>
             <td class="text-right font-mono">{{ fmt.currency(line.invoiced_to_date) }}</td>
@@ -334,6 +340,8 @@ async function updateLine(lineId: number, field: string, value: string) {
 .font-mono { font-family: var(--font-mono); font-size: 12px; }
 .mono-th { font-family: var(--font-mono); }
 .line-type-badge { font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; background: var(--color-gray-100); color: var(--color-gray-500); margin-right: 4px; }
+.budget-link { font-size: 11px; color: var(--color-primary); text-decoration: none; margin-left: 4px; opacity: 0.6; }
+.budget-link:hover { opacity: 1; text-decoration: underline; }
 .bill-input { width: 100%; padding: 4px 8px; border: 1px solid var(--color-primary); border-radius: 3px; background: rgba(37,99,235,0.05); text-align: right; font-family: var(--font-mono); font-size: 12px; }
 .bill-input:disabled { background: transparent; border-color: var(--color-gray-200); color: var(--color-gray-500); }
 .empty { text-align: center; padding: 30px; color: var(--color-gray-400); }
