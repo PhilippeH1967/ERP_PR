@@ -81,6 +81,9 @@ class STInvoiceViewSet(viewsets.ModelViewSet):
         status = self.request.query_params.get("status")
         if status:
             qs = qs.filter(status=status)
+        project = self.request.query_params.get("project")
+        if project:
+            qs = qs.filter(project_id=project)
         return qs
 
     def perform_create(self, serializer):

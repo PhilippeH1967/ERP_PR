@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLocale } from '@/shared/composables/useLocale'
 import { useAuth } from '@/shared/composables/useAuth'
@@ -52,6 +52,43 @@ const editAmendmentForm = ref({ description: '', budget_impact: '', status: 'DRA
 const budgetSaving = ref<number | null>(null)
 const budgetError = ref('')
 const creatingInvoice = ref(false)
+
+// ST tab
+interface STInvoiceItem { id: number; supplier_name: string; invoice_number: string; invoice_date: string; amount: string; status: string; budget_refacturable: string }
+const stInvoices = ref<STInvoiceItem[]>([])
+const stLoading = ref(false)
+
+async function loadSTInvoices() {
+  if (!project.value) return
+  stLoading.value = true
+  try {
+    const resp = await apiClient.get('st_invoices/', { params: { project: project.value.id } })
+    const data = resp.data?.data || resp.data
+    stInvoices.value = Array.isArray(data) ? data : data?.results || []
+  } catch { stInvoices.value = [] }
+  finally { stLoading.value = false }
+}
+
+// Invoices tab
+interface InvoiceItem { id: number; invoice_number: string; status: string; total_amount: string; date_created: string; date_sent: string | null }
+const projectInvoices = ref<InvoiceItem[]>([])
+const invoicesLoading = ref(false)
+
+async function loadProjectInvoices() {
+  if (!project.value) return
+  invoicesLoading.value = true
+  try {
+    const resp = await apiClient.get('invoices/', { params: { project: project.value.id } })
+    const data = resp.data?.data || resp.data
+    projectInvoices.value = Array.isArray(data) ? data : data?.results || []
+  } catch { projectInvoices.value = [] }
+  finally { invoicesLoading.value = false }
+}
+
+const stStatusLabels: Record<string, string> = { received: 'Reçue', authorized: 'Autorisée', paid: 'Payée', disputed: 'En litige', credited: 'Créditée' }
+const stStatusColors: Record<string, string> = { received: 'badge-amber', authorized: 'badge-blue', paid: 'badge-green', disputed: 'badge-red', credited: 'badge-gray' }
+const invStatusLabels: Record<string, string> = { DRAFT: 'Brouillon', SUBMITTED: 'Soumise', APPROVED: 'Approuvée', SENT: 'Envoyée', PAID: 'Payée' }
+const invStatusColors: Record<string, string> = { DRAFT: 'badge-gray', SUBMITTED: 'badge-blue', APPROVED: 'badge-green', SENT: 'badge-amber', PAID: 'badge-green-solid' }
 
 async function createInvoiceFromProject() {
   budgetError.value = ''
@@ -259,6 +296,8 @@ const tabs = [
   { key: 'team', label: 'Équipe' },
   { key: 'amendments', label: 'Avenants' },
   { key: 'budget', label: 'Budget' },
+  { key: 'st', label: 'Sous-traitants' },
+  { key: 'invoices', label: 'Facturation' },
 ]
 
 const statuses = [
@@ -354,6 +393,12 @@ async function deleteAmendment(id: number) {
 }
 
 onMounted(reload)
+
+// Lazy load tab data
+watch(activeTab, (tab) => {
+  if (tab === 'st' && !stInvoices.value.length) loadSTInvoices()
+  if (tab === 'invoices' && !projectInvoices.value.length) loadProjectInvoices()
+})
 </script>
 
 <template>
@@ -765,6 +810,85 @@ onMounted(reload)
       <p class="budget-hint">Les lignes de facturation référenceront le budget de chaque phase.</p>
     </template>
 
+    <!-- ===== SOUS-TRAITANTS TAB ===== -->
+    <template v-if="activeTab === 'st'">
+      <div class="tab-header">
+        <h3>Factures sous-traitants</h3>
+        <button class="btn-primary btn-sm" @click="router.push('/st-invoices')">+ Nouvelle facture ST</button>
+      </div>
+      <div v-if="stLoading" class="empty">Chargement...</div>
+      <div v-else-if="!stInvoices.length" class="empty">Aucune facture sous-traitant pour ce projet</div>
+      <table v-else class="data-table">
+        <thead>
+          <tr>
+            <th>Fournisseur</th>
+            <th>No facture</th>
+            <th>Date</th>
+            <th class="text-right">Montant</th>
+            <th class="text-right">Refacturable</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="st in stInvoices" :key="st.id">
+            <td class="font-semibold">{{ st.supplier_name }}</td>
+            <td class="font-mono">{{ st.invoice_number }}</td>
+            <td class="text-muted">{{ st.invoice_date }}</td>
+            <td class="text-right font-mono">{{ formatAmount(Number(st.amount)) }}</td>
+            <td class="text-right font-mono">{{ formatAmount(Number(st.budget_refacturable)) }}</td>
+            <td><span class="badge" :class="stStatusColors[st.status] || 'badge-gray'">{{ stStatusLabels[st.status] || st.status }}</span></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3" class="font-semibold">Total</td>
+            <td class="text-right font-mono font-semibold">{{ formatAmount(stInvoices.reduce((s, i) => s + Number(i.amount), 0)) }}</td>
+            <td class="text-right font-mono font-semibold">{{ formatAmount(stInvoices.reduce((s, i) => s + Number(i.budget_refacturable), 0)) }}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </template>
+
+    <!-- ===== FACTURATION TAB ===== -->
+    <template v-if="activeTab === 'invoices'">
+      <div class="tab-header">
+        <h3>Factures du projet</h3>
+        <button class="btn-primary btn-sm" :disabled="creatingInvoice" @click="createInvoiceFromProject">+ Creer une facture</button>
+      </div>
+      <div v-if="invoicesLoading" class="empty">Chargement...</div>
+      <div v-else-if="!projectInvoices.length" class="empty">Aucune facture pour ce projet</div>
+      <table v-else class="data-table">
+        <thead>
+          <tr>
+            <th>No facture</th>
+            <th>Statut</th>
+            <th class="text-right">Montant</th>
+            <th>Date creation</th>
+            <th>Date envoi</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="inv in projectInvoices" :key="inv.id">
+            <td class="font-mono font-semibold">{{ inv.invoice_number }}</td>
+            <td><span class="badge" :class="invStatusColors[inv.status] || 'badge-gray'">{{ invStatusLabels[inv.status] || inv.status }}</span></td>
+            <td class="text-right font-mono">{{ formatAmount(Number(inv.total_amount)) }}</td>
+            <td class="text-muted">{{ inv.date_created }}</td>
+            <td class="text-muted">{{ inv.date_sent || '—' }}</td>
+            <td><button class="btn-sm-link" @click="router.push(`/billing/${inv.id}`)">Voir</button></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2" class="font-semibold">Total</td>
+            <td class="text-right font-mono font-semibold">{{ formatAmount(projectInvoices.reduce((s, i) => s + Number(i.total_amount), 0)) }}</td>
+            <td colspan="3"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </template>
+
     <AssignmentModal :open="showAssignModal" :project-id="projectId" :phase-id="assignPhaseId" :phase-name="assignPhaseName" @close="showAssignModal = false" @assigned="reload" />
   </div>
 </template>
@@ -876,6 +1000,22 @@ onMounted(reload)
 .budget-input.saving { opacity: 0.5; pointer-events: none; }
 
 .budget-hint { font-size: 11px; color: var(--color-gray-400); margin-top: 12px; font-style: italic; }
+
+/* Tab header */
+.tab-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.tab-header h3 { font-size: 15px; font-weight: 600; color: var(--color-gray-800); }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+
+/* Data table */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.data-table thead th { padding: 8px 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--color-gray-500); background: var(--color-gray-50); border-bottom: 2px solid var(--color-gray-200); text-align: left; }
+.data-table tbody td { padding: 8px 12px; border-bottom: 1px solid var(--color-gray-100); }
+.data-table tbody tr:hover { background: var(--color-gray-50); }
+.data-table tfoot td { padding: 8px 12px; background: var(--color-gray-50); border-top: 2px solid var(--color-gray-200); }
+.font-semibold { font-weight: 600; }
+.btn-sm-link { background: none; border: none; color: var(--color-primary); font-size: 12px; font-weight: 600; cursor: pointer; padding: 2px 6px; }
+.btn-sm-link:hover { text-decoration: underline; }
+.badge-green-solid { background: #15803D; color: white; }
 
 .budget-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 </style>

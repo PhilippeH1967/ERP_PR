@@ -26,6 +26,7 @@ class STInvoiceSerializer(serializers.ModelSerializer):
         fields = [
             "id", "project", "project_code", "supplier", "supplier_name",
             "invoice_number", "invoice_date", "amount", "status", "source",
+            "budget_internal", "budget_refacturable", "budget_absorbed",
             "version", "created_at", "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]

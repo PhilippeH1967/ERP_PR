@@ -219,9 +219,10 @@ function cancelOverride() {
     <!-- 2. Header -->
     <div class="page-header">
       <div>
-        <h1>Preparation de facture — {{ invoice.project_name || invoice.client_name }}</h1>
+        <div class="header-client">{{ invoice.client_name }}</div>
+        <h1>{{ invoice.project_code }} — {{ invoice.project_name || 'Facture libre' }}</h1>
         <div class="subtitle">
-          {{ invoice.project_code }} &bull; {{ invoice.client_name }} &bull; {{ invoice.invoice_number }} &bull;
+          {{ invoice.invoice_number }} &bull;
           Statut: <span class="badge" :class="statusColors[invoice.status]">{{ statusLabels[invoice.status] }}</span>
         </div>
       </div>
@@ -533,6 +534,7 @@ function cancelOverride() {
 
 /* ── Header ───────────────────────────────────────────── */
 .page-header { margin-bottom: 16px; }
+.header-client { font-size: 16px; font-weight: 700; color: var(--color-primary); margin-bottom: 2px; }
 .page-header h1 { font-size: 22px; font-weight: 700; color: var(--color-gray-900); margin: 0 0 4px 0; }
 .subtitle { font-size: 13px; color: var(--color-gray-500); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 
