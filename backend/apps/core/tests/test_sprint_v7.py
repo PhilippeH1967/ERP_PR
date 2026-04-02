@@ -13,6 +13,27 @@ User = get_user_model()
 
 
 class BaseV7Test(TestCase):
+    def _api(self, user):
+        """Return an APIClient authenticated as user with tenant header."""
+        c = APIClient()
+        c.force_authenticate(user=user)
+        c.credentials(HTTP_X_TENANT_ID=str(self.tenant.id))
+        return c
+
+    def _d(self, resp):
+        """Unwrap API response data envelope."""
+        d = resp.data
+        if isinstance(d, dict) and "data" in d and isinstance(d["data"], dict):
+            return d["data"]
+        return d
+
+    def _list(self, resp):
+        """Unwrap API list response envelope."""
+        d = resp.data
+        if isinstance(d, dict) and "data" in d:
+            return d["data"]
+        return d
+
     def setUp(self):
         self.tenant = Tenant.objects.create(name="Test V7", slug="test-v7")
         self.pm = User.objects.create_user(username="v7pm", password="x")
@@ -41,15 +62,14 @@ class TestExpenseReportLifecycle(BaseV7Test):
 
     def test_create_expense_report(self):
         """Employee creates a new expense report."""
-        c = APIClient()
-        c.force_authenticate(user=self.employee)
+        c = self._api(self.employee)
         resp = c.post("/api/v1/expense_reports/", {
             "project": self.project.id,
             "total_amount": "150.00",
             "status": "SUBMITTED",
         }, format="json")
         self.assertIn(resp.status_code, [200, 201])
-        data = resp.json()
+        data = self._d(resp)
         self.assertEqual(data["employee"], self.employee.id)
         self.assertEqual(data["status"], "SUBMITTED")
 
@@ -59,8 +79,7 @@ class TestExpenseReportLifecycle(BaseV7Test):
             tenant=self.tenant, employee=self.employee,
             project=self.project, status="REJECTED", total_amount=100,
         )
-        c = APIClient()
-        c.force_authenticate(user=self.employee)
+        c = self._api(self.employee)
         resp = c.post(f"/api/v1/expense_reports/{report.id}/submit/")
         self.assertEqual(resp.status_code, 200)
         report.refresh_from_db()
@@ -72,8 +91,7 @@ class TestExpenseReportLifecycle(BaseV7Test):
             tenant=self.tenant, employee=self.employee,
             project=self.project, status="SUBMITTED", total_amount=200,
         )
-        c = APIClient()
-        c.force_authenticate(user=self.pm)
+        c = self._api(self.pm)
         resp = c.post(f"/api/v1/expense_reports/{report.id}/approve_pm/")
         self.assertEqual(resp.status_code, 200)
         report.refresh_from_db()
@@ -85,8 +103,7 @@ class TestExpenseReportLifecycle(BaseV7Test):
             tenant=self.tenant, employee=self.employee,
             project=self.project, status="PM_APPROVED", total_amount=300,
         )
-        c = APIClient()
-        c.force_authenticate(user=self.finance)
+        c = self._api(self.finance)
         resp = c.post(f"/api/v1/expense_reports/{report.id}/approve_finance/")
         self.assertEqual(resp.status_code, 200)
         report.refresh_from_db()
@@ -98,8 +115,7 @@ class TestExpenseReportLifecycle(BaseV7Test):
             tenant=self.tenant, employee=self.employee,
             project=self.project, status="SUBMITTED", total_amount=50,
         )
-        c = APIClient()
-        c.force_authenticate(user=self.pm)
+        c = self._api(self.pm)
         resp = c.post(f"/api/v1/expense_reports/{report.id}/reject/")
         self.assertEqual(resp.status_code, 200)
         report.refresh_from_db()
@@ -111,8 +127,7 @@ class TestExpenseReportLifecycle(BaseV7Test):
             tenant=self.tenant, employee=self.employee,
             project=self.project, status="FINANCE_VALIDATED", total_amount=500,
         )
-        c = APIClient()
-        c.force_authenticate(user=self.finance)
+        c = self._api(self.finance)
         resp = c.post(f"/api/v1/expense_reports/{report.id}/mark_paid/")
         self.assertEqual(resp.status_code, 200)
         report.refresh_from_db()
@@ -131,8 +146,7 @@ class TestExpenseLines(BaseV7Test):
 
     def test_create_expense_line(self):
         """Add a line item to an expense report."""
-        c = APIClient()
-        c.force_authenticate(user=self.employee)
+        c = self._api(self.employee)
         resp = c.post(
             f"/api/v1/expense_reports/{self.report.id}/lines/",
             {
@@ -158,12 +172,12 @@ class TestExpenseLines(BaseV7Test):
             tenant=self.tenant, report=self.report, category=self.category,
             expense_date="2026-03-21", amount=30, description="Taxi",
         )
-        c = APIClient()
-        c.force_authenticate(user=self.employee)
+        c = self._api(self.employee)
         resp = c.get(f"/api/v1/expense_reports/{self.report.id}/lines/")
         self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        results = data.get("results", data) if isinstance(data, dict) else data
+        results = self._list(resp)
+        if isinstance(results, dict):
+            results = results.get("results", results)
         self.assertEqual(len(results), 2)
 
     def test_delete_line(self):
@@ -172,8 +186,7 @@ class TestExpenseLines(BaseV7Test):
             tenant=self.tenant, report=self.report, category=self.category,
             expense_date="2026-03-20", amount=25, description="Parking",
         )
-        c = APIClient()
-        c.force_authenticate(user=self.employee)
+        c = self._api(self.employee)
         resp = c.delete(f"/api/v1/expense_reports/{self.report.id}/lines/{line.id}/")
         self.assertEqual(resp.status_code, 204)
         self.assertEqual(ExpenseLine.objects.filter(report=self.report).count(), 0)
@@ -184,19 +197,18 @@ class TestExpenseCategories(BaseV7Test):
 
     def test_list_categories(self):
         """List all expense categories for the tenant."""
-        c = APIClient()
-        c.force_authenticate(user=self.employee)
+        c = self._api(self.employee)
         resp = c.get("/api/v1/expense_categories/")
         self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        results = data.get("results", data) if isinstance(data, dict) else data
+        results = self._list(resp)
+        if isinstance(results, dict):
+            results = results.get("results", results)
         # At least the one created in setUp
         self.assertGreaterEqual(len(results), 1)
 
     def test_create_category(self):
         """Create a new expense category."""
-        c = APIClient()
-        c.force_authenticate(user=self.finance)
+        c = self._api(self.finance)
         resp = c.post("/api/v1/expense_categories/", {
             "name": "Hebergement",
             "is_refacturable_default": True,

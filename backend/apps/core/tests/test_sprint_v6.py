@@ -62,10 +62,25 @@ class BaseV6Test(TestCase):
         )
 
     def _api(self, user):
-        """Return an APIClient authenticated as user."""
+        """Return an APIClient authenticated as user with tenant header."""
         c = APIClient()
         c.force_authenticate(user=user)
+        c.credentials(HTTP_X_TENANT_ID=str(self.tenant.id))
         return c
+
+    def _d(self, resp):
+        """Unwrap API response data envelope."""
+        d = resp.data
+        if isinstance(d, dict) and "data" in d and isinstance(d["data"], dict):
+            return d["data"]
+        return d
+
+    def _list(self, resp):
+        """Unwrap API list response envelope."""
+        d = resp.data
+        if isinstance(d, dict) and "data" in d:
+            return d["data"]
+        return d
 
     def _create_draft_invoice(self, **overrides):
         """Helper to create a DRAFT invoice directly in the DB."""
@@ -113,8 +128,8 @@ class TestInvoiceLifecycle(BaseV6Test):
         resp = c.post("/api/v1/invoices/create_from_project/", {
             "project_id": self.project.id,
         }, format="json")
-        self.assertEqual(resp.status_code, 201, resp.json())
-        data = resp.json()
+        self.assertEqual(resp.status_code, 201, resp.data)
+        data = self._d(resp)
         self.assertTrue(data["invoice_number"].startswith("PROV-"))
         self.assertEqual(data["status"], "DRAFT")
         # Should have at least 2 lines (one per phase with budgeted_cost > 0)
@@ -132,8 +147,8 @@ class TestInvoiceLifecycle(BaseV6Test):
             "status": "DRAFT",
             "total_amount": "5000.00",
         }, format="json")
-        self.assertEqual(resp.status_code, 201, resp.json())
-        data = resp.json()
+        self.assertEqual(resp.status_code, 201, resp.data)
+        data = self._d(resp)
         self.assertIsNone(data.get("project"))
         self.assertEqual(data["invoice_number"], "PROV-FREE01")
 
@@ -142,8 +157,8 @@ class TestInvoiceLifecycle(BaseV6Test):
         invoice = self._create_draft_invoice()
         c = self._api(self.finance)
         resp = c.post(f"/api/v1/invoices/{invoice.id}/submit/")
-        self.assertEqual(resp.status_code, 200, resp.json())
-        data = resp.json()
+        self.assertEqual(resp.status_code, 200, resp.data)
+        data = self._d(resp)
         self.assertTrue(data["invoice_number"].startswith("FAC-"))
         self.assertEqual(data["status"], "SUBMITTED")
         year = str(timezone.now().year)
@@ -155,8 +170,8 @@ class TestInvoiceLifecycle(BaseV6Test):
         self._advance_to_submitted(invoice, submitted_by=self.finance)
         c = self._api(self.finance2)
         resp = c.post(f"/api/v1/invoices/{invoice.id}/approve/")
-        self.assertEqual(resp.status_code, 200, resp.json())
-        self.assertEqual(resp.json()["status"], "APPROVED")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(self._d(resp)["status"], "APPROVED")
 
     def test_approve_self_blocked(self):
         """submitted_by cannot approve their own invoice (anti-self-approval)."""
@@ -173,8 +188,8 @@ class TestInvoiceLifecycle(BaseV6Test):
         self._advance_to_approved(invoice)
         c = self._api(self.finance)
         resp = c.post(f"/api/v1/invoices/{invoice.id}/send/")
-        self.assertEqual(resp.status_code, 200, resp.json())
-        data = resp.json()
+        self.assertEqual(resp.status_code, 200, resp.data)
+        data = self._d(resp)
         self.assertEqual(data["status"], "SENT")
         self.assertIsNotNone(data["date_sent"])
 
@@ -192,8 +207,8 @@ class TestInvoiceLifecycle(BaseV6Test):
         self._advance_to_sent(invoice)
         c = self._api(self.finance)
         resp = c.post(f"/api/v1/invoices/{invoice.id}/mark_paid/")
-        self.assertEqual(resp.status_code, 200, resp.json())
-        data = resp.json()
+        self.assertEqual(resp.status_code, 200, resp.data)
+        data = self._d(resp)
         self.assertEqual(data["status"], "PAID")
         self.assertIsNotNone(data["date_paid"])
 
@@ -249,7 +264,7 @@ class TestInvoicePermissions(BaseV6Test):
             "status": "DRAFT",
             "total_amount": "1000.00",
         }, format="json")
-        self.assertEqual(resp.status_code, 201, resp.json())
+        self.assertEqual(resp.status_code, 201, resp.data)
 
     def test_employee_cannot_submit(self):
         """EMPLOYEE cannot submit an invoice."""
@@ -263,8 +278,8 @@ class TestInvoicePermissions(BaseV6Test):
         invoice = self._create_draft_invoice()
         c = self._api(self.pm)
         resp = c.post(f"/api/v1/invoices/{invoice.id}/submit/")
-        self.assertEqual(resp.status_code, 200, resp.json())
-        self.assertEqual(resp.json()["status"], "SUBMITTED")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(self._d(resp)["status"], "SUBMITTED")
 
 
 # ---------------------------------------------------------------------------
@@ -287,8 +302,8 @@ class TestInvoiceLines(BaseV6Test):
             "amount_to_bill": "5000.00",
             "order": 1,
         }, format="json")
-        self.assertEqual(resp.status_code, 201, resp.json())
-        self.assertEqual(resp.json()["deliverable_name"], "Esquisse")
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(self._d(resp)["deliverable_name"], "Esquisse")
 
     def test_update_amount_to_bill(self):
         """PATCH updates amount_to_bill on an existing line."""
@@ -411,8 +426,8 @@ class TestInvoicedHours(BaseV6Test):
 
         c = self._api(self.finance)
         resp = c.post(f"/api/v1/invoices/{invoice.id}/mark_hours_invoiced/")
-        self.assertEqual(resp.status_code, 200, resp.json())
-        self.assertGreaterEqual(resp.json()["marked_count"], 1)
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertGreaterEqual(self._d(resp)["marked_count"], 1)
 
         self.entry1.refresh_from_db()
         self.assertTrue(self.entry1.is_invoiced)
@@ -443,8 +458,8 @@ class TestInvoicedHours(BaseV6Test):
         resp = c.post("/api/v1/invoices/create_from_project/", {
             "project_id": self.project.id,
         }, format="json")
-        self.assertEqual(resp.status_code, 201, resp.json())
-        data = resp.json()
+        self.assertEqual(resp.status_code, 201, resp.data)
+        data = self._d(resp)
 
         # Find the HORAIRE line
         horaire_lines = [l for l in data["lines"] if l["line_type"] == "HORAIRE"]
@@ -479,8 +494,8 @@ class TestPaymentCRUD(BaseV6Test):
             "reference": "CHQ-12345",
             "method": "cheque",
         }, format="json")
-        self.assertEqual(resp.status_code, 201, resp.json())
-        self.assertEqual(Decimal(resp.json()["amount"]), Decimal("5000.00"))
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(Decimal(self._d(resp)["amount"]), Decimal("5000.00"))
 
     def test_list_payments(self):
         """FINANCE can list payments."""
@@ -526,8 +541,8 @@ class TestCreditNoteCRUD(BaseV6Test):
             "reason": "Erreur de facturation",
             "status": "DRAFT",
         }, format="json")
-        self.assertEqual(resp.status_code, 201, resp.json())
-        self.assertEqual(resp.json()["credit_note_number"], "AV-2026-00001")
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(self._d(resp)["credit_note_number"], "AV-2026-00001")
 
     def test_delete_credit_note(self):
         """FINANCE can delete a credit note."""

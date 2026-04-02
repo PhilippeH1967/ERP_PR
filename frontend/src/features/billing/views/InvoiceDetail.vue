@@ -166,6 +166,19 @@ const subtotal = computed(() => {
   if (!invoice.value?.lines) return 0
   return invoice.value.lines.reduce((sum: number, line: { amount_to_bill: string | number }) => sum + (parseFloat(String(line.amount_to_bill)) || 0), 0)
 })
+// Dynamic % calculations
+function pctFact(line: { total_contract_amount: string | number; invoiced_to_date: string | number }): number {
+  const contract = parseFloat(String(line.total_contract_amount)) || 0
+  const invoiced = parseFloat(String(line.invoiced_to_date)) || 0
+  return contract > 0 ? Math.round(invoiced / contract * 100) : 0
+}
+function pctAfter(line: { total_contract_amount: string | number; invoiced_to_date: string | number; amount_to_bill: string | number }): number {
+  const contract = parseFloat(String(line.total_contract_amount)) || 0
+  const invoiced = parseFloat(String(line.invoiced_to_date)) || 0
+  const toBill = parseFloat(String(line.amount_to_bill)) || 0
+  return contract > 0 ? Math.round((invoiced + toBill) / contract * 100) : 0
+}
+
 const taxTPS = computed(() => Math.round(subtotal.value * 0.05 * 100) / 100)
 const taxTVQ = computed(() => Math.round(subtotal.value * 0.09975 * 100) / 100)
 const totalTTC = computed(() => Math.round((subtotal.value + taxTPS.value + taxTVQ.value) * 100) / 100)
@@ -358,7 +371,7 @@ function cancelOverride() {
               </td>
               <td class="cell-mono cell-readonly">{{ fmt.currency(line.total_contract_amount) }}</td>
               <td class="cell-mono cell-readonly">{{ fmt.currency(line.invoiced_to_date) }}</td>
-              <td class="cell-mono cell-readonly">{{ line.pct_billing_advancement }}%</td>
+              <td class="cell-mono cell-readonly" :class="{ 'text-danger': pctFact(line) > 100 }">{{ pctFact(line) }}%</td>
               <td class="cell-mono cell-readonly">{{ line.pct_hours_advancement }}%</td>
               <td class="cell-editable">
                 <input
@@ -371,7 +384,7 @@ function cancelOverride() {
                   @blur="(e) => updateLine(line.id, 'amount_to_bill', (e.target as HTMLInputElement).value)"
                 />
               </td>
-              <td class="cell-mono cell-after">{{ line.pct_after_billing }}%</td>
+              <td class="cell-mono cell-after" :class="{ 'text-danger': pctAfter(line) > 100, 'text-success': pctAfter(line) === 100 }">{{ pctAfter(line) }}%</td>
               <td v-if="invoice.status === 'DRAFT' && isEditingLines" class="cell-delete">
                 <template v-if="confirmDeleteLine === line.id">
                   <button class="btn-action danger" @click="deleteLine(line.id)">Confirmer</button>

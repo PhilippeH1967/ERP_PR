@@ -19,6 +19,14 @@ def _user_roles(user):
     return set(ProjectRole.objects.filter(user=user).values_list("role", flat=True))
 
 
+class CanSubmitBilling(BasePermission):
+    """Allow BILLING_SUBMIT_ROLES (ADMIN, FINANCE, PM) to POST on submit-like actions."""
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        return bool(_user_roles(request.user) & BILLING_SUBMIT_ROLES)
+
+
 class CanViewBilling(BasePermission):
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
@@ -67,6 +75,14 @@ class InvoiceViewSet(viewsets.ModelViewSet):
     search_fields = ["invoice_number", "project__code"]
     filterset_fields = ["status", "project", "client"]
     ordering = ["-date_created"]
+
+    # Actions that PM/ADMIN/FINANCE can perform (submit-like workflow actions)
+    SUBMIT_ACTIONS = {"submit"}
+
+    def get_permissions(self):
+        if self.action in self.SUBMIT_ACTIONS:
+            return [CanSubmitBilling()]
+        return super().get_permissions()
 
     def get_queryset(self):
         qs = Invoice.objects.all()
@@ -454,12 +470,32 @@ class InvoiceLineViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return InvoiceLine.objects.filter(invoice_id=self.kwargs["invoice_pk"]).select_related("invoice", "financial_phase")
 
+    def _recalculate_line_percentages(self, line):
+        """Recalculate % fields on a single line."""
+        from decimal import Decimal
+        contract = float(line.total_contract_amount or 0)
+        invoiced = float(line.invoiced_to_date or 0)
+        to_bill = float(line.amount_to_bill or 0)
+        if contract > 0:
+            line.pct_billing_advancement = round(invoiced / contract * 100, 2)
+            line.pct_after_billing = round((invoiced + to_bill) / contract * 100, 2)
+        else:
+            line.pct_billing_advancement = 0
+            line.pct_after_billing = 0
+        InvoiceLine.objects.filter(pk=line.pk).update(
+            pct_billing_advancement=line.pct_billing_advancement,
+            pct_after_billing=line.pct_after_billing,
+        )
+
     def _recalculate_invoice_totals(self, invoice):
-        """Recalculate invoice totals from lines."""
+        """Recalculate invoice totals and line percentages."""
         from decimal import Decimal
         from django.db.models import Sum
+        # Recalculate % on each line
+        for line in invoice.lines.all():
+            self._recalculate_line_percentages(line)
+        # Recalculate invoice totals
         total = invoice.lines.aggregate(t=Sum("amount_to_bill"))["t"] or Decimal("0")
-        # Use update() to avoid VersionedModel/HistoricalRecords F() conflict
         Invoice.objects.filter(pk=invoice.pk).update(
             total_amount=total,
             tax_tps=round(total * Decimal("0.05"), 2),
@@ -494,6 +530,17 @@ class CreditNoteViewSet(viewsets.ModelViewSet):
             qs = qs.filter(tenant_id=self.request.tenant_id)
         return qs
 
+    def perform_create(self, serializer):
+        tenant_id = getattr(self.request, "tenant_id", None)
+        if tenant_id:
+            from apps.core.models import Tenant
+
+            serializer.save(tenant=Tenant.objects.get(pk=tenant_id))
+        else:
+            from apps.core.models import Tenant
+
+            serializer.save(tenant=Tenant.objects.first())
+
 
 class PaymentViewSet(viewsets.ModelViewSet):
     serializer_class = PaymentSerializer
@@ -504,6 +551,17 @@ class PaymentViewSet(viewsets.ModelViewSet):
         if hasattr(self.request, "tenant_id") and self.request.tenant_id:
             qs = qs.filter(tenant_id=self.request.tenant_id)
         return qs
+
+    def perform_create(self, serializer):
+        tenant_id = getattr(self.request, "tenant_id", None)
+        if tenant_id:
+            from apps.core.models import Tenant
+
+            serializer.save(tenant=Tenant.objects.get(pk=tenant_id))
+        else:
+            from apps.core.models import Tenant
+
+            serializer.save(tenant=Tenant.objects.first())
 
 
 class HoldbackViewSet(viewsets.ModelViewSet):

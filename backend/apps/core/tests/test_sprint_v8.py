@@ -13,6 +13,27 @@ User = get_user_model()
 
 
 class BaseV8Test(TestCase):
+    def _api(self, user):
+        """Return an APIClient authenticated as user with tenant header."""
+        c = APIClient()
+        c.force_authenticate(user=user)
+        c.credentials(HTTP_X_TENANT_ID=str(self.tenant.id))
+        return c
+
+    def _d(self, resp):
+        """Unwrap API response data envelope."""
+        d = resp.data
+        if isinstance(d, dict) and "data" in d and isinstance(d["data"], dict):
+            return d["data"]
+        return d
+
+    def _list(self, resp):
+        """Unwrap API list response envelope."""
+        d = resp.data
+        if isinstance(d, dict) and "data" in d:
+            return d["data"]
+        return d
+
     def setUp(self):
         self.tenant = Tenant.objects.create(name="Test V8", slug="test-v8")
         self.pm = User.objects.create_user(username="v8pm", password="x")
@@ -37,8 +58,7 @@ class TestExternalOrganization(BaseV8Test):
 
     def test_create_organization(self):
         """Create a new external organization (supplier)."""
-        c = APIClient()
-        c.force_authenticate(user=self.pm)
+        c = self._api(self.pm)
         resp = c.post("/api/v1/external_organizations/", {
             "name": "Sous-traitant ABC",
             "neq": "1234567890",
@@ -49,7 +69,7 @@ class TestExternalOrganization(BaseV8Test):
             "type_tags": ["st"],
         }, format="json")
         self.assertIn(resp.status_code, [200, 201])
-        data = resp.json()
+        data = self._d(resp)
         self.assertEqual(data["name"], "Sous-traitant ABC")
         self.assertEqual(data["neq"], "1234567890")
 
@@ -61,12 +81,12 @@ class TestExternalOrganization(BaseV8Test):
         ExternalOrganization.objects.create(
             tenant=self.tenant, name="Fournisseur Y", neq="2222222222",
         )
-        c = APIClient()
-        c.force_authenticate(user=self.pm)
+        c = self._api(self.pm)
         resp = c.get("/api/v1/external_organizations/")
         self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        results = data.get("results", data) if isinstance(data, dict) else data
+        results = self._list(resp)
+        if isinstance(results, dict):
+            results = results.get("results", results)
         self.assertGreaterEqual(len(results), 2)
 
     def test_check_duplicate(self):
@@ -74,15 +94,14 @@ class TestExternalOrganization(BaseV8Test):
         ExternalOrganization.objects.create(
             tenant=self.tenant, name="Acme Solutions", neq="9999999999",
         )
-        c = APIClient()
-        c.force_authenticate(user=self.pm)
+        c = self._api(self.pm)
         # Check by NEQ exact match
         resp = c.post("/api/v1/external_organizations/check_duplicate/", {
             "name": "",
             "neq": "9999999999",
         }, format="json")
         self.assertEqual(resp.status_code, 200)
-        data = resp.json()
+        data = self._d(resp)
         self.assertGreaterEqual(len(data["duplicates"]), 1)
         self.assertEqual(data["duplicates"][0]["match_type"], "neq_exact")
 
@@ -91,8 +110,7 @@ class TestExternalOrganization(BaseV8Test):
         org = ExternalOrganization.objects.create(
             tenant=self.tenant, name="Old Name", neq="5555555555",
         )
-        c = APIClient()
-        c.force_authenticate(user=self.pm)
+        c = self._api(self.pm)
         resp = c.patch(f"/api/v1/external_organizations/{org.id}/", {
             "name": "New Name",
             "contact_email": "new@org.ca",
@@ -115,8 +133,7 @@ class TestSTInvoice(BaseV8Test):
 
     def test_create_st_invoice(self):
         """Create a new subcontractor invoice."""
-        c = APIClient()
-        c.force_authenticate(user=self.pm)
+        c = self._api(self.pm)
         resp = c.post("/api/v1/st_invoices/", {
             "project": self.project.id,
             "supplier": self.supplier.id,
@@ -126,7 +143,7 @@ class TestSTInvoice(BaseV8Test):
             "source": "manual",
         }, format="json")
         self.assertIn(resp.status_code, [200, 201])
-        data = resp.json()
+        data = self._d(resp)
         self.assertEqual(data["status"], "received")
         self.assertEqual(data["invoice_number"], "ST-2026-001")
 
@@ -137,8 +154,7 @@ class TestSTInvoice(BaseV8Test):
             invoice_number="ST-2026-002", invoice_date="2026-03-16",
             amount=8000, status="received",
         )
-        c = APIClient()
-        c.force_authenticate(user=self.pm)
+        c = self._api(self.pm)
         resp = c.post(f"/api/v1/st_invoices/{invoice.id}/authorize/")
         self.assertEqual(resp.status_code, 200)
         invoice.refresh_from_db()
@@ -151,8 +167,7 @@ class TestSTInvoice(BaseV8Test):
             invoice_number="ST-2026-003", invoice_date="2026-03-17",
             amount=5000, status="authorized",
         )
-        c = APIClient()
-        c.force_authenticate(user=self.finance)
+        c = self._api(self.finance)
         resp = c.post(f"/api/v1/st_invoices/{invoice.id}/mark_paid/")
         self.assertEqual(resp.status_code, 200)
         invoice.refresh_from_db()
@@ -170,18 +185,19 @@ class TestSTInvoice(BaseV8Test):
             invoice_number="ST-2026-011", invoice_date="2026-03-11",
             amount=4000, status="authorized",
         )
-        c = APIClient()
-        c.force_authenticate(user=self.pm)
+        c = self._api(self.pm)
         # List all
         resp = c.get("/api/v1/st_invoices/")
         self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        results = data.get("results", data) if isinstance(data, dict) else data
+        results = self._list(resp)
+        if isinstance(results, dict):
+            results = results.get("results", results)
         self.assertGreaterEqual(len(results), 2)
         # Filter by status
         resp2 = c.get("/api/v1/st_invoices/?status=received")
         self.assertEqual(resp2.status_code, 200)
-        data2 = resp2.json()
-        results2 = data2.get("results", data2) if isinstance(data2, dict) else data2
+        results2 = self._list(resp2)
+        if isinstance(results2, dict):
+            results2 = results2.get("results", results2)
         for item in results2:
             self.assertEqual(item["status"], "received")
