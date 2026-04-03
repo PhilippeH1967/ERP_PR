@@ -24,16 +24,19 @@ class InvoiceLineSerializer(serializers.ModelSerializer):
     project_id = serializers.SerializerMethodField()
     phase_name = serializers.SerializerMethodField()
 
+    task_wbs_code = serializers.CharField(source="task.wbs_code", read_only=True, default="")
+
     class Meta:
         model = InvoiceLine
         fields = [
-            "id", "financial_phase", "deliverable_name", "line_type",
+            "id", "financial_phase", "task", "task_wbs_code",
+            "deliverable_name", "line_type",
             "total_contract_amount", "invoiced_to_date",
             "pct_billing_advancement", "pct_hours_advancement",
             "amount_to_bill", "pct_after_billing", "order",
             "project_id", "phase_name",
         ]
-        read_only_fields = ["id", "project_id", "phase_name"]
+        read_only_fields = ["id", "project_id", "phase_name", "task_wbs_code"]
 
     def get_project_id(self, obj):
         return obj.invoice.project_id if obj.invoice else None

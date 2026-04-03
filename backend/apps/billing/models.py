@@ -73,7 +73,13 @@ class InvoiceLine(TenantScopedModel):
 
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="lines")
     financial_phase = models.ForeignKey(
-        "projects.FinancialPhase", on_delete=models.SET_NULL, null=True, blank=True
+        "projects.FinancialPhase", on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="DEPRECATED — use task instead",
+    )
+    task = models.ForeignKey(
+        "projects.Task", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="invoice_lines",
+        help_text="Task (WBS) for this invoice line — replaces financial_phase",
     )
     deliverable_name = models.CharField(max_length=255)
     line_type = models.CharField(

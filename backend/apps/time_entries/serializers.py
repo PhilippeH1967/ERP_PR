@@ -14,19 +14,23 @@ class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
     project_name = serializers.CharField(source="project.name", read_only=True)
     phase_name = serializers.SerializerMethodField()
     client_label = serializers.SerializerMethodField()
+    task_wbs_code = serializers.CharField(source="task.wbs_code", read_only=True, default="")
+    task_name = serializers.SerializerMethodField()
 
     class Meta:
         model = TimeEntry
         fields = [
             "id", "employee", "project", "project_code", "project_name",
-            "phase", "phase_name", "client_label",
+            "phase", "phase_name", "task", "task_wbs_code", "task_name",
+            "client_label",
             "date", "hours", "notes", "rejection_reason", "status", "is_favorite",
             "is_invoiced", "version",
             "created_at", "updated_at",
         ]
         read_only_fields = [
             "id", "employee", "project_code", "project_name",
-            "phase_name", "client_label", "rejection_reason", "is_invoiced",
+            "phase_name", "task_wbs_code", "task_name",
+            "client_label", "rejection_reason", "is_invoiced",
             "created_at", "updated_at",
         ]
 
@@ -36,8 +40,16 @@ class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
         return ""
 
     def get_client_label(self, obj):
+        # Prefer task label, fallback to phase
+        if obj.task:
+            return obj.task.client_facing_label or obj.task.name
         if obj.phase:
             return obj.phase.client_facing_label or obj.phase.name
+        return ""
+
+    def get_task_name(self, obj):
+        if obj.task:
+            return obj.task.client_facing_label or obj.task.name
         return ""
 
 

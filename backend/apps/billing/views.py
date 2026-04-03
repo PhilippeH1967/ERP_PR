@@ -163,51 +163,85 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             tenant=tenant,
         )
 
-        # Create lines for each billable phase
-        phases = Phase.objects.filter(
-            project=project, budgeted_cost__gt=0
-        ).order_by("order")
+        # Create lines from Tasks (WBS Option B) if available, fallback to Phases
+        from apps.projects.models import Task
+        tasks = Task.objects.filter(
+            project=project, budgeted_cost__gt=0, is_billable=True, is_active=True,
+        ).select_related("phase").order_by("phase__order", "order")
 
-        for phase in phases:
-            # Calculate invoiced_to_date: sum of amount_to_bill from previous
-            # invoice lines linked to the same phase (via financial_phase or
-            # matching deliverable_name on the same project)
-            # Only count lines from SUBMITTED+ invoices (not DRAFT brouillons)
-            invoiced_to_date = (
-                InvoiceLine.objects.filter(
-                    invoice__project=project,
-                    invoice__status__in=["SUBMITTED", "APPROVED", "SENT", "PAID"],
+        if tasks.exists():
+            # New model: create lines from Tasks
+            for task in tasks:
+                invoiced_to_date = (
+                    InvoiceLine.objects.filter(
+                        task=task,
+                        invoice__status__in=["SUBMITTED", "APPROVED", "SENT", "PAID"],
+                    )
+                    .aggregate(total=Sum("amount_to_bill"))["total"]
+                    or Decimal("0")
+                )
+                amount_to_bill = Decimal("0")
+                if task.billing_mode == "HORAIRE":
+                    from apps.time_entries.models import TimeEntry
+                    approved_hours = TimeEntry.objects.filter(
+                        task=task, status="PM_APPROVED", is_invoiced=False,
+                    ).aggregate(t=Sum("hours"))["t"] or Decimal("0")
+                    rate = task.hourly_rate or Decimal("85")
+                    amount_to_bill = approved_hours * rate
+
+                InvoiceLine.objects.create(
+                    invoice=invoice,
+                    task=task,
+                    deliverable_name=f"{task.wbs_code} — {task.client_facing_label or task.name}",
+                    line_type=task.billing_mode,
+                    total_contract_amount=task.budgeted_cost,
+                    invoiced_to_date=invoiced_to_date,
+                    amount_to_bill=amount_to_bill,
+                    order=task.order,
+                    tenant=tenant,
+                )
+        else:
+            # Fallback: create lines from Phases (backward compatibility)
+            phases = Phase.objects.filter(
+                project=project, budgeted_cost__gt=0
+            ).order_by("order")
+
+            for phase in phases:
+                invoiced_to_date = (
+                    InvoiceLine.objects.filter(
+                        invoice__project=project,
+                        invoice__status__in=["SUBMITTED", "APPROVED", "SENT", "PAID"],
+                        deliverable_name=phase.client_facing_label or phase.name,
+                    )
+                    .aggregate(total=Sum("amount_to_bill"))["total"]
+                    or Decimal("0")
+                )
+
+                amount_to_bill = Decimal("0")
+
+                # For HORAIRE phases, calculate from uninvoiced approved time entries
+                if phase.billing_mode == "HORAIRE":
+                    from apps.time_entries.models import TimeEntry
+
+                    uninvoiced_entries = TimeEntry.objects.filter(
+                        project=project,
+                        phase=phase,
+                        status="PM_APPROVED",
+                        is_invoiced=False,
+                    )
+                    total_hours = uninvoiced_entries.aggregate(
+                        h=Sum("hours")
+                    )["h"] or Decimal("0")
+                    hourly_rate = Decimal("85")  # default rate
+                    amount_to_bill = total_hours * hourly_rate
+
+                InvoiceLine.objects.create(
+                    invoice=invoice,
                     deliverable_name=phase.client_facing_label or phase.name,
-                )
-                .aggregate(total=Sum("amount_to_bill"))["total"]
-                or Decimal("0")
-            )
-
-            amount_to_bill = Decimal("0")
-
-            # For HORAIRE phases, calculate from uninvoiced approved time entries
-            if phase.billing_mode == "HORAIRE":
-                from apps.time_entries.models import TimeEntry
-
-                uninvoiced_entries = TimeEntry.objects.filter(
-                    project=project,
-                    phase=phase,
-                    status="PM_APPROVED",
-                    is_invoiced=False,
-                )
-                total_hours = uninvoiced_entries.aggregate(
-                    h=Sum("hours")
-                )["h"] or Decimal("0")
-                hourly_rate = Decimal("85")  # default rate
-                amount_to_bill = total_hours * hourly_rate
-
-            InvoiceLine.objects.create(
-                invoice=invoice,
-                deliverable_name=phase.client_facing_label or phase.name,
-                line_type=phase.billing_mode,  # FORFAIT or HORAIRE
-                total_contract_amount=phase.budgeted_cost,
-                invoiced_to_date=invoiced_to_date,
-                amount_to_bill=amount_to_bill,
+                    line_type=phase.billing_mode,
+                    total_contract_amount=phase.budgeted_cost,
+                    invoiced_to_date=invoiced_to_date,
+                    amount_to_bill=amount_to_bill,
                 order=phase.order,
                 tenant=tenant,
             )

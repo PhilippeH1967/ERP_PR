@@ -26,7 +26,13 @@ class TimeEntry(TenantScopedModel, VersionedModel):
         "projects.Project", on_delete=models.CASCADE, related_name="time_entries"
     )
     phase = models.ForeignKey(
-        "projects.Phase", on_delete=models.CASCADE, null=True, blank=True
+        "projects.Phase", on_delete=models.CASCADE, null=True, blank=True,
+        help_text="DEPRECATED — use task instead",
+    )
+    task = models.ForeignKey(
+        "projects.Task", on_delete=models.CASCADE, null=True, blank=True,
+        related_name="time_entries",
+        help_text="Task (WBS) for this time entry — replaces phase",
     )
     date = models.DateField(db_index=True)
     hours = models.DecimalField(max_digits=5, decimal_places=2, default=0)
