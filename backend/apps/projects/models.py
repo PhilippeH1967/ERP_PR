@@ -90,6 +90,22 @@ class Project(TenantScopedModel, VersionedModel):
         max_digits=12, decimal_places=2, null=True, blank=True,
         help_text="Informational only — construction cost estimate",
     )
+    # Location
+    address = models.CharField(max_length=255, blank=True, default="")
+    city = models.CharField(max_length=100, blank=True, default="")
+    postal_code = models.CharField(max_length=20, blank=True, default="")
+    country = models.CharField(max_length=100, blank=True, default="Canada")
+    # Project details
+    surface = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    surface_unit = models.CharField(
+        max_length=5, choices=[("m2", "m²"), ("pi2", "pi²")], default="m2", blank=True,
+    )
+    currency = models.CharField(max_length=3, default="CAD", blank=True)
+    tags = models.JSONField(default=list, blank=True)
+    title_on_invoice = models.CharField(
+        max_length=255, blank=True, default="",
+        help_text="Titre affiché sur les factures (si différent du titre projet)",
+    )
     # Leadership
     pm = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
@@ -157,8 +173,67 @@ class Phase(TenantScopedModel):
         return f"{self.project.code} — {self.name}"
 
 
+class Task(TenantScopedModel):
+    """Project task — operational unit for time tracking, billing, and budgeting.
+
+    Replaces the old WBSElement model. The WBS code (e.g., 3.1, 3.2) is the
+    primary identifier. Tasks belong to a Phase and can have subtasks.
+
+    - Time entries are recorded on Tasks (not Phases)
+    - Invoice lines reference Tasks (not Phases)
+    - Budget is on Tasks (not Phases)
+    """
+
+    class TaskType(models.TextChoices):
+        TASK = "TASK", "Tâche"
+        SUBTASK = "SUBTASK", "Sous-tâche"
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="tasks")
+    phase = models.ForeignKey(
+        Phase, on_delete=models.CASCADE, related_name="tasks",
+    )
+    parent = models.ForeignKey(
+        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="subtasks",
+    )
+    wbs_code = models.CharField(
+        max_length=20, db_index=True,
+        help_text="WBS code, e.g., 3.1, 3.2.1",
+    )
+    name = models.CharField(max_length=255)
+    client_facing_label = models.CharField(max_length=255, blank=True, default="")
+    task_type = models.CharField(
+        max_length=10, choices=TaskType.choices, default=TaskType.TASK,
+    )
+    billing_mode = models.CharField(
+        max_length=10, choices=BillingMode.choices, default=BillingMode.FORFAIT,
+    )
+    order = models.PositiveIntegerField(default=0)
+    budgeted_hours = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    budgeted_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    hourly_rate = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True,
+        help_text="Hourly rate for HORAIRE billing mode",
+    )
+    is_billable = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "projects_task"
+        ordering = ["phase__order", "order", "wbs_code"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "wbs_code"],
+                name="uq_task_project_wbs_code",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.wbs_code} — {self.client_facing_label or self.name}"
+
+
+# Keep WBSElement for backward compatibility during migration
 class WBSElement(TenantScopedModel):
-    """Multi-level WBS with standard and client-facing labels."""
+    """DEPRECATED — Use Task model instead. Kept for migration compatibility."""
 
     class ElementType(models.TextChoices):
         PHASE = "PHASE", "Phase"

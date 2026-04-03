@@ -13,6 +13,7 @@ from .models import (
     Phase,
     Project,
     ProjectTemplate,
+    Task,
     WBSElement,
 )
 from .serializers import (
@@ -22,6 +23,7 @@ from .serializers import (
     ProjectListSerializer,
     ProjectSerializer,
     ProjectTemplateSerializer,
+    TaskSerializer,
     WBSElementSerializer,
 )
 from .services import create_project_from_template
@@ -254,6 +256,22 @@ class EmployeeAssignmentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return EmployeeAssignment.objects.filter(project_id=self.kwargs["project_pk"])
+
+    def perform_create(self, serializer):
+        project = Project.objects.get(pk=self.kwargs["project_pk"])
+        serializer.save(project=project, tenant=project.tenant)
+
+
+class TaskViewSet(viewsets.ModelViewSet):
+    """CRUD for project tasks (WBS operational units)."""
+
+    serializer_class = TaskSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Task.objects.filter(
+            project_id=self.kwargs["project_pk"]
+        ).select_related("phase", "parent")
 
     def perform_create(self, serializer):
         project = Project.objects.get(pk=self.kwargs["project_pk"])

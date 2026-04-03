@@ -13,6 +13,7 @@ from .models import (
     Project,
     ProjectTemplate,
     SupportService,
+    Task,
     WBSElement,
 )
 
@@ -26,6 +27,25 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
             "is_mandatory", "is_locked", "budgeted_hours", "budgeted_cost",
         ]
         read_only_fields = ["id"]
+
+
+class TaskSerializer(serializers.ModelSerializer):
+    phase_name = serializers.CharField(source="phase.name", read_only=True)
+    display_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Task
+        fields = [
+            "id", "project", "phase", "phase_name", "parent",
+            "wbs_code", "name", "client_facing_label", "display_label",
+            "task_type", "billing_mode", "order",
+            "budgeted_hours", "budgeted_cost", "hourly_rate",
+            "is_billable", "is_active",
+        ]
+        read_only_fields = ["id", "display_label", "phase_name"]
+
+    def get_display_label(self, obj):
+        return obj.client_facing_label or obj.name
 
 
 class WBSElementSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
@@ -65,6 +85,8 @@ class ProjectSerializer(CostFieldFilterMixin, OptimisticLockMixin, serializers.M
             "id", "code", "name", "client", "template", "contract_type",
             "status", "is_internal", "business_unit", "legal_entity",
             "start_date", "end_date", "construction_cost",
+            "address", "city", "postal_code", "country",
+            "surface", "surface_unit", "currency", "tags", "title_on_invoice",
             "pm", "associate_in_charge", "invoice_approver", "bu_director",
             "version", "phases", "support_services",
             "created_at", "updated_at",
