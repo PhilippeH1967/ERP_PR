@@ -118,11 +118,12 @@ const budgetTotal = computed(() => {
 const budgetInvoiced = computed(() => 0) // placeholder — will come from invoices
 
 const budgetConsumedPercent = computed(() => {
-  if (budgetTotal.value <= 0) return 0
-  return Math.round((budgetInvoiced.value / budgetTotal.value) * 100 * 10) / 10
+  const total = taskBudgetTotal?.value ?? budgetTotal.value
+  if (total <= 0) return 0
+  return Math.round((budgetInvoiced.value / total) * 100 * 10) / 10
 })
 
-const budgetRemaining = computed(() => budgetTotal.value - budgetInvoiced.value)
+const budgetRemaining = computed(() => (taskBudgetTotal?.value ?? budgetTotal.value) - budgetInvoiced.value)
 
 function formatAmount(value: number | string): string {
   const n = Number(value)
@@ -285,6 +286,77 @@ async function saveWBS() {
   } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
 }
 
+// Tasks
+interface TaskItem {
+  id: number; project: number; phase: number | null; phase_name: string; parent: number | null;
+  wbs_code: string; name: string; client_facing_label: string; display_label: string;
+  task_type: 'TASK' | 'SUBTASK'; billing_mode: 'FORFAIT' | 'HORAIRE'; order: number;
+  budgeted_hours: string | number; budgeted_cost: string | number; hourly_rate: string | number;
+  is_billable: boolean; is_active: boolean;
+}
+const tasks = ref<TaskItem[]>([])
+const collapsedPhases = ref<Set<string>>(new Set())
+const confirmDeleteTask = ref<number | null>(null)
+const showAddTaskPhase = ref<number | null>(null)
+const newTaskName = ref('')
+
+const tasksByPhase = computed(() => {
+  const grouped: Record<string, { phase_name: string; phase_id: number | null; tasks: TaskItem[] }> = {}
+  for (const t of tasks.value) {
+    const key = t.phase_name || 'Sans phase'
+    if (!grouped[key]) grouped[key] = { phase_name: key, phase_id: t.phase, tasks: [] }
+    grouped[key].tasks.push(t)
+  }
+  // Sort tasks by order within each group
+  for (const g of Object.values(grouped)) {
+    g.tasks.sort((a, b) => a.order - b.order)
+  }
+  return Object.values(grouped)
+})
+
+const taskBudgetTotal = computed(() => tasks.value.reduce((sum, t) => sum + Number(t.budgeted_cost || 0), 0))
+const taskHoursTotal = computed(() => tasks.value.reduce((sum, t) => sum + Number(t.budgeted_hours || 0), 0))
+
+async function loadTasks() {
+  try {
+    const r = await projectApi.listTasks(projectId)
+    const d = r.data?.data || r.data
+    tasks.value = Array.isArray(d) ? d : d?.results || []
+  } catch { tasks.value = [] }
+}
+
+async function saveTaskField(taskId: number, field: string, value: unknown) {
+  try {
+    await projectApi.updateTask(projectId, taskId, { [field]: value })
+    await loadTasks()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
+  }
+}
+
+async function addTask(phaseId: number | null) {
+  if (!newTaskName.value.trim()) return
+  try {
+    await projectApi.createTask(projectId, { phase: phaseId, name: newTaskName.value.trim(), task_type: 'TASK', billing_mode: 'FORFAIT' })
+    newTaskName.value = ''
+    showAddTaskPhase.value = null
+    await loadTasks()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
+}
+
+async function removeTask(taskId: number) {
+  confirmDeleteTask.value = null
+  tasks.value = tasks.value.filter(t => t.id !== taskId)
+  try { await projectApi.deleteTask(projectId, taskId) } catch { /* ok */ }
+}
+
+function togglePhaseCollapse(phaseName: string) {
+  if (collapsedPhases.value.has(phaseName)) collapsedPhases.value.delete(phaseName)
+  else collapsedPhases.value.add(phaseName)
+}
+
 // Amendment form
 const showAmendmentForm = ref(false)
 const amendmentForm = ref({ description: '', budget_impact: '0', status: 'DRAFT' })
@@ -292,7 +364,7 @@ const amendmentForm = ref({ description: '', budget_impact: '0', status: 'DRAFT'
 const tabs = [
   { key: 'overview', label: 'Vue d\'ensemble' },
   { key: 'phases', label: 'Phases' },
-  { key: 'wbs', label: 'WBS' },
+  { key: 'tasks', label: 'Tâches' },
   { key: 'team', label: 'Équipe' },
   { key: 'amendments', label: 'Avenants' },
   { key: 'budget', label: 'Budget' },
@@ -317,6 +389,7 @@ async function reload() {
   try { const r = await projectApi.listWBS(projectId); wbsTree.value = r.data?.data || r.data || [] } catch { wbsTree.value = [] }
   try { const r = await projectApi.listAssignments(projectId); assignments.value = r.data?.data || r.data || [] } catch { assignments.value = [] }
   try { const r = await projectApi.listAmendments(projectId); amendments.value = r.data?.data || r.data || [] } catch { amendments.value = [] }
+  await loadTasks()
 }
 
 async function changeStatus(newStatus: string) {
@@ -396,6 +469,7 @@ onMounted(reload)
 
 // Lazy load tab data
 watch(activeTab, (tab) => {
+  if (tab === 'tasks' && !tasks.value.length) loadTasks()
   if (tab === 'st' && !stInvoices.value.length) loadSTInvoices()
   if (tab === 'invoices' && !projectInvoices.value.length) loadProjectInvoices()
 })
@@ -551,87 +625,90 @@ watch(activeTab, (tab) => {
       </div>
     </template>
 
-    <!-- ═══ WBS ═══ -->
-    <template v-if="activeTab === 'wbs'">
-      <div v-if="isEditing" class="section-actions"><button class="btn-primary" @click="showWBSForm = !showWBSForm">+ Ajouter un élément WBS</button></div>
+    <!-- ═══ Tâches ═══ -->
+    <template v-if="activeTab === 'tasks'">
+      <div v-if="tasksByPhase.length">
+        <div v-for="group in tasksByPhase" :key="group.phase_name" class="task-phase-group">
+          <!-- Phase header -->
+          <div class="task-phase-header" @click="togglePhaseCollapse(group.phase_name)">
+            <span class="task-phase-toggle">{{ collapsedPhases.has(group.phase_name) ? '&#9654;' : '&#9660;' }}</span>
+            <span class="font-semibold">{{ group.phase_name }}</span>
+            <span class="text-muted" style="margin-left:8px;">({{ group.tasks.length }} tâche{{ group.tasks.length > 1 ? 's' : '' }})</span>
+            <button v-if="isEditing" class="btn-action" style="margin-left:auto;" @click.stop="showAddTaskPhase = group.phase_id; newTaskName = ''">+ Tâche</button>
+          </div>
 
-      <div v-if="showWBSForm" class="card" style="margin-bottom: 12px;">
-        <form @submit.prevent="createWBSElement" class="form-row-3">
-          <div class="form-group"><label>Libellé standard</label><input v-model="wbsForm.standard_label" type="text" required placeholder="Libellé interne" /></div>
-          <div class="form-group"><label>Libellé client</label><input v-model="wbsForm.client_facing_label" type="text" placeholder="Libellé visible client" /></div>
-          <div class="form-group"><label>Type</label>
-            <select v-model="wbsForm.element_type">
-              <option value="PHASE">Phase</option>
-              <option value="TASK">Tâche</option>
-              <option value="SUBTASK">Sous-tâche</option>
-            </select>
+          <!-- Add task form -->
+          <div v-if="showAddTaskPhase === group.phase_id && isEditing" class="task-add-row">
+            <input v-model="newTaskName" class="inline-input" placeholder="Nom de la tâche" @keydown.enter="addTask(group.phase_id)" />
+            <button class="btn-primary btn-sm" @click="addTask(group.phase_id)">Ajouter</button>
+            <button class="btn-ghost btn-sm" @click="showAddTaskPhase = null">Annuler</button>
           </div>
-          <div class="form-group"><label>Heures budgetées</label><input v-model="wbsForm.budgeted_hours" type="number" step="0.01" /></div>
-          <div class="form-group"><label>Phase</label>
-            <select v-model="wbsForm.phase">
-              <option :value="null">— Aucune —</option>
-              <option v-for="phase in store.currentProject?.phases" :key="phase.id" :value="phase.id">{{ phase.name }}</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>&nbsp;</label>
-            <div style="display:flex;gap:4px;">
-              <button type="button" class="btn-ghost" @click="showWBSForm=false">Annuler</button>
-              <button type="submit" class="btn-primary">Créer</button>
-            </div>
-          </div>
-        </form>
-      </div>
 
-      <div class="card" v-if="wbsTree.length">
-        <div v-for="node in wbsTree" :key="node.id" class="wbs-node">
-          <div class="wbs-row">
-            <template v-if="editingWBSId === node.id">
-              <div class="wbs-edit-form">
-                <div class="wbs-edit-row">
-                  <div class="wbs-edit-field"><label>Type</label>
-                    <select v-model="editingWBSForm.element_type" class="inline-select">
-                      <option value="PHASE">Phase</option><option value="TASK">Tâche</option><option value="SUBTASK">Sous-tâche</option>
-                    </select>
-                  </div>
-                  <div class="wbs-edit-field"><label>Libellé standard</label><input v-model="editingWBSForm.standard_label" class="inline-input" /></div>
-                  <div class="wbs-edit-field"><label>Libellé client</label><input v-model="editingWBSForm.client_facing_label" class="inline-input" /></div>
-                  <div class="wbs-edit-field"><label>Heures</label><input v-model="editingWBSForm.budgeted_hours" type="number" class="inline-input-sm" /></div>
-                  <div class="wbs-edit-field" style="align-self:flex-end;"><button class="btn-primary" @click="saveWBS">Enregistrer</button><button class="btn-ghost" style="margin-left:4px;" @click="editingWBSId = null">Annuler</button></div>
-                </div>
-              </div>
-            </template>
-            <template v-else>
-              <div class="wbs-info">
-                <span class="badge badge-blue">{{ node.element_type === 'PHASE' ? 'Phase' : node.element_type === 'TASK' ? 'Tâche' : 'Sous-tâche' }}</span>
-                <span class="font-semibold">{{ node.standard_label }}</span>
-                <span v-if="node.client_facing_label && node.client_facing_label !== node.standard_label" class="text-muted">→ {{ node.client_facing_label }}</span>
-              </div>
-              <div class="flex items-center gap-4"><span class="font-mono text-muted">{{ node.budgeted_hours }}h</span>
-                <template v-if="isEditing">
-                  <button class="btn-action" @click="startEditWBS(node)">Modifier</button>
-                  <template v-if="confirmDeleteWBS === node.id">
-                    <button class="btn-action danger" @click="deleteWBS(node.id)">Confirmer</button>
-                    <button class="btn-action" @click="confirmDeleteWBS = null">Annuler</button>
+          <!-- Tasks table -->
+          <table v-if="!collapsedPhases.has(group.phase_name)" class="data-table task-table">
+            <thead>
+              <tr>
+                <th>WBS</th>
+                <th>Nom</th>
+                <th>Mode</th>
+                <th class="text-right">Budget ($)</th>
+                <th class="text-right">Heures</th>
+                <th>Facturable</th>
+                <th v-if="isEditing">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="task in group.tasks" :key="task.id" :class="{ 'subtask-row': task.task_type === 'SUBTASK' }">
+                <td class="font-mono">{{ task.wbs_code || '—' }}</td>
+                <td>
+                  <span v-if="task.task_type === 'SUBTASK'" class="subtask-indent"></span>
+                  <span class="badge task-type-badge" :class="task.task_type === 'SUBTASK' ? 'badge-gray' : 'badge-blue'" style="margin-right:4px;">{{ task.task_type === 'SUBTASK' ? 'ST' : 'T' }}</span>
+                  {{ task.display_label || task.name }}
+                </td>
+                <td><span class="badge" :class="task.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ task.billing_mode }}</span></td>
+                <td class="text-right">
+                  <template v-if="canEditBudget">
+                    <input
+                      class="budget-input"
+                      :value="task.budgeted_cost"
+                      type="text"
+                      inputmode="decimal"
+                      @blur="(e: Event) => { const v = parseFloat(((e.target as HTMLInputElement).value || '0').replace(/\\s/g, '').replace(',', '.')); if (!isNaN(v)) saveTaskField(task.id, 'budgeted_cost', v) }"
+                      @keydown.enter="(e: Event) => (e.target as HTMLInputElement).blur()"
+                    />
                   </template>
-                  <button v-else class="btn-action danger" @click="confirmDeleteWBS = node.id">Supprimer...</button>
-                </template>
-              </div>
-            </template>
-          </div>
-          <div v-if="node.children?.length" class="wbs-children">
-            <div v-for="child in node.children" :key="child.id" class="wbs-child">
-              <div>
-                <span class="badge badge-gray" style="font-size:9px;">{{ child.element_type === 'TASK' ? 'Tâche' : child.element_type === 'SUBTASK' ? 'Sous-tâche' : child.element_type }}</span>
-                <span style="margin-left:4px;">{{ child.standard_label }}</span>
-                <span v-if="child.client_facing_label && child.client_facing_label !== child.standard_label" class="text-muted"> → {{ child.client_facing_label }}</span>
-              </div>
-              <span class="font-mono text-muted">{{ child.budgeted_hours }}h</span>
-            </div>
-          </div>
+                  <template v-else><span class="font-mono">{{ formatAmount(task.budgeted_cost) }}</span></template>
+                </td>
+                <td class="text-right">
+                  <template v-if="canEditBudget">
+                    <input
+                      class="budget-input"
+                      :value="task.budgeted_hours"
+                      type="text"
+                      inputmode="decimal"
+                      @blur="(e: Event) => { const v = parseFloat(((e.target as HTMLInputElement).value || '0').replace(/\\s/g, '').replace(',', '.')); if (!isNaN(v)) saveTaskField(task.id, 'budgeted_hours', v) }"
+                      @keydown.enter="(e: Event) => (e.target as HTMLInputElement).blur()"
+                    />
+                  </template>
+                  <template v-else><span class="font-mono">{{ task.budgeted_hours }}</span></template>
+                </td>
+                <td>
+                  <span v-if="task.is_billable" class="badge badge-green">Facturable</span>
+                  <span v-else class="badge badge-gray">Non fact.</span>
+                </td>
+                <td v-if="isEditing" class="actions-cell">
+                  <template v-if="confirmDeleteTask === task.id">
+                    <button class="btn-action danger" @click="removeTask(task.id)">Confirmer</button>
+                    <button class="btn-action" @click="confirmDeleteTask = null">Annuler</button>
+                  </template>
+                  <button v-else class="btn-action danger" @click="confirmDeleteTask = task.id">Supprimer...</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
-      <div v-else-if="!showWBSForm" class="card empty-card">Aucun élément WBS</div>
+      <div v-else class="card empty-card">Aucune tâche — ajoutez des tâches via les phases</div>
     </template>
 
     <!-- ═══ Team ═══ -->
@@ -735,7 +812,7 @@ watch(activeTab, (tab) => {
       <!-- Summary cards -->
       <div class="kpi-grid-4">
         <div class="kpi-card">
-          <div class="kpi-value mono">{{ formatAmount(budgetTotal) }}&nbsp;$</div>
+          <div class="kpi-value mono">{{ formatAmount(taskBudgetTotal) }}&nbsp;$</div>
           <div class="kpi-label">Budget total</div>
         </div>
         <div class="kpi-card">
@@ -747,67 +824,86 @@ watch(activeTab, (tab) => {
           <div class="kpi-label">% consommé</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-value mono" :class="{ danger: budgetRemaining < 0 }">{{ formatAmount(budgetRemaining) }}&nbsp;$</div>
+          <div class="kpi-value mono" :class="{ danger: (taskBudgetTotal - budgetInvoiced) < 0 }">{{ formatAmount(taskBudgetTotal - budgetInvoiced) }}&nbsp;$</div>
           <div class="kpi-label">Solde restant</div>
         </div>
       </div>
 
       <div v-if="budgetError" class="alert-error">{{ budgetError }}</div>
 
-      <!-- Phase budget table -->
+      <!-- Task budget table grouped by phase -->
       <div class="card-table">
         <table class="budget-table">
           <thead>
             <tr>
-              <th>Phase</th>
-              <th>Type</th>
+              <th>WBS</th>
+              <th>Tâche</th>
+              <th>Mode</th>
               <th class="text-right">Budget ($)</th>
+              <th class="text-right">Heures</th>
               <th class="text-right">Facturé ($)</th>
-              <th class="text-right">%</th>
               <th class="text-right">Solde ($)</th>
             </tr>
           </thead>
-          <tbody>
-            <tr v-for="phase in store.currentProject?.phases" :key="phase.id">
-              <td class="font-semibold">{{ phase.client_facing_label || phase.name }}</td>
-              <td><span class="badge" :class="phase.phase_type === 'SUPPORT' ? 'badge-amber' : 'badge-blue'">{{ phase.phase_type === 'SUPPORT' ? 'Support' : 'Réalisation' }}</span></td>
-              <td class="text-right">
-                <template v-if="canEditBudget">
-                  <input
-                    class="budget-input"
-                    :class="{ saving: budgetSaving === phase.id }"
-                    :value="phase.budgeted_cost"
-                    type="text"
-                    inputmode="decimal"
-                    @blur="(e: Event) => saveBudget(phase.id, (e.target as HTMLInputElement).value)"
-                    @keydown.enter="(e: Event) => (e.target as HTMLInputElement).blur()"
-                  />
-                </template>
-                <template v-else>
-                  <span class="font-mono">{{ formatAmount(phase.budgeted_cost) }}</span>
-                </template>
-              </td>
-              <td class="text-right font-mono">{{ formatAmount(0) }}</td>
-              <td class="text-right font-mono">{{ Number(phase.budgeted_cost) > 0 ? '0,0' : '—' }}&nbsp;%</td>
-              <td class="text-right font-mono">{{ formatAmount(phase.budgeted_cost) }}</td>
-            </tr>
-            <tr v-if="!store.currentProject?.phases?.length">
-              <td colspan="6" class="empty">Aucune phase — ajoutez des phases dans l'onglet Phases</td>
-            </tr>
+          <tbody v-if="tasksByPhase.length">
+            <template v-for="group in tasksByPhase" :key="group.phase_name">
+              <tr class="budget-phase-row">
+                <td colspan="7" class="font-semibold">{{ group.phase_name }}</td>
+              </tr>
+              <tr v-for="task in group.tasks" :key="task.id">
+                <td class="font-mono text-muted">{{ task.wbs_code || '—' }}</td>
+                <td>
+                  <span v-if="task.task_type === 'SUBTASK'" class="subtask-indent"></span>
+                  {{ task.display_label || task.name }}
+                </td>
+                <td><span class="badge" :class="task.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ task.billing_mode }}</span></td>
+                <td class="text-right">
+                  <template v-if="canEditBudget">
+                    <input
+                      class="budget-input"
+                      :value="task.budgeted_cost"
+                      type="text"
+                      inputmode="decimal"
+                      @blur="(e: Event) => { const v = parseFloat(((e.target as HTMLInputElement).value || '0').replace(/\\s/g, '').replace(',', '.')); if (!isNaN(v)) saveTaskField(task.id, 'budgeted_cost', v) }"
+                      @keydown.enter="(e: Event) => (e.target as HTMLInputElement).blur()"
+                    />
+                  </template>
+                  <template v-else><span class="font-mono">{{ formatAmount(task.budgeted_cost) }}</span></template>
+                </td>
+                <td class="text-right">
+                  <template v-if="canEditBudget">
+                    <input
+                      class="budget-input"
+                      :value="task.budgeted_hours"
+                      type="text"
+                      inputmode="decimal"
+                      @blur="(e: Event) => { const v = parseFloat(((e.target as HTMLInputElement).value || '0').replace(/\\s/g, '').replace(',', '.')); if (!isNaN(v)) saveTaskField(task.id, 'budgeted_hours', v) }"
+                      @keydown.enter="(e: Event) => (e.target as HTMLInputElement).blur()"
+                    />
+                  </template>
+                  <template v-else><span class="font-mono">{{ task.budgeted_hours }}</span></template>
+                </td>
+                <td class="text-right font-mono">{{ formatAmount(0) }}</td>
+                <td class="text-right font-mono">{{ formatAmount(task.budgeted_cost) }}</td>
+              </tr>
+            </template>
           </tbody>
-          <tfoot v-if="store.currentProject?.phases?.length">
+          <tbody v-else>
+            <tr><td colspan="7" class="empty">Aucune tâche — ajoutez des tâches dans l'onglet Tâches</td></tr>
+          </tbody>
+          <tfoot v-if="tasks.length">
             <tr class="budget-total-row">
-              <td class="font-semibold" colspan="2">Total</td>
-              <td class="text-right font-mono font-semibold">{{ formatAmount(budgetTotal) }}</td>
+              <td class="font-semibold" colspan="3">Total</td>
+              <td class="text-right font-mono font-semibold">{{ formatAmount(taskBudgetTotal) }}</td>
+              <td class="text-right font-mono font-semibold">{{ taskHoursTotal }}</td>
               <td class="text-right font-mono font-semibold">{{ formatAmount(budgetInvoiced) }}</td>
-              <td class="text-right font-mono font-semibold">{{ budgetConsumedPercent }}&nbsp;%</td>
-              <td class="text-right font-mono font-semibold">{{ formatAmount(budgetRemaining) }}</td>
+              <td class="text-right font-mono font-semibold">{{ formatAmount(taskBudgetTotal - budgetInvoiced) }}</td>
             </tr>
           </tfoot>
         </table>
       </div>
 
-      <p class="budget-hint">Les lignes de facturation référenceront le budget de chaque phase.</p>
+      <p class="budget-hint">Les lignes de facturation référenceront le budget de chaque tâche.</p>
     </template>
 
     <!-- ===== SOUS-TRAITANTS TAB ===== -->
@@ -1018,4 +1114,31 @@ watch(activeTab, (tab) => {
 .badge-green-solid { background: #15803D; color: white; }
 
 .budget-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+
+/* Tasks tab */
+.task-phase-group { margin-bottom: 12px; }
+.task-phase-header {
+  display: flex; align-items: center; gap: 6px; padding: 8px 12px;
+  background: var(--color-gray-50); border-radius: 6px 6px 0 0; cursor: pointer;
+  font-size: 13px; border: 1px solid var(--color-gray-200); border-bottom: none;
+  user-select: none;
+}
+.task-phase-toggle { font-size: 10px; color: var(--color-gray-400); width: 14px; }
+.task-table { font-size: 12px; border-radius: 0 0 8px 8px; }
+.task-table thead th { font-size: 10px; padding: 6px 10px; }
+.task-table tbody td { padding: 5px 10px; font-size: 12px; }
+.subtask-row { background: var(--color-gray-50); }
+.subtask-indent { display: inline-block; width: 18px; }
+.task-type-badge { font-size: 9px; padding: 1px 5px; }
+.task-add-row {
+  display: flex; gap: 6px; align-items: center; padding: 6px 12px;
+  background: white; border: 1px solid var(--color-gray-200); border-bottom: none;
+}
+.task-add-row .inline-input { flex: 1; }
+
+/* Budget phase group row */
+.budget-phase-row td {
+  background: var(--color-gray-50); font-size: 11px; text-transform: uppercase;
+  color: var(--color-gray-600); padding: 6px 12px; border-bottom: 1px solid var(--color-gray-200);
+}
 </style>

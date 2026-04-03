@@ -40,6 +40,12 @@ export const projectApi = {
   deleteWBSElement: (projectId: number, wbsId: number) =>
     apiClient.delete(`${BASE}/${projectId}/wbs/${wbsId}/`),
 
+  // Tasks
+  listTasks: (projectId: number) => apiClient.get(`${BASE}/${projectId}/tasks/`),
+  createTask: (projectId: number, data: Record<string, unknown>) => apiClient.post(`${BASE}/${projectId}/tasks/`, data),
+  updateTask: (projectId: number, taskId: number, data: Record<string, unknown>) => apiClient.patch(`${BASE}/${projectId}/tasks/${taskId}/`, data),
+  deleteTask: (projectId: number, taskId: number) => apiClient.delete(`${BASE}/${projectId}/tasks/${taskId}/`),
+
   // Amendments
   listAmendments: (projectId: number) => apiClient.get(`${BASE}/${projectId}/amendments/`),
   createAmendment: (projectId: number, data: Record<string, unknown>) =>
