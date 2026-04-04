@@ -40,7 +40,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "wbs_code", "name", "client_facing_label", "display_label",
             "task_type", "billing_mode", "order",
             "budgeted_hours", "budgeted_cost", "hourly_rate",
-            "is_billable", "is_active",
+            "is_billable", "is_active", "progress_pct",
         ]
         read_only_fields = ["id", "display_label", "phase_name"]
 
@@ -88,6 +88,7 @@ class ProjectSerializer(CostFieldFilterMixin, OptimisticLockMixin, serializers.M
             "address", "city", "postal_code", "country",
             "surface", "surface_unit", "currency", "tags", "title_on_invoice",
             "pm", "associate_in_charge", "invoice_approver", "bu_director",
+            "total_fees", "fee_calculation_method", "fee_rate_pct",
             "version", "phases", "support_services",
             "created_at", "updated_at",
         ]

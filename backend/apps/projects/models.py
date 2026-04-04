@@ -123,6 +123,20 @@ class Project(TenantScopedModel, VersionedModel):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name="bu_projects",
     )
+    # Fee / Honoraires
+    total_fees = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+        help_text="Total honoraires HT",
+    )
+    fee_calculation_method = models.CharField(
+        max_length=20,
+        choices=[("FORFAIT", "Forfait"), ("COUT_TRAVAUX", "Coût des travaux %"), ("HORAIRE", "Horaire")],
+        default="FORFAIT", blank=True,
+    )
+    fee_rate_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="Percentage of construction cost for fee calculation",
+    )
 
     history = HistoricalRecords()
 
@@ -216,6 +230,10 @@ class Task(TenantScopedModel):
     )
     is_billable = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
+    progress_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        help_text="Manual progress percentage 0-100",
+    )
 
     class Meta:
         db_table = "projects_task"

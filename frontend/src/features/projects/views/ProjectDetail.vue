@@ -292,7 +292,7 @@ interface TaskItem {
   wbs_code: string; name: string; client_facing_label: string; display_label: string;
   task_type: 'TASK' | 'SUBTASK'; billing_mode: 'FORFAIT' | 'HORAIRE'; order: number;
   budgeted_hours: string | number; budgeted_cost: string | number; hourly_rate: string | number;
-  is_billable: boolean; is_active: boolean;
+  is_billable: boolean; is_active: boolean; progress_pct: number | string;
 }
 const tasks = ref<TaskItem[]>([])
 const collapsedPhases = ref<Set<string>>(new Set())
@@ -361,6 +361,70 @@ function togglePhaseCollapse(phaseName: string) {
 const showAmendmentForm = ref(false)
 const amendmentForm = ref({ description: '', budget_impact: '0', status: 'DRAFT' })
 
+// Honoraires form state
+const honorairesForm = ref({
+  total_fees: '',
+  fee_calculation_method: 'FORFAIT',
+  fee_rate_pct: '',
+})
+const honorairesSaving = ref(false)
+
+function initHonoraires() {
+  const p = store.currentProject
+  if (!p) return
+  honorairesForm.value = {
+    total_fees: p.total_fees ?? '',
+    fee_calculation_method: p.fee_calculation_method || 'FORFAIT',
+    fee_rate_pct: p.fee_rate_pct ?? '',
+  }
+}
+
+const computedFees = computed(() => {
+  if (honorairesForm.value.fee_calculation_method !== 'COUT_TRAVAUX') return null
+  const cost = Number(store.currentProject?.construction_cost || 0)
+  const rate = Number(honorairesForm.value.fee_rate_pct || 0)
+  return cost * rate / 100
+})
+
+async function saveHonoraires() {
+  honorairesSaving.value = true
+  budgetError.value = ''
+  try {
+    const payload: Record<string, unknown> = {
+      fee_calculation_method: honorairesForm.value.fee_calculation_method,
+    }
+    if (honorairesForm.value.total_fees !== '') payload.total_fees = parseFloat(String(honorairesForm.value.total_fees).replace(/\s/g, '').replace(',', '.'))
+    else payload.total_fees = null
+    if (honorairesForm.value.fee_rate_pct !== '') payload.fee_rate_pct = parseFloat(String(honorairesForm.value.fee_rate_pct).replace(/\s/g, '').replace(',', '.'))
+    else payload.fee_rate_pct = null
+    await projectApi.update(projectId, payload)
+    await reload()
+    initHonoraires()
+  } catch (e: unknown) {
+    budgetError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
+  } finally {
+    honorairesSaving.value = false
+  }
+}
+
+// Progress tab helpers
+function progressColor(pct: number): string {
+  if (pct <= 10) return 'progress-green'
+  if (pct <= 25) return 'progress-amber'
+  return 'progress-red'
+}
+
+async function saveProgressPct(taskId: number, value: string) {
+  const parsed = parseFloat(value)
+  if (isNaN(parsed) || parsed < 0 || parsed > 100) return
+  await saveTaskField(taskId, 'progress_pct', parsed)
+}
+
+// Finance tab data (placeholder)
+const financeData = ref([
+  { year: new Date().getFullYear(), ca: 0, costs: 0, margin: 0, margin_pct: 0 },
+])
+
 const tabs = [
   { key: 'overview', label: 'Vue d\'ensemble' },
   { key: 'phases', label: 'Phases' },
@@ -368,6 +432,8 @@ const tabs = [
   { key: 'team', label: 'Équipe' },
   { key: 'amendments', label: 'Avenants' },
   { key: 'budget', label: 'Budget' },
+  { key: 'progress', label: 'Avancement' },
+  { key: 'finance', label: 'Finance' },
   { key: 'st', label: 'Sous-traitants' },
   { key: 'invoices', label: 'Facturation' },
 ]
@@ -470,6 +536,8 @@ onMounted(reload)
 // Lazy load tab data
 watch(activeTab, (tab) => {
   if (tab === 'tasks' && !tasks.value.length) loadTasks()
+  if (tab === 'progress' && !tasks.value.length) loadTasks()
+  if (tab === 'budget') initHonoraires()
   if (tab === 'st' && !stInvoices.value.length) loadSTInvoices()
   if (tab === 'invoices' && !projectInvoices.value.length) loadProjectInvoices()
 })
@@ -801,6 +869,51 @@ watch(activeTab, (tab) => {
 
     <!-- ═══ Budget ═══ -->
     <template v-if="activeTab === 'budget'">
+      <!-- Honoraires du projet -->
+      <div class="card" style="margin-bottom: 16px;">
+        <h3 class="card-title-edit">Honoraires du projet</h3>
+        <div class="edit-grid" style="grid-template-columns: repeat(3, 1fr);">
+          <div class="form-group">
+            <label>Honoraires totaux HT ($)</label>
+            <input
+              v-model="honorairesForm.total_fees"
+              type="text"
+              inputmode="decimal"
+              class="inline-input"
+              :disabled="!canEditBudget"
+              placeholder="0.00"
+            />
+          </div>
+          <div class="form-group">
+            <label>Méthode de calcul</label>
+            <select v-model="honorairesForm.fee_calculation_method" class="inline-select" :disabled="!canEditBudget" style="width:100%;padding:6px 8px;">
+              <option value="FORFAIT">Forfait</option>
+              <option value="COUT_TRAVAUX">Coût des travaux %</option>
+              <option value="HORAIRE">Horaire</option>
+            </select>
+          </div>
+          <div class="form-group" v-if="honorairesForm.fee_calculation_method === 'COUT_TRAVAUX'">
+            <label>Taux (%)</label>
+            <input
+              v-model="honorairesForm.fee_rate_pct"
+              type="text"
+              inputmode="decimal"
+              class="inline-input"
+              :disabled="!canEditBudget"
+              placeholder="0.00"
+            />
+          </div>
+        </div>
+        <div v-if="honorairesForm.fee_calculation_method === 'COUT_TRAVAUX'" class="text-xs text-text-muted" style="margin-top:6px;">
+          Coût de construction: {{ formatAmount(store.currentProject?.construction_cost || 0) }} $ &times; {{ honorairesForm.fee_rate_pct || 0 }}% = <strong>{{ formatAmount(computedFees || 0) }} $</strong>
+        </div>
+        <div v-if="canEditBudget" class="form-actions" style="margin-top:8px;">
+          <button class="btn-primary btn-sm" :disabled="honorairesSaving" @click="saveHonoraires">
+            {{ honorairesSaving ? 'Sauvegarde...' : 'Enregistrer les honoraires' }}
+          </button>
+        </div>
+      </div>
+
       <!-- Header with create invoice button -->
       <div class="budget-header">
         <div></div>
@@ -904,6 +1017,110 @@ watch(activeTab, (tab) => {
       </div>
 
       <p class="budget-hint">Les lignes de facturation référenceront le budget de chaque tâche.</p>
+    </template>
+
+    <!-- ═══ Avancement ═══ -->
+    <template v-if="activeTab === 'progress'">
+      <div v-if="tasksByPhase.length">
+        <div v-for="group in tasksByPhase" :key="'prog-' + group.phase_name" class="task-phase-group">
+          <div class="task-phase-header" @click="togglePhaseCollapse('prog-' + group.phase_name)">
+            <span class="task-phase-toggle">{{ collapsedPhases.has('prog-' + group.phase_name) ? '&#9654;' : '&#9660;' }}</span>
+            <span class="font-semibold">{{ group.phase_name }}</span>
+            <span class="text-muted" style="margin-left:8px;">({{ group.tasks.length }} tâche{{ group.tasks.length > 1 ? 's' : '' }})</span>
+          </div>
+          <table v-if="!collapsedPhases.has('prog-' + group.phase_name)" class="data-table task-table">
+            <thead>
+              <tr>
+                <th>WBS</th>
+                <th>Tâche</th>
+                <th class="text-right">Budget ($)</th>
+                <th class="text-right">H. planifiées</th>
+                <th class="text-right">H. réelles</th>
+                <th class="text-right">% Avancement</th>
+                <th class="text-right">Écart</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="task in group.tasks" :key="'prog-t-' + task.id">
+                <td class="font-mono text-muted">{{ task.wbs_code || '—' }}</td>
+                <td>
+                  <span v-if="task.task_type === 'SUBTASK'" class="subtask-indent"></span>
+                  {{ task.display_label || task.name }}
+                </td>
+                <td class="text-right font-mono">{{ formatAmount(task.budgeted_cost) }}</td>
+                <td class="text-right font-mono">{{ task.budgeted_hours }}</td>
+                <td class="text-right font-mono">0</td>
+                <td class="text-right">
+                  <input
+                    class="progress-input"
+                    :value="task.progress_pct ?? 0"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    @blur="(e: Event) => saveProgressPct(task.id, (e.target as HTMLInputElement).value)"
+                    @keydown.enter="(e: Event) => (e.target as HTMLInputElement).blur()"
+                  />
+                </td>
+                <td class="text-right">
+                  <span
+                    class="badge"
+                    :class="progressColor(Number(task.progress_pct ?? 0) - (Number(task.budgeted_hours) > 0 ? (0 / Number(task.budgeted_hours) * 100) : 0))"
+                  >
+                    {{ (Number(task.progress_pct ?? 0) - (Number(task.budgeted_hours) > 0 ? (0 / Number(task.budgeted_hours) * 100) : 0)).toFixed(1) }}%
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="budget-total-row">
+                <td class="font-semibold" colspan="2">{{ group.phase_name }} — Total</td>
+                <td class="text-right font-mono font-semibold">{{ formatAmount(group.tasks.reduce((s, t) => s + Number(t.budgeted_cost || 0), 0)) }}</td>
+                <td class="text-right font-mono font-semibold">{{ group.tasks.reduce((s, t) => s + Number(t.budgeted_hours || 0), 0) }}</td>
+                <td class="text-right font-mono font-semibold">0</td>
+                <td class="text-right font-mono font-semibold">{{ (group.tasks.reduce((s, t) => s + Number((t as TaskItem & { progress_pct?: number | string }).progress_pct ?? 0), 0) / (group.tasks.length || 1)).toFixed(1) }}%</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+      <div v-else class="card empty-card">Aucune tâche — ajoutez des tâches dans l'onglet Tâches</div>
+    </template>
+
+    <!-- ═══ Finance ═══ -->
+    <template v-if="activeTab === 'finance'">
+      <div class="kpi-grid-5">
+        <div class="kpi-card"><div class="kpi-value mono">0,00&nbsp;$</div><div class="kpi-label">CA facturé</div></div>
+        <div class="kpi-card"><div class="kpi-value mono">0,00&nbsp;$</div><div class="kpi-label">Coûts salaires</div></div>
+        <div class="kpi-card"><div class="kpi-value mono">0,00&nbsp;$</div><div class="kpi-label">Coûts ST</div></div>
+        <div class="kpi-card"><div class="kpi-value mono">0,00&nbsp;$</div><div class="kpi-label">Marge</div></div>
+        <div class="kpi-card"><div class="kpi-value mono">0,0&nbsp;%</div><div class="kpi-label">Marge %</div></div>
+      </div>
+
+      <div class="card-table">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Année</th>
+              <th class="text-right">CA ($)</th>
+              <th class="text-right">Coûts ($)</th>
+              <th class="text-right">Marge ($)</th>
+              <th class="text-right">Marge %</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in financeData" :key="row.year">
+              <td class="font-semibold">{{ row.year }}</td>
+              <td class="text-right font-mono">{{ formatAmount(row.ca) }}</td>
+              <td class="text-right font-mono">{{ formatAmount(row.costs) }}</td>
+              <td class="text-right font-mono">{{ formatAmount(row.margin) }}</td>
+              <td class="text-right font-mono">{{ row.margin_pct.toFixed(1) }}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="budget-hint">Les données financières seront calculées automatiquement à partir des factures et des feuilles de temps.</p>
     </template>
 
     <!-- ===== SOUS-TRAITANTS TAB ===== -->
@@ -1141,4 +1358,23 @@ watch(activeTab, (tab) => {
   background: var(--color-gray-50); font-size: 11px; text-transform: uppercase;
   color: var(--color-gray-600); padding: 6px 12px; border-bottom: 1px solid var(--color-gray-200);
 }
+
+/* Progress tab */
+.progress-input {
+  width: 70px; padding: 4px 6px; border: 1px solid var(--color-gray-300); border-radius: 3px;
+  font-size: 12px; font-family: var(--font-mono); text-align: right; background: white;
+  -moz-appearance: textfield;
+}
+.progress-input::-webkit-outer-spin-button,
+.progress-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.progress-input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+.progress-green { background: #DCFCE7; color: #15803D; }
+.progress-amber { background: #FEF3C7; color: #92400E; }
+.progress-red { background: #FEE2E2; color: #DC2626; }
+
+/* Finance tab */
+.kpi-grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
+
+.form-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 </style>

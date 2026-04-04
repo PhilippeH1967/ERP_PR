@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProjectStore } from '../stores/useProjectStore'
 import apiClient from '@/plugins/axios'
@@ -28,7 +28,18 @@ const form = ref({
   start_date: '',
   end_date: '',
   template_id: null as number | null,
+  address: '',
+  city: '',
+  country: 'Canada',
+  surface: '' as string | number,
+  surface_unit: 'm2',
+  title_on_invoice: '',
 })
+
+// Template preview (phases + tasks tree)
+interface TemplateTask { wbs_code?: string; name: string }
+interface TemplatePhasePreview { name: string; is_mandatory?: boolean; tasks: TemplateTask[] }
+const templatePreview = ref<TemplatePhasePreview[]>([])
 
 // Client searchable dropdown (same pattern as InvoiceList.vue)
 interface ClientOption { id: number; name: string; alias: string; status: string }
@@ -103,12 +114,22 @@ function nextStep() {
     if (form.value.template_id && phases.value.length === 0) {
       const tmpl = store.templates.find((t) => t.id === form.value.template_id)
       if (tmpl) {
-        phases.value = (tmpl.phases_config as Array<Record<string, string>>).map((p) => ({
-          name: p.name || '',
-          client_facing_label: p.client_label || '',
-          billing_mode: p.billing_mode || 'FORFAIT',
+        const phasesConfig = tmpl.phases_config as Array<Record<string, unknown>>
+        phases.value = phasesConfig.map((p) => ({
+          name: (p.name as string) || '',
+          client_facing_label: (p.client_label as string) || '',
+          billing_mode: (p.billing_mode as string) || 'FORFAIT',
           budgeted_hours: '0',
           budgeted_cost: '0',
+        }))
+        // Build preview tree (phases + tasks)
+        templatePreview.value = phasesConfig.map((p) => ({
+          name: (p.name as string) || '',
+          is_mandatory: !!p.is_mandatory,
+          tasks: Array.isArray(p.tasks) ? (p.tasks as Array<Record<string, string>>).map((t) => ({
+            wbs_code: t.wbs_code || '',
+            name: t.name || '',
+          })) : [],
         }))
       }
     }
@@ -134,6 +155,12 @@ async function onSubmit() {
       legal_entity: form.value.legal_entity || '',
       start_date: form.value.start_date || null,
       end_date: form.value.end_date || null,
+      address: form.value.address || '',
+      city: form.value.city || '',
+      country: form.value.country || 'Canada',
+      surface: form.value.surface ? Number(form.value.surface) : null,
+      surface_unit: form.value.surface_unit || 'm2',
+      title_on_invoice: form.value.title_on_invoice || '',
     }
     if (form.value.pm) payload.pm = Number(form.value.pm)
     if (form.value.associate_in_charge) payload.associate_in_charge = Number(form.value.associate_in_charge)
@@ -175,6 +202,26 @@ async function onSubmit() {
     isSubmitting.value = false
   }
 }
+
+// Load template preview when template changes
+watch(() => form.value.template_id, (newId) => {
+  if (newId) {
+    const tmpl = store.templates.find((t) => t.id === newId)
+    if (tmpl) {
+      const phasesConfig = tmpl.phases_config as Array<Record<string, unknown>>
+      templatePreview.value = phasesConfig.map((p) => ({
+        name: (p.name as string) || '',
+        is_mandatory: !!p.is_mandatory,
+        tasks: Array.isArray(p.tasks) ? (p.tasks as Array<Record<string, string>>).map((t) => ({
+          wbs_code: t.wbs_code || '',
+          name: t.name || '',
+        })) : [],
+      }))
+    }
+  } else {
+    templatePreview.value = []
+  }
+})
 
 onMounted(loadLookups)
 </script>
@@ -245,6 +292,30 @@ onMounted(loadLookups)
               {{ t.name }} ({{ t.contract_type }})
             </option>
           </select>
+        </div>
+
+        <!-- Template preview: phases + tasks tree -->
+        <div
+          v-if="form.template_id && templatePreview.length"
+          class="mb-4 rounded-md border border-border bg-surface-alt p-4"
+        >
+          <h3 class="mb-2 text-xs font-semibold uppercase text-text-muted">Aperçu du template</h3>
+          <div v-for="(phase, pi) in templatePreview" :key="pi" class="mb-2">
+            <div class="flex items-center gap-2 text-sm font-medium text-text">
+              <span>{{ phase.name }}</span>
+              <span v-if="phase.is_mandatory" class="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">Obligatoire</span>
+            </div>
+            <div v-if="phase.tasks.length" class="ml-4 mt-1 space-y-0.5">
+              <div
+                v-for="(task, ti) in phase.tasks"
+                :key="ti"
+                class="flex items-center gap-2 text-xs text-text-muted"
+              >
+                <span v-if="task.wbs_code" class="font-mono text-[10px]">{{ task.wbs_code }}</span>
+                <span>{{ task.name }}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -385,6 +456,63 @@ onMounted(loadLookups)
               class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
             >
           </div>
+
+          <!-- New fields: address, city, country, surface, title_on_invoice -->
+          <div class="col-span-2">
+            <label class="text-xs font-medium text-text-muted">Adresse</label>
+            <input
+              v-model="form.address"
+              type="text"
+              class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
+              placeholder="123 rue Exemple"
+            >
+          </div>
+          <div>
+            <label class="text-xs font-medium text-text-muted">Ville</label>
+            <input
+              v-model="form.city"
+              type="text"
+              class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
+              placeholder="Montréal"
+            >
+          </div>
+          <div>
+            <label class="text-xs font-medium text-text-muted">Pays</label>
+            <input
+              v-model="form.country"
+              type="text"
+              class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
+              placeholder="Canada"
+            >
+          </div>
+          <div>
+            <label class="text-xs font-medium text-text-muted">Superficie</label>
+            <div class="mt-1 flex gap-2">
+              <input
+                v-model="form.surface"
+                type="number"
+                class="w-full rounded-md border border-border px-3 py-2 text-sm"
+                placeholder="0"
+              >
+              <select
+                v-model="form.surface_unit"
+                class="rounded-md border border-border px-2 py-2 text-sm"
+              >
+                <option value="m2">m²</option>
+                <option value="pi2">pi²</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="text-xs font-medium text-text-muted">Titre sur facture</label>
+            <input
+              v-model="form.title_on_invoice"
+              type="text"
+              class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
+              placeholder="Si différent du nom du projet"
+            >
+          </div>
+
           <div class="col-span-2 flex items-center gap-2">
             <input
               id="is_internal"
