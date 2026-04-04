@@ -105,6 +105,11 @@ async function createInvoiceFromProject() {
   }
 }
 
+const canEdit = computed(() => {
+  const roles = currentUser.value?.roles || []
+  return roles.includes('ADMIN') || roles.includes('FINANCE') || roles.includes('PM') || roles.includes('PROJECT_DIRECTOR') || roles.includes('DEPT_ASSISTANT')
+})
+
 const canEditBudget = computed(() => {
   const roles = currentUser.value?.roles || []
   return roles.includes('ADMIN') || roles.includes('FINANCE')
@@ -574,7 +579,7 @@ watch(activeTab, (tab) => {
             </button>
           </div>
         </div>
-        <button v-if="!isEditing" class="btn-primary" @click="isEditing = true">Modifier</button>
+        <button v-if="!isEditing && canEdit" class="btn-primary" @click="isEditing = true">Modifier</button>
         <button v-if="isEditing" class="btn-ghost" @click="stopEditing">Terminer</button>
         <button v-if="isEditing" class="btn-danger btn-sm" @click="showDeleteConfirm = true">Supprimer...</button>
       </div>

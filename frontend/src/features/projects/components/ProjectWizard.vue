@@ -117,8 +117,8 @@ function nextStep() {
       return
     }
     error.value = ''
-    // If template selected, load phases from it
-    if (form.value.template_id && phases.value.length === 0) {
+    // If template selected, load phases and preview from it
+    if (form.value.template_id) {
       const tmpl = store.templates.find((t) => t.id === form.value.template_id)
       if (tmpl) {
         const phasesConfig = tmpl.phases_config as Array<Record<string, unknown>>
@@ -129,15 +129,21 @@ function nextStep() {
           budgeted_hours: '0',
           budgeted_cost: '0',
         }))
-        // Build preview tree (phases + tasks)
-        templatePreview.value = phasesConfig.map((p) => ({
-          name: (p.name as string) || '',
-          is_mandatory: !!p.is_mandatory,
-          tasks: Array.isArray(p.tasks) ? (p.tasks as Array<Record<string, string>>).map((t) => ({
-            wbs_code: t.wbs_code || '',
-            name: t.name || '',
-          })) : [],
-        }))
+        // Build preview tree — iterate ALL phases (including GP/SUPPORT)
+        templatePreview.value = phasesConfig.map((p) => {
+          const rawTasks = p.tasks
+          const taskList = Array.isArray(rawTasks)
+            ? (rawTasks as Array<Record<string, string>>).map((t) => ({
+                wbs_code: t.wbs_code || '',
+                name: t.name || '',
+              }))
+            : []
+          return {
+            name: (p.name as string) || '',
+            is_mandatory: !!p.is_mandatory,
+            tasks: taskList,
+          }
+        })
       }
     }
   }
@@ -216,14 +222,21 @@ watch(() => form.value.template_id, (newId) => {
     const tmpl = store.templates.find((t) => t.id === newId)
     if (tmpl) {
       const phasesConfig = tmpl.phases_config as Array<Record<string, unknown>>
-      templatePreview.value = phasesConfig.map((p) => ({
-        name: (p.name as string) || '',
-        is_mandatory: !!p.is_mandatory,
-        tasks: Array.isArray(p.tasks) ? (p.tasks as Array<Record<string, string>>).map((t) => ({
-          wbs_code: t.wbs_code || '',
-          name: t.name || '',
-        })) : [],
-      }))
+      // Build preview for ALL phases (including GP/SUPPORT types)
+      templatePreview.value = phasesConfig.map((p) => {
+        const rawTasks = p.tasks
+        const taskList = Array.isArray(rawTasks)
+          ? (rawTasks as Array<Record<string, string>>).map((t) => ({
+              wbs_code: t.wbs_code || '',
+              name: t.name || '',
+            }))
+          : []
+        return {
+          name: (p.name as string) || '',
+          is_mandatory: !!p.is_mandatory,
+          tasks: taskList,
+        }
+      })
     }
   } else {
     templatePreview.value = []

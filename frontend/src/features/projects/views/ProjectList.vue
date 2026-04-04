@@ -1,11 +1,21 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProjectStore } from '../stores/useProjectStore'
 
 const router = useRouter()
 const store = useProjectStore()
 const search = ref('')
+
+const filteredProjects = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  if (!q) return store.projects
+  return store.projects.filter(
+    (p) =>
+      (p.code || '').toLowerCase().includes(q) ||
+      (p.name || '').toLowerCase().includes(q),
+  )
+})
 
 onMounted(() => store.fetchProjects())
 
@@ -37,7 +47,6 @@ const statusColors: Record<string, string> = {
         type="text"
         placeholder="Rechercher par code ou nom..."
         class="w-full max-w-md rounded-md border border-border px-3 py-2 text-sm"
-        @keyup.enter="store.fetchProjects({ search })"
       >
     </div>
 
@@ -64,7 +73,7 @@ const statusColors: Record<string, string> = {
         </thead>
         <tbody>
           <tr
-            v-for="project in store.projects"
+            v-for="project in filteredProjects"
             :key="project.id"
             class="cursor-pointer border-b border-border last:border-0 hover:bg-surface-alt"
             @click="router.push(`/projects/${project.id}`)"
