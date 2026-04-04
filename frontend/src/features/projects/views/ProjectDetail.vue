@@ -337,7 +337,13 @@ async function saveTaskField(taskId: number, field: string, value: unknown) {
 async function addTask(phaseId: number | null) {
   if (!newTaskName.value.trim()) return
   try {
-    await projectApi.createTask(projectId, { phase: phaseId, name: newTaskName.value.trim(), task_type: 'TASK', billing_mode: 'FORFAIT' })
+    // Auto-generate wbs_code: "{phase_code}.{next_number}"
+    const phase = store.currentProject?.phases?.find((p: { id: number }) => p.id === phaseId)
+    const phaseCode = phase?.code || String(phaseId || '0')
+    const existingInPhase = tasks.value.filter(t => t.phase === phaseId)
+    const nextNum = existingInPhase.length + 1
+    const wbs_code = `${phaseCode}.${nextNum}`
+    await projectApi.createTask(projectId, { phase: phaseId, name: newTaskName.value.trim(), task_type: 'TASK', billing_mode: 'FORFAIT', wbs_code })
     newTaskName.value = ''
     showAddTaskPhase.value = null
     await loadTasks()
@@ -347,7 +353,11 @@ async function addTask(phaseId: number | null) {
 }
 
 async function removeTask(taskId: number) {
+  // Clear any pending edit state to prevent blur-triggered PATCH with invalid data (BUG-006)
   confirmDeleteTask.value = null
+  editingWBSId.value = null
+  budgetSaving.value = null
+  // Optimistic removal from local state
   tasks.value = tasks.value.filter(t => t.id !== taskId)
   try { await projectApi.deleteTask(projectId, taskId) } catch { /* ok */ }
 }
@@ -916,8 +926,11 @@ watch(activeTab, (tab) => {
 
       <!-- Header with create invoice button -->
       <div class="budget-header">
-        <div></div>
-        <button class="btn-primary" :disabled="creatingInvoice || budgetTotal <= 0" @click="createInvoiceFromProject">
+        <div>
+          <span v-if="!store.currentProject?.client" class="text-muted" style="font-size:11px;color:var(--color-danger);">Client requis pour créer une facture</span>
+          <span v-else-if="taskBudgetTotal <= 0" class="text-muted" style="font-size:11px;color:var(--color-danger);">Budget requis pour créer une facture (ajoutez des tâches avec un budget)</span>
+        </div>
+        <button class="btn-primary" :disabled="creatingInvoice || taskBudgetTotal <= 0 || !store.currentProject?.client" @click="createInvoiceFromProject">
           {{ creatingInvoice ? 'Création...' : 'Créer une facture' }}
         </button>
       </div>
@@ -1167,7 +1180,11 @@ watch(activeTab, (tab) => {
     <template v-if="activeTab === 'invoices'">
       <div class="tab-header">
         <h3>Factures du projet</h3>
-        <button class="btn-primary btn-sm" :disabled="creatingInvoice" @click="createInvoiceFromProject">+ Creer une facture</button>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span v-if="!store.currentProject?.client" class="text-muted" style="font-size:11px;color:var(--color-danger);">Client requis</span>
+          <span v-else-if="taskBudgetTotal <= 0" class="text-muted" style="font-size:11px;color:var(--color-danger);">Budget requis</span>
+          <button class="btn-primary btn-sm" :disabled="creatingInvoice || taskBudgetTotal <= 0 || !store.currentProject?.client" @click="createInvoiceFromProject">+ Créer une facture</button>
+        </div>
       </div>
       <div v-if="invoicesLoading" class="empty">Chargement...</div>
       <div v-else-if="!projectInvoices.length" class="empty">Aucune facture pour ce projet</div>

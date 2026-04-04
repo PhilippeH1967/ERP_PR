@@ -32,6 +32,7 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
 class TaskSerializer(serializers.ModelSerializer):
     phase_name = serializers.CharField(source="phase.name", read_only=True)
     display_label = serializers.SerializerMethodField()
+    wbs_code = serializers.CharField(max_length=20, required=False, allow_blank=True, default="")
 
     class Meta:
         model = Task

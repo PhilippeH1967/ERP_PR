@@ -275,4 +275,16 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         project = Project.objects.get(pk=self.kwargs["project_pk"])
+        # Auto-generate wbs_code if not provided
+        wbs_code = serializer.validated_data.get("wbs_code")
+        if not wbs_code:
+            phase = serializer.validated_data.get("phase")
+            phase_code = phase.code if phase and phase.code else str(phase.pk if phase else "0")
+            existing_count = Task.objects.filter(project=project, phase=phase).count()
+            wbs_code = f"{phase_code}.{existing_count + 1}"
+            # Ensure uniqueness by incrementing if collision
+            while Task.objects.filter(project=project, wbs_code=wbs_code).exists():
+                existing_count += 1
+                wbs_code = f"{phase_code}.{existing_count + 1}"
+            serializer.validated_data["wbs_code"] = wbs_code
         serializer.save(project=project, tenant=project.tenant)

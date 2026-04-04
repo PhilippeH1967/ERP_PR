@@ -71,16 +71,23 @@ function clearClient() {
 interface BUOption { id: number; name: string; code: string }
 const businessUnits = ref<BUOption[]>([])
 
+// Users dropdown for PM, Associate, Approver
+interface UserOption { id: number; username: string; email: string }
+const allUsers = ref<UserOption[]>([])
+
 async function loadLookups() {
   try {
-    const [cResp, buResp] = await Promise.all([
+    const [cResp, buResp, uResp] = await Promise.all([
       apiClient.get('clients/', { params: { status: 'active' } }),
       apiClient.get('business_units/'),
+      apiClient.get('users/search/'),
     ])
     const cData = cResp.data?.data || cResp.data
     allClients.value = Array.isArray(cData) ? cData : cData?.results || []
     const buData = buResp.data?.data || buResp.data
     businessUnits.value = Array.isArray(buData) ? buData : buData?.results || []
+    const uData = uResp.data?.data || uResp.data
+    allUsers.value = Array.isArray(uData) ? uData : []
   } catch { /* silent */ }
 }
 
@@ -406,31 +413,34 @@ onMounted(loadLookups)
             </select>
           </div>
           <div>
-            <label class="text-xs font-medium text-text-muted">Chef de projet (ID utilisateur)</label>
-            <input
+            <label class="text-xs font-medium text-text-muted">Chef de projet</label>
+            <select
               v-model="form.pm"
-              type="number"
               class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
-              placeholder="ID"
             >
+              <option :value="null">— Aucun —</option>
+              <option v-for="u in allUsers" :key="u.id" :value="u.id">{{ u.username }} ({{ u.email }})</option>
+            </select>
           </div>
           <div>
-            <label class="text-xs font-medium text-text-muted">Associé en charge (ID utilisateur)</label>
-            <input
+            <label class="text-xs font-medium text-text-muted">Associé en charge</label>
+            <select
               v-model="form.associate_in_charge"
-              type="number"
               class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
-              placeholder="ID"
             >
+              <option :value="null">— Aucun —</option>
+              <option v-for="u in allUsers" :key="u.id" :value="u.id">{{ u.username }} ({{ u.email }})</option>
+            </select>
           </div>
           <div>
-            <label class="text-xs font-medium text-text-muted">Approbateur factures (ID utilisateur)</label>
-            <input
+            <label class="text-xs font-medium text-text-muted">Approbateur factures</label>
+            <select
               v-model="form.invoice_approver"
-              type="number"
               class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
-              placeholder="ID"
             >
+              <option :value="null">— Aucun —</option>
+              <option v-for="u in allUsers" :key="u.id" :value="u.id">{{ u.username }} ({{ u.email }})</option>
+            </select>
           </div>
           <div>
             <label class="text-xs font-medium text-text-muted">Entité juridique</label>
@@ -658,15 +668,15 @@ onMounted(loadLookups)
               </div>
               <div>
                 <span class="text-text-muted">Chef de projet:</span>
-                <span class="ml-2">{{ form.pm || '—' }}</span>
+                <span class="ml-2">{{ allUsers.find(u => u.id === form.pm)?.username || '—' }}</span>
               </div>
               <div>
                 <span class="text-text-muted">Associé en charge:</span>
-                <span class="ml-2">{{ form.associate_in_charge || '—' }}</span>
+                <span class="ml-2">{{ allUsers.find(u => u.id === form.associate_in_charge)?.username || '—' }}</span>
               </div>
               <div>
                 <span class="text-text-muted">Approbateur factures:</span>
-                <span class="ml-2">{{ form.invoice_approver || '—' }}</span>
+                <span class="ml-2">{{ allUsers.find(u => u.id === form.invoice_approver)?.username || '—' }}</span>
               </div>
               <div>
                 <span class="text-text-muted">Phases:</span>
