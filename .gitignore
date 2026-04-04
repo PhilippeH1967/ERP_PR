@@ -46,3 +46,7 @@ postgres_data/
 .coverage
 htmlcov/
 .pytest_cache/
+
+# Sensitive / local files
+**/password.md
+tests_module_projet.xlsx
