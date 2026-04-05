@@ -158,10 +158,31 @@ class UserTenantAssociation(models.Model):
         on_delete=models.CASCADE,
         related_name="user_associations",
     )
+    labor_rule = models.ForeignKey(
+        "core.LaborRule",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="employees",
+        help_text="Labor rule defining contract hours, overtime thresholds",
+    )
+    contract_hours_override = models.DecimalField(
+        max_digits=4, decimal_places=1, null=True, blank=True,
+        help_text="Override weekly contract hours (e.g., 37.5 for part-time)",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "core_user_tenant"
+
+    @property
+    def effective_contract_hours(self):
+        """Return contract hours: override > labor_rule > 40h default."""
+        if self.contract_hours_override:
+            return float(self.contract_hours_override)
+        if self.labor_rule:
+            return float(self.labor_rule.weekly_hours)
+        return 40.0
 
     def __str__(self):
         return f"{self.user} → {self.tenant}"

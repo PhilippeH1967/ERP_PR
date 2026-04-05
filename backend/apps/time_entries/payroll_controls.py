@@ -10,7 +10,12 @@ from django.db.models import Sum
 def run_controls(employee, week_start, week_end, entries, all_entries_qs):
     """Run all payroll controls for one employee/week. Returns list of alerts."""
     alerts = []
-    contract_hours = 40  # TODO: from employee profile
+    # Get contract hours from employee profile (override > labor_rule > 40h)
+    try:
+        uta = employee.tenant_association
+        contract_hours = uta.effective_contract_hours
+    except Exception:
+        contract_hours = 40
     OVERTIME_THRESHOLD = contract_hours
 
     # Group entries by date

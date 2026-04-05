@@ -306,8 +306,15 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             else 0
         )
 
+        # Get contract hours from employee profile
+        try:
+            uta = request.user.tenant_association
+            ch = uta.effective_contract_hours
+        except Exception:
+            ch = 40
+
         return Response({
-            "contract_hours": 40,
+            "contract_hours": ch,
             "average_4_weeks": avg_4_weeks,
             "billable_rate_percent": billable_rate,
             "week_totals": week_totals,

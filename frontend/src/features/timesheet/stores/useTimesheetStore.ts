@@ -52,11 +52,14 @@ export const useTimesheetStore = defineStore('timesheet', () => {
   const weekDates = computed(() => getDatesForWeek(currentWeekStart.value))
   const weekEnd = computed(() => weekDates.value[6] || '')
 
-  // Build flat rows
+  // Build flat rows — keyed by project+task (or project+phase for legacy entries)
   const gridRows = computed<TimesheetGridRow[]>(() => {
     const rowMap = new Map<string, TimesheetGridRow>()
     for (const entry of entries.value) {
-      const key = `${entry.project}-${entry.phase === null ? '_null_' : entry.phase}`
+      // Key by task if available, fallback to phase
+      const key = entry.task
+        ? `${entry.project}-T${entry.task}`
+        : `${entry.project}-P${entry.phase === null ? '_null_' : entry.phase}`
       if (!rowMap.has(key)) {
         rowMap.set(key, {
           project_id: entry.project,
@@ -64,7 +67,10 @@ export const useTimesheetStore = defineStore('timesheet', () => {
           project_name: entry.project_name || `Project ${entry.project}`,
           phase_id: entry.phase,
           phase_name: entry.phase_name || '',
-          client_label: entry.client_label || entry.phase_name || '',
+          task_id: entry.task || null,
+          task_name: entry.task_name || '',
+          task_wbs_code: entry.task_wbs_code || '',
+          client_label: entry.client_label || entry.task_name || entry.phase_name || '',
           entries: {},
           is_locked: false,
           row_total: 0,
@@ -79,8 +85,6 @@ export const useTimesheetStore = defineStore('timesheet', () => {
       row.row_total = roundTotal(
         weekDates.value.reduce((sum, date) => sum + safeHours(row.entries[date]?.hours), 0),
       )
-      // Row-level lock only from timesheet locks, NOT from entry status
-      // Per-cell locking is handled by TimesheetCell based on entry.status
       const hasLock = row.phase_id ? locks.value.some((l) => l.phase === row.phase_id) : false
       row.is_locked = hasLock
     }
@@ -134,10 +138,12 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     )
   }
 
-  function canSaveHours(projectId: number, phaseId: number | null, date: string, newHours: string): { ok: boolean; message: string } {
+  function canSaveHours(projectId: number, phaseId: number | null, date: string, newHours: string, taskId?: number | null): { ok: boolean; message: string } {
     const newVal = parseFloat(newHours || '0')
-    // Get current value for this cell
-    const row = gridRows.value.find(r => r.project_id === projectId && r.phase_id === phaseId)
+    // Get current value for this cell — match by task first, fallback to phase
+    const row = taskId
+      ? gridRows.value.find(r => r.project_id === projectId && r.task_id === taskId)
+      : gridRows.value.find(r => r.project_id === projectId && r.phase_id === phaseId)
     const currentVal = row?.entries[date] ? safeHours(row.entries[date]?.hours) : 0
     const diff = newVal - currentVal
     const currentDayTotal = getDailyTotal(date)
@@ -246,11 +252,13 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     phaseId: number | null,
     date: string,
     hours: string,
+    taskId?: number | null,
   ) {
     saveError.value = null
-    const existing = entries.value.find(
-      (e) => e.project === projectId && e.phase === phaseId && e.date === date,
-    )
+    // Find existing entry — match by task first, fallback to phase
+    const existing = taskId
+      ? entries.value.find((e) => e.project === projectId && e.task === taskId && e.date === date)
+      : entries.value.find((e) => e.project === projectId && e.phase === phaseId && e.date === date)
     try {
       if (existing) {
         const resp = await timesheetApi.updateEntry(existing.id, { hours }, existing.version)
@@ -258,12 +266,10 @@ export const useTimesheetStore = defineStore('timesheet', () => {
         const idx = entries.value.findIndex((e) => e.id === existing.id)
         if (idx >= 0 && updated) entries.value[idx] = updated
       } else if (hours !== '0' && hours !== '') {
-        const resp = await timesheetApi.createEntry({
-          project: projectId,
-          phase: phaseId,
-          date,
-          hours,
-        })
+        const payload: Record<string, unknown> = { project: projectId, date, hours }
+        if (taskId) payload.task = taskId
+        if (phaseId) payload.phase = phaseId
+        const resp = await timesheetApi.createEntry(payload)
         const created = resp.data?.data || resp.data
         if (created) entries.value.push(created)
       }

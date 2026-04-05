@@ -6,12 +6,15 @@ export interface TimeEntry {
   project_name: string
   phase: number | null
   phase_name: string
+  task: number | null
+  task_name: string
+  task_wbs_code: string
   client_label: string
   date: string
   hours: string
   notes: string
   rejection_reason: string
-  status: 'DRAFT' | 'SUBMITTED' | 'PM_APPROVED' | 'FINANCE_APPROVED' | 'LOCKED'
+  status: 'DRAFT' | 'SUBMITTED' | 'PM_APPROVED' | 'FINANCE_APPROVED' | 'PAIE_VALIDATED' | 'LOCKED'
   is_favorite: boolean
   is_invoiced: boolean
   version: number
@@ -37,6 +40,9 @@ export interface TimesheetGridRow {
   project_name: string
   phase_id: number | null
   phase_name: string
+  task_id: number | null
+  task_name: string
+  task_wbs_code: string
   client_label: string
   entries: Record<string, TimeEntry | null>
   is_locked: boolean
