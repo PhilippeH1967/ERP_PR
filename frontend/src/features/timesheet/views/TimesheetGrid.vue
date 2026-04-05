@@ -13,11 +13,11 @@ const showAddTask = ref(false)
 
 // Add task with dropdowns
 interface ProjectOption { id: number; code: string; name: string }
-interface PhaseOption { id: number; name: string; client_facing_label: string }
+interface TaskOption { id: number; wbs_code: string; name: string; display_label: string; phase_name: string; phase: number | null }
 const availableProjects = ref<ProjectOption[]>([])
-const availablePhases = ref<PhaseOption[]>([])
+const availableTasks = ref<TaskOption[]>([])
 const selectedProjectId = ref<number | null>(null)
-const selectedPhaseId = ref<number | null>(null)
+const selectedTaskId = ref<number | null>(null)
 
 async function loadProjects() {
   try {
@@ -28,15 +28,26 @@ async function loadProjects() {
 }
 
 async function onProjectSelect() {
-  availablePhases.value = []
-  selectedPhaseId.value = null
+  availableTasks.value = []
+  selectedTaskId.value = null
   if (!selectedProjectId.value) return
   try {
-    const resp = await apiClient.get(`projects/${selectedProjectId.value}/phases/`)
+    const resp = await apiClient.get(`projects/${selectedProjectId.value}/tasks/`)
     const data = resp.data?.data || resp.data
-    availablePhases.value = Array.isArray(data) ? data : data?.results || []
-  } catch { availablePhases.value = [] }
+    availableTasks.value = Array.isArray(data) ? data : data?.results || []
+  } catch { availableTasks.value = [] }
 }
+
+// Group tasks by phase for the dropdown
+const tasksByPhase = computed(() => {
+  const groups: Record<string, TaskOption[]> = {}
+  for (const t of availableTasks.value) {
+    const key = t.phase_name || 'Sans phase'
+    if (!groups[key]) groups[key] = []
+    groups[key].push(t)
+  }
+  return groups
+})
 
 const dayLabels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
@@ -64,8 +75,8 @@ watch(() => store.currentWeekStart, () => {
   addTaskError.value = ''
 })
 
-function onCellSave(projectId: number, phaseId: number | null, date: string, hours: string) {
-  store.saveCell(projectId, phaseId, date, hours)
+function onCellSave(projectId: number, phaseId: number | null, date: string, hours: string, taskId?: number | null) {
+  store.saveCell(projectId, phaseId, date, hours, taskId)
 }
 
 async function onSubmitConfirm() {
@@ -77,8 +88,8 @@ async function openAddTask() {
   addTaskError.value = ''
   showAddTask.value = true
   selectedProjectId.value = null
-  selectedPhaseId.value = null
-  availablePhases.value = []
+  selectedTaskId.value = null
+  availableTasks.value = []
   await loadProjects()
 }
 
@@ -101,15 +112,21 @@ async function addTask() {
   }
 
   try {
-    await apiClient.post('time_entries/', {
+    const payload: Record<string, unknown> = {
       project: selectedProjectId.value,
-      phase: selectedPhaseId.value,
       date: store.weekDates[0] || '',
       hours: '0',
-    })
+    }
+    // If a task is selected, use it (+ its phase)
+    if (selectedTaskId.value) {
+      const task = availableTasks.value.find(t => t.id === selectedTaskId.value)
+      payload.task = selectedTaskId.value
+      if (task?.phase) payload.phase = task.phase
+    }
+    await apiClient.post('time_entries/', payload)
     showAddTask.value = false
     selectedProjectId.value = null
-    selectedPhaseId.value = null
+    selectedTaskId.value = null
     await store.fetchWeek()
   } catch (e: unknown) {
     const resp = (e as { response?: { data?: { error?: { message?: string; code?: string } } } }).response
@@ -363,12 +380,17 @@ function normClass(total: number, norm: number): string {
             <option v-for="p in availableProjects" :key="p.id" :value="p.id">{{ p.code }} — {{ p.name }}</option>
           </select>
         </div>
-        <div v-if="availablePhases.length" style="min-width: 200px;">
-          <label class="text-xs font-medium text-text-muted">Phase</label>
-          <select v-model="selectedPhaseId" class="mt-1 block w-full rounded border border-border px-2 py-1.5 text-sm">
-            <option :value="null">— Toutes phases —</option>
-            <option v-for="ph in availablePhases" :key="ph.id" :value="ph.id">{{ ph.client_facing_label || ph.name }}</option>
+        <div v-if="availableTasks.length" style="min-width: 280px;">
+          <label class="text-xs font-medium text-text-muted">Tâche</label>
+          <select v-model="selectedTaskId" class="mt-1 block w-full rounded border border-border px-2 py-1.5 text-sm">
+            <option :value="null">— Choisir une tâche —</option>
+            <optgroup v-for="(tasks, phaseName) in tasksByPhase" :key="phaseName" :label="String(phaseName)">
+              <option v-for="t in tasks" :key="t.id" :value="t.id">{{ t.wbs_code }} — {{ t.display_label || t.name }}</option>
+            </optgroup>
           </select>
+        </div>
+        <div v-else-if="selectedProjectId && !availableTasks.length" style="min-width: 200px;">
+          <span class="text-xs text-text-muted">Aucune tâche — saisie au niveau projet</span>
         </div>
         <button class="btn-primary" :disabled="!selectedProjectId || store.periodLocked" @click="addTask">Ajouter</button>
         <button class="btn-ghost" @click="showAddTask = false; addTaskError = ''">Annuler</button>
@@ -424,10 +446,10 @@ function normClass(total: number, norm: number): string {
               </td>
             </tr>
 
-            <!-- Phase rows within project -->
+            <!-- Task rows within project -->
             <tr
               v-for="row in group.rows"
-              :key="`${row.project_id}-${row.phase_id}`"
+              :key="`${row.project_id}-${row.task_id || row.phase_id}`"
               class="border-b border-border hover:bg-surface-alt"
               :class="{ 'bg-gray-50 opacity-60': row.is_locked }"
             >
@@ -438,7 +460,8 @@ function normClass(total: number, norm: number): string {
                     class="text-text-muted"
                     style="font-size: 10px;"
                   >🔒</span>
-                  <span class="text-text" style="font-size: 11px;">{{ row.client_label || row.phase_name }}</span>
+                  <span v-if="row.task_wbs_code" class="font-mono text-text-muted" style="font-size: 9px; margin-right: 4px;">{{ row.task_wbs_code }}</span>
+                  <span class="text-text" style="font-size: 11px;">{{ row.task_name || row.client_label || row.phase_name }}</span>
                   <button
                     v-if="canDeleteRow(row)"
                     class="ml-auto"
@@ -454,10 +477,11 @@ function normClass(total: number, norm: number): string {
                 :entry="row.entries[date] || null"
                 :project-id="row.project_id"
                 :phase-id="row.phase_id"
+                :task-id="row.task_id"
                 :date="date"
                 :is-locked="row.is_locked || store.periodLocked || (row.entries[date]?.status !== undefined && row.entries[date]?.status !== 'DRAFT')"
                 :is-invoiced="!!row.entries[date]?.is_invoiced"
-                :aria-label="`${row.project_code} ${row.phase_name} ${date}`"
+                :aria-label="`${row.project_code} ${row.task_wbs_code || row.phase_name} ${date}`"
                 @save="onCellSave"
               />
               <td class="px-1 py-1 text-center font-mono font-semibold text-text" style="font-size: 11px;">

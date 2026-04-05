@@ -10,6 +10,7 @@ const props = defineProps<{
   entry: TimeEntry | null
   projectId: number
   phaseId: number | null
+  taskId?: number | null
   date: string
   isLocked: boolean
   isInvoiced?: boolean
@@ -17,7 +18,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  save: [projectId: number, phaseId: number | null, date: string, hours: string]
+  save: [projectId: number, phaseId: number | null, date: string, hours: string, taskId?: number | null]
 }>()
 
 const localValue = ref(props.entry ? props.entry.hours : '')
@@ -54,7 +55,7 @@ async function onBlur() {
   }
 
   // Check daily total
-  const check = store.canSaveHours(props.projectId, props.phaseId, props.date, val || '0')
+  const check = store.canSaveHours(props.projectId, props.phaseId, props.date, val || '0', props.taskId)
   if (!check.ok) {
     localValue.value = original
     showError.value = true
@@ -66,7 +67,7 @@ async function onBlur() {
   showError.value = false
   errorMessage.value = ''
   try {
-    emit('save', props.projectId, props.phaseId, props.date, val || '0')
+    emit('save', props.projectId, props.phaseId, props.date, val || '0', props.taskId)
     showFeedback.value = true
     setTimeout(() => {
       showFeedback.value = false
