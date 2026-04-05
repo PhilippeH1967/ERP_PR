@@ -38,11 +38,50 @@ export async function authGuard(
     return
   }
 
+  // Role-based route protection
+  const { currentUser } = useAuth()
+  const roles = currentUser.value?.roles || []
+
   // Admin routes require ADMIN role
   if (to.path.startsWith('/admin')) {
-    const { currentUser } = useAuth()
-    const roles = currentUser.value?.roles || []
     if (!roles.includes('ADMIN')) {
+      next({ name: 'dashboard' })
+      return
+    }
+  }
+
+  // Billing/Payments/CreditNotes/Holdbacks/WriteOffs — Finance, ADMIN, PM, PROJECT_DIRECTOR
+  const financeRoutes = ['/billing', '/payments', '/credit-notes', '/holdbacks', '/write-offs']
+  if (financeRoutes.some(r => to.path.startsWith(r))) {
+    const allowed = ['ADMIN', 'FINANCE', 'PM', 'PROJECT_DIRECTOR']
+    if (!roles.some(r => allowed.includes(r))) {
+      next({ name: 'dashboard' })
+      return
+    }
+  }
+
+  // Approvals — PM, PROJECT_DIRECTOR, FINANCE, PAIE, ADMIN
+  if (to.path.startsWith('/approvals')) {
+    const allowed = ['ADMIN', 'FINANCE', 'PM', 'PROJECT_DIRECTOR', 'PAIE']
+    if (!roles.some(r => allowed.includes(r))) {
+      next({ name: 'dashboard' })
+      return
+    }
+  }
+
+  // Period locks — FINANCE, PAIE, ADMIN
+  if (to.path.startsWith('/period-locks')) {
+    const allowed = ['ADMIN', 'FINANCE', 'PAIE']
+    if (!roles.some(r => allowed.includes(r))) {
+      next({ name: 'dashboard' })
+      return
+    }
+  }
+
+  // Consortiums — ADMIN, FINANCE, PM, PROJECT_DIRECTOR
+  if (to.path.startsWith('/consortiums')) {
+    const allowed = ['ADMIN', 'FINANCE', 'PM', 'PROJECT_DIRECTOR']
+    if (!roles.some(r => allowed.includes(r))) {
       next({ name: 'dashboard' })
       return
     }
