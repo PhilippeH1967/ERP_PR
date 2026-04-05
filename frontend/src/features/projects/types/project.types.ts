@@ -8,6 +8,9 @@ export interface Project {
   contract_type: 'FORFAITAIRE' | 'CONSORTIUM' | 'CO_DEV' | 'CONCEPTION_CONSTRUCTION'
   status: 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'CANCELLED'
   is_internal: boolean
+  is_public: boolean
+  is_consortium: boolean
+  services_transversaux: string[]
   business_unit: string
   legal_entity: string
   start_date: string | null

@@ -458,11 +458,30 @@ const financeData = ref([
   { year: new Date().getFullYear(), ca: 0, costs: 0, margin: 0, margin_pct: 0 },
 ])
 
+// Time entries for Temps tab
+interface ProjectTimeEntry { id: number; user_name: string; date: string; hours: string; task_name: string; phase_name: string; status: string }
+const projectTimeEntries = ref<ProjectTimeEntry[]>([])
+const timeLoading = ref(false)
+
+async function loadProjectTime() {
+  if (!store.currentProject) return
+  timeLoading.value = true
+  try {
+    const resp = await apiClient.get('time_entries/', { params: { project: store.currentProject.id } })
+    const data = resp.data?.data || resp.data
+    projectTimeEntries.value = Array.isArray(data) ? data : data?.results || []
+  } catch { projectTimeEntries.value = [] }
+  finally { timeLoading.value = false }
+}
+
+const projectTotalHours = computed(() => projectTimeEntries.value.reduce((s, e) => s + Number(e.hours || 0), 0))
+
 const tabs = [
   { key: 'overview', label: 'Vue d\'ensemble' },
   { key: 'phases', label: 'Phases' },
   { key: 'tasks', label: 'Tâches' },
   { key: 'team', label: 'Équipe' },
+  { key: 'time', label: 'Temps' },
   { key: 'amendments', label: 'Avenants' },
   { key: 'budget', label: 'Budget' },
   { key: 'progress', label: 'Avancement' },
@@ -586,6 +605,7 @@ watch(activeTab, (tab) => {
   if (tab === 'tasks' && !tasks.value.length) loadTasks()
   if (tab === 'progress' && !tasks.value.length) loadTasks()
   if (tab === 'budget') initHonoraires()
+  if (tab === 'time') loadProjectTime()
   if (tab === 'st') loadSTInvoices()
   if (tab === 'invoices') loadProjectInvoices()
 })
@@ -601,6 +621,8 @@ watch(activeTab, (tab) => {
       </div>
       <div class="header-actions">
         <span v-if="store.currentProject.is_internal" class="badge-internal">Interne</span>
+        <span v-if="!store.currentProject.is_public" class="badge badge-amber" style="cursor:default;">Privé</span>
+        <span v-if="store.currentProject.is_consortium" class="badge badge-blue" style="cursor:default;">Consortium</span>
         <!-- Status badge (clickable only in edit mode) -->
         <div class="relative">
           <button class="badge" :class="statusColors[store.currentProject.status]" @click="isEditing && (showEditStatus = !showEditStatus)" :style="isEditing ? 'cursor:pointer' : 'cursor:default'">
@@ -647,13 +669,43 @@ watch(activeTab, (tab) => {
       </div>
       <!-- View mode -->
       <template v-if="!editingProject">
+        <!-- KPIs financiers (E-26) -->
+        <div class="kpi-grid-4" style="margin-bottom:12px;">
+          <div class="kpi-card"><div class="kpi-value mono">{{ formatAmount(taskBudgetTotal) }}&nbsp;$</div><div class="kpi-label">Budget total</div></div>
+          <div class="kpi-card"><div class="kpi-value mono">{{ formatAmount(budgetInvoiced) }}&nbsp;$</div><div class="kpi-label">Facturé</div></div>
+          <div class="kpi-card"><div class="kpi-value" :class="{ success: budgetConsumedPercent < 75, warning: budgetConsumedPercent >= 75, danger: budgetConsumedPercent >= 90 }">{{ budgetConsumedPercent }}&nbsp;%</div><div class="kpi-label">Consommé</div></div>
+          <div class="kpi-card"><div class="kpi-value mono" :class="{ danger: budgetRemaining < 0 }">{{ formatAmount(budgetRemaining) }}&nbsp;$</div><div class="kpi-label">Solde restant</div></div>
+        </div>
+
         <div class="info-grid">
-          <div class="info-card"><h3>Informations <button v-if="isEditing" class="btn-action" @click="startEditProject">Modifier</button></h3><div class="info-pairs"><div><span>Type</span><p>{{ store.currentProject.contract_type }}</p></div><div><span>BU</span><p>{{ store.currentProject.business_unit || '—' }}</p></div><div><span>Début</span><p>{{ store.currentProject.start_date ? fmt.date(store.currentProject.start_date) : '—' }}</p></div><div><span>Fin</span><p>{{ store.currentProject.end_date ? fmt.date(store.currentProject.end_date) : '—' }}</p></div></div></div>
+          <div class="info-card"><h3>Informations <button v-if="isEditing" class="btn-action" @click="startEditProject">Modifier</button></h3><div class="info-pairs"><div><span>Type de contrat</span><p>{{ store.currentProject.contract_type }}</p></div><div><span>Unité d'affaires</span><p>{{ store.currentProject.business_unit || '—' }}</p></div><div><span>Date début</span><p>{{ store.currentProject.start_date ? fmt.date(store.currentProject.start_date) : '—' }}</p></div><div><span>Date fin</span><p>{{ store.currentProject.end_date ? fmt.date(store.currentProject.end_date) : '—' }}</p></div><div><span>Public/Privé</span><p>{{ store.currentProject.is_public ? 'Public' : 'Privé' }}</p></div><div><span>Consortium</span><p>{{ store.currentProject.is_consortium ? 'Oui' : 'Non' }}</p></div></div></div>
           <div class="info-card"><h3>Direction</h3><div class="info-pairs single"><div><span>Chef de projet</span><p>{{ allUsers.find(u => u.id === store.currentProject?.pm)?.username || store.currentProject.pm || '—' }}</p></div><div><span>Associé en charge</span><p>{{ allUsers.find(u => u.id === store.currentProject?.associate_in_charge)?.username || store.currentProject.associate_in_charge || '—' }}</p></div></div></div>
         </div>
         <div class="info-card" style="margin-top: 12px;">
           <h3>Client</h3>
-          <div class="info-pairs"><div><span>Nom</span><p>{{ clientName }}</p></div><div v-if="clientContact"><span>Contact</span><p>{{ clientContact.name }}</p></div><div v-if="clientContact && clientContact.email"><span>Email</span><p>{{ clientContact.email }}</p></div><div v-if="clientContact && clientContact.phone"><span>Téléphone</span><p>{{ clientContact.phone }}</p></div></div>
+          <div class="info-pairs"><div><span>Nom</span><p>{{ clientName }}</p></div><div v-if="clientContact"><span>Contact</span><p>{{ clientContact.name }}</p></div><div v-if="clientContact && clientContact.email"><span>Courriel</span><p>{{ clientContact.email }}</p></div><div v-if="clientContact && clientContact.phone"><span>Téléphone</span><p>{{ clientContact.phone }}</p></div></div>
+        </div>
+        <!-- Services transversaux (E-14) -->
+        <div v-if="store.currentProject.services_transversaux?.length" class="info-card" style="margin-top: 12px;">
+          <h3>Services transversaux</h3>
+          <div class="flex flex-wrap gap-2" style="margin-top:8px;">
+            <span v-for="svc in store.currentProject.services_transversaux" :key="svc" class="badge badge-blue">{{ svc }}</span>
+          </div>
+        </div>
+        <!-- Phases summary table (E-27) -->
+        <div v-if="store.currentProject.phases?.length" class="card-table" style="margin-top: 12px;">
+          <table class="data-table">
+            <thead><tr><th>Phase</th><th>Type</th><th>Mode</th><th class="text-right">Heures</th><th class="text-right">Budget ($)</th></tr></thead>
+            <tbody>
+              <tr v-for="phase in store.currentProject.phases" :key="phase.id">
+                <td class="font-semibold">{{ phase.name }}</td>
+                <td><span class="badge badge-gray">{{ phase.phase_type === 'SUPPORT' ? 'Support' : 'Réalisation' }}</span></td>
+                <td><span class="badge" :class="phase.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ phase.billing_mode }}</span></td>
+                <td class="text-right font-mono">{{ fmt.hours(phase.budgeted_hours) }}</td>
+                <td class="text-right font-mono">{{ formatAmount(phase.budgeted_cost) }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </template>
       <!-- Edit mode -->
@@ -866,6 +918,51 @@ watch(activeTab, (tab) => {
         </table>
       </div>
       <div v-else class="card empty-card">Aucune affectation — utilisez "Affecter" dans l'onglet Phases</div>
+    </template>
+
+    <!-- ═══ Temps (E-24) ═══ -->
+    <template v-if="activeTab === 'time'">
+      <div class="tab-header">
+        <h3>Feuilles de temps du projet</h3>
+        <div class="flex items-center gap-3">
+          <span class="text-sm font-mono font-semibold">Total: {{ projectTotalHours.toFixed(1) }}h</span>
+        </div>
+      </div>
+      <div v-if="timeLoading" class="empty">Chargement...</div>
+      <div v-else-if="!projectTimeEntries.length" class="empty">Aucune entrée de temps pour ce projet</div>
+      <table v-else class="data-table">
+        <thead>
+          <tr>
+            <th>Employé</th>
+            <th>Date</th>
+            <th>Phase</th>
+            <th>Tâche</th>
+            <th class="text-right">Heures</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="entry in projectTimeEntries" :key="entry.id">
+            <td class="font-semibold">{{ entry.user_name || '—' }}</td>
+            <td class="text-muted">{{ entry.date }}</td>
+            <td class="text-muted">{{ entry.phase_name || '—' }}</td>
+            <td class="text-muted">{{ entry.task_name || '—' }}</td>
+            <td class="text-right font-mono">{{ Number(entry.hours).toFixed(1) }}</td>
+            <td>
+              <span class="badge" :class="entry.status === 'APPROVED' ? 'badge-green' : entry.status === 'SUBMITTED' ? 'badge-amber' : 'badge-gray'">
+                {{ entry.status === 'APPROVED' ? 'Approuvé' : entry.status === 'SUBMITTED' ? 'Soumis' : 'Brouillon' }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" class="font-semibold">Total</td>
+            <td class="text-right font-mono font-semibold">{{ projectTotalHours.toFixed(1) }}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
     </template>
 
     <!-- ═══ Amendments ═══ -->

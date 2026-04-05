@@ -80,6 +80,19 @@ ARCHITECTURE_STANDARD = {
             ],
         },
         {
+            "name": "Qualité",
+            "code": "QA",
+            "client_label": "Qualité",
+            "type": "SUPPORT",
+            "billing_mode": "FORFAIT",
+            "is_mandatory": False,
+            "tasks": [
+                {"wbs_code": "QA.1", "name": "Contrôle qualité plans", "billing_mode": "FORFAIT", "is_billable": False},
+                {"wbs_code": "QA.2", "name": "Revue de conformité", "billing_mode": "FORFAIT", "is_billable": False},
+                {"wbs_code": "QA.3", "name": "Vérification normes", "billing_mode": "FORFAIT", "is_billable": False},
+            ],
+        },
+        {
             "name": "Gestion de projet",
             "code": "GP",
             "client_label": "Gestion de projet",
@@ -93,7 +106,15 @@ ARCHITECTURE_STANDARD = {
             ],
         },
     ],
-    "support_services_config": [],
+    "support_services_config": [
+        {"code": "BIM", "name": "BIM / Modélisation"},
+        {"code": "PAYSAGE", "name": "Architecture de paysage"},
+        {"code": "DD", "name": "Développement durable"},
+        {"code": "CIVIL", "name": "Génie civil"},
+        {"code": "PATRIMOINE", "name": "Patrimoine"},
+        {"code": "DESIGN_INT", "name": "Design intérieur"},
+        {"code": "ECLAIRAGE", "name": "Éclairage"},
+    ],
 }
 
 

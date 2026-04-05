@@ -8,21 +8,55 @@ const router = useRouter()
 const store = useProjectStore()
 const { currentUser } = useAuth()
 const search = ref('')
+const filterStatus = ref('')
+const filterBU = ref('')
+const filterPM = ref('')
 
 const canCreateProject = computed(() => {
   const roles = currentUser.value?.roles || []
   return roles.includes('ADMIN') || roles.includes('FINANCE') || roles.includes('PM') || roles.includes('PROJECT_DIRECTOR') || roles.includes('DEPT_ASSISTANT')
 })
 
-const filteredProjects = computed(() => {
-  const q = search.value.trim().toLowerCase()
-  if (!q) return store.projects
-  return store.projects.filter(
-    (p) =>
-      (p.code || '').toLowerCase().includes(q) ||
-      (p.name || '').toLowerCase().includes(q),
-  )
+// Extract unique values for filters
+const uniqueBUs = computed(() => {
+  const bus = new Set<string>()
+  store.projects.forEach(p => { if (p.business_unit) bus.add(p.business_unit) })
+  return Array.from(bus).sort()
 })
+
+const uniquePMs = computed(() => {
+  const pms = new Map<string, string>()
+  store.projects.forEach((p: Record<string, unknown>) => {
+    if (p.pm_name) pms.set(String(p.pm), String(p.pm_name))
+  })
+  return Array.from(pms.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+})
+
+const filteredProjects = computed(() => {
+  let list = store.projects
+  const q = search.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter(
+      (p) =>
+        (p.code || '').toLowerCase().includes(q) ||
+        (p.name || '').toLowerCase().includes(q) ||
+        (p.client_name || '').toLowerCase().includes(q),
+    )
+  }
+  if (filterStatus.value) list = list.filter(p => p.status === filterStatus.value)
+  if (filterBU.value) list = list.filter(p => p.business_unit === filterBU.value)
+  if (filterPM.value) list = list.filter(p => String(p.pm) === filterPM.value)
+  return list
+})
+
+// Health indicator based on project data
+function healthIndicator(project: Record<string, unknown>): { label: string; color: string } {
+  const status = project.status as string
+  if (status === 'COMPLETED') return { label: 'Terminé', color: 'badge-gray' }
+  if (status === 'CANCELLED') return { label: 'Annulé', color: 'badge-red' }
+  if (status === 'ON_HOLD') return { label: 'Pause', color: 'badge-amber' }
+  return { label: 'OK', color: 'badge-green' }
+}
 
 onMounted(() => store.fetchProjects())
 
@@ -56,34 +90,43 @@ const statusColors: Record<string, string> = {
       </button>
     </div>
 
-    <div class="mb-4">
+    <!-- Search + Filters -->
+    <div class="mb-4 flex flex-wrap items-center gap-3">
       <input
         v-model="search"
         type="text"
-        placeholder="Rechercher par code ou nom..."
-        class="w-full max-w-md rounded-md border border-border px-3 py-2 text-sm"
+        placeholder="Rechercher par code, nom ou client..."
+        class="w-full max-w-sm rounded-md border border-border px-3 py-2 text-sm"
       >
+      <select v-model="filterStatus" class="filter-select">
+        <option value="">Tous les statuts</option>
+        <option value="ACTIVE">Actif</option>
+        <option value="ON_HOLD">En pause</option>
+        <option value="COMPLETED">Terminé</option>
+        <option value="CANCELLED">Annulé</option>
+      </select>
+      <select v-if="uniqueBUs.length" v-model="filterBU" class="filter-select">
+        <option value="">Toutes les BU</option>
+        <option v-for="bu in uniqueBUs" :key="bu" :value="bu">{{ bu }}</option>
+      </select>
+      <select v-if="uniquePMs.length" v-model="filterPM" class="filter-select">
+        <option value="">Tous les CP</option>
+        <option v-for="pm in uniquePMs" :key="pm.id" :value="pm.id">{{ pm.name }}</option>
+      </select>
     </div>
 
     <div class="rounded-lg border border-border bg-surface">
       <table class="w-full text-left text-sm">
         <thead class="border-b border-border text-xs font-medium uppercase tracking-wide text-text-muted">
           <tr>
-            <th class="px-4 py-3">
-              Code
-            </th>
-            <th class="px-4 py-3">
-              Nom
-            </th>
-            <th class="px-4 py-3">
-              Client
-            </th>
-            <th class="px-4 py-3">
-              Type
-            </th>
-            <th class="px-4 py-3">
-              Statut
-            </th>
+            <th class="px-4 py-3">Code</th>
+            <th class="px-4 py-3">Nom</th>
+            <th class="px-4 py-3">Client</th>
+            <th class="px-4 py-3">Chef de projet</th>
+            <th class="px-4 py-3">BU</th>
+            <th class="px-4 py-3">Type</th>
+            <th class="px-4 py-3">Statut</th>
+            <th class="px-4 py-3">Santé</th>
           </tr>
         </thead>
         <tbody>
@@ -103,6 +146,12 @@ const statusColors: Record<string, string> = {
               {{ project.client_name || '—' }}
             </td>
             <td class="px-4 py-3 text-text-muted">
+              {{ (project as Record<string, unknown>).pm_name || '—' }}
+            </td>
+            <td class="px-4 py-3 text-text-muted">
+              {{ project.business_unit || '—' }}
+            </td>
+            <td class="px-4 py-3 text-text-muted">
               {{ project.contract_type }}
             </td>
             <td class="px-4 py-3">
@@ -113,6 +162,14 @@ const statusColors: Record<string, string> = {
                 {{ statusLabels[project.status] || project.status }}
               </span>
             </td>
+            <td class="px-4 py-3">
+              <span class="badge" :class="healthIndicator(project as Record<string, unknown>).color">
+                {{ healthIndicator(project as Record<string, unknown>).label }}
+              </span>
+            </td>
+          </tr>
+          <tr v-if="!filteredProjects.length">
+            <td colspan="8" class="px-4 py-8 text-center text-text-muted">Aucun projet trouvé</td>
           </tr>
         </tbody>
       </table>
@@ -126,4 +183,13 @@ const statusColors: Record<string, string> = {
 .badge-amber { background: #FEF3C7; color: #92400E; }
 .badge-gray { background: var(--color-gray-100, #f3f4f6); color: var(--color-gray-500, #6b7280); }
 .badge-red { background: #FEE2E2; color: #DC2626; }
+.filter-select {
+  padding: 6px 10px;
+  border: 1px solid var(--color-gray-300, #d1d5db);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--color-gray-700, #374151);
+  background: white;
+  min-width: 140px;
+}
 </style>

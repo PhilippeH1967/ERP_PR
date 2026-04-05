@@ -85,7 +85,8 @@ class ProjectSerializer(CostFieldFilterMixin, OptimisticLockMixin, serializers.M
         model = Project
         fields = [
             "id", "code", "name", "client", "client_name", "template", "contract_type",
-            "status", "is_internal", "business_unit", "legal_entity",
+            "status", "is_internal", "is_public", "is_consortium", "services_transversaux",
+            "business_unit", "legal_entity",
             "start_date", "end_date", "construction_cost",
             "address", "city", "postal_code", "country",
             "surface", "surface_unit", "currency", "tags", "title_on_invoice",
@@ -99,12 +100,20 @@ class ProjectSerializer(CostFieldFilterMixin, OptimisticLockMixin, serializers.M
 
 class ProjectListSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source="client.name", read_only=True, default="")
+    pm_name = serializers.SerializerMethodField()
+
+    def get_pm_name(self, obj):
+        if obj.pm:
+            name = obj.pm.get_full_name()
+            return name if name.strip() else obj.pm.username
+        return ""
 
     class Meta:
         model = Project
         fields = [
             "id", "code", "name", "client", "client_name",
-            "contract_type", "status", "is_internal",
+            "contract_type", "status", "is_internal", "is_public", "is_consortium",
+            "business_unit", "pm", "pm_name",
             "start_date", "end_date", "created_at",
         ]
 

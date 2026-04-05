@@ -82,6 +82,18 @@ class Project(TenantScopedModel, VersionedModel):
         max_length=20, choices=ProjectStatus.choices, default=ProjectStatus.ACTIVE
     )
     is_internal = models.BooleanField(default=False)
+    is_public = models.BooleanField(
+        default=True,
+        help_text="Public or private project (Public/Privé)",
+    )
+    is_consortium = models.BooleanField(
+        default=False,
+        help_text="Project involves a consortium of firms",
+    )
+    services_transversaux = models.JSONField(
+        default=list, blank=True,
+        help_text="Transversal services: ['BIM', 'PAYSAGE', 'DD', 'CIVIL', 'PATRIMOINE', ...]",
+    )
     business_unit = models.CharField(max_length=100, blank=True, default="")
     legal_entity = models.CharField(max_length=100, blank=True, default="")
     start_date = models.DateField(null=True, blank=True)

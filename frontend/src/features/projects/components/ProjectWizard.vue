@@ -10,8 +10,8 @@ const currentStep = ref(1)
 const isSubmitting = ref(false)
 const error = ref('')
 
-const totalSteps = 4
-const stepLabels = ['Identification', 'Budget & Phases', 'Ressources', 'Confirmation']
+const totalSteps = 5
+const stepLabels = ['Identification', 'Budget & Phases', 'Ressources', 'Sous-traitants', 'Confirmation']
 
 // Step 1: Metadata
 const form = ref({
@@ -34,7 +34,39 @@ const form = ref({
   surface: '' as string | number,
   surface_unit: 'm2',
   title_on_invoice: '',
+  is_public: true,
+  is_consortium: false,
+  services_transversaux: [] as string[],
 })
+
+// Step 4: Sous-traitants
+interface STEntry { name: string; specialty: string; budgeted_amount: string }
+const subcontractors = ref<STEntry[]>([])
+
+function addST() {
+  subcontractors.value.push({ name: '', specialty: '', budgeted_amount: '0' })
+}
+
+function removeST(index: number) {
+  subcontractors.value.splice(index, 1)
+}
+
+// Available services transversaux
+const AVAILABLE_SERVICES = [
+  { code: 'BIM', label: 'BIM / Modélisation' },
+  { code: 'PAYSAGE', label: 'Architecture de paysage' },
+  { code: 'DD', label: 'Développement durable' },
+  { code: 'CIVIL', label: 'Génie civil' },
+  { code: 'PATRIMOINE', label: 'Patrimoine' },
+  { code: 'DESIGN_INT', label: 'Design intérieur' },
+  { code: 'ECLAIRAGE', label: 'Éclairage' },
+]
+
+function toggleService(code: string) {
+  const idx = form.value.services_transversaux.indexOf(code)
+  if (idx >= 0) form.value.services_transversaux.splice(idx, 1)
+  else form.value.services_transversaux.push(code)
+}
 
 // Template preview (phases + tasks tree)
 interface TemplateTask { wbs_code?: string; name: string }
@@ -174,6 +206,9 @@ async function onSubmit() {
       surface: form.value.surface ? Number(form.value.surface) : null,
       surface_unit: form.value.surface_unit || 'm2',
       title_on_invoice: form.value.title_on_invoice || '',
+      is_public: form.value.is_public,
+      is_consortium: form.value.is_consortium,
+      services_transversaux: form.value.services_transversaux,
     }
     if (form.value.pm) payload.pm = Number(form.value.pm)
     if (form.value.associate_in_charge) payload.associate_in_charge = Number(form.value.associate_in_charge)
@@ -380,6 +415,9 @@ onMounted(loadLookups)
                     <span v-if="c.alias" class="ml-2 text-xs text-text-muted">({{ c.alias }})</span>
                   </div>
                   <div v-if="clientSearch && !filteredClients.length" class="px-3 py-2 text-center text-xs text-text-muted">Aucun client actif trouvé</div>
+                  <div class="border-t border-border px-3 py-2">
+                    <button type="button" class="text-xs font-medium text-primary hover:underline" @click="router.push('/clients?action=new')">+ Créer un nouveau client</button>
+                  </div>
                 </div>
               </template>
               <div v-else class="flex items-center justify-between rounded-md bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
@@ -536,15 +574,55 @@ onMounted(loadLookups)
             >
           </div>
 
-          <div class="col-span-2 flex items-center gap-2">
-            <input
-              id="is_internal"
-              v-model="form.is_internal"
-              type="checkbox"
-              class="h-4 w-4 rounded border-border"
-              @change="if (form.is_internal) { form.client = null; selectedClientId = null; clientSearch = '' }"
-            >
-            <label for="is_internal" class="text-sm text-text">Projet interne (non facturable)</label>
+          <!-- Checkboxes row -->
+          <div class="col-span-2 flex flex-wrap items-center gap-6">
+            <div class="flex items-center gap-2">
+              <input
+                id="is_internal"
+                v-model="form.is_internal"
+                type="checkbox"
+                class="h-4 w-4 rounded border-border"
+                @change="if (form.is_internal) { form.client = null; selectedClientId = null; clientSearch = '' }"
+              >
+              <label for="is_internal" class="text-sm text-text">Projet interne</label>
+            </div>
+            <div class="flex items-center gap-2">
+              <input
+                id="is_public"
+                v-model="form.is_public"
+                type="checkbox"
+                class="h-4 w-4 rounded border-border"
+              >
+              <label for="is_public" class="text-sm text-text">Projet public</label>
+            </div>
+            <div class="flex items-center gap-2">
+              <input
+                id="is_consortium"
+                v-model="form.is_consortium"
+                type="checkbox"
+                class="h-4 w-4 rounded border-border"
+              >
+              <label for="is_consortium" class="text-sm text-text">Consortium</label>
+            </div>
+          </div>
+
+          <!-- Services transversaux (E-14) -->
+          <div class="col-span-2">
+            <label class="text-xs font-medium text-text-muted">Services transversaux</label>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <button
+                v-for="svc in AVAILABLE_SERVICES"
+                :key="svc.code"
+                type="button"
+                class="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
+                :class="form.services_transversaux.includes(svc.code)
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border bg-white text-text-muted hover:border-primary/50'"
+                @click="toggleService(svc.code)"
+              >
+                {{ svc.label }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -643,8 +721,63 @@ onMounted(loadLookups)
         </p>
       </div>
 
-      <!-- Step 4: Confirmation -->
+      <!-- Step 4: Sous-traitants (E-09/E-10) -->
       <div v-if="currentStep === 4">
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-lg font-medium text-text">
+            Sous-traitants
+          </h2>
+          <button
+            type="button"
+            class="rounded bg-primary px-3 py-1.5 text-xs font-medium text-white"
+            @click="addST"
+          >
+            + Ajouter un sous-traitant
+          </button>
+        </div>
+
+        <div class="space-y-3">
+          <div
+            v-for="(st, i) in subcontractors"
+            :key="i"
+            class="rounded border border-border p-3"
+          >
+            <div class="mb-2 flex items-center justify-between">
+              <span class="text-xs font-medium text-text-muted">Sous-traitant {{ i + 1 }}</span>
+              <button type="button" class="text-xs text-danger hover:underline" @click="removeST(i)">Supprimer</button>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              <input
+                v-model="st.name"
+                type="text"
+                placeholder="Nom du sous-traitant"
+                class="rounded border border-border px-2 py-1.5 text-sm"
+              >
+              <input
+                v-model="st.specialty"
+                type="text"
+                placeholder="Spécialité (ex: structure)"
+                class="rounded border border-border px-2 py-1.5 text-sm"
+              >
+              <div>
+                <input
+                  v-model="st.budgeted_amount"
+                  type="number"
+                  placeholder="Budget ($)"
+                  class="w-full rounded border border-border px-2 py-1.5 text-sm font-mono"
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p v-if="!subcontractors.length" class="py-8 text-center text-sm text-text-muted">
+          Aucun sous-traitant — vous pourrez en ajouter après la création du projet
+        </p>
+      </div>
+
+      <!-- Step 5: Confirmation -->
+      <div v-if="currentStep === 5">
         <h2 class="mb-4 text-lg font-medium text-text">
           Confirmation
         </h2>
@@ -678,6 +811,22 @@ onMounted(loadLookups)
               <div>
                 <span class="text-text-muted">Projet interne:</span>
                 <span class="ml-2">{{ form.is_internal ? 'Oui' : 'Non' }}</span>
+              </div>
+              <div>
+                <span class="text-text-muted">Public/Privé:</span>
+                <span class="ml-2">{{ form.is_public ? 'Public' : 'Privé' }}</span>
+              </div>
+              <div>
+                <span class="text-text-muted">Consortium:</span>
+                <span class="ml-2">{{ form.is_consortium ? 'Oui' : 'Non' }}</span>
+              </div>
+              <div v-if="form.services_transversaux.length" class="col-span-2">
+                <span class="text-text-muted">Services transversaux:</span>
+                <span class="ml-2">{{ form.services_transversaux.join(', ') }}</span>
+              </div>
+              <div>
+                <span class="text-text-muted">Sous-traitants:</span>
+                <span class="ml-2">{{ subcontractors.length }}</span>
               </div>
               <div>
                 <span class="text-text-muted">Chef de projet:</span>
