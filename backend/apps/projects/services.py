@@ -37,13 +37,15 @@ def create_project_from_template(template_id, project_data, tenant_id=None):
 
     tenant = Tenant.objects.get(pk=tenant_id) if tenant_id else template.tenant
 
-    # Accepted project fields
+    # Accepted project fields (both "client" and "client_id" for compatibility)
     project_fields = [
-        "code", "name", "client_id", "business_unit", "legal_entity",
-        "start_date", "end_date", "is_internal",
+        "code", "name", "client", "client_id", "business_unit", "legal_entity",
+        "start_date", "end_date", "is_internal", "is_public", "is_consortium",
+        "consortium", "consortium_id", "services_transversaux",
         "address", "city", "postal_code", "country",
         "surface", "surface_unit", "currency", "tags", "title_on_invoice",
-        "pm_id", "associate_in_charge_id",
+        "pm", "pm_id", "associate_in_charge", "associate_in_charge_id",
+        "invoice_approver", "invoice_approver_id",
     ]
 
     project = Project.objects.create(

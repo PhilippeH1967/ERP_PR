@@ -158,6 +158,10 @@ function nextStep() {
       error.value = 'Le client est obligatoire pour un projet externe'
       return
     }
+    if (form.value.is_consortium && !form.value.consortium_id) {
+      error.value = 'Veuillez sélectionner un consortium ou décocher l\'option Consortium'
+      return
+    }
     if (form.value.start_date && form.value.end_date && form.value.end_date < form.value.start_date) {
       error.value = 'La date de fin ne peut pas être antérieure à la date de début.'
       return
@@ -640,7 +644,7 @@ onMounted(() => {
               <button
                 type="button"
                 class="whitespace-nowrap text-xs font-medium text-primary hover:underline"
-                @click="router.push('/consortiums?action=new')"
+                @click="router.push('/consortiums/new')"
               >
                 + Créer
               </button>

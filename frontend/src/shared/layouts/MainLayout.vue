@@ -75,6 +75,7 @@ const navSections = computed(() => {
         ...(canApprove.value ? [{ name: 'nav.approvals', path: '/approvals', icon: '✅' }] : []),
         ...(canLockPeriod.value ? [{ name: 'nav.periods', path: '/period-locks', icon: '🔒' }] : []),
         { name: 'nav.projects', path: '/projects', icon: '📁' },
+        { name: 'nav.consortiums', path: '/consortiums', icon: '🏗️' },
         { name: 'nav.clients', path: '/clients', icon: '🤝' },
       ],
     },

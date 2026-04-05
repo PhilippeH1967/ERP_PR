@@ -58,6 +58,27 @@ const router = createRouter({
           name: 'project-detail',
           component: () => import('@/features/projects/views/ProjectDetail.vue'),
         },
+        // Consortiums
+        {
+          path: 'consortiums',
+          name: 'consortiums',
+          component: () => import('@/features/consortiums/views/ConsortiumList.vue'),
+        },
+        {
+          path: 'consortiums/new',
+          name: 'consortium-create',
+          component: () => import('@/features/consortiums/views/ConsortiumForm.vue'),
+        },
+        {
+          path: 'consortiums/:id',
+          name: 'consortium-detail',
+          component: () => import('@/features/consortiums/views/ConsortiumDetail.vue'),
+        },
+        {
+          path: 'consortiums/:id/edit',
+          name: 'consortium-edit',
+          component: () => import('@/features/consortiums/views/ConsortiumForm.vue'),
+        },
         // Timesheets
         {
           path: 'timesheets',
