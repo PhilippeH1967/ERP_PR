@@ -26,11 +26,18 @@ const filteredProjects = computed(() => {
 
 onMounted(() => store.fetchProjects())
 
+const statusLabels: Record<string, string> = {
+  'ACTIVE': 'Actif',
+  'ON_HOLD': 'En pause',
+  'COMPLETED': 'Terminé',
+  'CANCELLED': 'Annulé',
+}
+
 const statusColors: Record<string, string> = {
-  ACTIVE: 'bg-success/10 text-success',
-  ON_HOLD: 'bg-warning/10 text-warning',
-  COMPLETED: 'bg-text-muted/10 text-text-muted',
-  CANCELLED: 'bg-danger/10 text-danger',
+  'ACTIVE': 'badge-green',
+  'ON_HOLD': 'badge-amber',
+  'COMPLETED': 'badge-gray',
+  'CANCELLED': 'badge-red',
 }
 </script>
 
@@ -100,10 +107,10 @@ const statusColors: Record<string, string> = {
             </td>
             <td class="px-4 py-3">
               <span
-                class="rounded-full px-2 py-0.5 text-xs"
-                :class="statusColors[project.status] || ''"
+                class="badge"
+                :class="statusColors[project.status] || 'badge-gray'"
               >
-                {{ project.status }}
+                {{ statusLabels[project.status] || project.status }}
               </span>
             </td>
           </tr>
@@ -112,3 +119,11 @@ const statusColors: Record<string, string> = {
     </div>
   </div>
 </template>
+
+<style scoped>
+.badge { display: inline-flex; padding: 2px 10px; border-radius: 10px; font-size: 10px; font-weight: 600; border: none; background: var(--color-gray-100); }
+.badge-green { background: #DCFCE7; color: #15803D; }
+.badge-amber { background: #FEF3C7; color: #92400E; }
+.badge-gray { background: var(--color-gray-100, #f3f4f6); color: var(--color-gray-500, #6b7280); }
+.badge-red { background: #FEE2E2; color: #DC2626; }
+</style>

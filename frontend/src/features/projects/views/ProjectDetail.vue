@@ -53,6 +53,23 @@ const budgetSaving = ref<number | null>(null)
 const budgetError = ref('')
 const creatingInvoice = ref(false)
 
+// Client info
+interface ClientContact { id: number; name: string; role: string; email: string; phone: string }
+interface ClientData { id: number; name: string; contacts: ClientContact[] }
+const clientData = ref<ClientData | null>(null)
+
+const clientName = computed(() => store.currentProject?.client_name || clientData.value?.name || '—')
+const clientContact = computed(() => clientData.value?.contacts?.[0] || null)
+
+async function loadClientData() {
+  const clientId = store.currentProject?.client
+  if (!clientId) { clientData.value = null; return }
+  try {
+    const resp = await apiClient.get(`clients/${clientId}/`)
+    clientData.value = resp.data?.data || resp.data
+  } catch { clientData.value = null }
+}
+
 // ST tab
 interface STInvoiceItem { id: number; supplier_name: string; invoice_number: string; invoice_date: string; amount: string; status: string; budget_refacturable: string }
 const stInvoices = ref<STInvoiceItem[]>([])
@@ -485,6 +502,7 @@ async function reload() {
   try { const r = await projectApi.listWBS(projectId); wbsTree.value = r.data?.data || r.data || [] } catch { wbsTree.value = [] }
   try { const r = await projectApi.listAssignments(projectId); assignments.value = r.data?.data || r.data || [] } catch { assignments.value = [] }
   try { const r = await projectApi.listAmendments(projectId); amendments.value = r.data?.data || r.data || [] } catch { amendments.value = [] }
+  await loadClientData()
   await loadTasks()
 }
 
@@ -628,12 +646,19 @@ watch(activeTab, (tab) => {
         <div class="kpi-card"><div class="kpi-value mono">{{ fmt.hours(dashboard.budget_hours) }}</div><div class="kpi-label">Budget</div></div>
       </div>
       <!-- View mode -->
-      <div v-if="!editingProject" class="info-grid">
-        <div class="info-card"><h3>Informations <button v-if="isEditing" class="btn-action" @click="startEditProject">Modifier</button></h3><div class="info-pairs"><div><span>Type</span><p>{{ store.currentProject.contract_type }}</p></div><div><span>BU</span><p>{{ store.currentProject.business_unit || '—' }}</p></div><div><span>Début</span><p>{{ store.currentProject.start_date ? fmt.date(store.currentProject.start_date) : '—' }}</p></div><div><span>Fin</span><p>{{ store.currentProject.end_date ? fmt.date(store.currentProject.end_date) : '—' }}</p></div></div></div>
-        <div class="info-card"><h3>Direction</h3><div class="info-pairs single"><div><span>Chef de projet</span><p>{{ allUsers.find(u => u.id === store.currentProject?.pm)?.username || store.currentProject.pm || '—' }}</p></div><div><span>Associé en charge</span><p>{{ allUsers.find(u => u.id === store.currentProject?.associate_in_charge)?.username || store.currentProject.associate_in_charge || '—' }}</p></div></div></div>
-      </div>
+      <template v-if="!editingProject">
+        <div class="info-grid">
+          <div class="info-card"><h3>Informations <button v-if="isEditing" class="btn-action" @click="startEditProject">Modifier</button></h3><div class="info-pairs"><div><span>Type</span><p>{{ store.currentProject.contract_type }}</p></div><div><span>BU</span><p>{{ store.currentProject.business_unit || '—' }}</p></div><div><span>Début</span><p>{{ store.currentProject.start_date ? fmt.date(store.currentProject.start_date) : '—' }}</p></div><div><span>Fin</span><p>{{ store.currentProject.end_date ? fmt.date(store.currentProject.end_date) : '—' }}</p></div></div></div>
+          <div class="info-card"><h3>Direction</h3><div class="info-pairs single"><div><span>Chef de projet</span><p>{{ allUsers.find(u => u.id === store.currentProject?.pm)?.username || store.currentProject.pm || '—' }}</p></div><div><span>Associé en charge</span><p>{{ allUsers.find(u => u.id === store.currentProject?.associate_in_charge)?.username || store.currentProject.associate_in_charge || '—' }}</p></div></div></div>
+        </div>
+        <div class="info-card" style="margin-top: 12px;">
+          <h3>Client</h3>
+          <div class="info-pairs"><div><span>Nom</span><p>{{ clientName }}</p></div><div v-if="clientContact"><span>Contact</span><p>{{ clientContact.name }}</p></div><div v-if="clientContact && clientContact.email"><span>Email</span><p>{{ clientContact.email }}</p></div><div v-if="clientContact && clientContact.phone"><span>Téléphone</span><p>{{ clientContact.phone }}</p></div></div>
+        </div>
+      </template>
       <!-- Edit mode -->
-      <div v-else class="card">
+      <template v-else>
+      <div class="card">
         <h3 class="card-title-edit">Modifier le projet</h3>
         <div class="edit-grid">
           <div class="form-group"><label>Nom</label><input v-model="projectForm.name" /></div>
@@ -660,6 +685,7 @@ watch(activeTab, (tab) => {
         </div>
         <div class="form-actions"><button class="btn-ghost" @click="editingProject = false">Annuler</button><button class="btn-primary" @click="saveProject">Enregistrer</button></div>
       </div>
+      </template>
     </template>
 
     <!-- ═══ Phases ═══ -->
@@ -749,16 +775,16 @@ watch(activeTab, (tab) => {
           </div>
 
           <!-- Tasks table -->
-          <table v-if="!collapsedPhases.has(group.phase_name)" class="data-table task-table">
+          <table v-if="!collapsedPhases.has(group.phase_name)" class="data-table task-table task-table-fixed">
             <thead>
               <tr>
-                <th>WBS</th>
+                <th style="width:60px;">WBS</th>
                 <th>Nom</th>
-                <th>Mode</th>
-                <th class="text-right">Budget ($)</th>
-                <th class="text-right">Heures</th>
-                <th>Facturable</th>
-                <th v-if="isEditing">Actions</th>
+                <th style="width:80px;">Mode</th>
+                <th class="text-right" style="width:100px;">Budget ($)</th>
+                <th class="text-right" style="width:80px;">Heures</th>
+                <th style="width:90px;">Facturable</th>
+                <th v-if="isEditing" style="width:120px;">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -906,7 +932,7 @@ watch(activeTab, (tab) => {
     <!-- ═══ Budget ═══ -->
     <template v-if="activeTab === 'budget'">
       <!-- Honoraires du projet -->
-      <div class="card" style="margin-bottom: 16px;">
+      <div v-if="canEditBudget" class="card" style="margin-bottom: 16px;">
         <h3 class="card-title-edit">Honoraires du projet</h3>
         <div class="edit-grid" style="grid-template-columns: repeat(3, 1fr);">
           <div class="form-group">
@@ -951,7 +977,7 @@ watch(activeTab, (tab) => {
       </div>
 
       <!-- Header with create invoice button -->
-      <div class="budget-header">
+      <div v-if="canEditBudget" class="budget-header">
         <div>
           <span v-if="!store.currentProject?.client" class="text-muted" style="font-size:11px;color:var(--color-danger);">Client requis pour créer une facture</span>
           <span v-else-if="taskBudgetTotal <= 0" class="text-muted" style="font-size:11px;color:var(--color-danger);">Budget requis pour créer une facture (ajoutez des tâches avec un budget)</span>
@@ -1067,16 +1093,16 @@ watch(activeTab, (tab) => {
             <span class="font-semibold">{{ group.phase_name }}</span>
             <span class="text-muted" style="margin-left:8px;">({{ group.tasks.length }} tâche{{ group.tasks.length > 1 ? 's' : '' }})</span>
           </div>
-          <table v-if="!collapsedPhases.has('prog-' + group.phase_name)" class="data-table task-table">
+          <table v-if="!collapsedPhases.has('prog-' + group.phase_name)" class="data-table task-table task-table-fixed">
             <thead>
               <tr>
-                <th>WBS</th>
+                <th style="width:60px;">WBS</th>
                 <th>Tâche</th>
-                <th class="text-right">Budget ($)</th>
-                <th class="text-right">H. planifiées</th>
-                <th class="text-right">H. réelles</th>
-                <th class="text-right">% Avancement</th>
-                <th class="text-right">Écart</th>
+                <th class="text-right" style="width:100px;">Budget ($)</th>
+                <th class="text-right" style="width:80px;">H. planifiées</th>
+                <th class="text-right" style="width:80px;">H. réelles</th>
+                <th class="text-right" style="width:90px;">% Avancement</th>
+                <th class="text-right" style="width:80px;">Écart</th>
               </tr>
             </thead>
             <tbody>
@@ -1206,7 +1232,7 @@ watch(activeTab, (tab) => {
     <template v-if="activeTab === 'invoices'">
       <div class="tab-header">
         <h3>Factures du projet</h3>
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div v-if="canEditBudget" style="display:flex;align-items:center;gap:8px;">
           <span v-if="!store.currentProject?.client" class="text-muted" style="font-size:11px;color:var(--color-danger);">Client requis</span>
           <span v-else-if="taskBudgetTotal <= 0" class="text-muted" style="font-size:11px;color:var(--color-danger);">Budget requis</span>
           <button class="btn-primary btn-sm" :disabled="creatingInvoice || taskBudgetTotal <= 0 || !store.currentProject?.client" @click="createInvoiceFromProject">+ Créer une facture</button>
@@ -1385,6 +1411,7 @@ watch(activeTab, (tab) => {
 }
 .task-phase-toggle { font-size: 10px; color: var(--color-gray-400); width: 14px; }
 .task-table { font-size: 12px; border-radius: 0 0 8px 8px; }
+.task-table-fixed { table-layout: fixed; }
 .task-table thead th { font-size: 10px; padding: 6px 10px; }
 .task-table tbody td { padding: 5px 10px; font-size: 12px; }
 .subtask-row { background: var(--color-gray-50); }
