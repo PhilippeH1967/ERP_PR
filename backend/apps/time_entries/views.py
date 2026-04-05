@@ -730,6 +730,115 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         count = entries.update(status="DRAFT", rejection_reason=reason)
         return Response({"rejected_count": count, "reason": reason})
 
+    @action(detail=False, methods=["post"])
+    def bulk_correct(self, request):
+        """FR25 — Finance corrects validated timesheets with audit trail.
+
+        Allows Finance/Admin to modify hours on entries that are already
+        PM_APPROVED, FINANCE_APPROVED, or PAIE_VALIDATED. Creates an audit
+        record via HistoricalRecords (simple-history).
+        """
+        if not _has_lock_role(request.user):
+            return Response(
+                {"error": {"code": "FORBIDDEN", "message": "Finance/Admin role required"}},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        corrections = request.data.get("corrections", [])
+        if not corrections:
+            return Response(
+                {"error": {"code": "NO_CORRECTIONS", "message": "corrections array required"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        corrected = 0
+        errors = []
+        for corr in corrections:
+            entry_id = corr.get("entry_id")
+            new_hours = corr.get("hours")
+            reason = corr.get("reason", "Correction Finance")
+            if not entry_id or new_hours is None:
+                errors.append({"entry_id": entry_id, "message": "entry_id and hours required"})
+                continue
+            try:
+                entry = TimeEntry.objects.get(pk=entry_id)
+                if entry.status == "DRAFT":
+                    errors.append({"entry_id": entry_id, "message": "Cannot correct DRAFT entries"})
+                    continue
+                entry.hours = new_hours
+                entry.notes = f"{entry.notes}\n[Correction: {reason}]".strip()
+                entry.save()  # Triggers HistoricalRecords
+                corrected += 1
+            except TimeEntry.DoesNotExist:
+                errors.append({"entry_id": entry_id, "message": "Entry not found"})
+
+        return Response({
+            "corrected_count": corrected,
+            "errors": errors,
+        })
+
+    @action(detail=False, methods=["post"])
+    def transfer_hours(self, request):
+        """FR27d — Bulk transfer hours between projects/tasks.
+
+        Finance can move hours from one project/task to another.
+        Original entries are updated, audit trail via HistoricalRecords.
+        """
+        if not _has_lock_role(request.user):
+            return Response(
+                {"error": {"code": "FORBIDDEN", "message": "Finance/Admin role required"}},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        entry_ids = request.data.get("entry_ids", [])
+        target_project = request.data.get("target_project")
+        target_task = request.data.get("target_task")
+        reason = request.data.get("reason", "Transfert d'heures")
+
+        if not entry_ids or not target_project:
+            return Response(
+                {"error": {"code": "MISSING_FIELDS", "message": "entry_ids and target_project required"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from apps.projects.models import Project, Task
+
+        try:
+            project = Project.objects.get(pk=target_project)
+        except Project.DoesNotExist:
+            return Response(
+                {"error": {"code": "PROJECT_NOT_FOUND", "message": "Target project not found"}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        task = None
+        if target_task:
+            try:
+                task = Task.objects.get(pk=target_task, project=project)
+            except Task.DoesNotExist:
+                return Response(
+                    {"error": {"code": "TASK_NOT_FOUND", "message": "Target task not found"}},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+        entries = TimeEntry.objects.filter(id__in=entry_ids)
+        transferred = 0
+        for entry in entries:
+            old_info = f"{entry.project.code}/{entry.task.wbs_code if entry.task else 'N/A'}"
+            entry.project = project
+            entry.task = task
+            if task:
+                entry.phase = task.phase
+            entry.notes = f"{entry.notes}\n[Transféré de {old_info}: {reason}]".strip()
+            entry.save()  # HistoricalRecords audit
+            transferred += 1
+
+        return Response({
+            "transferred_count": transferred,
+            "target_project": project.code,
+            "target_task": task.wbs_code if task else None,
+        })
+
 
 class WeeklyApprovalViewSet(viewsets.ModelViewSet):
     """Weekly approval tracking with two-level workflow."""

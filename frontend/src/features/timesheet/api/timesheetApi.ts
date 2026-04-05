@@ -42,6 +42,19 @@ export const timesheetApi = {
   rejectEntries: (entryIds: number[], reason: string) =>
     apiClient.post('time_entries/reject_entries/', { entry_ids: entryIds, reason }),
 
+  // FR25 — Finance bulk correction
+  bulkCorrect: (corrections: Array<{ entry_id: number; hours: number; reason?: string }>) =>
+    apiClient.post('time_entries/bulk_correct/', { corrections }),
+
+  // FR27d — Transfer hours between projects/tasks
+  transferHours: (entryIds: number[], targetProject: number, targetTask?: number, reason?: string) =>
+    apiClient.post('time_entries/transfer_hours/', {
+      entry_ids: entryIds,
+      target_project: targetProject,
+      target_task: targetTask || null,
+      reason: reason || 'Transfert d\'heures',
+    }),
+
   // Period unlocks
   listUnlocks: () => apiClient.get('period_unlocks/'),
   createUnlock: (data: Record<string, unknown>) => apiClient.post('period_unlocks/', data),

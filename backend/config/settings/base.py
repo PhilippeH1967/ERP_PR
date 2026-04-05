@@ -286,9 +286,17 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 300  # 5 minutes
 CELERY_BEAT_SCHEDULE = {
-    "send-timesheet-reminders": {
+    "send-timesheet-reminders-wed": {
         "task": "apps.time_entries.tasks.send_timesheet_reminders",
-        "schedule": crontab(hour=17, minute=0, day_of_week="thu"),
+        "schedule": crontab(hour=17, minute=0, day_of_week="wed"),
+    },
+    "send-timesheet-reminders-fri": {
+        "task": "apps.time_entries.tasks.send_timesheet_reminders",
+        "schedule": crontab(hour=12, minute=0, day_of_week="fri"),
+    },
+    "escalate-missing-timesheets": {
+        "task": "apps.time_entries.tasks.escalate_missing_timesheets",
+        "schedule": crontab(hour=17, minute=0, day_of_week="fri"),
     },
     "expire-delegations": {
         "task": "apps.core.tasks.expire_delegations",
