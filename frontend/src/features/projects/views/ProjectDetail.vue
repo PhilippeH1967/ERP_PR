@@ -752,9 +752,17 @@ watch(activeTab, (tab) => {
         </div>
 
         <!-- Phases summary table (E-27) -->
-        <div v-if="store.currentProject.phases?.length" class="card-table" style="margin-top: 12px;">
+        <div v-if="store.currentProject.phases?.length" style="margin-top: 12px;">
           <table class="data-table">
-            <thead><tr><th>Phase</th><th>Type</th><th>Mode</th><th class="text-right">Heures</th><th class="text-right">Budget ($)</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Phase</th>
+                <th style="width:120px;">Type</th>
+                <th style="width:100px;">Mode</th>
+                <th class="text-right" style="width:100px;">Heures</th>
+                <th class="text-right" style="width:120px;">Budget ($)</th>
+              </tr>
+            </thead>
             <tbody>
               <tr v-for="phase in store.currentProject.phases" :key="phase.id">
                 <td class="font-semibold">{{ phase.name }}</td>
@@ -954,28 +962,32 @@ watch(activeTab, (tab) => {
 
     <!-- ═══ Team ═══ -->
     <template v-if="activeTab === 'team'">
-      <div class="card-table" v-if="assignments.length">
-        <table>
-          <thead><tr><th>Employé</th><th>Phase</th><th class="text-right">%</th><th>Période</th><th></th></tr></thead>
-          <tbody>
-            <tr v-for="a in assignments" :key="a.id">
-              <td class="font-semibold">{{ a.employee_name || `Employé #${a.employee}` }}</td>
-              <td class="text-muted">{{ a.phase ? (a.phase_name || `Phase #${a.phase}`) : 'Global' }}</td>
-              <td class="text-right"><span class="badge badge-blue">{{ a.percentage }}%</span></td>
-              <td class="text-muted">{{ a.start_date || '—' }} → {{ a.end_date || '...' }}</td>
-              <td class="text-right">
-                <template v-if="isEditing">
-                  <template v-if="confirmDeleteAssignment === a.id">
-                    <button class="btn-action danger" @click="deleteAssignment(a.id)">Confirmer</button>
-                    <button class="btn-action" @click="confirmDeleteAssignment = null">Annuler</button>
-                  </template>
-                  <button v-else class="btn-action danger" @click="confirmDeleteAssignment = a.id">Retirer...</button>
-                </template>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <table v-if="assignments.length" class="data-table">
+        <thead>
+          <tr>
+            <th>Employé</th>
+            <th>Phase</th>
+            <th class="text-right" style="width:80px;">%</th>
+            <th>Période</th>
+            <th v-if="isEditing" style="width:120px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="a in assignments" :key="a.id">
+            <td class="font-semibold">{{ a.employee_name || `Employé #${a.employee}` }}</td>
+            <td>{{ a.phase ? (a.phase_name || `Phase #${a.phase}`) : 'Global' }}</td>
+            <td class="text-right"><span class="badge badge-blue">{{ a.percentage }}%</span></td>
+            <td>{{ a.start_date || '—' }} → {{ a.end_date || '...' }}</td>
+            <td v-if="isEditing" class="text-right">
+              <template v-if="confirmDeleteAssignment === a.id">
+                <button class="btn-action danger" @click="deleteAssignment(a.id)">Confirmer</button>
+                <button class="btn-action" @click="confirmDeleteAssignment = null">Annuler</button>
+              </template>
+              <button v-else class="btn-action danger" @click="confirmDeleteAssignment = a.id">Retirer...</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
       <div v-else class="card empty-card">Aucune affectation — utilisez "Affecter" dans l'onglet Phases</div>
     </template>
 
@@ -992,20 +1004,20 @@ watch(activeTab, (tab) => {
       <table v-else class="data-table">
         <thead>
           <tr>
-            <th>Employé</th>
-            <th>Date</th>
-            <th>Phase</th>
-            <th>Tâche</th>
-            <th class="text-right">Heures</th>
-            <th>Statut</th>
+            <th style="width:18%;">Employé</th>
+            <th style="width:12%;">Date</th>
+            <th style="width:20%;">Phase</th>
+            <th style="width:25%;">Tâche</th>
+            <th class="text-right" style="width:10%;">Heures</th>
+            <th style="width:15%;">Statut</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="entry in projectTimeEntries" :key="entry.id">
             <td class="font-semibold">{{ entry.user_name || '—' }}</td>
-            <td class="text-muted">{{ entry.date }}</td>
-            <td class="text-muted">{{ entry.phase_name || '—' }}</td>
-            <td class="text-muted">{{ entry.task_name || '—' }}</td>
+            <td>{{ entry.date }}</td>
+            <td>{{ entry.phase_name || '—' }}</td>
+            <td>{{ entry.task_name || '—' }}</td>
             <td class="text-right font-mono">{{ Number(entry.hours).toFixed(1) }}</td>
             <td>
               <span class="badge" :class="entry.status === 'APPROVED' ? 'badge-green' : entry.status === 'SUBMITTED' ? 'badge-amber' : 'badge-gray'">
@@ -1469,15 +1481,17 @@ watch(activeTab, (tab) => {
 .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .info-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 16px; }
 .info-card h3 { font-size: 11px; font-weight: 600; color: var(--color-gray-400); text-transform: uppercase; margin-bottom: 12px; }
-.info-pairs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
+.info-pairs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; font-size: 13px; }
 .info-pairs.single { grid-template-columns: 1fr; }
-.info-pairs span { color: var(--color-gray-500); font-size: 11px; } .info-pairs p { font-weight: 600; margin-top: 1px; }
+.info-pairs > div { min-width: 0; overflow: hidden; }
+.info-pairs span { display: block; color: var(--color-gray-500); font-size: 11px; margin-bottom: 2px; }
+.info-pairs p { font-weight: 600; margin: 0; word-wrap: break-word; }
 
 .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 12px; }
 .card-table { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
 .empty { text-align: center; padding: 24px; color: var(--color-gray-400); } .empty-card { text-align: center; color: var(--color-gray-400); font-size: 13px; }
 
-.text-right { text-align: right; } .text-muted { color: var(--color-gray-500); font-size: 12px; }
+.text-right { text-align: right !important; } .text-muted { color: var(--color-gray-500); font-size: 12px; }
 .font-mono { font-family: var(--font-mono); font-size: 12px; } .font-semibold { font-weight: 600; }
 .actions-cell { white-space: nowrap; }
 .btn-action { background: none; border: none; font-size: 11px; cursor: pointer; color: var(--color-primary); padding: 2px 6px; font-weight: 600; }
@@ -1546,8 +1560,8 @@ watch(activeTab, (tab) => {
 
 /* Data table */
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.data-table thead th { padding: 8px 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--color-gray-500); background: var(--color-gray-50); border-bottom: 2px solid var(--color-gray-200); text-align: left; }
-.data-table tbody td { padding: 8px 12px; border-bottom: 1px solid var(--color-gray-100); }
+.data-table thead th { padding: 8px 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--color-gray-500); background: var(--color-gray-50); border-bottom: 2px solid var(--color-gray-200); text-align: left; white-space: nowrap; }
+.data-table tbody td { padding: 8px 12px; border-bottom: 1px solid var(--color-gray-100); text-align: left; vertical-align: middle; }
 .data-table tbody tr:hover { background: var(--color-gray-50); }
 .data-table tfoot td { padding: 8px 12px; background: var(--color-gray-50); border-top: 2px solid var(--color-gray-200); }
 .font-semibold { font-weight: 600; }
