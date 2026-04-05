@@ -341,6 +341,8 @@ const collapsedPhases = ref<Set<string>>(new Set())
 const confirmDeleteTask = ref<number | null>(null)
 const showAddTaskPhase = ref<number | null>(null)
 const newTaskName = ref('')
+const showAddSubtask = ref<number | null>(null)
+const newSubtaskName = ref('')
 
 const tasksByPhase = computed(() => {
   const grouped: Record<string, { phase_name: string; phase_id: number | null; tasks: TaskItem[] }> = {}
@@ -388,6 +390,30 @@ async function addTask(phaseId: number | null) {
     await projectApi.createTask(projectId, { phase: phaseId, name: newTaskName.value.trim(), task_type: 'TASK', billing_mode: 'FORFAIT', wbs_code })
     newTaskName.value = ''
     showAddTaskPhase.value = null
+    await loadTasks()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
+}
+
+async function addSubtask(parentTaskId: number) {
+  if (!newSubtaskName.value.trim()) return
+  const parentTask = tasks.value.find(t => t.id === parentTaskId)
+  if (!parentTask) return
+  try {
+    const existingSubs = tasks.value.filter(t => t.parent === parentTaskId)
+    const nextNum = existingSubs.length + 1
+    const wbs_code = `${parentTask.wbs_code}.${nextNum}`
+    await projectApi.createTask(projectId, {
+      phase: parentTask.phase,
+      parent: parentTaskId,
+      name: newSubtaskName.value.trim(),
+      task_type: 'SUBTASK',
+      billing_mode: parentTask.billing_mode,
+      wbs_code,
+    })
+    newSubtaskName.value = ''
+    showAddSubtask.value = null
     await loadTasks()
   } catch (e: unknown) {
     actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
@@ -950,12 +976,26 @@ watch(activeTab, (tab) => {
                   <span v-else class="badge badge-gray">Non fact.</span>
                 </td>
                 <td v-if="isEditing" class="actions-cell">
+                  <button v-if="task.task_type !== 'SUBTASK'" class="btn-action" @click="showAddSubtask = task.id; newSubtaskName = ''">+ ST</button>
                   <template v-if="confirmDeleteTask === task.id">
                     <button class="btn-action danger" @click="removeTask(task.id)">Confirmer</button>
                     <button class="btn-action" @click="confirmDeleteTask = null">Annuler</button>
                   </template>
                   <button v-else class="btn-action danger" @click="confirmDeleteTask = task.id">Supprimer...</button>
                 </td>
+              </tr>
+              <!-- Inline subtask form -->
+              <tr v-if="showAddSubtask === task.id && isEditing" class="subtask-add-row">
+                <td></td>
+                <td colspan="5">
+                  <div class="flex items-center gap-2" style="padding:4px 0;">
+                    <span class="subtask-indent"></span>
+                    <input v-model="newSubtaskName" class="inline-input" style="flex:1;" placeholder="Nom de la sous-tâche" @keydown.enter="addSubtask(task.id)" />
+                    <button class="btn-primary btn-sm" @click="addSubtask(task.id)">Ajouter</button>
+                    <button class="btn-ghost btn-sm" @click="showAddSubtask = null">Annuler</button>
+                  </div>
+                </td>
+                <td v-if="isEditing"></td>
               </tr>
             </tbody>
           </table>
@@ -1598,6 +1638,7 @@ watch(activeTab, (tab) => {
   background: white; border: 1px solid var(--color-gray-200); border-bottom: none;
 }
 .task-add-row .inline-input { flex: 1; }
+.subtask-add-row td { background: var(--color-gray-50); padding: 4px 10px !important; }
 
 /* Budget phase group row */
 .budget-phase-row td {

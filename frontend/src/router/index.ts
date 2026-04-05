@@ -54,6 +54,11 @@ const router = createRouter({
           component: () => import('@/features/projects/views/ProjectCreate.vue'),
         },
         {
+          path: 'projects/transfer',
+          name: 'project-transfer',
+          component: () => import('@/features/projects/views/ProjectTransfer.vue'),
+        },
+        {
           path: 'projects/:id',
           name: 'project-detail',
           component: () => import('@/features/projects/views/ProjectDetail.vue'),

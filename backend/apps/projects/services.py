@@ -48,11 +48,31 @@ def create_project_from_template(template_id, project_data, tenant_id=None):
         "invoice_approver", "invoice_approver_id",
     ]
 
+    # Normalize FK fields: convert "client": 5 → "client_id": 5
+    fk_fields = {
+        "client": "client_id",
+        "pm": "pm_id",
+        "associate_in_charge": "associate_in_charge_id",
+        "invoice_approver": "invoice_approver_id",
+        "consortium": "consortium_id",
+    }
+    cleaned = {}
+    for k, v in project_data.items():
+        if k not in project_fields or v is None:
+            continue
+        # If it's a FK shortcut (e.g. "client": 5), convert to "client_id": 5
+        if k in fk_fields and isinstance(v, (int, str)):
+            cleaned[fk_fields[k]] = int(v)
+        elif k.endswith("_id"):
+            cleaned[k] = int(v) if isinstance(v, str) else v
+        else:
+            cleaned[k] = v
+
     project = Project.objects.create(
         tenant=tenant,
         template=template,
         contract_type=template.contract_type,
-        **{k: v for k, v in project_data.items() if k in project_fields and v is not None},
+        **cleaned,
     )
 
     # Create phases and tasks from template
