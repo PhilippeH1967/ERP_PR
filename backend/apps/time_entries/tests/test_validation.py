@@ -97,6 +97,10 @@ class TestApprovalWorkflow:
         self.employee = User.objects.create_user(username="wf_emp", password="pass123!")
         self.pm = User.objects.create_user(username="wf_pm", password="pass123!")
         self.finance = User.objects.create_user(username="wf_fin", password="pass123!")
+        # Give roles so they can see approvals
+        from apps.core.models import ProjectRole, Role
+        ProjectRole.objects.create(user=self.pm, tenant=self.tenant, role=Role.PM)
+        ProjectRole.objects.create(user=self.finance, tenant=self.tenant, role=Role.FINANCE)
         self.approval = WeeklyApproval.objects.create(
             tenant=self.tenant, employee=self.employee,
             week_start=date(2026, 3, 16), week_end=date(2026, 3, 22),

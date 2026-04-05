@@ -66,6 +66,9 @@ class TestApprovalAPI:
         self.tenant = Tenant.objects.create(name="Appr", slug="appr-api")
         self.employee = User.objects.create_user(username="emp_a", password="pass123!")
         self.pm = User.objects.create_user(username="pm_a", password="pass123!")
+        # Give PM role so they can see all approvals
+        from apps.core.models import ProjectRole, Role
+        ProjectRole.objects.create(user=self.pm, tenant=self.tenant, role=Role.PM)
         self.approval = WeeklyApproval.objects.create(
             tenant=self.tenant, employee=self.employee,
             week_start=date(2026, 3, 16), week_end=date(2026, 3, 22),
