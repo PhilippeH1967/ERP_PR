@@ -13,6 +13,9 @@ class TestProjectAPI:
     def setup_method(self):
         self.tenant = Tenant.objects.create(name="API", slug="proj-api")
         self.user = User.objects.create_user(username="proj_user", password="pass123!")
+        # Give user ADMIN role so they can see all projects
+        from apps.core.models import ProjectRole, Role
+        ProjectRole.objects.create(user=self.user, tenant=self.tenant, role=Role.ADMIN)
         self.api = APIClient()
         self.api.force_authenticate(user=self.user)
 
@@ -33,7 +36,10 @@ class TestProjectAPI:
         p = Project.objects.create(
             tenant=self.tenant, code="PRJ-R", name="Retrieve"
         )
-        response = self.api.get(f"/api/v1/projects/{p.pk}/")
+        response = self.api.get(
+            f"/api/v1/projects/{p.pk}/",
+            HTTP_X_TENANT_ID=str(self.tenant.pk),
+        )
         assert response.status_code == 200
 
     def test_search_projects(self):
@@ -49,7 +55,10 @@ class TestProjectAPI:
 
     def test_project_dashboard(self):
         p = Project.objects.create(tenant=self.tenant, code="PD", name="Dash")
-        response = self.api.get(f"/api/v1/projects/{p.pk}/dashboard/")
+        response = self.api.get(
+            f"/api/v1/projects/{p.pk}/dashboard/",
+            HTTP_X_TENANT_ID=str(self.tenant.pk),
+        )
         assert response.status_code == 200
         data = response.json()
         payload = data.get("data", data)
