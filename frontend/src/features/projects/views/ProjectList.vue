@@ -120,11 +120,13 @@ const statusColors: Record<string, string> = {
         <thead class="border-b border-border text-xs font-medium uppercase tracking-wide text-text-muted">
           <tr>
             <th class="px-4 py-3">Code</th>
-            <th class="px-4 py-3">Nom</th>
+            <th class="px-4 py-3">Projet</th>
             <th class="px-4 py-3">Client</th>
             <th class="px-4 py-3">Chef de projet</th>
             <th class="px-4 py-3">BU</th>
-            <th class="px-4 py-3">Type</th>
+            <th class="px-4 py-3">Phase active</th>
+            <th class="px-4 py-3 text-right">Budget h</th>
+            <th class="px-4 py-3 text-right">CA ($)</th>
             <th class="px-4 py-3">Statut</th>
             <th class="px-4 py-3">Santé</th>
           </tr>
@@ -152,7 +154,13 @@ const statusColors: Record<string, string> = {
               {{ project.business_unit || '—' }}
             </td>
             <td class="px-4 py-3 text-text-muted">
-              {{ project.contract_type }}
+              {{ (project as Record<string, unknown>).active_phase || '—' }}
+            </td>
+            <td class="px-4 py-3 text-right font-mono text-text-muted">
+              {{ Number((project as Record<string, unknown>).budget_hours || 0).toFixed(0) }}
+            </td>
+            <td class="px-4 py-3 text-right font-mono text-text-muted">
+              {{ Number((project as Record<string, unknown>).total_invoiced || 0).toLocaleString('fr-CA', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) }}
             </td>
             <td class="px-4 py-3">
               <span
@@ -169,7 +177,7 @@ const statusColors: Record<string, string> = {
             </td>
           </tr>
           <tr v-if="!filteredProjects.length">
-            <td colspan="8" class="px-4 py-8 text-center text-text-muted">Aucun projet trouvé</td>
+            <td colspan="11" class="px-4 py-8 text-center text-text-muted">Aucun projet trouvé</td>
           </tr>
         </tbody>
       </table>

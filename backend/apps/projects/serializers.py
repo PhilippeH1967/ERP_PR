@@ -102,6 +102,9 @@ class ProjectSerializer(CostFieldFilterMixin, OptimisticLockMixin, serializers.M
 class ProjectListSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source="client.name", read_only=True, default="")
     pm_name = serializers.SerializerMethodField()
+    active_phase = serializers.SerializerMethodField()
+    budget_hours = serializers.SerializerMethodField()
+    total_invoiced = serializers.SerializerMethodField()
 
     def get_pm_name(self, obj):
         if obj.pm:
@@ -109,12 +112,38 @@ class ProjectListSerializer(serializers.ModelSerializer):
             return name if name.strip() else obj.pm.username
         return ""
 
+    def get_active_phase(self, obj):
+        """Return the first non-locked realization phase name."""
+        phase = obj.phases.filter(
+            phase_type="REALIZATION", is_locked=False
+        ).order_by("order").first()
+        return phase.name if phase else ""
+
+    def get_budget_hours(self, obj):
+        """Sum of budgeted hours across all tasks (or phases if no tasks)."""
+        from django.db.models import Sum
+        total = obj.tasks.aggregate(s=Sum("budgeted_hours"))["s"]
+        if total:
+            return float(total)
+        total = obj.phases.aggregate(s=Sum("budgeted_hours"))["s"]
+        return float(total) if total else 0
+
+    def get_total_invoiced(self, obj):
+        """Sum of approved/sent/paid invoice amounts."""
+        from django.db.models import Sum
+        from apps.billing.models import Invoice
+        total = Invoice.objects.filter(
+            project=obj, status__in=["APPROVED", "SENT", "PAID"]
+        ).aggregate(s=Sum("total_amount"))["s"]
+        return float(total) if total else 0
+
     class Meta:
         model = Project
         fields = [
             "id", "code", "name", "client", "client_name",
             "contract_type", "status", "is_internal", "is_public", "is_consortium",
             "business_unit", "pm", "pm_name",
+            "active_phase", "budget_hours", "total_invoiced",
             "start_date", "end_date", "created_at",
         ]
 

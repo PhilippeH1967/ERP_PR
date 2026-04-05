@@ -506,7 +506,7 @@ const tabs = [
   { key: 'progress', label: 'Avancement' },
   { key: 'finance', label: 'Finance' },
   { key: 'st', label: 'Sous-traitants' },
-  { key: 'invoices', label: 'Facturation' },
+  { key: 'invoices', label: 'Factures' },
 ]
 
 const statuses = [
@@ -655,7 +655,7 @@ watch(activeTab, (tab) => {
             <div v-if="!availableStatuses.length" class="status-option" style="color:var(--color-gray-400);font-size:11px;cursor:default;">Aucune transition possible</div>
           </div>
         </div>
-        <button v-if="!isEditing && canEdit" class="btn-primary" @click="isEditing = true">Modifier</button>
+        <button v-if="!isEditing && canEdit" class="btn-primary" @click="isEditing = true">⚙️ Paramètres</button>
         <button v-if="isEditing" class="btn-ghost" @click="stopEditing">Terminer</button>
         <button v-if="isEditing" class="btn-danger btn-sm" @click="showDeleteConfirm = true">Supprimer...</button>
       </div>

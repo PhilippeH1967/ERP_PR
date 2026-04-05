@@ -108,7 +108,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ).values_list("project_id", flat=True)
             qs = qs.filter(id__in=assigned_project_ids)
 
-        return qs.select_related("client", "pm", "consortium").prefetch_related("phases", "support_services")
+        return qs.select_related("client", "pm", "consortium").prefetch_related("phases", "tasks", "support_services")
 
     def get_serializer_class(self):
         if self.action == "list":
