@@ -642,7 +642,11 @@ watch(activeTab, (tab) => {
       <div class="header-actions">
         <span v-if="store.currentProject.is_internal" class="badge-internal">Interne</span>
         <span v-if="!store.currentProject.is_public" class="badge badge-amber" style="cursor:default;">Privé</span>
-        <span v-if="store.currentProject.is_consortium" class="badge badge-blue" style="cursor:default;">Consortium</span>
+        <template v-if="store.currentProject.is_consortium">
+          <span class="badge badge-blue" style="cursor:default;">Consortium</span>
+          <span v-if="consortiumData" class="badge badge-amber" style="cursor:default;">{{ consortiumData.pr_role === 'MANDATAIRE' ? 'Mandataire' : 'Partenaire' }} — {{ (consortiumData.members.find((m: Record<string, unknown>) => m.is_pr) as Record<string, unknown>)?.coefficient || '?' }}%</span>
+          <button v-if="store.currentProject.consortium" class="btn-link" @click="router.push(`/consortiums/${store.currentProject.consortium}`)">Voir consortium →</button>
+        </template>
         <!-- Status badge (clickable only in edit mode) -->
         <div class="relative">
           <button class="badge" :class="statusColors[store.currentProject.status]" @click="isEditing && (showEditStatus = !showEditStatus)" :style="isEditing ? 'cursor:pointer' : 'cursor:default'">
@@ -1450,6 +1454,8 @@ watch(activeTab, (tab) => {
 .btn-back { background: none; border: none; font-size: 12px; color: var(--color-gray-500); cursor: pointer; padding: 0; }
 .header-actions { display: flex; align-items: center; gap: 8px; position: relative; }
 .btn-danger { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; background: var(--color-danger); color: white; }
+.btn-link { background: none; border: none; font-size: 11px; color: var(--color-primary); font-weight: 600; cursor: pointer; padding: 2px 6px; }
+.btn-link:hover { text-decoration: underline; }
 
 .badge { display: inline-flex; padding: 2px 10px; border-radius: 10px; font-size: 10px; font-weight: 600; cursor: pointer; border: none; background: var(--color-gray-100); }
 .badge-internal { display: inline-flex; padding: 2px 10px; border-radius: 10px; font-size: 10px; font-weight: 700; background: #EDE9FE; color: #7C3AED; }
