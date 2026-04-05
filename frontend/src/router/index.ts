@@ -84,6 +84,12 @@ const router = createRouter({
           name: 'consortium-edit',
           component: () => import('@/features/consortiums/views/ConsortiumForm.vue'),
         },
+        // Leaves
+        {
+          path: 'leaves',
+          name: 'leaves',
+          component: () => import('@/features/leaves/views/LeaveList.vue'),
+        },
         // Timesheets
         {
           path: 'timesheets',
