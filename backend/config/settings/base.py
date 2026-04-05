@@ -152,6 +152,7 @@ LOCAL_APPS = [
     "apps.expenses",
     "apps.dashboards",
     "apps.notifications",
+    "apps.consortiums",
     "apps.data_ops",
 ]
 

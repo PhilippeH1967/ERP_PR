@@ -10,6 +10,8 @@ export interface Project {
   is_internal: boolean
   is_public: boolean
   is_consortium: boolean
+  consortium: number | null
+  consortium_name?: string
   services_transversaux: string[]
   business_unit: string
   legal_entity: string

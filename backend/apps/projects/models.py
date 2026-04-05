@@ -90,6 +90,14 @@ class Project(TenantScopedModel, VersionedModel):
         default=False,
         help_text="Project involves a consortium of firms",
     )
+    consortium = models.ForeignKey(
+        "consortiums.Consortium",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="projects",
+        help_text="Consortium entity this project belongs to (if is_consortium=True)",
+    )
     services_transversaux = models.JSONField(
         default=list, blank=True,
         help_text="Transversal services: ['BIM', 'PAYSAGE', 'DD', 'CIVIL', 'PATRIMOINE', ...]",

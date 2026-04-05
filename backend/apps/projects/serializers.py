@@ -80,13 +80,14 @@ class ProjectSerializer(CostFieldFilterMixin, OptimisticLockMixin, serializers.M
     phases = PhaseSerializer(many=True, read_only=True)
     support_services = SupportServiceSerializer(many=True, read_only=True)
     client_name = serializers.CharField(source="client.name", read_only=True, default="")
+    consortium_name = serializers.CharField(source="consortium.name", read_only=True, default="")
 
     class Meta:
         model = Project
         fields = [
             "id", "code", "name", "client", "client_name", "template", "contract_type",
-            "status", "is_internal", "is_public", "is_consortium", "services_transversaux",
-            "business_unit", "legal_entity",
+            "status", "is_internal", "is_public", "is_consortium", "consortium", "consortium_name",
+            "services_transversaux", "business_unit", "legal_entity",
             "start_date", "end_date", "construction_cost",
             "address", "city", "postal_code", "country",
             "surface", "surface_unit", "currency", "tags", "title_on_invoice",

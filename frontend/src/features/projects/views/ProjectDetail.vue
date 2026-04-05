@@ -6,6 +6,7 @@ import { useAuth } from '@/shared/composables/useAuth'
 import apiClient from '@/plugins/axios'
 import { projectApi } from '../api/projectApi'
 import { billingApi } from '@/features/billing/api/billingApi'
+import { consortiumApi } from '@/features/consortiums/api/consortiumApi'
 import { useProjectStore } from '../stores/useProjectStore'
 import AssignmentModal from '../components/AssignmentModal.vue'
 
@@ -68,6 +69,24 @@ async function loadClientData() {
     const resp = await apiClient.get(`clients/${clientId}/`)
     clientData.value = resp.data?.data || resp.data
   } catch { clientData.value = null }
+}
+
+// Consortium data
+interface ConsortiumData {
+  id: number; name: string; client_name: string; pr_role: string;
+  contract_reference: string; status: string;
+  members: Array<{ id: number; display_name: string; coefficient: string; specialty: string; is_pr: boolean }>
+  total_coefficient: string
+}
+const consortiumData = ref<ConsortiumData | null>(null)
+
+async function loadConsortiumData() {
+  const consortiumId = store.currentProject?.consortium
+  if (!consortiumId) { consortiumData.value = null; return }
+  try {
+    const resp = await consortiumApi.get(consortiumId)
+    consortiumData.value = resp.data?.data || resp.data
+  } catch { consortiumData.value = null }
 }
 
 // ST tab
@@ -522,6 +541,7 @@ async function reload() {
   try { const r = await projectApi.listAssignments(projectId); assignments.value = r.data?.data || r.data || [] } catch { assignments.value = [] }
   try { const r = await projectApi.listAmendments(projectId); amendments.value = r.data?.data || r.data || [] } catch { amendments.value = [] }
   await loadClientData()
+  await loadConsortiumData()
   await loadTasks()
 }
 
@@ -692,6 +712,45 @@ watch(activeTab, (tab) => {
             <span v-for="svc in store.currentProject.services_transversaux" :key="svc" class="badge badge-blue">{{ svc }}</span>
           </div>
         </div>
+        <!-- Consortium section (FR59) -->
+        <div v-if="consortiumData" class="info-card" style="margin-top: 12px;">
+          <h3>Consortium — {{ consortiumData.name }}</h3>
+          <div class="info-pairs" style="margin-bottom:12px;">
+            <div><span>Client (donneur d'ouvrage)</span><p>{{ consortiumData.client_name }}</p></div>
+            <div><span>Rôle PR</span><p>{{ consortiumData.pr_role === 'MANDATAIRE' ? 'Mandataire (responsable)' : 'Partenaire' }}</p></div>
+            <div v-if="consortiumData.contract_reference"><span>Réf. contrat</span><p>{{ consortiumData.contract_reference }}</p></div>
+            <div><span>Statut</span><p><span class="badge" :class="consortiumData.status === 'ACTIVE' ? 'badge-green' : 'badge-gray'">{{ consortiumData.status === 'ACTIVE' ? 'Actif' : consortiumData.status }}</span></p></div>
+          </div>
+          <div v-if="consortiumData.members.length">
+            <h4 style="font-size:11px;font-weight:600;color:var(--color-gray-500);text-transform:uppercase;margin-bottom:8px;">Membres ({{ consortiumData.members.length }})</h4>
+            <table class="data-table" style="font-size:12px;">
+              <thead><tr><th>Membre</th><th>Spécialité</th><th class="text-right">Coefficient</th></tr></thead>
+              <tbody>
+                <tr v-for="m in consortiumData.members" :key="m.id" :class="{ 'font-semibold': m.is_pr }">
+                  <td>
+                    <span v-if="m.is_pr" class="badge badge-blue" style="font-size:9px;margin-right:4px;">PR</span>
+                    {{ m.display_name }}
+                  </td>
+                  <td class="text-muted">{{ m.specialty || '—' }}</td>
+                  <td class="text-right font-mono">{{ m.coefficient }}%</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="2" class="font-semibold">Total</td>
+                  <td class="text-right font-mono font-semibold" :class="{ danger: Number(consortiumData.total_coefficient) !== 100 }">
+                    {{ consortiumData.total_coefficient }}%
+                    <span v-if="Number(consortiumData.total_coefficient) !== 100" style="font-size:10px;color:var(--color-danger);margin-left:4px;">
+                      (doit = 100%)
+                    </span>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <p v-else class="text-muted" style="font-size:12px;">Aucun membre — ajoutez des membres au consortium</p>
+        </div>
+
         <!-- Phases summary table (E-27) -->
         <div v-if="store.currentProject.phases?.length" class="card-table" style="margin-top: 12px;">
           <table class="data-table">

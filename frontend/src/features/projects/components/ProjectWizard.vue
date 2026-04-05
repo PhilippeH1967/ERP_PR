@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProjectStore } from '../stores/useProjectStore'
+import { consortiumApi } from '@/features/consortiums/api/consortiumApi'
 import apiClient from '@/plugins/axios'
 
 const router = useRouter()
@@ -36,8 +37,21 @@ const form = ref({
   title_on_invoice: '',
   is_public: true,
   is_consortium: false,
+  consortium_id: null as number | null,
   services_transversaux: [] as string[],
 })
+
+// Consortium data
+interface ConsortiumOption { id: number; name: string; client_name: string; pr_role: string; members_count: number }
+const allConsortiums = ref<ConsortiumOption[]>([])
+
+async function loadConsortiums() {
+  try {
+    const resp = await consortiumApi.list()
+    const data = resp.data?.data || resp.data
+    allConsortiums.value = Array.isArray(data) ? data : data?.results || []
+  } catch { allConsortiums.value = [] }
+}
 
 // Step 4: Sous-traitants
 interface STEntry { name: string; specialty: string; budgeted_amount: string }
@@ -208,6 +222,7 @@ async function onSubmit() {
       title_on_invoice: form.value.title_on_invoice || '',
       is_public: form.value.is_public,
       is_consortium: form.value.is_consortium,
+      consortium: form.value.is_consortium ? form.value.consortium_id : null,
       services_transversaux: form.value.services_transversaux,
     }
     if (form.value.pm) payload.pm = Number(form.value.pm)
@@ -278,7 +293,10 @@ watch(() => form.value.template_id, (newId) => {
   }
 })
 
-onMounted(loadLookups)
+onMounted(() => {
+  loadLookups()
+  loadConsortiums()
+})
 </script>
 
 <template>
@@ -606,6 +624,32 @@ onMounted(loadLookups)
             </div>
           </div>
 
+          <!-- Consortium selection (shown when is_consortium=true) -->
+          <div v-if="form.is_consortium" class="col-span-2">
+            <label class="text-xs font-medium text-text-muted">Consortium *</label>
+            <div class="mt-1 flex items-center gap-3">
+              <select
+                v-model="form.consortium_id"
+                class="w-full rounded-md border border-border px-3 py-2 text-sm"
+              >
+                <option :value="null">— Sélectionner un consortium —</option>
+                <option v-for="c in allConsortiums" :key="c.id" :value="c.id">
+                  {{ c.name }} ({{ c.client_name }}) — {{ c.pr_role === 'MANDATAIRE' ? 'Mandataire' : 'Partenaire' }}
+                </option>
+              </select>
+              <button
+                type="button"
+                class="whitespace-nowrap text-xs font-medium text-primary hover:underline"
+                @click="router.push('/consortiums?action=new')"
+              >
+                + Créer
+              </button>
+            </div>
+            <p v-if="form.is_consortium && !allConsortiums.length" class="mt-1 text-xs text-text-muted">
+              Aucun consortium existant — créez-en un d'abord
+            </p>
+          </div>
+
           <!-- Services transversaux (E-14) -->
           <div class="col-span-2">
             <label class="text-xs font-medium text-text-muted">Services transversaux</label>
@@ -818,7 +862,7 @@ onMounted(loadLookups)
               </div>
               <div>
                 <span class="text-text-muted">Consortium:</span>
-                <span class="ml-2">{{ form.is_consortium ? 'Oui' : 'Non' }}</span>
+                <span class="ml-2">{{ form.is_consortium ? (allConsortiums.find(c => c.id === form.consortium_id)?.name || 'Oui (non assigné)') : 'Non' }}</span>
               </div>
               <div v-if="form.services_transversaux.length" class="col-span-2">
                 <span class="text-text-muted">Services transversaux:</span>
