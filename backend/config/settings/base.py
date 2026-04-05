@@ -154,6 +154,7 @@ LOCAL_APPS = [
     "apps.notifications",
     "apps.consortiums",
     "apps.leaves",
+    "apps.planning",
     "apps.data_ops",
 ]
 
