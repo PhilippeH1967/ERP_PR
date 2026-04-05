@@ -277,17 +277,24 @@ async function onSubmit() {
             <span v-else class="text-xs font-medium text-text-muted">Partenaire {{ i }}</span>
             <button type="button" class="text-xs text-danger hover:underline" @click="removeMember(i)">Retirer</button>
           </div>
-          <div class="grid grid-cols-3 gap-3">
-            <div v-if="!member.is_pr">
+          <div class="grid grid-cols-4 gap-3">
+            <div v-if="!member.is_pr" class="col-span-2">
               <label class="field-label-sm">Organisation *</label>
-              <select v-model="member.organization" class="field-input-sm">
-                <option :value="null">— Sélectionner —</option>
-                <option v-for="org in allOrgs" :key="org.id" :value="org.id">
-                  {{ org.name }} <template v-if="org.neq">({{ org.neq }})</template>
-                </option>
-              </select>
+              <div class="flex items-center gap-2">
+                <select v-model="member.organization" class="field-input-sm" style="flex:1;">
+                  <option :value="null">— Sélectionner —</option>
+                  <option v-for="org in allOrgs" :key="org.id" :value="org.id">
+                    {{ org.name }} <template v-if="org.neq">({{ org.neq }})</template>
+                  </option>
+                </select>
+                <button v-if="member.organization" type="button" class="link-btn" @click="router.push(`/suppliers/${member.organization}`)">Voir fiche</button>
+                <button type="button" class="link-btn" @click="router.push('/suppliers?action=new')">+ Créer</button>
+              </div>
+              <div v-if="member.organization" class="neq-display">
+                NEQ: {{ allOrgs.find(o => o.id === member.organization)?.neq || '—' }}
+              </div>
             </div>
-            <div v-else>
+            <div v-else class="col-span-2">
               <label class="field-label-sm">Nom</label>
               <input v-model="member.name_override" class="field-input-sm" disabled value="Provencher Roy" />
             </div>
@@ -311,6 +318,40 @@ async function onSubmit() {
           <span v-if="totalCoefficient !== 100" class="text-xs text-danger">(doit = 100%)</span>
           <span v-else class="text-xs text-success">✓ Valide</span>
         </div>
+      </div>
+
+      <!-- Section 3: Règles de partage -->
+      <div class="section-card">
+        <h2 class="section-title">Règles de partage des profits</h2>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="field-label">Niveau des règles</label>
+            <select class="field-input" disabled>
+              <option>Au niveau du consortium (défaut)</option>
+              <option>Par projet (override)</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">Type de clause</label>
+            <select class="field-input" disabled>
+              <option>Clause ferme (coefficients fixes)</option>
+              <option>Clause variable (basée sur mesures)</option>
+            </select>
+          </div>
+        </div>
+        <div class="rules-placeholder">
+          <p><strong>Clause ferme :</strong> les coefficients des membres ci-dessus définissent la répartition des profits.</p>
+          <p style="margin-top:8px;"><strong>Clause variable (MVP-2) :</strong> 3 modes de mesure (effort en heures, effort en $, coefficient contractuel) + seuil % + fréquence d'évaluation.</p>
+        </div>
+      </div>
+
+      <!-- Section 4: Projets rattachés (placeholder) -->
+      <div class="section-card">
+        <h2 class="section-title">Projets rattachés</h2>
+        <p class="text-sm text-text-muted" style="padding:8px 0;">
+          Les projets sont associés au consortium via le wizard de création de projet (checkbox "Consortium" → sélection du consortium).
+          La liste des projets rattachés sera visible après la création du consortium.
+        </p>
       </div>
 
       <!-- Actions -->
@@ -360,4 +401,8 @@ async function onSubmit() {
 
 .btn-sm-primary { padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: var(--color-primary); color: white; border: none; cursor: pointer; }
 .btn-sm-outline { padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: white; color: var(--color-primary); border: 1px solid var(--color-primary); cursor: pointer; }
+.link-btn { background: none; border: none; font-size: 10px; color: var(--color-primary); font-weight: 600; cursor: pointer; white-space: nowrap; }
+.link-btn:hover { text-decoration: underline; }
+.neq-display { font-size: 10px; color: var(--color-gray-500); margin-top: 2px; font-family: var(--font-mono); }
+.rules-placeholder { margin-top: 12px; padding: 12px; background: var(--color-gray-50); border-radius: 6px; font-size: 12px; color: var(--color-gray-600); }
 </style>
