@@ -143,10 +143,19 @@ class FinancialPhaseSerializer(serializers.ModelSerializer):
 
 
 class EmployeeAssignmentSerializer(serializers.ModelSerializer):
+    employee_name = serializers.SerializerMethodField()
+    phase_name = serializers.CharField(source="phase.name", read_only=True, default="")
+
     class Meta:
         model = EmployeeAssignment
         fields = [
-            "id", "employee", "project", "phase",
+            "id", "employee", "employee_name", "project", "phase", "phase_name",
             "percentage", "start_date", "end_date",
         ]
-        read_only_fields = ["id", "project"]
+        read_only_fields = ["id", "project", "employee_name", "phase_name"]
+
+    def get_employee_name(self, obj):
+        if obj.employee:
+            name = obj.employee.get_full_name()
+            return name if name.strip() else obj.employee.username
+        return ""

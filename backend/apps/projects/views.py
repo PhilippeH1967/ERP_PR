@@ -91,6 +91,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
         qs = Project.objects.all()
         if hasattr(self.request, "tenant_id") and self.request.tenant_id:
             qs = qs.filter(tenant_id=self.request.tenant_id)
+
+        # BUG-008: EMPLOYEE role should only see projects they are assigned to
+        from apps.core.models import ProjectRole, Role
+
+        user_roles = set(
+            ProjectRole.objects.filter(user=self.request.user).values_list("role", flat=True)
+        )
+        privileged = {
+            Role.ADMIN, Role.FINANCE, Role.PM, Role.PROJECT_DIRECTOR,
+            Role.BU_DIRECTOR, Role.DEPT_ASSISTANT, Role.PAIE,
+        }
+        if not user_roles & privileged:
+            assigned_project_ids = EmployeeAssignment.objects.filter(
+                employee=self.request.user
+            ).values_list("project_id", flat=True)
+            qs = qs.filter(id__in=assigned_project_ids)
+
         return qs.select_related("client").prefetch_related("phases", "support_services")
 
     def get_serializer_class(self):
@@ -213,6 +230,15 @@ class PhaseViewSet(viewsets.ModelViewSet):
         project = Project.objects.get(pk=self.kwargs["project_pk"])
         serializer.save(project=project, tenant=project.tenant)
 
+    def perform_destroy(self, instance):
+        if instance.is_mandatory:
+            from rest_framework.exceptions import ValidationError
+
+            raise ValidationError(
+                {"error": {"code": "MANDATORY_PHASE", "message": "Cette phase est obligatoire et ne peut pas être supprimée.", "details": []}}
+            )
+        instance.delete()
+
 
 class WBSElementViewSet(viewsets.ModelViewSet):
     """CRUD for WBS elements with hierarchy."""
@@ -255,7 +281,9 @@ class EmployeeAssignmentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return EmployeeAssignment.objects.filter(project_id=self.kwargs["project_pk"])
+        return EmployeeAssignment.objects.filter(
+            project_id=self.kwargs["project_pk"]
+        ).select_related("employee", "phase")
 
     def perform_create(self, serializer):
         project = Project.objects.get(pk=self.kwargs["project_pk"])

@@ -27,7 +27,7 @@ const confirmDeleteAmendment = ref<number | null>(null)
 
 interface DashboardData { hours_consumed: string; budget_hours: string; budget_utilization_percent: number; health: 'green' | 'yellow' | 'red' }
 interface WBSNode { id: number; standard_label: string; client_facing_label: string; element_type: string; budgeted_hours: string; children: WBSNode[] }
-interface Assignment { id: number; employee: number; phase: number | null; percentage: string; start_date: string | null; end_date: string | null }
+interface Assignment { id: number; employee: number; employee_name: string; phase: number | null; phase_name: string; percentage: string; start_date: string | null; end_date: string | null }
 interface Amendment { id: number; amendment_number: number; description: string; status: string; budget_impact: string; created_at: string }
 
 const dashboard = ref<DashboardData | null>(null)
@@ -87,6 +87,7 @@ async function loadProjectInvoices() {
 
 const stStatusLabels: Record<string, string> = { received: 'Reçue', authorized: 'Autorisée', paid: 'Payée', disputed: 'En litige', credited: 'Créditée' }
 const stStatusColors: Record<string, string> = { received: 'badge-amber', authorized: 'badge-blue', paid: 'badge-green', disputed: 'badge-red', credited: 'badge-gray' }
+const amendmentStatusLabels: Record<string, string> = { DRAFT: 'Brouillon', SUBMITTED: 'Soumis', APPROVED: 'Approuvé', REJECTED: 'Rejeté' }
 const invStatusLabels: Record<string, string> = { DRAFT: 'Brouillon', SUBMITTED: 'Soumise', APPROVED: 'Approuvée', SENT: 'Envoyée', PAID: 'Payée' }
 const invStatusColors: Record<string, string> = { DRAFT: 'badge-gray', SUBMITTED: 'badge-blue', APPROVED: 'badge-green', SENT: 'badge-amber', PAID: 'badge-green-solid' }
 
@@ -460,6 +461,20 @@ const statuses = [
   { value: 'CANCELLED', label: 'Annulé', color: 'badge-red' },
 ]
 
+// BUG-UX-001: Only show valid status transitions
+const validTransitions: Record<string, string[]> = {
+  'ACTIVE': ['ON_HOLD', 'COMPLETED', 'CANCELLED'],
+  'ON_HOLD': ['ACTIVE', 'CANCELLED'],
+  'COMPLETED': [],
+  'CANCELLED': [],
+}
+
+const availableStatuses = computed(() => {
+  const current = store.currentProject?.status || ''
+  const allowed = validTransitions[current] || []
+  return statuses.filter(s => allowed.includes(s.value))
+})
+
 const statusColors: Record<string, string> = { ACTIVE: 'badge-green', ON_HOLD: 'badge-amber', COMPLETED: 'badge-gray', CANCELLED: 'badge-red' }
 
 async function reload() {
@@ -553,8 +568,8 @@ watch(activeTab, (tab) => {
   if (tab === 'tasks' && !tasks.value.length) loadTasks()
   if (tab === 'progress' && !tasks.value.length) loadTasks()
   if (tab === 'budget') initHonoraires()
-  if (tab === 'st' && !stInvoices.value.length) loadSTInvoices()
-  if (tab === 'invoices' && !projectInvoices.value.length) loadProjectInvoices()
+  if (tab === 'st') loadSTInvoices()
+  if (tab === 'invoices') loadProjectInvoices()
 })
 </script>
 
@@ -574,9 +589,10 @@ watch(activeTab, (tab) => {
             {{ statuses.find(s => s.value === store.currentProject?.status)?.label || store.currentProject.status }} <span v-if="isEditing">&#x25BE;</span>
           </button>
           <div v-if="showEditStatus && isEditing" class="status-dropdown">
-            <button v-for="s in statuses" :key="s.value" class="status-option" :class="{ active: s.value === store.currentProject.status }" @click="changeStatus(s.value)">
+            <button v-for="s in availableStatuses" :key="s.value" class="status-option" @click="changeStatus(s.value)">
               <span class="badge" :class="s.color">{{ s.label }}</span>
             </button>
+            <div v-if="!availableStatuses.length" class="status-option" style="color:var(--color-gray-400);font-size:11px;cursor:default;">Aucune transition possible</div>
           </div>
         </div>
         <button v-if="!isEditing && canEdit" class="btn-primary" @click="isEditing = true">Modifier</button>
@@ -693,11 +709,16 @@ watch(activeTab, (tab) => {
                   <template v-if="isEditing">
                     <button class="btn-action" @click="startEditPhase(phase)">Modifier</button>
                     <button class="btn-action" @click="openAssignModal(phase.id, phase.name)">Affecter</button>
-                    <template v-if="confirmDeletePhase === phase.id">
-                      <button class="btn-action danger" @click="deletePhase(phase.id)">Confirmer</button>
-                      <button class="btn-action" @click="confirmDeletePhase = null">Annuler</button>
+                    <template v-if="phase.is_mandatory">
+                      <span class="badge badge-amber" style="font-size:9px;cursor:default;">&#x1F512; Obligatoire</span>
                     </template>
-                    <button v-else class="btn-action danger" @click="confirmDeletePhase = phase.id">Supprimer...</button>
+                    <template v-else>
+                      <template v-if="confirmDeletePhase === phase.id">
+                        <button class="btn-action danger" @click="deletePhase(phase.id)">Confirmer</button>
+                        <button class="btn-action" @click="confirmDeletePhase = null">Annuler</button>
+                      </template>
+                      <button v-else class="btn-action danger" @click="confirmDeletePhase = phase.id">Supprimer...</button>
+                    </template>
                   </template>
                 </td>
               </template>
@@ -801,8 +822,8 @@ watch(activeTab, (tab) => {
           <thead><tr><th>Employé</th><th>Phase</th><th class="text-right">%</th><th>Période</th><th></th></tr></thead>
           <tbody>
             <tr v-for="a in assignments" :key="a.id">
-              <td class="font-semibold">Employé #{{ a.employee }}</td>
-              <td class="text-muted">{{ a.phase ? `Phase #${a.phase}` : 'Global' }}</td>
+              <td class="font-semibold">{{ a.employee_name || `Employé #${a.employee}` }}</td>
+              <td class="text-muted">{{ a.phase ? (a.phase_name || `Phase #${a.phase}`) : 'Global' }}</td>
               <td class="text-right"><span class="badge badge-blue">{{ a.percentage }}%</span></td>
               <td class="text-muted">{{ a.start_date || '—' }} → {{ a.end_date || '...' }}</td>
               <td class="text-right">
@@ -862,7 +883,7 @@ watch(activeTab, (tab) => {
                 <td class="font-mono font-semibold">#{{ am.amendment_number }}</td>
                 <td>{{ am.description }}</td>
                 <td class="text-right font-mono">{{ fmt.currency(am.budget_impact) }}</td>
-                <td><span class="badge" :class="am.status === 'APPROVED' ? 'badge-green' : am.status === 'SUBMITTED' ? 'badge-amber' : 'badge-gray'">{{ am.status }}</span></td>
+                <td><span class="badge" :class="am.status === 'APPROVED' ? 'badge-green' : am.status === 'SUBMITTED' ? 'badge-amber' : am.status === 'REJECTED' ? 'badge-red' : 'badge-gray'">{{ amendmentStatusLabels[am.status] || am.status }}</span></td>
                 <td class="text-muted">{{ am.created_at?.substring(0, 10) }}</td>
                 <td class="text-right">
                   <template v-if="isEditing">

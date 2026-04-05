@@ -17,6 +17,9 @@ class TestTenantIsolationAPI:
         self.tenant_a = Tenant.objects.create(name="Tenant A", slug="tenant-a-iso")
         self.tenant_b = Tenant.objects.create(name="Tenant B", slug="tenant-b-iso")
         self.user = User.objects.create_user(username="iso_user", password="pass123!")
+        # Give user ADMIN role so they can see all projects
+        from apps.core.models import ProjectRole, Role
+        ProjectRole.objects.create(user=self.user, tenant=self.tenant_a, role=Role.ADMIN)
         self.api = APIClient()
         self.api.force_authenticate(user=self.user)
 

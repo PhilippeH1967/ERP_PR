@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuth } from '@/shared/composables/useAuth'
 import { useProjectStore } from '../stores/useProjectStore'
 
 const router = useRouter()
 const store = useProjectStore()
+const { currentUser } = useAuth()
 const search = ref('')
+
+const canCreateProject = computed(() => {
+  const roles = currentUser.value?.roles || []
+  return roles.includes('ADMIN') || roles.includes('FINANCE') || roles.includes('PM') || roles.includes('PROJECT_DIRECTOR') || roles.includes('DEPT_ASSISTANT')
+})
 
 const filteredProjects = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -34,6 +41,7 @@ const statusColors: Record<string, string> = {
         Projets
       </h1>
       <button
+        v-if="canCreateProject"
         class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
         @click="router.push('/projects/new')"
       >
