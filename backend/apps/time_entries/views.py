@@ -880,8 +880,13 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def approve_finance(self, request, pk=None):
-        """Finance second-level approval."""
+        """Finance second-level approval — requires PM approval first."""
         approval = self.get_object()
+        if approval.pm_status != "APPROVED":
+            return Response(
+                {"error": {"code": "PM_NOT_APPROVED", "message": "L'approbation PM est requise avant l'approbation Finance", "details": []}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if not cannot_approve_own(request.user, approval.employee_id):
             err = {
                 "code": "SELF_APPROVAL",

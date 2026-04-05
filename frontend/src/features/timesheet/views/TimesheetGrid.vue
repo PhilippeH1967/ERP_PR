@@ -178,8 +178,18 @@ function canDeleteRow(row: { entries: Record<string, { status: string } | null>;
 }
 
 const deletingRow = ref(false)
+const confirmDeleteRow = ref<string | null>(null)
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleRemoveRow(row: any) {
+  // First click: show confirmation
+  const rowKey = `${row.project_id}-${row.task_id || row.phase_id}`
+  if (confirmDeleteRow.value !== rowKey) {
+    confirmDeleteRow.value = rowKey
+    return
+  }
+  // Second click: confirmed
+  confirmDeleteRow.value = null
   if (deletingRow.value) return
   deletingRow.value = true
   try {
@@ -462,13 +472,22 @@ function normClass(total: number, norm: number): string {
                   >🔒</span>
                   <span v-if="row.task_wbs_code" class="font-mono text-text-muted" style="font-size: 9px; margin-right: 4px;">{{ row.task_wbs_code }}</span>
                   <span class="text-text" style="font-size: 11px;">{{ row.task_name || row.client_label || row.phase_name }}</span>
-                  <button
-                    v-if="canDeleteRow(row)"
-                    class="ml-auto"
-                    style="color: #DC2626; font-size: 13px; font-weight: bold; cursor: pointer; padding: 2px 6px; line-height: 1;"
-                    title="Retirer cette ligne"
-                    @click="handleRemoveRow(row)"
-                  >&#10005;</button>
+                  <template v-if="canDeleteRow(row)">
+                    <button
+                      v-if="confirmDeleteRow === `${row.project_id}-${row.task_id || row.phase_id}`"
+                      class="ml-auto"
+                      style="color: white; background: #DC2626; font-size: 9px; font-weight: 600; cursor: pointer; padding: 2px 8px; border-radius: 3px; border: none;"
+                      title="Confirmer la suppression"
+                      @click="handleRemoveRow(row)"
+                    >Confirmer</button>
+                    <button
+                      v-else
+                      class="ml-auto"
+                      style="color: #DC2626; font-size: 13px; font-weight: bold; cursor: pointer; padding: 2px 6px; line-height: 1;"
+                      title="Retirer cette ligne"
+                      @click="handleRemoveRow(row)"
+                    >&#10005;</button>
+                  </template>
                 </div>
               </td>
               <TimesheetCell

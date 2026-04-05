@@ -49,8 +49,8 @@ async function onBlur() {
   if (numVal > 15) {
     localValue.value = original
     showError.value = true
-    errorMessage.value = 'Max 15h par cellule'
-    setTimeout(() => { showError.value = false; errorMessage.value = '' }, 2000)
+    errorMessage.value = 'Maximum 15h par cellule'
+    setTimeout(() => { showError.value = false; errorMessage.value = '' }, 4000)
     return
   }
 
@@ -153,11 +153,18 @@ input[type="number"] {
   transform: translateX(-50%);
   background: #DC2626;
   color: white;
-  font-size: 10px;
-  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
   border-radius: 4px;
   white-space: nowrap;
-  z-index: 100;
+  z-index: 200;
   pointer-events: none;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.4);
+  animation: tooltipFadeIn 0.15s ease;
+}
+@keyframes tooltipFadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 </style>
