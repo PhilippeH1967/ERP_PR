@@ -247,6 +247,52 @@ def upload_import(request, import_key):
             os.unlink(expected_path_local)
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def export_csv(request, export_type):
+    """Intacct Phase 1 — Export data as CSV for accounting integration."""
+    from django.http import HttpResponse
+
+    from apps.core.models import Tenant
+    from .export_service import (
+        export_expenses_csv,
+        export_invoices_csv,
+        export_payments_csv,
+        export_time_entries_csv,
+    )
+
+    tenant_id = getattr(request, "tenant_id", None)
+    if not tenant_id:
+        tenant = Tenant.objects.first()
+    else:
+        tenant = Tenant.objects.get(pk=tenant_id)
+
+    exports = {
+        "invoices": (export_invoices_csv, "export_factures.csv"),
+        "payments": (export_payments_csv, "export_paiements.csv"),
+        "expenses": (export_expenses_csv, "export_depenses.csv"),
+        "time_entries": (export_time_entries_csv, "export_feuilles_temps.csv"),
+    }
+
+    if export_type not in exports:
+        return Response(
+            {"error": {"code": "INVALID_TYPE", "message": f"Types valides: {', '.join(exports.keys())}"}},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    func, filename = exports[export_type]
+    if export_type == "time_entries":
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
+        csv_content = func(tenant, month=int(month) if month else None, year=int(year) if year else None)
+    else:
+        csv_content = func(tenant)
+
+    response = HttpResponse(csv_content, content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
 def _import_st_invoices(filepath, tenant):
     """Import ST invoices from Excel template."""
     import openpyxl

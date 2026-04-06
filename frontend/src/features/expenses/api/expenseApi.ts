@@ -13,6 +13,14 @@ export const expenseApi = {
     apiClient.patch(`expense_reports/${reportId}/lines/${lineId}/`, data),
   deleteLine: (reportId: number, lineId: number) =>
     apiClient.delete(`expense_reports/${reportId}/lines/${lineId}/`),
+  // Workflow actions
+  submit: (id: number) => apiClient.post(`expense_reports/${id}/submit/`),
+  approvePM: (id: number) => apiClient.post(`expense_reports/${id}/approve_pm/`),
+  approveFinance: (id: number) => apiClient.post(`expense_reports/${id}/approve_finance/`),
+  markPaid: (id: number) => apiClient.post(`expense_reports/${id}/mark_paid/`),
+  reject: (id: number) => apiClient.post(`expense_reports/${id}/reject/`),
+  reverse: (id: number) => apiClient.post(`expense_reports/${id}/reverse/`),
+
   listCategories: () => apiClient.get('expense_categories/'),
   uploadReceipt: (reportId: number, file: File) => {
     const formData = new FormData()

@@ -91,6 +91,36 @@ class ExpenseReportViewSet(viewsets.ModelViewSet):
         """Reverse a paid expense report."""
         return self._transition(request, pk, ["PAID"], "REVERSED")
 
+    @action(detail=True, methods=["post"], url_path="upload_receipt")
+    def upload_receipt(self, request, pk=None):
+        """Upload receipt file for an expense line."""
+        import os
+        from django.conf import settings
+
+        report = self.get_object()
+        receipt = request.FILES.get("receipt")
+        line_id = request.data.get("line_id")
+        if not receipt:
+            return Response(
+                {"error": {"code": "NO_FILE", "message": "Fichier reçu manquant"}},
+                status=400,
+            )
+        # Save file
+        upload_dir = os.path.join(settings.MEDIA_ROOT, "receipts", str(report.pk))
+        os.makedirs(upload_dir, exist_ok=True)
+        file_path = os.path.join(upload_dir, receipt.name)
+        with open(file_path, "wb+") as f:
+            for chunk in receipt.chunks():
+                f.write(chunk)
+
+        relative_path = f"receipts/{report.pk}/{receipt.name}"
+
+        # Update line if specified
+        if line_id:
+            ExpenseLine.objects.filter(pk=line_id, report=report).update(receipt_path=relative_path)
+
+        return Response({"receipt_path": relative_path})
+
 
 class ExpenseLineViewSet(viewsets.ModelViewSet):
     serializer_class = ExpenseLineSerializer

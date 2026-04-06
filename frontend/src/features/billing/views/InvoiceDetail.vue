@@ -179,9 +179,24 @@ function pctAfter(line: { total_contract_amount: string | number; invoiced_to_da
   return contract > 0 ? Math.round((invoiced + toBill) / contract * 100) : 0
 }
 
-const taxTPS = computed(() => Math.round(subtotal.value * 0.05 * 100) / 100)
-const taxTVQ = computed(() => Math.round(subtotal.value * 0.09975 * 100) / 100)
-const totalTTC = computed(() => Math.round((subtotal.value + taxTPS.value + taxTVQ.value) * 100) / 100)
+// Dynamic taxes from API (taxes_detail JSON) — fallback to hardcoded Québec
+const taxesDetail = computed(() => {
+  const detail = (invoice.value as Record<string, unknown>)?.taxes_detail as Array<{ type: string; label: string; rate: number; amount: number }> | undefined
+  if (detail && detail.length) return detail
+  // Fallback
+  return [
+    { type: 'TPS', label: 'TPS (5%)', rate: 5, amount: Math.round(subtotal.value * 0.05 * 100) / 100 },
+    { type: 'TVQ', label: 'TVQ (9.975%)', rate: 9.975, amount: Math.round(subtotal.value * 0.09975 * 100) / 100 },
+  ]
+})
+const totalTaxes = computed(() => taxesDetail.value.reduce((s, t) => s + t.amount, 0))
+const totalTTC = computed(() => {
+  const apiTotal = Number((invoice.value as Record<string, unknown>)?.total_with_taxes || 0)
+  return apiTotal > 0 ? apiTotal : Math.round((subtotal.value + totalTaxes.value) * 100) / 100
+})
+// Backward compat
+const taxTPS = computed(() => taxesDetail.value.filter(t => ['TPS', 'GST'].includes(t.type)).reduce((s, t) => s + t.amount, 0))
+const taxTVQ = computed(() => taxesDetail.value.filter(t => ['TVQ', 'PST'].includes(t.type)).reduce((s, t) => s + t.amount, 0))
 
 async function updateLine(lineId: number, field: string, value: string, force = false) {
   lineError.value = ''
@@ -409,23 +424,13 @@ function cancelOverride() {
               <td></td>
               <td v-if="invoice.status === 'DRAFT' && isEditingLines"></td>
             </tr>
-            <tr class="row-tax">
-              <td>TPS (5%)</td>
+            <tr v-for="tax in taxesDetail" :key="tax.type" class="row-tax">
+              <td>{{ tax.label }} ({{ tax.rate }}%)</td>
               <td></td>
               <td></td>
               <td></td>
               <td></td>
-              <td class="cell-mono">{{ fmt.currency(taxTPS) }}</td>
-              <td></td>
-              <td v-if="invoice.status === 'DRAFT' && isEditingLines"></td>
-            </tr>
-            <tr class="row-tax">
-              <td>TVQ (9.975%)</td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td class="cell-mono">{{ fmt.currency(taxTVQ) }}</td>
+              <td class="cell-mono">{{ fmt.currency(tax.amount) }}</td>
               <td></td>
               <td v-if="invoice.status === 'DRAFT' && isEditingLines"></td>
             </tr>
