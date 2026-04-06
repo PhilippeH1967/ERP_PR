@@ -400,7 +400,10 @@ function normClass(total: number, norm: number): string {
           </select>
         </div>
         <div v-else-if="selectedProjectId && !availableTasks.length" style="min-width: 200px;">
-          <span class="text-xs text-text-muted">Aucune tâche — saisie au niveau projet</span>
+          <label class="text-xs font-medium text-text-muted">Tâche</label>
+          <div class="mt-1 rounded border border-warning/40 bg-warning/5 px-2 py-1.5 text-xs text-warning">
+            Aucune tâche WBS — saisie au niveau projet
+          </div>
         </div>
         <button class="btn-primary" :disabled="!selectedProjectId || store.periodLocked" @click="addTask">Ajouter</button>
         <button class="btn-ghost" @click="showAddTask = false; addTaskError = ''">Annuler</button>
