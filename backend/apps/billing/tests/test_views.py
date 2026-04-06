@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 
 from apps.billing.models import Invoice
 from apps.clients.models import Client
-from apps.core.models import Tenant
+from apps.core.models import ProjectRole, Role, Tenant
 from apps.projects.models import Project
 
 
@@ -20,6 +20,7 @@ class TestInvoiceAPI:
             client=self.client_obj,
         )
         self.user = User.objects.create_user(username="inv_user", password="pass123!")
+        ProjectRole.objects.create(user=self.user, tenant=self.tenant, role=Role.FINANCE)
         self.api = APIClient()
         self.api.force_authenticate(user=self.user)
 

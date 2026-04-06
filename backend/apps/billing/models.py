@@ -33,8 +33,18 @@ class Invoice(TenantScopedModel, VersionedModel):
         max_length=20, choices=InvoiceStatus.choices, default=InvoiceStatus.DRAFT
     )
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    tax_scheme = models.ForeignKey(
+        "core.TaxScheme", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="invoices",
+        help_text="Tax scheme used for this invoice",
+    )
     tax_tps = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tax_tvq = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    taxes_detail = models.JSONField(
+        default=list, blank=True,
+        help_text='Calculated taxes: [{"type": "TPS", "label": "TPS", "rate": 5.0, "amount": 125.00}, ...]',
+    )
+    total_with_taxes = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     submitted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name="submitted_invoices",

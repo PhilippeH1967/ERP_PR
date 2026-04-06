@@ -92,7 +92,8 @@ class InvoiceSerializer(OptimisticLockMixin, serializers.ModelSerializer):
         fields = [
             "id", "project", "project_code", "project_name",
             "client", "client_name", "invoice_number", "status",
-            "total_amount", "tax_tps", "tax_tvq",
+            "total_amount", "tax_scheme", "tax_tps", "tax_tvq",
+            "taxes_detail", "total_with_taxes",
             "submitted_by", "approved_by", "template",
             "date_created", "date_sent", "date_paid",
             "version", "lines", "created_at", "updated_at",

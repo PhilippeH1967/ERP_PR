@@ -267,12 +267,24 @@ class InvoiceViewSet(viewsets.ModelViewSet):
                 tenant=tenant,
             )
 
-        # Recalculate totals
+        # Recalculate totals with dynamic tax scheme
+        from .tax_service import calculate_taxes
         total = invoice.lines.aggregate(t=Sum("amount_to_bill"))["t"] or Decimal("0")
+        # Get tax scheme: from client or tenant default
+        tax_scheme = None
+        if project.client and hasattr(project.client, 'tax_scheme'):
+            tax_scheme = project.client.tax_scheme
+        if not tax_scheme:
+            from apps.core.models import TaxScheme
+            tax_scheme = TaxScheme.objects.filter(tenant=tenant, is_default=True).first()
+        tax_result = calculate_taxes(total, tax_scheme)
         Invoice.objects.filter(pk=invoice.pk).update(
             total_amount=total,
-            tax_tps=round(total * Decimal("0.05"), 2),
-            tax_tvq=round(total * Decimal("0.09975"), 2),
+            tax_scheme=tax_scheme,
+            tax_tps=tax_result["tax_tps"],
+            tax_tvq=tax_result["tax_tvq"],
+            taxes_detail=tax_result["taxes_detail"],
+            total_with_taxes=tax_result["total_with_taxes"],
         )
         invoice.refresh_from_db()
 
@@ -522,18 +534,24 @@ class InvoiceLineViewSet(viewsets.ModelViewSet):
         )
 
     def _recalculate_invoice_totals(self, invoice):
-        """Recalculate invoice totals and line percentages."""
+        """Recalculate invoice totals and taxes using the invoice's tax scheme."""
         from decimal import Decimal
         from django.db.models import Sum
+        from .tax_service import calculate_taxes
         # Recalculate % on each line
         for line in invoice.lines.all():
             self._recalculate_line_percentages(line)
-        # Recalculate invoice totals
+        # Recalculate invoice totals with dynamic tax scheme
         total = invoice.lines.aggregate(t=Sum("amount_to_bill"))["t"] or Decimal("0")
+        # Reload invoice to get tax_scheme FK
+        inv = Invoice.objects.select_related("tax_scheme").get(pk=invoice.pk)
+        tax_result = calculate_taxes(total, inv.tax_scheme)
         Invoice.objects.filter(pk=invoice.pk).update(
             total_amount=total,
-            tax_tps=round(total * Decimal("0.05"), 2),
-            tax_tvq=round(total * Decimal("0.09975"), 2),
+            tax_tps=tax_result["tax_tps"],
+            tax_tvq=tax_result["tax_tvq"],
+            taxes_detail=tax_result["taxes_detail"],
+            total_with_taxes=tax_result["total_with_taxes"],
         )
 
     def perform_create(self, serializer):
