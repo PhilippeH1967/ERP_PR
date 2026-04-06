@@ -1,3 +1,6 @@
+# Tests visuels (fichiers Excel locaux, pas versionnés)
+tests_visuels/
+
 # Environment
 .env
 .env.prod
