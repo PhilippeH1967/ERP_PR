@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useClientStore } from '../stores/useClientStore'
@@ -13,9 +13,17 @@ const showCreateModal = ref(false)
 
 onMounted(() => store.fetchClients())
 
-function onSearch() {
-  store.fetchClients({ search: search.value })
-}
+// Live search filtering (client-side)
+const filteredClients = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  if (!q) return store.clients
+  return store.clients.filter(
+    (c: Record<string, unknown>) =>
+      String(c.name || '').toLowerCase().includes(q) ||
+      String(c.alias || '').toLowerCase().includes(q) ||
+      String(c.sector || '').toLowerCase().includes(q),
+  )
+})
 </script>
 
 <template>
@@ -38,7 +46,6 @@ function onSearch() {
         type="text"
         placeholder="Rechercher par nom ou alias..."
         class="w-full max-w-md rounded-md border border-border px-3 py-2 text-sm"
-        @keyup.enter="onSearch"
       >
     </div>
 
@@ -62,7 +69,7 @@ function onSearch() {
         </thead>
         <tbody>
           <tr
-            v-for="client in store.clients"
+            v-for="client in filteredClients"
             :key="client.id"
             class="cursor-pointer border-b border-border last:border-0 hover:bg-surface-alt"
             @click="router.push(`/clients/${client.id}`)"

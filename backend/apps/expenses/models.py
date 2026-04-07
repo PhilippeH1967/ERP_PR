@@ -61,8 +61,8 @@ class ExpenseLine(TenantScopedModel):
     """Individual expense line item."""
 
     report = models.ForeignKey(ExpenseReport, on_delete=models.CASCADE, related_name="lines")
-    category = models.ForeignKey(ExpenseCategory, on_delete=models.PROTECT)
-    expense_date = models.DateField()
+    category = models.ForeignKey(ExpenseCategory, on_delete=models.PROTECT, null=True, blank=True)
+    expense_date = models.DateField(null=True, blank=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     description = models.TextField(blank=True, default="")
     receipt_path = models.CharField(max_length=500, blank=True, default="")

@@ -240,8 +240,26 @@ async function onSubmit() {
       project = resp
     }
     if (project?.id) {
-      // Create phases if not from template (template creates them automatically)
-      if (!form.value.template_id && phases.value.length) {
+      if (form.value.template_id) {
+        // Template creates phases — update budgets from wizard step 2
+        try {
+          const phResp = await apiClient.get(`projects/${project.id}/phases/`)
+          const createdPhases = phResp.data?.data || phResp.data || []
+          const phaseList = Array.isArray(createdPhases) ? createdPhases : createdPhases?.results || []
+          for (let i = 0; i < Math.min(phaseList.length, phases.value.length); i++) {
+            const wizardPhase = phases.value[i]
+            const hours = parseFloat(String(wizardPhase.budgeted_hours || '0'))
+            const cost = parseFloat(String(wizardPhase.budgeted_cost || '0'))
+            if (hours > 0 || cost > 0) {
+              await apiClient.patch(`projects/${project.id}/phases/${phaseList[i].id}/`, {
+                budgeted_hours: hours,
+                budgeted_cost: cost,
+              })
+            }
+          }
+        } catch { /* non-blocking */ }
+      } else if (phases.value.length) {
+        // No template — create phases manually
         for (const phase of phases.value) {
           try {
             await apiClient.post(`projects/${project.id}/phases/`, {
