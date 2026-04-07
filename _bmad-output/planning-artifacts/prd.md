@@ -860,3 +860,90 @@ Three complementary locking mechanisms protect time entry integrity:
 
 - **NFR31:** [MVP-1] Optimistic locking on all financial entities (invoices, budgets, timesheets, ST invoices, expenses). If two users edit the same record simultaneously, the second save displays a conflict warning showing the other user's changes, with options to reload or force-save. No silent overwrites
 - **NFR32:** [MVP-1] Real-time presence indicator on invoice preparation and project budget screens: "Currently being edited by [user]" with timestamp. WebSocket-based for immediate feedback
+
+---
+
+## Implementation Status (Updated 2026-04-07)
+
+### Version: v1.1.014 — Commit efd3c5e
+
+### Bloc 1 — Projets (~95% complete)
+
+| Feature | FR | Status |
+|---------|-----|--------|
+| Project CRUD + WBS Option B (Phase→Task) | FR1-FR10 | ✅ Implemented |
+| Templates (7 phases, 23 tasks) | FR1e | ✅ Implemented |
+| Project wizard 5 steps (ST, consortium) | FR1-FR10 | ✅ Implemented |
+| Client management (5-tab) | FR1 | ✅ Implemented |
+| Consortium entity + members + vue duale | FR59-FR62 | ✅ Implemented |
+| Consortium 6 onglets (overview, dual, projets, factures, distributions, taxes) | FR59-FR64 | ✅ UI complete (data placeholders for financial tabs) |
+| Sub-tasks (3 levels WBS) | FR1e | ✅ Implemented |
+| Transfer responsable (PM/Associate) | FR15d | ✅ Implemented |
+| Gantt interactif (phases, zoom, milestones) | FR1e/US-PL06 | ✅ Implemented |
+| Phase dependencies (FS/SS) | US-PL06 | ✅ Model + API |
+| Public/Privé, Services transversaux | FR10 | ✅ Implemented |
+
+### Bloc 2 — Cycle de Production (~90% complete)
+
+| Feature | FR | Status |
+|---------|-----|--------|
+| Timesheet grid by task (WBS) | FR16-FR19 | ✅ Implemented |
+| 3-level approval (PM/Finance/Paie) | FR21-FR22c | ✅ Implemented |
+| 11 payroll controls | FR27j-FR27l | ✅ Implemented |
+| Period locking (freeze + unlock) | FR27f-FR27i | ✅ Implemented |
+| Dynamic contract hours (labor_rule) | FR78 | ✅ Implemented |
+| Reminders Wed/Fri + PM escalation | FR26 | ✅ Celery tasks |
+| Retrospective corrections (Finance) | FR25 | ✅ bulk_correct API |
+| Hours transfer between projects | FR27d | ✅ transfer_hours API |
+| Leave types (7 Québec standard) | Module J | ✅ Implemented |
+| Leave request workflow + bank | Module J | ✅ Implemented |
+| Auto-create TimeEntry on leave approval | Module J | ✅ Implemented |
+| Suppliers/ST 6 entities fully exposed | FR47-FR52 | ✅ Implemented |
+| Batch authorize + disputes + holdbacks | FR47c | ✅ Implemented |
+| Resource allocation + load alerts | US-PL01/PL11 | ✅ Implemented |
+| Milestones + auto-overdue detection | US-PL07 | ✅ Implemented |
+| Availability generation (contract - leaves) | US-PL03 | ✅ Implemented |
+
+### Bloc 3 — Cycle Financier (~85% complete)
+
+| Feature | FR | Status |
+|---------|-----|--------|
+| Configurable tax schemes (6 standard) | FR83 | ✅ Implemented |
+| Dynamic tax calculation (TPS, TVQ, TVH, TVA, PST, Exonéré) | FR83 | ✅ Implemented |
+| Invoice 7-column structure | FR30 | ✅ Implemented |
+| Invoice workflow (Draft→Submit→Approve→Send→Paid) | FR30-FR35 | ✅ Implemented |
+| Credit notes, payments, holdbacks, write-offs | FR36-FR39 | ✅ Implemented |
+| Expense workflow (6 steps) + receipt upload | FR40-FR46 | ✅ Implemented |
+| 15 expense categories seeded | FR40 | ✅ Implemented |
+| Intacct Phase 1 CSV exports (4 types) | FR84 | ✅ Implemented |
+
+### Bloc 4 — Pilotage (~80% complete)
+
+| Feature | FR | Status |
+|---------|-----|--------|
+| Role-based dashboards (5 roles) | FR72 | ✅ Implemented |
+| PM KPIs (CA/salary ratio, billing rate, carnet) | FR73 | ✅ Implemented |
+| Hours reports (by project/employee/BU) | FR74 | ✅ Implemented |
+| System health metrics | FR75 | ✅ Implemented |
+| Import 13 types (6 ref + 7 transactional) | FR84/FR93 | ✅ Implemented |
+| Route guards (RBAC on frontend routes) | FR72 | ✅ Implemented |
+
+### Deferred to MVP-2
+
+| Feature | FR | Notes |
+|---------|-----|-------|
+| Intacct Phase 2-3 (bidirectional API) | FR84 | API sync not started |
+| ChangePoint full migration (10+ years) | FR84-FR85 | Command exists, reconciliation needed |
+| Service proposals lifecycle | FR53 | Not started |
+| Consortium variable profit-sharing rules | FR59b-FR59c | Model needed (3 modes, threshold, frequency) |
+| Advanced Gantt (drag-drop, critical path) | US-PL06 | Current: form-based date editing |
+| WebSocket real-time lock refresh | NFR32 | Polling only |
+| Parallel run reconciliation (ChangePoint vs ERP) | FR85b | Not started |
+| Import absences from HRIS | FR27b | Leave model ready, import handler needed |
+| Auto-expiry PeriodUnlock | FR27c | Model ready, Celery task needed |
+
+### Test Coverage
+
+- **~100 backend tests** (pytest) — all passing
+- **357 visual tests** documented in `tests_visuels/plan_tests_complet_v3.xlsx` (13 tabs)
+- Last QA report: 107 PASS, 4 FAIL (fixed), 7 PARTIAL, 33 SKIP
