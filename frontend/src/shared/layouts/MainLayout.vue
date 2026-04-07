@@ -71,6 +71,7 @@ const navSections = computed(() => {
       label: 'nav.main',
       items: [
         { name: 'nav.dashboard', path: '/dashboard', icon: '📊' },
+        { name: 'nav.reports', path: '/reports', icon: '📈' },
         { name: 'nav.timesheets', path: '/timesheets', icon: '🕐' },
         { name: 'nav.leaves', path: '/leaves', icon: '🏖️' },
         { name: 'nav.planning', path: '/planning', icon: '📅' },
