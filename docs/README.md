@@ -4,7 +4,7 @@
 
 ERP pour Provencher Roy, cabinet d'architecture de 400 employés.
 
-- **Version:** v1.1.014
+- **Version:** v1.2.000
 - **Stack:** Django 6 + DRF (backend), Vue 3 + TypeScript + Pinia (frontend), PostgreSQL 16, Docker
 - **Repository:** https://github.com/PhilippeH1967/ERP_PR
 

@@ -58,6 +58,6 @@ Fichier : `tests_visuels/plan_tests_complet_v3.xlsx`
 
 ### Dernier rapport QA
 
-Fichier : `tests_visuels/rapport_tests_ERP_v1.1.014_workflows.xlsx`
+Fichier : `tests_visuels/rapport_tests_ERP_v1.2.000_workflows.xlsx`
 
 Résultat : 107 PASS, 4 FAIL (corrigés), 7 PARTIAL, 33 SKIP (imports exclus)

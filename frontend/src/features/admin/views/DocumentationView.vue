@@ -13,7 +13,7 @@ const sections = [
   { key: 'deploy', label: 'Déploiement', icon: '🚀' },
 ]
 
-const version = 'v1.1.014'
+const version = 'v1.2.000'
 const lastUpdate = '2026-04-07'
 
 interface ApiEndpoint { method: string; path: string; desc: string }

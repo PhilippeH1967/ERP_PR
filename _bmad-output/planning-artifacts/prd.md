@@ -865,7 +865,7 @@ Three complementary locking mechanisms protect time entry integrity:
 
 ## Implementation Status (Updated 2026-04-07)
 
-### Version: v1.1.014 — Commit efd3c5e
+### Version: v1.2.000 — Commit efd3c5e
 
 ### Bloc 1 — Projets (~95% complete)
 
