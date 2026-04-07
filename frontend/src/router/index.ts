@@ -223,6 +223,11 @@ const router = createRouter({
           component: () => import('@/features/admin/views/CategoryList.vue'),
         },
         {
+          path: 'admin/roadmap',
+          name: 'admin-roadmap',
+          component: () => import('@/features/admin/views/RoadmapView.vue'),
+        },
+        {
           path: 'admin/audit',
           name: 'admin-audit',
           component: () => import('@/features/admin/views/AuditLog.vue'),

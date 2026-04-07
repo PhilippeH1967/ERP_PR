@@ -52,6 +52,14 @@ const sections = [
     route: '/admin/audit',
     ready: true,
   },
+  {
+    key: 'roadmap',
+    title: 'Roadmap & Documentation',
+    desc: 'Fonctionnalités complétées, planifiées et MVP-2',
+    icon: '🗺️',
+    route: '/admin/roadmap',
+    ready: true,
+  },
 ]
 
 function navigate(section: typeof sections[0]) {
