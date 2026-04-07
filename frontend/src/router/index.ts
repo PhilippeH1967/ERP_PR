@@ -91,6 +91,11 @@ const router = createRouter({
         },
         // Planning
         {
+          path: 'gantt/:projectId',
+          name: 'gantt',
+          component: () => import('@/features/planning/views/GanttView.vue'),
+        },
+        {
           path: 'planning',
           name: 'planning',
           component: () => import('@/features/planning/views/PlanningView.vue'),

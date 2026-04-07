@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 
-from .models import Availability, Milestone, ResourceAllocation
+from .models import Availability, Milestone, PhaseDependency, ResourceAllocation
 
 
 class ResourceAllocationSerializer(serializers.ModelSerializer):
@@ -43,6 +43,20 @@ class MilestoneSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
+
+
+class PhaseDependencySerializer(serializers.ModelSerializer):
+    predecessor_name = serializers.CharField(source="predecessor.name", read_only=True)
+    successor_name = serializers.CharField(source="successor.name", read_only=True)
+
+    class Meta:
+        model = PhaseDependency
+        fields = [
+            "id", "project", "predecessor", "predecessor_name",
+            "successor", "successor_name",
+            "dependency_type", "lag_days",
+        ]
+        read_only_fields = ["id"]
 
 
 class AvailabilitySerializer(serializers.ModelSerializer):

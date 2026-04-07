@@ -148,3 +148,49 @@ class Availability(TenantScopedModel):
 
     def __str__(self):
         return f"{self.employee.username} {self.date} — {self.capacity_hours}h"
+
+
+class DependencyType(models.TextChoices):
+    FS = "FS", "Finish-to-Start"
+    SS = "SS", "Start-to-Start"
+
+
+class PhaseDependency(TenantScopedModel):
+    """Dependency between two project phases for Gantt scheduling."""
+
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.CASCADE,
+        related_name="phase_dependencies",
+    )
+    predecessor = models.ForeignKey(
+        "projects.Phase",
+        on_delete=models.CASCADE,
+        related_name="successors",
+    )
+    successor = models.ForeignKey(
+        "projects.Phase",
+        on_delete=models.CASCADE,
+        related_name="predecessors",
+    )
+    dependency_type = models.CharField(
+        max_length=2,
+        choices=DependencyType.choices,
+        default=DependencyType.FS,
+    )
+    lag_days = models.IntegerField(
+        default=0,
+        help_text="Delay in days (can be negative)",
+    )
+
+    class Meta:
+        db_table = "planning_phase_dependency"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["predecessor", "successor"],
+                name="uq_phase_dependency",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.predecessor.name} → {self.successor.name} ({self.dependency_type})"

@@ -11,8 +11,13 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Availability, Milestone, ResourceAllocation
-from .serializers import AvailabilitySerializer, MilestoneSerializer, ResourceAllocationSerializer
+from .models import Availability, Milestone, PhaseDependency, ResourceAllocation
+from .serializers import (
+    AvailabilitySerializer,
+    MilestoneSerializer,
+    PhaseDependencySerializer,
+    ResourceAllocationSerializer,
+)
 
 
 def _get_tenant(request):
@@ -183,6 +188,100 @@ class MilestoneViewSet(viewsets.ModelViewSet):
             status="UPCOMING", date__lt=today,
         ).update(status="OVERDUE")
         return Response({"updated_to_overdue": updated})
+
+
+class PhaseDependencyViewSet(viewsets.ModelViewSet):
+    """CRUD for phase dependencies (Gantt arrows)."""
+
+    serializer_class = PhaseDependencySerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["project"]
+
+    def get_queryset(self):
+        qs = PhaseDependency.objects.all()
+        if hasattr(self.request, "tenant_id") and self.request.tenant_id:
+            qs = qs.filter(tenant_id=self.request.tenant_id)
+        return qs.select_related("predecessor", "successor")
+
+    def perform_create(self, serializer):
+        serializer.save(tenant=_get_tenant(self.request))
+
+
+class GanttViewSet(viewsets.ViewSet):
+    """Gantt chart data aggregation for a project."""
+
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=["get"])
+    def project_gantt(self, request):
+        """Return all data needed for the Gantt chart of a project.
+
+        Query params: project_id (required)
+        Returns: phases (as bars), milestones (as diamonds), dependencies (as arrows)
+        """
+        from apps.projects.models import Phase, Project
+
+        project_id = request.query_params.get("project_id")
+        if not project_id:
+            return Response({"error": {"code": "MISSING", "message": "project_id required"}}, status=400)
+
+        try:
+            project = Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return Response({"error": {"code": "NOT_FOUND", "message": "Project not found"}}, status=404)
+
+        # Phases as Gantt bars
+        phases = Phase.objects.filter(project=project).order_by("order")
+        bars = []
+        for phase in phases:
+            bars.append({
+                "id": phase.id,
+                "name": phase.name,
+                "client_label": phase.client_facing_label or phase.name,
+                "code": phase.code,
+                "type": phase.phase_type,
+                "start_date": phase.start_date.isoformat() if phase.start_date else None,
+                "end_date": phase.end_date.isoformat() if phase.end_date else None,
+                "billing_mode": phase.billing_mode,
+                "budgeted_hours": float(phase.budgeted_hours),
+                "is_mandatory": phase.is_mandatory,
+                "order": phase.order,
+            })
+
+        # Milestones
+        milestones = Milestone.objects.filter(project=project).order_by("date")
+        stones = [
+            {
+                "id": m.id,
+                "title": m.title,
+                "date": m.date.isoformat(),
+                "status": m.status,
+                "color": m.color,
+                "description": m.description,
+            }
+            for m in milestones
+        ]
+
+        # Dependencies
+        deps = PhaseDependency.objects.filter(project=project).select_related("predecessor", "successor")
+        arrows = [
+            {
+                "id": d.id,
+                "from": d.predecessor_id,
+                "to": d.successor_id,
+                "type": d.dependency_type,
+                "lag": d.lag_days,
+            }
+            for d in deps
+        ]
+
+        return Response({
+            "project": {"id": project.id, "code": project.code, "name": project.name},
+            "phases": bars,
+            "milestones": stones,
+            "dependencies": arrows,
+        })
 
 
 class AvailabilityViewSet(viewsets.ModelViewSet):

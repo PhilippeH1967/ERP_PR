@@ -9,6 +9,7 @@ import { billingApi } from '@/features/billing/api/billingApi'
 import { consortiumApi } from '@/features/consortiums/api/consortiumApi'
 import { useProjectStore } from '../stores/useProjectStore'
 import AssignmentModal from '../components/AssignmentModal.vue'
+import GanttChart from '@/features/planning/components/GanttChart.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -530,6 +531,7 @@ const tabs = [
   { key: 'amendments', label: 'Avenants' },
   { key: 'budget', label: 'Budget' },
   { key: 'progress', label: 'Avancement' },
+  { key: 'gantt', label: 'Gantt' },
   { key: 'finance', label: 'Finance' },
   { key: 'st', label: 'Sous-traitants' },
   { key: 'invoices', label: 'Factures' },
@@ -1398,6 +1400,11 @@ watch(activeTab, (tab) => {
         </table>
       </div>
       <p class="budget-hint">Les données financières seront calculées automatiquement à partir des factures et des feuilles de temps.</p>
+    </template>
+
+    <!-- ═══ Gantt (US-PL06) ═══ -->
+    <template v-if="activeTab === 'gantt'">
+      <GanttChart :project-id="projectId" />
     </template>
 
     <!-- ===== SOUS-TRAITANTS TAB ===== -->
