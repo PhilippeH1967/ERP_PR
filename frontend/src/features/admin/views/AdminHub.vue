@@ -54,10 +54,18 @@ const sections = [
   },
   {
     key: 'roadmap',
-    title: 'Roadmap & Documentation',
+    title: 'Roadmap',
     desc: 'Fonctionnalités complétées, planifiées et MVP-2',
     icon: '🗺️',
     route: '/admin/roadmap',
+    ready: true,
+  },
+  {
+    key: 'docs',
+    title: 'Documentation',
+    desc: 'Architecture, API, modules, installation, tests',
+    icon: '📖',
+    route: '/admin/docs',
     ready: true,
   },
 ]

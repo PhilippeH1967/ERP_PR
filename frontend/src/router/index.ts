@@ -228,6 +228,11 @@ const router = createRouter({
           component: () => import('@/features/admin/views/RoadmapView.vue'),
         },
         {
+          path: 'admin/docs',
+          name: 'admin-docs',
+          component: () => import('@/features/admin/views/DocumentationView.vue'),
+        },
+        {
           path: 'admin/audit',
           name: 'admin-audit',
           component: () => import('@/features/admin/views/AuditLog.vue'),
