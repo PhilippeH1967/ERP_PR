@@ -23,7 +23,8 @@ if not _secret or "insecure" in _secret:
 # Security settings — SSL is optional (set DJANGO_SECURE_SSL=true to enable)
 _use_ssl = os.environ.get("DJANGO_SECURE_SSL", "false").lower() == "true"
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https") if _use_ssl else None
-SECURE_SSL_REDIRECT = _use_ssl
+# SSL redirect handled by Nginx, not Django (avoids healthcheck issues)
+SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = _use_ssl
 CSRF_COOKIE_SECURE = _use_ssl
 SECURE_HSTS_SECONDS = 31536000 if _use_ssl else 0
