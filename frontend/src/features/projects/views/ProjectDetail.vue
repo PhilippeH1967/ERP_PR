@@ -1357,7 +1357,7 @@ watch(activeTab, (tab) => {
                 <td class="text-right font-mono font-semibold">{{ formatAmount(group.tasks.reduce((s, t) => s + Number(t.budgeted_cost || 0), 0)) }}</td>
                 <td class="text-right font-mono font-semibold">{{ group.tasks.reduce((s, t) => s + Number(t.budgeted_hours || 0), 0) }}</td>
                 <td class="text-right font-mono font-semibold">0</td>
-                <td class="text-right font-mono font-semibold">{{ (group.tasks.reduce((s, t) => s + Number((t as TaskItem & { progress_pct?: number | string }).progress_pct ?? 0), 0) / (group.tasks.length || 1)).toFixed(1) }}%</td>
+                <td class="text-right font-mono font-semibold">{{ (group.tasks.reduce((s, t) => s + Number((t as any).progress_pct ?? 0), 0) / (group.tasks.length || 1)).toFixed(1) }}%</td>
                 <td></td>
               </tr>
             </tfoot>

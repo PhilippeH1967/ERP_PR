@@ -249,7 +249,6 @@ function formatDateTime(d: string) {
 }
 
 const openWeeks = computed(() => weeks.value.filter(w => w.status !== 'locked'))
-const lockedWeeks = computed(() => weeks.value.filter(w => w.status === 'locked'))
 
 onMounted(fetchData)
 </script>
