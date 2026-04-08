@@ -20,14 +20,15 @@ _secret = os.environ.get("DJANGO_SECRET_KEY", "")
 if not _secret or "insecure" in _secret:
     raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set to a secure value in production")
 
-# Security settings
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
+# Security settings — SSL is optional (set DJANGO_SECURE_SSL=true to enable)
+_use_ssl = os.environ.get("DJANGO_SECURE_SSL", "false").lower() == "true"
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https") if _use_ssl else None
+SECURE_SSL_REDIRECT = _use_ssl
+SESSION_COOKIE_SECURE = _use_ssl
+CSRF_COOKIE_SECURE = _use_ssl
+SECURE_HSTS_SECONDS = 31536000 if _use_ssl else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = _use_ssl
+SECURE_HSTS_PRELOAD = _use_ssl
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
@@ -46,3 +47,4 @@ SENTRY_ENVIRONMENT = "production"
 
 # Static files served by Nginx
 STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"

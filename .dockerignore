@@ -1,0 +1,11 @@
+.git
+.env
+.env.production
+__pycache__
+*.pyc
+node_modules
+.vscode
+.idea
+*.egg-info
+dist
+.pytest_cache

@@ -80,6 +80,7 @@ const navSections = computed(() => {
         { name: 'nav.projects', path: '/projects', icon: '📁' },
         { name: 'nav.consortiums', path: '/consortiums', icon: '🏗️' },
         { name: 'nav.clients', path: '/clients', icon: '🤝' },
+        { name: 'nav.help', path: '/help', icon: '❓' },
       ],
     },
     {

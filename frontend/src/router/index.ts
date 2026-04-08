@@ -186,6 +186,12 @@ const router = createRouter({
           name: 'delegations',
           component: () => import('@/features/delegation/views/DelegationList.vue'),
         },
+        // Help
+        {
+          path: 'help',
+          name: 'help',
+          component: () => import('@/features/help/views/HelpView.vue'),
+        },
         // Admin
         {
           path: 'admin',
