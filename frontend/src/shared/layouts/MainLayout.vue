@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuth } from '@/shared/composables/useAuth'
 import { useLocale } from '@/shared/composables/useLocale'
+import { useSidebarMenu } from '@/shared/composables/useSidebarMenu'
 import apiClient from '@/plugins/axios'
 import { useIdleTimeout } from '@/shared/composables/useIdleTimeout'
 
 const { t } = useI18n()
 const { currentUser, logout } = useAuth()
 const { currentLocale, switchLocale, initLocale } = useLocale()
+const { sections: sidebarSections, subtitleKey } = useSidebarMenu()
 initLocale()
 
 const userMenuOpen = ref(false)
@@ -55,54 +57,8 @@ function toggleLocale() {
   switchLocale(currentLocale.value === 'fr' ? 'en' : 'fr')
 }
 
-const isUserAdmin = computed(() => currentUser.value?.roles?.includes('ADMIN'))
-const canApprove = computed(() => {
-  const roles = currentUser.value?.roles || []
-  return roles.includes('PM') || roles.includes('PROJECT_DIRECTOR') || roles.includes('FINANCE') || roles.includes('PAIE') || roles.includes('ADMIN')
-})
-const canLockPeriod = computed(() => {
-  const roles = currentUser.value?.roles || []
-  return roles.includes('FINANCE') || roles.includes('PAIE') || roles.includes('ADMIN')
-})
-
-const navSections = computed(() => {
-  const sections = [
-    {
-      label: 'nav.main',
-      items: [
-        { name: 'nav.dashboard', path: '/dashboard', icon: '📊' },
-        { name: 'nav.reports', path: '/reports', icon: '📈' },
-        { name: 'nav.timesheets', path: '/timesheets', icon: '🕐' },
-        { name: 'nav.leaves', path: '/leaves', icon: '🏖️' },
-        { name: 'nav.planning', path: '/planning', icon: '📅' },
-        ...(canApprove.value ? [{ name: 'nav.approvals', path: '/approvals', icon: '✅' }] : []),
-        ...(canLockPeriod.value ? [{ name: 'nav.periods', path: '/period-locks', icon: '🔒' }] : []),
-        { name: 'nav.projects', path: '/projects', icon: '📁' },
-        { name: 'nav.consortiums', path: '/consortiums', icon: '🏗️' },
-        { name: 'nav.clients', path: '/clients', icon: '🤝' },
-        { name: 'nav.help', path: '/help', icon: '❓' },
-      ],
-    },
-    {
-      label: 'nav.finance',
-      items: [
-        { name: 'nav.billing', path: '/billing', icon: '📄' },
-        { name: 'nav.payments', path: '/payments', icon: '💳' },
-        { name: 'nav.expenses', path: '/expenses', icon: '🧾' },
-        { name: 'nav.suppliers', path: '/suppliers', icon: '🏢' },
-      ],
-    },
-  ]
-  if (isUserAdmin.value) {
-    sections.push({
-      label: 'nav.management',
-      items: [
-        { name: 'nav.admin', path: '/admin', icon: '⚙️' },
-      ],
-    })
-  }
-  return sections
-})
+// Sidebar is now driven by useSidebarMenu (role-adaptive matrix)
+// See _bmad-output/tech-specs/tech-spec-sidebar-quick-win-2026-04-11.md
 </script>
 
 <template>
@@ -112,21 +68,21 @@ const navSections = computed(() => {
       class="flex flex-col border-r"
       style="width: 240px; min-width: 240px; background: var(--color-gray-100); border-color: var(--color-gray-200); min-height: 100vh;"
     >
-      <!-- Logo area -->
+      <!-- Logo area with contextual subtitle -->
       <div
         class="flex flex-col justify-center px-5"
         style="height: 56px; border-bottom: 1px solid var(--color-gray-200);"
       >
         <span style="font-size: 18px; font-weight: 800; color: var(--color-primary); letter-spacing: -0.5px; line-height: 1;">
           PR
-          <span style="color: var(--color-gray-400); font-weight: 400;">| ERP</span>
+          <span style="color: var(--color-gray-400); font-weight: 400;">| {{ t(subtitleKey) }}</span>
         </span>
         <span style="font-size: 9px; color: var(--color-gray-400); letter-spacing: 0.5px;">v1.2.000</span>
       </div>
 
-      <!-- Navigation -->
+      <!-- Navigation (role-adaptive via useSidebarMenu) -->
       <nav class="flex-1 overflow-y-auto py-4">
-        <template v-for="section in navSections" :key="section.label">
+        <template v-for="section in sidebarSections" :key="section.label">
           <div
             style="padding: 12px 20px 4px; font-size: 10px; font-weight: 700; color: var(--color-gray-400); text-transform: uppercase; letter-spacing: 0.5px;"
           >
@@ -134,13 +90,13 @@ const navSections = computed(() => {
           </div>
           <router-link
             v-for="item in section.items"
-            :key="item.path"
+            :key="`${section.label}-${item.key}`"
             :to="item.path"
             class="sidebar-item"
             active-class="sidebar-item-active"
           >
             <span style="width: 18px; text-align: center; font-size: 15px;">{{ item.icon }}</span>
-            <span>{{ t(item.name) }}</span>
+            <span>{{ t(item.key) }}</span>
           </router-link>
         </template>
       </nav>

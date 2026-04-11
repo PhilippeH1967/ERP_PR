@@ -1,0 +1,2317 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PR | ERP — Sidebar + Dashboards par persona (Sprint 1 + 1bis)</title>
+    <style>
+        :root {
+            --primary: #2563EB; --primary-light: #DBEAFE; --primary-dark: #1D4ED8;
+            --success: #16A34A; --success-light: #DCFCE7;
+            --warning: #D97706; --warning-light: #FEF3C7;
+            --danger: #DC2626; --danger-light: #FEE2E2;
+            --gray-50: #F9FAFB; --gray-100: #F3F4F6; --gray-200: #E5E7EB; --gray-300: #D1D5DB;
+            --gray-400: #9CA3AF; --gray-500: #6B7280; --gray-600: #4B5563; --gray-700: #374151;
+            --gray-800: #1F2937; --gray-900: #111827;
+            --radius: 8px; --radius-sm: 4px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+            --font-mono: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--gray-50); color: var(--gray-800); font-size: 14px; line-height: 1.5; }
+
+        /* TOP MOCKUP NAV */
+        .mockup-nav { background: var(--gray-900); position: sticky; top: 0; z-index: 9999; box-shadow: var(--shadow-lg); }
+        .mockup-nav-title { background: var(--primary-dark); padding: 10px 24px; font-size: 13px; font-weight: 700; color: white; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between; }
+        .mockup-nav-title small { font-weight: 400; opacity: 0.8; text-transform: none; letter-spacing: 0; }
+        .mockup-nav-groups { display: flex; overflow-x: auto; padding: 0 12px; }
+        .nav-group { display: flex; align-items: stretch; border-right: 1px solid var(--gray-700); }
+        .nav-group:last-child { border-right: none; }
+        .nav-group-wrapper { display: flex; flex-direction: column; }
+        .nav-group-label { font-size: 10px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 12px 0 12px; white-space: nowrap; }
+        .nav-group-buttons { display: flex; }
+        .nav-btn { background: none; border: none; color: var(--gray-400); padding: 10px 14px; cursor: pointer; font-size: 12px; font-weight: 500; white-space: nowrap; border-bottom: 3px solid transparent; transition: all 0.2s; }
+        .nav-btn:hover { color: white; background: rgba(255,255,255,0.05); }
+        .nav-btn.active { color: white; border-bottom-color: var(--primary); }
+
+        /* APP SHELL */
+        .app-shell { display: none; background: var(--gray-50); min-height: calc(100vh - 90px); flex-direction: column; }
+        .app-shell.active { display: flex; }
+
+        /* TOP BAR */
+        .app-topbar { background: white; border-bottom: 1px solid var(--gray-200); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; }
+        .topbar-left { display: flex; align-items: center; gap: 16px; }
+        .topbar-logo { font-size: 18px; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; }
+        .topbar-logo span { color: var(--gray-400); font-weight: 400; }
+        .topbar-search { padding: 8px 12px 8px 36px; border: 1px solid var(--gray-200); border-radius: var(--radius); font-size: 13px; width: 280px; background: var(--gray-50) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%239CA3AF' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E") no-repeat 12px center; }
+        .topbar-right { display: flex; align-items: center; gap: 16px; }
+        .topbar-bell { position: relative; width: 36px; height: 36px; border-radius: 50%; background: var(--gray-50); border: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; }
+        .topbar-bell .bell-badge { position: absolute; top: -2px; right: -2px; background: var(--danger); color: white; font-size: 10px; font-weight: 700; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .topbar-avatar { width: 36px; height: 36px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+        /* APP BODY = SIDEBAR + MAIN */
+        .app-body { display: flex; flex: 1; width: 100%; }
+        .sidebar { width: 240px; min-width: 240px; background: var(--gray-100); border-right: 1px solid var(--gray-200); padding: 16px 0; min-height: calc(100vh - 146px); }
+        .sidebar-section-label { padding: 12px 20px 4px; font-size: 10px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.5px; }
+        .sidebar-item { padding: 9px 20px 9px 28px; font-size: 14px; color: var(--gray-600); cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all 0.15s; }
+        .sidebar-item:hover { background: var(--gray-200); color: var(--gray-800); }
+        .sidebar-item.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+        .sidebar-icon { width: 18px; text-align: center; font-size: 15px; }
+
+        /* MAIN CONTENT */
+        .main-content { flex: 1; padding: 24px; overflow-x: auto; }
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .page-header h1 { font-size: 24px; font-weight: 700; }
+        .page-header .subline { font-size: 13px; color: var(--gray-500); margin-top: 2px; }
+        .breadcrumb { font-size: 13px; color: var(--gray-500); margin-bottom: 4px; }
+
+        /* CARDS */
+        .card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px; }
+        .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .card-title { font-size: 16px; font-weight: 600; }
+
+        /* KPI GRID */
+        .kpi-grid { display: grid; gap: 16px; margin-bottom: 24px; }
+        .kpi-grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .kpi-grid-4 { grid-template-columns: repeat(4, 1fr); }
+        .kpi-grid-5 { grid-template-columns: repeat(5, 1fr); }
+        .kpi-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
+        .kpi-card.accent-primary { border-left: 4px solid var(--primary); }
+        .kpi-card.accent-success { border-left: 4px solid var(--success); }
+        .kpi-card.accent-warning { border-left: 4px solid var(--warning); }
+        .kpi-card.accent-danger { border-left: 4px solid var(--danger); }
+        .kpi-card.accent-purple { border-left: 4px solid #7C3AED; }
+        .kpi-label { font-size: 11px; color: var(--gray-500); text-transform: uppercase; font-weight: 600; letter-spacing: 0.3px; margin-bottom: 4px; }
+        .kpi-value { font-size: 24px; font-weight: 700; font-family: var(--font-mono); color: var(--gray-900); }
+        .kpi-detail { font-size: 11px; color: var(--gray-500); margin-top: 4px; }
+        .kpi-trend-up { color: var(--success); font-size: 11px; font-weight: 600; }
+        .kpi-trend-down { color: var(--danger); font-size: 11px; font-weight: 600; }
+
+        /* TABLES */
+        table { width: 100%; border-collapse: collapse; }
+        table th { background: var(--gray-50); padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 2px solid var(--gray-200); }
+        table td { padding: 10px 12px; border-bottom: 1px solid var(--gray-100); font-size: 13px; }
+        table tr:hover { background: var(--gray-50); }
+        .mono { font-family: var(--font-mono); font-size: 12px; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+
+        /* BADGES */
+        .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+        .badge-green { background: var(--success-light); color: var(--success); }
+        .badge-amber { background: var(--warning-light); color: #92400E; }
+        .badge-red { background: var(--danger-light); color: var(--danger); }
+        .badge-blue { background: var(--primary-light); color: var(--primary); }
+        .badge-gray { background: var(--gray-100); color: var(--gray-500); }
+        .badge-purple { background: #EDE9FE; color: #7C3AED; }
+
+        /* STATUS DOTS */
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+        .dot-green { background: var(--success); }
+        .dot-amber { background: var(--warning); }
+        .dot-red { background: var(--danger); }
+
+        /* BUTTONS */
+        .btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-ghost { background: transparent; color: var(--gray-600); border: 1px solid var(--gray-300); }
+        .btn-sm { padding: 5px 12px; font-size: 11px; }
+
+        /* PROGRESS */
+        .progress-bar { width: 100%; height: 6px; background: var(--gray-200); border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 3px; }
+
+        /* ACTION PANEL */
+        .action-panel { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px; }
+        .action-panel-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .action-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
+        .action-item:last-child { border-bottom: none; }
+        .action-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+        .action-text { flex: 1; min-width: 0; }
+        .action-title { font-size: 13px; font-weight: 600; color: var(--gray-800); }
+        .action-detail { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
+        .action-cta { font-size: 11px; color: var(--primary); font-weight: 600; cursor: pointer; white-space: nowrap; }
+
+        /* WEEKLY CHART */
+        .chart-placeholder { background: var(--gray-50); border-radius: var(--radius); padding: 16px 12px 8px; display: flex; align-items: flex-end; gap: 6px; height: 140px; }
+        .chart-bar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+        .chart-bar-fill { width: 100%; border-radius: 4px 4px 0 0; min-height: 4px; }
+        .chart-bar-label { font-size: 10px; color: var(--gray-500); }
+        .chart-bar-value { font-size: 10px; font-weight: 600; font-family: var(--font-mono); color: var(--gray-700); }
+
+        /* CONTENT GRID */
+        .content-grid { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
+        .content-grid-narrow { display: grid; grid-template-columns: 1fr 280px; gap: 20px; }
+
+        /* MINI LIST */
+        .mini-list { display: flex; flex-direction: column; gap: 8px; }
+        .mini-list-item { padding: 10px 12px; background: var(--gray-50); border-radius: var(--radius-sm); font-size: 12px; }
+        .mini-list-item strong { display: block; color: var(--gray-800); margin-bottom: 2px; }
+        .mini-list-item span { color: var(--gray-500); font-size: 11px; }
+
+        /* COLOR HELPERS */
+        .text-success { color: var(--success); }
+        .text-warning { color: var(--warning); }
+        .text-danger { color: var(--danger); }
+        .text-primary { color: var(--primary); }
+        .text-muted { color: var(--gray-500); }
+        .font-semibold { font-weight: 600; }
+
+        /* CONTROL TABLE (PAIE) */
+        .control-table td { padding: 8px 12px; }
+        .control-icon { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+
+        /* ALERT BAR */
+        .alert-bar { background: var(--warning-light); border-left: 4px solid var(--warning); padding: 10px 14px; border-radius: 4px; margin-bottom: 16px; font-size: 13px; color: #92400E; display: flex; align-items: center; gap: 10px; }
+        .alert-bar.danger { background: var(--danger-light); border-color: var(--danger); color: #991B1B; }
+        .alert-bar.success { background: var(--success-light); border-color: var(--success); color: #166534; }
+    </style>
+</head>
+<body>
+
+<nav class="mockup-nav">
+    <div class="mockup-nav-title">
+        <span>PR | ERP — Sidebar + Dashboards par persona (Sprint 1 + 1bis)</span>
+        <small>2026-04-11 · 9 personas avec dashboards integres</small>
+    </div>
+    <div class="mockup-nav-groups">
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Operationnel</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn active" onclick="showScreen(event,'emp')">1. Employe (Marie)</button>
+                    <button class="nav-btn" onclick="showScreen(event,'pm')">2. PM (Jean-Francois)</button>
+                </div>
+            </div>
+        </div>
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Direction</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn" onclick="showScreen(event,'pd')">3. Project Director</button>
+                    <button class="nav-btn" onclick="showScreen(event,'bu')">4. BU Director (Pierre)</button>
+                </div>
+            </div>
+        </div>
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Finance &amp; Paie</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn" onclick="showScreen(event,'fin')">5. Finance (Nathalie)</button>
+                    <button class="nav-btn" onclick="showScreen(event,'paie')">6. Paie (Sylvie)</button>
+                </div>
+            </div>
+        </div>
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Support &amp; Commercial</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn" onclick="showScreen(event,'asst')">7. Assistante (Sophie)</button>
+                    <button class="nav-btn" onclick="showScreen(event,'prop')">8. Proposal Manager</button>
+                </div>
+            </div>
+        </div>
+        <div class="nav-group">
+            <div class="nav-group-wrapper">
+                <div class="nav-group-label">Systeme</div>
+                <div class="nav-group-buttons">
+                    <button class="nav-btn" onclick="showScreen(event,'admin')">9. Admin systeme</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- ================================================================== -->
+<!-- 1. EMPLOYE — Marie                                                   -->
+<!-- ================================================================== -->
+<div id="screen-emp" class="app-shell active">
+    <div class="app-topbar">
+        <div class="topbar-left">
+            <div class="topbar-logo">PR<span>|Production</span></div>
+            <input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly>
+        </div>
+        <div class="topbar-right">
+            <div class="topbar-bell">&#128276;<span class="bell-badge">2</span></div>
+            <div class="topbar-avatar" style="background: var(--primary);">ML</div>
+        </div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Mon travail</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128200;</span> Mon tableau de bord</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128197;</span> Mes feuilles de temps</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127958;</span> Mes conges</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#129534;</span> Mes notes de frais</div>
+            <div class="sidebar-section-label">Mes projets</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128193;</span> Projets assignes</div>
+            <div class="sidebar-section-label">Aide</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#10067;</span> Centre d'aide</div>
+        </aside>
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>Bonjour Marie &#128075;</h1>
+                    <div class="subline">Architecte senior &middot; BU Batiment &middot; Semaine 15 (7-11 avril 2026)</div>
+                </div>
+                <button class="btn btn-primary">&#128197; Saisir mes heures</button>
+            </div>
+
+            <!-- KPIs -->
+            <div class="kpi-grid kpi-grid-4">
+                <div class="kpi-card accent-primary">
+                    <div class="kpi-label">Heures semaine (reel / budget)</div>
+                    <div class="kpi-value">28.5 / 37.5 h</div>
+                    <div class="kpi-detail"><span class="text-warning">-9h vs budget</span> &middot; Reste 1 jour</div>
+                </div>
+                <div class="kpi-card accent-success">
+                    <div class="kpi-label">Heures mois (reel / budget)</div>
+                    <div class="kpi-value">128 / 150 h</div>
+                    <div class="kpi-detail"><span class="text-success">85%</span> &middot; 22h restants</div>
+                </div>
+                <div class="kpi-card accent-warning">
+                    <div class="kpi-label">Taux facturable</div>
+                    <div class="kpi-value">82%</div>
+                    <div class="kpi-detail">23.5h facturables sem.</div>
+                </div>
+                <div class="kpi-card accent-danger">
+                    <div class="kpi-label">Actions requises</div>
+                    <div class="kpi-value">2</div>
+                    <div class="kpi-detail">Depenses + timesheet</div>
+                </div>
+            </div>
+
+            <!-- Heures budgetees vs reelles par projet (NEW) -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Mes heures budgetees vs reelles &mdash; Avril 2026</div>
+                    <span class="badge badge-blue">Vue mensuelle</span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Projet</th>
+                            <th class="text-right">Budget mois</th>
+                            <th class="text-right">Reel mois</th>
+                            <th class="text-right">Ecart</th>
+                            <th>Avancement</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Complexe Desjardins Ph.2</strong></td>
+                            <td class="text-right mono">80.0 h</td>
+                            <td class="text-right mono">68.5 h</td>
+                            <td class="text-right mono text-warning">-11.5 h</td>
+                            <td><div class="progress-bar"><div class="progress-fill" style="width: 86%; background: var(--success);"></div></div></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Ecole Mgr-de-Laval</strong></td>
+                            <td class="text-right mono">50.0 h</td>
+                            <td class="text-right mono">42.0 h</td>
+                            <td class="text-right mono text-warning">-8.0 h</td>
+                            <td><div class="progress-bar"><div class="progress-fill" style="width: 84%; background: var(--success);"></div></div></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Bibliotheque Laval</strong> <span class="badge badge-gray">proposition</span></td>
+                            <td class="text-right mono">20.0 h</td>
+                            <td class="text-right mono">17.5 h</td>
+                            <td class="text-right mono text-warning">-2.5 h</td>
+                            <td><div class="progress-bar"><div class="progress-fill" style="width: 87%; background: var(--success);"></div></div></td>
+                        </tr>
+                        <tr style="background: var(--gray-50); font-weight: 600;">
+                            <td><strong>TOTAL</strong></td>
+                            <td class="text-right mono">150.0 h</td>
+                            <td class="text-right mono">128.0 h</td>
+                            <td class="text-right mono text-warning">-22.0 h</td>
+                            <td><div class="progress-bar"><div class="progress-fill" style="width: 85%; background: var(--success);"></div></div></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="content-grid">
+                <div>
+                    <!-- Weekly hours chart -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Mes heures cette semaine</div>
+                            <span class="badge badge-amber">Incomplet &mdash; 28.5/37.5h</span>
+                        </div>
+                        <div class="chart-placeholder">
+                            <div class="chart-bar">
+                                <div class="chart-bar-value">7.5</div>
+                                <div class="chart-bar-fill" style="height: 75%; background: var(--success);"></div>
+                                <div class="chart-bar-label">Lun</div>
+                            </div>
+                            <div class="chart-bar">
+                                <div class="chart-bar-value">7.5</div>
+                                <div class="chart-bar-fill" style="height: 75%; background: var(--success);"></div>
+                                <div class="chart-bar-label">Mar</div>
+                            </div>
+                            <div class="chart-bar">
+                                <div class="chart-bar-value">6.0</div>
+                                <div class="chart-bar-fill" style="height: 60%; background: var(--warning);"></div>
+                                <div class="chart-bar-label">Mer</div>
+                            </div>
+                            <div class="chart-bar">
+                                <div class="chart-bar-value">7.5</div>
+                                <div class="chart-bar-fill" style="height: 75%; background: var(--success);"></div>
+                                <div class="chart-bar-label">Jeu</div>
+                            </div>
+                            <div class="chart-bar">
+                                <div class="chart-bar-value">0.0</div>
+                                <div class="chart-bar-fill" style="height: 4%; background: var(--gray-300);"></div>
+                                <div class="chart-bar-label text-danger font-semibold">Ven</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Assigned projects -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Mes projets</div>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Projet</th>
+                                    <th>Role</th>
+                                    <th class="text-right">Heures sem.</th>
+                                    <th>Allocation</th>
+                                    <th>PM</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Complexe Desjardins Ph.2</strong><br><span class="mono text-muted">P-2024-042</span></td>
+                                    <td>Architecture</td>
+                                    <td class="text-right mono">15.0 h</td>
+                                    <td>60%</td>
+                                    <td>J-F Tremblay</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Ecole Mgr-de-Laval</strong><br><span class="mono text-muted">P-2024-038</span></td>
+                                    <td>Architecture</td>
+                                    <td class="text-right mono">8.5 h</td>
+                                    <td>30%</td>
+                                    <td>S. Pelletier</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Bibliotheque Laval</strong><br><span class="mono text-muted">OS-2026-018 (proposition)</span></td>
+                                    <td>Esquisse</td>
+                                    <td class="text-right mono">5.0 h</td>
+                                    <td>10%</td>
+                                    <td>S. Pelletier</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="action-panel">
+                        <div class="action-panel-title">&#9888;&#65039; Actions requises</div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--danger-light);">&#128197;</div>
+                            <div class="action-text">
+                                <div class="action-title">Completer feuille de temps</div>
+                                <div class="action-detail">Vendredi 11 avril &mdash; 0h saisies</div>
+                            </div>
+                            <span class="action-cta">Saisir &#8594;</span>
+                        </div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--warning-light);">&#129534;</div>
+                            <div class="action-text">
+                                <div class="action-title">2 depenses a soumettre</div>
+                                <div class="action-detail">Transport + repas &mdash; 87.50 $</div>
+                            </div>
+                            <span class="action-cta">Soumettre &#8594;</span>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Notifications</div>
+                        </div>
+                        <div class="mini-list">
+                            <div class="mini-list-item" style="background: var(--success-light);">
+                                <strong>Timesheet sem. 14 approuvee</strong>
+                                <span>Par J-F Tremblay &mdash; il y a 2h</span>
+                            </div>
+                            <div class="mini-list-item">
+                                <strong>Reunion equipe Desjardins</strong>
+                                <span>Demain 10h &mdash; Salle A-402</span>
+                            </div>
+                            <div class="mini-list-item">
+                                <strong>Note de frais validee</strong>
+                                <span>Mars 2026 &mdash; 245 $</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- 2. PM — Jean-Francois                                                -->
+<!-- ================================================================== -->
+<div id="screen-pm" class="app-shell">
+    <div class="app-topbar">
+        <div class="topbar-left">
+            <div class="topbar-logo">PR<span>|Production</span></div>
+            <input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly>
+        </div>
+        <div class="topbar-right">
+            <div class="topbar-bell">&#128276;<span class="bell-badge">5</span></div>
+            <div class="topbar-avatar" style="background: #92400E;">JF</div>
+        </div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Mon travail</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128200;</span> Tableau de bord</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128197;</span> Mes feuilles de temps</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127958;</span> Mes conges</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#129534;</span> Mes notes de frais</div>
+            <div class="sidebar-section-label">Pilotage projets</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128193;</span> Mes projets</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#9989;</span> A approuver</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128197;</span> Planification 2 mois</div>
+            <div class="sidebar-section-label">Finance projets</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128176;</span> Factures a valider</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Factures sous-traitants</div>
+            <div class="sidebar-section-label">Referentiels</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#129309;</span> Clients</div>
+            <div class="sidebar-section-label">Aide</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#10067;</span> Centre d'aide</div>
+        </aside>
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>Tableau de bord</h1>
+                    <div class="subline">Jean-Francois Tremblay &middot; Charge de projet &middot; BU Batiment &middot; Avril 2026</div>
+                </div>
+                <button class="btn btn-primary">&#128193; Voir mes projets</button>
+            </div>
+
+            <div class="kpi-grid kpi-grid-5">
+                <div class="kpi-card accent-primary">
+                    <div class="kpi-label">Carnet commandes</div>
+                    <div class="kpi-value">3.2 M$</div>
+                    <div class="kpi-detail">3 projets actifs</div>
+                </div>
+                <div class="kpi-card accent-success">
+                    <div class="kpi-label">Ratio CA/Salaires</div>
+                    <div class="kpi-value">2.8x</div>
+                    <div class="kpi-detail"><span class="kpi-trend-up">&#9650; +0.2 vs cible</span></div>
+                </div>
+                <div class="kpi-card accent-success">
+                    <div class="kpi-label">Taux facturation</div>
+                    <div class="kpi-value">87%</div>
+                    <div class="kpi-detail">582h / 670h</div>
+                </div>
+                <div class="kpi-card accent-warning">
+                    <div class="kpi-label">Marge moyenne</div>
+                    <div class="kpi-value">34%</div>
+                    <div class="kpi-detail">Cible: 35%</div>
+                </div>
+                <div class="kpi-card accent-danger">
+                    <div class="kpi-label">Actions requises</div>
+                    <div class="kpi-value">6</div>
+                    <div class="kpi-detail">4 TS + 2 depenses</div>
+                </div>
+            </div>
+
+            <div class="content-grid">
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Sante de mes projets</div>
+                            <button class="btn btn-ghost btn-sm">Voir tous</button>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Projet</th>
+                                    <th>Sante</th>
+                                    <th class="text-right">Budget conso.</th>
+                                    <th class="text-right">CA/S</th>
+                                    <th>Alertes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Complexe Desjardins Ph.2</strong><br><span class="mono text-muted">P-2024-042</span></td>
+                                    <td><span class="status-dot dot-green"></span>OK</td>
+                                    <td class="text-right mono">62%</td>
+                                    <td class="text-right mono">3.1x</td>
+                                    <td>&mdash;</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Ecole Mgr-de-Laval</strong><br><span class="mono text-muted">P-2024-038</span></td>
+                                    <td><span class="status-dot dot-amber"></span>Attention</td>
+                                    <td class="text-right mono">88%</td>
+                                    <td class="text-right mono">2.4x</td>
+                                    <td><span class="badge badge-amber">Heures &gt; budget</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Hopital Sherbrooke</strong><br><span class="mono text-muted">P-2024-051</span></td>
+                                    <td><span class="status-dot dot-green"></span>OK</td>
+                                    <td class="text-right mono">41%</td>
+                                    <td class="text-right mono">2.9x</td>
+                                    <td>&mdash;</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Planification 2 mois (NEW) -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Planification 2 mois a venir &mdash; Avril/Mai 2026</div>
+                            <span class="badge badge-amber">1 projet sous-planifie</span>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Projet</th>
+                                    <th class="text-right">Avril plan.</th>
+                                    <th class="text-right">Avril reel</th>
+                                    <th class="text-right">Ecart avril</th>
+                                    <th class="text-right">Mai plan.</th>
+                                    <th>Statut planif</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Desjardins Ph.2</strong></td>
+                                    <td class="text-right mono">320 h</td>
+                                    <td class="text-right mono">285 h</td>
+                                    <td class="text-right mono text-warning">-35 h</td>
+                                    <td class="text-right mono">340 h</td>
+                                    <td><span class="status-dot dot-green"></span>OK</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Ecole Mgr-de-Laval</strong></td>
+                                    <td class="text-right mono">180 h</td>
+                                    <td class="text-right mono">198 h</td>
+                                    <td class="text-right mono text-danger">+18 h</td>
+                                    <td class="text-right mono">120 h</td>
+                                    <td><span class="status-dot dot-amber"></span>Risque</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Hopital Sherbrooke</strong></td>
+                                    <td class="text-right mono">240 h</td>
+                                    <td class="text-right mono">210 h</td>
+                                    <td class="text-right mono text-warning">-30 h</td>
+                                    <td class="text-right mono">0 h</td>
+                                    <td><span class="status-dot dot-red"></span>Sous-planifie mai</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Top 5 entrees a approuver (UPDATED) -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Top 5 entrees a approuver</div>
+                            <span class="badge badge-amber">4 en attente</span>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Employe</th>
+                                    <th>Projet</th>
+                                    <th class="text-right">Heures saisies</th>
+                                    <th class="text-right">Heures planifiees</th>
+                                    <th class="text-right">Total sem.</th>
+                                    <th>Alerte</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Marie Lavoie</td>
+                                    <td>Desjardins</td>
+                                    <td class="text-right mono">15.0 h</td>
+                                    <td class="text-right mono">14.0 h</td>
+                                    <td class="text-right mono">37.5 h</td>
+                                    <td><span class="status-dot dot-green"></span>OK</td>
+                                    <td><button class="btn btn-primary btn-sm">Approuver</button></td>
+                                </tr>
+                                <tr>
+                                    <td>Eric Cote</td>
+                                    <td>Desjardins</td>
+                                    <td class="text-right mono">22.5 h</td>
+                                    <td class="text-right mono">18.0 h</td>
+                                    <td class="text-right mono text-danger"><strong>52.0 h</strong></td>
+                                    <td><span class="badge badge-red">Burnout</span></td>
+                                    <td><button class="btn btn-primary btn-sm">Approuver</button></td>
+                                </tr>
+                                <tr>
+                                    <td>Sophie Dube</td>
+                                    <td>Sherbrooke</td>
+                                    <td class="text-right mono">12.0 h</td>
+                                    <td class="text-right mono">12.0 h</td>
+                                    <td class="text-right mono">38.0 h</td>
+                                    <td><span class="status-dot dot-green"></span>OK</td>
+                                    <td><button class="btn btn-primary btn-sm">Approuver</button></td>
+                                </tr>
+                                <tr>
+                                    <td>Marc Tremblay</td>
+                                    <td>Ecole</td>
+                                    <td class="text-right mono">8.0 h</td>
+                                    <td class="text-right mono">10.0 h</td>
+                                    <td class="text-right mono text-warning">28.0 h</td>
+                                    <td><span class="badge badge-amber">Sous-utilise</span></td>
+                                    <td><button class="btn btn-primary btn-sm">Approuver</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Factures a valider (NEW) -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Factures clients a valider</div>
+                            <span class="badge badge-amber">3 brouillons</span>
+                        </div>
+                        <table>
+                            <thead><tr><th>N&deg;</th><th>Projet</th><th>Client</th><th class="text-right">Montant</th><th>Statut</th><th></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td class="mono">F-2026-042</td>
+                                    <td>Desjardins Ph.2</td>
+                                    <td>Desjardins</td>
+                                    <td class="text-right mono"><strong>485 K$</strong></td>
+                                    <td><span class="badge badge-blue">Brouillon</span></td>
+                                    <td><button class="btn btn-primary btn-sm">Soumettre</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">F-2026-044</td>
+                                    <td>Ecole Mgr-de-Laval</td>
+                                    <td>CSS Laval</td>
+                                    <td class="text-right mono"><strong>180 K$</strong></td>
+                                    <td><span class="badge badge-blue">Brouillon</span></td>
+                                    <td><button class="btn btn-primary btn-sm">Soumettre</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">F-2026-046</td>
+                                    <td>Sherbrooke</td>
+                                    <td>CIUSSS Estrie</td>
+                                    <td class="text-right mono"><strong>320 K$</strong></td>
+                                    <td><span class="badge badge-amber">A preparer</span></td>
+                                    <td><button class="btn btn-ghost btn-sm">Preparer</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Factures sous-traitants (NEW) -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Factures sous-traitants a controler</div>
+                            <span class="badge badge-amber">5 a autoriser</span>
+                        </div>
+                        <table>
+                            <thead><tr><th>Fournisseur</th><th>Projet</th><th class="text-right">Montant</th><th>vs Budget</th><th></th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Genitique Inc.</strong></td>
+                                    <td>Desjardins Ph.2</td>
+                                    <td class="text-right mono">42 500 $</td>
+                                    <td><span class="badge badge-green">85% conso</span></td>
+                                    <td><button class="btn btn-primary btn-sm">Autoriser</button></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Structurex</strong></td>
+                                    <td>Sherbrooke</td>
+                                    <td class="text-right mono">68 200 $</td>
+                                    <td><span class="badge badge-amber">92% conso</span></td>
+                                    <td><button class="btn btn-primary btn-sm">Autoriser</button></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>BIM Solutions</strong></td>
+                                    <td>Ecole</td>
+                                    <td class="text-right mono">15 800 $</td>
+                                    <td><span class="badge badge-red">108% conso</span></td>
+                                    <td><button class="btn btn-ghost btn-sm">Disputer</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="action-panel">
+                        <div class="action-panel-title">&#9888;&#65039; Actions a traiter</div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--danger-light);">&#9989;</div>
+                            <div class="action-text">
+                                <div class="action-title">4 timesheets a approuver</div>
+                                <div class="action-detail">Semaine 15 &mdash; 57.5h total</div>
+                            </div>
+                            <span class="action-cta">Voir &#8594;</span>
+                        </div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--warning-light);">&#129534;</div>
+                            <div class="action-text">
+                                <div class="action-title">2 depenses a valider</div>
+                                <div class="action-detail">Marc T. &mdash; 320 $</div>
+                            </div>
+                            <span class="action-cta">Voir &#8594;</span>
+                        </div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--primary-light);">&#128176;</div>
+                            <div class="action-text">
+                                <div class="action-title">Facture #2026-042 a soumettre</div>
+                                <div class="action-detail">Desjardins &mdash; 145 K$</div>
+                            </div>
+                            <span class="action-cta">Preparer &#8594;</span>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Mes prochaines echeances</div>
+                        </div>
+                        <div class="mini-list">
+                            <div class="mini-list-item">
+                                <strong>Livraison Phase 4 &mdash; Desjardins</strong>
+                                <span>Dans 12 jours</span>
+                            </div>
+                            <div class="mini-list-item">
+                                <strong>Reunion client Sherbrooke</strong>
+                                <span>Vendredi 10h</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- 3. PROJECT DIRECTOR — Robert                                         -->
+<!-- ================================================================== -->
+<div id="screen-pd" class="app-shell">
+    <div class="app-topbar">
+        <div class="topbar-left">
+            <div class="topbar-logo">PR<span>|Direction</span></div>
+            <input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly>
+        </div>
+        <div class="topbar-right">
+            <div class="topbar-bell">&#128276;<span class="bell-badge">8</span></div>
+            <div class="topbar-avatar" style="background: #B91C1C;">RB</div>
+        </div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Mon travail</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128200;</span> Tableau de bord</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128197;</span> Mes feuilles de temps</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127958;</span> Mes conges</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#129534;</span> Mes notes de frais</div>
+            <div class="sidebar-section-label">Pilotage projets</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128193;</span> Mes projets supervises</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#9989;</span> Approbations factures</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#129534;</span> Approbations depenses</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128202;</span> Rapports</div>
+            <div class="sidebar-section-label">Consortiums</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127959;</span> Mes consortiums</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128176;</span> Factures consortium</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> ST consortium</div>
+            <div class="sidebar-section-label">Referentiels</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#129309;</span> Clients</div>
+            <div class="sidebar-section-label">Aide</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#10067;</span> Centre d'aide</div>
+        </aside>
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>Tableau de bord &mdash; Associe en charge</h1>
+                    <div class="subline">Robert Bouchard &middot; 8 projets supervises + 2 consortiums &middot; YTD 2026</div>
+                </div>
+                <button class="btn btn-primary">&#9989; Approuver factures</button>
+            </div>
+
+            <!-- Mon travail (NEW) -->
+            <div class="card" style="border-left: 4px solid var(--primary);">
+                <div class="card-header">
+                    <div class="card-title">&#128100; Mon travail personnel</div>
+                    <span class="badge badge-blue">Saisie + suivi perso</span>
+                </div>
+                <div class="kpi-grid kpi-grid-4" style="margin-bottom: 0;">
+                    <div class="kpi-card accent-primary">
+                        <div class="kpi-label">Mes heures sem.</div>
+                        <div class="kpi-value">32 / 37.5 h</div>
+                        <div class="kpi-detail"><span class="text-warning">A completer</span></div>
+                    </div>
+                    <div class="kpi-card accent-success">
+                        <div class="kpi-label">Mes heures mois</div>
+                        <div class="kpi-value">142 / 150 h</div>
+                        <div class="kpi-detail">95%</div>
+                    </div>
+                    <div class="kpi-card accent-warning">
+                        <div class="kpi-label">Mes notes de frais</div>
+                        <div class="kpi-value">2</div>
+                        <div class="kpi-detail">A soumettre</div>
+                    </div>
+                    <div class="kpi-card accent-success">
+                        <div class="kpi-label">Mes conges restants</div>
+                        <div class="kpi-value">12 j</div>
+                        <div class="kpi-detail">+ 3 j feries</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="kpi-grid kpi-grid-4">
+                <div class="kpi-card accent-primary">
+                    <div class="kpi-label">Projets supervises</div>
+                    <div class="kpi-value">8</div>
+                    <div class="kpi-detail">7 actifs &middot; 1 en cloture</div>
+                </div>
+                <div class="kpi-card accent-success">
+                    <div class="kpi-label">CA YTD</div>
+                    <div class="kpi-value">5.4 M$</div>
+                    <div class="kpi-detail"><span class="kpi-trend-up">&#9650; +18% vs 2025</span></div>
+                </div>
+                <div class="kpi-card accent-warning">
+                    <div class="kpi-label">Marge moyenne</div>
+                    <div class="kpi-value">31%</div>
+                    <div class="kpi-detail">Cible: 32%</div>
+                </div>
+                <div class="kpi-card accent-danger">
+                    <div class="kpi-label">Approbations en attente</div>
+                    <div class="kpi-value">8</div>
+                    <div class="kpi-detail">2.1 M$ a approuver</div>
+                </div>
+            </div>
+
+            <div class="content-grid">
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Factures a approuver</div>
+                            <span class="badge badge-amber">8 en attente</span>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>N&deg;</th>
+                                    <th>Projet</th>
+                                    <th>Client</th>
+                                    <th class="text-right">Montant</th>
+                                    <th>Soumise par</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="mono">2026-042</td>
+                                    <td><strong>Complexe Desjardins Ph.2</strong></td>
+                                    <td>Desjardins</td>
+                                    <td class="text-right mono"><strong>485 K$</strong></td>
+                                    <td>N. Roy</td>
+                                    <td><button class="btn btn-primary btn-sm">Voir</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">2026-043</td>
+                                    <td><strong>Hopital Sherbrooke</strong></td>
+                                    <td>CIUSSS Estrie</td>
+                                    <td class="text-right mono"><strong>320 K$</strong></td>
+                                    <td>N. Roy</td>
+                                    <td><button class="btn btn-primary btn-sm">Voir</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">2026-044</td>
+                                    <td><strong>Ecole Mgr-de-Laval</strong></td>
+                                    <td>CSS Laval</td>
+                                    <td class="text-right mono"><strong>180 K$</strong></td>
+                                    <td>N. Roy</td>
+                                    <td><button class="btn btn-primary btn-sm">Voir</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">2026-045</td>
+                                    <td><strong>Centre culturel</strong></td>
+                                    <td>Ville Quebec</td>
+                                    <td class="text-right mono"><strong>275 K$</strong></td>
+                                    <td>N. Roy</td>
+                                    <td><button class="btn btn-primary btn-sm">Voir</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="action-panel">
+                        <div class="action-panel-title">&#127919; Mes priorites</div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--danger-light);">&#9989;</div>
+                            <div class="action-text">
+                                <div class="action-title">8 factures a approuver</div>
+                                <div class="action-detail">2.1 M$ &middot; semaine en cours</div>
+                            </div>
+                            <span class="action-cta">Approuver &#8594;</span>
+                        </div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--warning-light);">&#9888;</div>
+                            <div class="action-text">
+                                <div class="action-title">2 projets sous marge</div>
+                                <div class="action-detail">Ecole + Centre culturel</div>
+                            </div>
+                            <span class="action-cta">Voir &#8594;</span>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">CA YTD par projet</div>
+                        </div>
+                        <div class="mini-list">
+                            <div class="mini-list-item">
+                                <strong>Desjardins Ph.2 &mdash; 1.8 M$</strong>
+                                <div class="progress-bar" style="margin-top: 6px;"><div class="progress-fill" style="width: 85%; background: var(--success);"></div></div>
+                            </div>
+                            <div class="mini-list-item">
+                                <strong>Sherbrooke &mdash; 1.4 M$</strong>
+                                <div class="progress-bar" style="margin-top: 6px;"><div class="progress-fill" style="width: 65%; background: var(--success);"></div></div>
+                            </div>
+                            <div class="mini-list-item">
+                                <strong>Ecole &mdash; 0.9 M$</strong>
+                                <div class="progress-bar" style="margin-top: 6px;"><div class="progress-fill" style="width: 42%; background: var(--warning);"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section Consortiums separee (NEW) -->
+            <div class="card" style="margin-top: 24px; border-left: 4px solid #7C3AED;">
+                <div class="card-header">
+                    <div class="card-title">&#127959; Mes consortiums (gestion separee)</div>
+                    <span class="badge badge-purple">2 actifs</span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Consortium</th>
+                            <th>Client</th>
+                            <th>Role PR</th>
+                            <th class="text-right">Coef</th>
+                            <th class="text-right">CA part PR</th>
+                            <th>Sante</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>PR + ABC + DEF</strong><br><span class="mono text-muted">CONS-2024-001</span></td>
+                            <td>Ville Quebec</td>
+                            <td>Mandataire</td>
+                            <td class="text-right mono">45%</td>
+                            <td class="text-right mono"><strong>1.8 M$</strong></td>
+                            <td><span class="status-dot dot-green"></span>OK</td>
+                            <td><button class="btn btn-primary btn-sm">Ouvrir</button></td>
+                        </tr>
+                        <tr>
+                            <td><strong>PR + XYZ</strong><br><span class="mono text-muted">CONS-2025-003</span></td>
+                            <td>CIUSSS Montreal</td>
+                            <td>Mandataire</td>
+                            <td class="text-right mono">60%</td>
+                            <td class="text-right mono"><strong>2.4 M$</strong></td>
+                            <td><span class="status-dot dot-amber"></span>Attention</td>
+                            <td><button class="btn btn-primary btn-sm">Ouvrir</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="content-grid" style="margin-top: 16px;">
+                    <div>
+                        <div class="card-title" style="font-size: 13px; margin-bottom: 8px;">&#128176; Factures consortium en attente (3)</div>
+                        <table>
+                            <thead><tr><th>N&deg;</th><th>Consortium</th><th class="text-right">Montant</th><th></th></tr></thead>
+                            <tbody>
+                                <tr><td class="mono">FC-2026-008</td><td>PR+ABC+DEF</td><td class="text-right mono">320 K$</td><td><button class="btn btn-primary btn-sm">Approuver</button></td></tr>
+                                <tr><td class="mono">FC-2026-009</td><td>PR+XYZ</td><td class="text-right mono">485 K$</td><td><button class="btn btn-primary btn-sm">Approuver</button></td></tr>
+                                <tr><td class="mono">FC-2026-010</td><td>PR+XYZ</td><td class="text-right mono">180 K$</td><td><button class="btn btn-primary btn-sm">Approuver</button></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <div class="card-title" style="font-size: 13px; margin-bottom: 8px;">&#127970; ST consortium a controler (2)</div>
+                        <table>
+                            <thead><tr><th>Fournisseur</th><th class="text-right">Montant</th><th></th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>Genitique</strong><br><span class="text-muted">PR+ABC+DEF</span></td><td class="text-right mono">62 500 $</td><td><button class="btn btn-primary btn-sm">Voir</button></td></tr>
+                                <tr><td><strong>Structurex</strong><br><span class="text-muted">PR+XYZ</span></td><td class="text-right mono">98 200 $</td><td><button class="btn btn-primary btn-sm">Voir</button></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- 4. BU DIRECTOR — Pierre                                              -->
+<!-- ================================================================== -->
+<div id="screen-bu" class="app-shell">
+    <div class="app-topbar">
+        <div class="topbar-left">
+            <div class="topbar-logo">PR<span>|Direction</span></div>
+            <input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly>
+        </div>
+        <div class="topbar-right">
+            <div class="topbar-bell">&#128276;<span class="bell-badge">12</span></div>
+            <div class="topbar-avatar" style="background: #7C3AED;">PG</div>
+        </div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Mon travail</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128200;</span> Tableau de bord</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128197;</span> Mes feuilles de temps</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127958;</span> Mes conges</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#129534;</span> Mes notes de frais</div>
+            <div class="sidebar-section-label">Pilotage BU</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128193;</span> Portfolio projets</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#9989;</span> Approbations</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128202;</span> Rapports BU</div>
+            <div class="sidebar-section-label">Consortiums</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127959;</span> Tous les consortiums</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128176;</span> Factures consortium</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> ST consortium</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128181;</span> Distributions</div>
+            <div class="sidebar-section-label">Referentiels</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#129309;</span> Clients</div>
+            <div class="sidebar-section-label">Aide</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#10067;</span> Centre d'aide</div>
+        </aside>
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>Cockpit BU Quebec</h1>
+                    <div class="subline">Pierre Gagnon &middot; Directeur d'unite d'affaires &middot; YTD 2026</div>
+                </div>
+                <button class="btn btn-primary">&#128202; Voir rapport mensuel</button>
+            </div>
+
+            <!-- Mon travail (NEW) -->
+            <div class="card" style="border-left: 4px solid var(--primary);">
+                <div class="card-header">
+                    <div class="card-title">&#128100; Mon travail personnel</div>
+                    <span class="badge badge-blue">Saisie + suivi perso</span>
+                </div>
+                <div class="kpi-grid kpi-grid-4" style="margin-bottom: 0;">
+                    <div class="kpi-card accent-primary">
+                        <div class="kpi-label">Mes heures sem.</div>
+                        <div class="kpi-value">22 / 37.5 h</div>
+                        <div class="kpi-detail"><span class="text-warning">A completer</span></div>
+                    </div>
+                    <div class="kpi-card accent-success">
+                        <div class="kpi-label">Mes heures mois</div>
+                        <div class="kpi-value">115 / 150 h</div>
+                        <div class="kpi-detail">76%</div>
+                    </div>
+                    <div class="kpi-card accent-warning">
+                        <div class="kpi-label">Mes notes de frais</div>
+                        <div class="kpi-value">3</div>
+                        <div class="kpi-detail">A soumettre</div>
+                    </div>
+                    <div class="kpi-card accent-success">
+                        <div class="kpi-label">Mes conges restants</div>
+                        <div class="kpi-value">15 j</div>
+                        <div class="kpi-detail">+ 3 j feries</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert-bar danger">
+                <span>&#128680;</span>
+                <span><strong>2 projets en alerte rouge</strong> &mdash; Ecole Mgr-de-Laval (depassement budget) et Centre culturel (retard 3 semaines)</span>
+            </div>
+
+            <div class="kpi-grid kpi-grid-5">
+                <div class="kpi-card accent-primary">
+                    <div class="kpi-label">Carnet commandes BU</div>
+                    <div class="kpi-value">12.8 M$</div>
+                    <div class="kpi-detail">22 projets actifs</div>
+                </div>
+                <div class="kpi-card accent-success">
+                    <div class="kpi-label">CA facture YTD</div>
+                    <div class="kpi-value">4.2 M$</div>
+                    <div class="kpi-detail"><span class="kpi-trend-up">&#9650; +12%</span></div>
+                </div>
+                <div class="kpi-card accent-success">
+                    <div class="kpi-label">Taux utilisation</div>
+                    <div class="kpi-value">84%</div>
+                    <div class="kpi-detail">68 / 81 ETP</div>
+                </div>
+                <div class="kpi-card accent-purple">
+                    <div class="kpi-label">Consortiums actifs</div>
+                    <div class="kpi-value">3</div>
+                    <div class="kpi-detail">PR mandataire x 2</div>
+                </div>
+                <div class="kpi-card accent-danger">
+                    <div class="kpi-label">Projets a risque</div>
+                    <div class="kpi-value">2</div>
+                    <div class="kpi-detail">+ 3 en surveillance</div>
+                </div>
+            </div>
+
+            <div class="content-grid">
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Projets en alerte</div>
+                            <button class="btn btn-ghost btn-sm">Tout voir</button>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Projet</th>
+                                    <th>PM</th>
+                                    <th>Sante</th>
+                                    <th class="text-right">Conso.</th>
+                                    <th class="text-right">CA/S</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Ecole Mgr-de-Laval</strong><br><span class="mono text-muted">P-2024-038</span></td>
+                                    <td>J-F Tremblay</td>
+                                    <td><span class="status-dot dot-red"></span>Rouge</td>
+                                    <td class="text-right mono">88%</td>
+                                    <td class="text-right mono text-danger">2.4x</td>
+                                    <td><button class="btn btn-primary btn-sm">Voir</button></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Centre culturel</strong><br><span class="mono text-muted">P-2024-029</span></td>
+                                    <td>S. Pelletier</td>
+                                    <td><span class="status-dot dot-red"></span>Rouge</td>
+                                    <td class="text-right mono">72%</td>
+                                    <td class="text-right mono text-danger">2.2x</td>
+                                    <td><button class="btn btn-primary btn-sm">Voir</button></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Bibliotheque Laval</strong><br><span class="mono text-muted">P-2025-005</span></td>
+                                    <td>S. Pelletier</td>
+                                    <td><span class="status-dot dot-amber"></span>Jaune</td>
+                                    <td class="text-right mono">51%</td>
+                                    <td class="text-right mono">2.7x</td>
+                                    <td><button class="btn btn-primary btn-sm">Voir</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+
+                <div>
+                    <div class="action-panel">
+                        <div class="action-panel-title">&#127919; Decisions a prendre</div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--danger-light);">&#9888;</div>
+                            <div class="action-text">
+                                <div class="action-title">Ecole Mgr-de-Laval</div>
+                                <div class="action-detail">Avenant ou recadrage budget</div>
+                            </div>
+                            <span class="action-cta">Voir &#8594;</span>
+                        </div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--warning-light);">&#128176;</div>
+                            <div class="action-text">
+                                <div class="action-title">Approbation factures Q2</div>
+                                <div class="action-detail">12 factures &middot; 3.2 M$</div>
+                            </div>
+                            <span class="action-cta">Approuver &#8594;</span>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Repartition CA YTD</div>
+                        </div>
+                        <div class="mini-list">
+                            <div class="mini-list-item">
+                                <strong>Forfaitaire &mdash; 2.8 M$</strong>
+                                <div class="progress-bar" style="margin-top: 6px;"><div class="progress-fill" style="width: 67%; background: var(--primary);"></div></div>
+                            </div>
+                            <div class="mini-list-item">
+                                <strong>Consortium &mdash; 1.0 M$</strong>
+                                <div class="progress-bar" style="margin-top: 6px;"><div class="progress-fill" style="width: 24%; background: #7C3AED;"></div></div>
+                            </div>
+                            <div class="mini-list-item">
+                                <strong>Horaire &mdash; 0.4 M$</strong>
+                                <div class="progress-bar" style="margin-top: 6px;"><div class="progress-fill" style="width: 9%; background: var(--warning);"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section Consortiums separee (NEW) -->
+            <div class="card" style="margin-top: 24px; border-left: 4px solid #7C3AED;">
+                <div class="card-header">
+                    <div class="card-title">&#127959; Consortiums BU &mdash; Vue duale FR61/FR62</div>
+                    <span class="badge badge-purple">3 actifs &middot; gestion separee</span>
+                </div>
+                <p class="text-muted" style="font-size: 12px; margin-bottom: 12px;">
+                    Les consortiums sont geres dans une vue dediee : factures emises, sous-traitants consortium, distributions de profits. Les KPIs ci-dessous sont independants du CA Provencher Roy direct.
+                </p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Consortium</th>
+                            <th>Client</th>
+                            <th>Role PR</th>
+                            <th class="text-right">Coef</th>
+                            <th class="text-right">CA part PR</th>
+                            <th>Sante</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>PR + ABC + DEF</strong><br><span class="mono text-muted">CONS-2024-001</span></td>
+                            <td>Ville Quebec</td>
+                            <td>Mandataire</td>
+                            <td class="text-right mono">45%</td>
+                            <td class="text-right mono"><strong>1.8 M$</strong></td>
+                            <td><span class="status-dot dot-green"></span>OK</td>
+                            <td><button class="btn btn-primary btn-sm">Ouvrir</button></td>
+                        </tr>
+                        <tr>
+                            <td><strong>PR + XYZ</strong><br><span class="mono text-muted">CONS-2025-003</span></td>
+                            <td>CIUSSS</td>
+                            <td>Mandataire</td>
+                            <td class="text-right mono">60%</td>
+                            <td class="text-right mono"><strong>2.4 M$</strong></td>
+                            <td><span class="status-dot dot-amber"></span>Attention</td>
+                            <td><button class="btn btn-primary btn-sm">Ouvrir</button></td>
+                        </tr>
+                        <tr>
+                            <td><strong>OPQ + PR</strong><br><span class="mono text-muted">CONS-2025-005</span></td>
+                            <td>Hydro Quebec</td>
+                            <td>Partenaire</td>
+                            <td class="text-right mono">35%</td>
+                            <td class="text-right mono"><strong>0.9 M$</strong></td>
+                            <td><span class="status-dot dot-green"></span>OK</td>
+                            <td><button class="btn btn-primary btn-sm">Ouvrir</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="content-grid" style="margin-top: 16px;">
+                    <div>
+                        <div class="card-title" style="font-size: 13px; margin-bottom: 8px;">&#128176; Factures consortium en attente (5)</div>
+                        <table>
+                            <thead><tr><th>N&deg;</th><th>Consortium</th><th class="text-right">Montant</th><th></th></tr></thead>
+                            <tbody>
+                                <tr><td class="mono">FC-2026-008</td><td>PR+ABC+DEF</td><td class="text-right mono">320 K$</td><td><button class="btn btn-primary btn-sm">Voir</button></td></tr>
+                                <tr><td class="mono">FC-2026-009</td><td>PR+XYZ</td><td class="text-right mono">485 K$</td><td><button class="btn btn-primary btn-sm">Voir</button></td></tr>
+                                <tr><td class="mono">FC-2026-010</td><td>PR+XYZ</td><td class="text-right mono">180 K$</td><td><button class="btn btn-primary btn-sm">Voir</button></td></tr>
+                                <tr><td class="mono">FC-2026-011</td><td>OPQ+PR</td><td class="text-right mono">95 K$</td><td><button class="btn btn-primary btn-sm">Voir</button></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <div class="card-title" style="font-size: 13px; margin-bottom: 8px;">&#128181; Distributions Q1 a calculer (2)</div>
+                        <table>
+                            <thead><tr><th>Consortium</th><th class="text-right">Profit Q1</th><th></th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>PR+ABC+DEF</strong><br><span class="text-muted">3 partenaires</span></td><td class="text-right mono">425 K$</td><td><button class="btn btn-primary btn-sm">Calculer</button></td></tr>
+                                <tr><td><strong>PR+XYZ</strong><br><span class="text-muted">2 partenaires</span></td><td class="text-right mono">680 K$</td><td><button class="btn btn-primary btn-sm">Calculer</button></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- 5. FINANCE — Nathalie                                                -->
+<!-- ================================================================== -->
+<div id="screen-fin" class="app-shell">
+    <div class="app-topbar">
+        <div class="topbar-left">
+            <div class="topbar-logo">PR<span>|Finance</span></div>
+            <input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly>
+        </div>
+        <div class="topbar-right">
+            <div class="topbar-bell">&#128276;<span class="bell-badge">7</span></div>
+            <div class="topbar-avatar" style="background: #15803D;">NR</div>
+        </div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Mon travail</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128200;</span> Tableau de bord</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128197;</span> Mes feuilles de temps</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127958;</span> Mes conges</div>
+            <div class="sidebar-section-label">Production</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#9989;</span> Timesheets a valider</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128274;</span> Verrouillage paie</div>
+            <div class="sidebar-section-label">Finance projets</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128176;</span> Facturation</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128181;</span> Paiements</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#129534;</span> Notes de frais</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Fournisseurs ST</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128202;</span> Rapports</div>
+            <div class="sidebar-section-label">Consortiums</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127959;</span> Tous les consortiums</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128176;</span> Factures consortium</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> ST consortium</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128181;</span> Distributions</div>
+            <div class="sidebar-section-label">Imports / Exports Intacct</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128229;</span> Importer depuis Intacct</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128228;</span> Exporter vers Intacct</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Historique transferts</div>
+            <div class="sidebar-section-label">Referentiels</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#129309;</span> Clients</div>
+            <div class="sidebar-section-label">Aide</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#10067;</span> Centre d'aide</div>
+        </aside>
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>Centre financier</h1>
+                    <div class="subline">Nathalie Roy &middot; Controleure &middot; Avril 2026</div>
+                </div>
+                <button class="btn btn-primary">&#9989; Valider timesheets sem. 15</button>
+            </div>
+
+            <div class="kpi-grid kpi-grid-5">
+                <div class="kpi-card accent-primary">
+                    <div class="kpi-label">CA facture (mois)</div>
+                    <div class="kpi-value">890 K$</div>
+                    <div class="kpi-detail">+18% vs mars</div>
+                </div>
+                <div class="kpi-card accent-warning">
+                    <div class="kpi-label">Comptes recevables</div>
+                    <div class="kpi-value">2.34 M$</div>
+                    <div class="kpi-detail">8 factures &gt; 60j</div>
+                </div>
+                <div class="kpi-card accent-success">
+                    <div class="kpi-label">Heures totales (sem.)</div>
+                    <div class="kpi-value">2 850 h</div>
+                    <div class="kpi-detail">82% facturables</div>
+                </div>
+                <div class="kpi-card accent-warning">
+                    <div class="kpi-label">Fournisseurs a payer</div>
+                    <div class="kpi-value">148 K$</div>
+                    <div class="kpi-detail">12 factures ST</div>
+                </div>
+                <div class="kpi-card accent-danger">
+                    <div class="kpi-label">Timesheets a valider</div>
+                    <div class="kpi-value">42</div>
+                    <div class="kpi-detail">Niveau 2 (Finance)</div>
+                </div>
+            </div>
+
+            <!-- Centre d'action prioritaire (NEW - en premier) -->
+            <div class="card" style="border-left: 4px solid var(--danger);">
+                <div class="card-header">
+                    <div class="card-title">&#127919; A traiter aujourd'hui</div>
+                    <span class="badge badge-red">5 priorites</span>
+                </div>
+                <div class="kpi-grid kpi-grid-5" style="margin-bottom: 0;">
+                    <div class="kpi-card accent-danger" style="cursor:pointer;">
+                        <div class="kpi-label">Timesheets a valider</div>
+                        <div class="kpi-value">42</div>
+                        <div class="kpi-detail">Niveau 2 &middot; Sem. 15</div>
+                    </div>
+                    <div class="kpi-card accent-danger" style="cursor:pointer;">
+                        <div class="kpi-label">Factures a soumettre</div>
+                        <div class="kpi-value">3</div>
+                        <div class="kpi-detail">985 K$ a preparer</div>
+                    </div>
+                    <div class="kpi-card accent-warning" style="cursor:pointer;">
+                        <div class="kpi-label">Factures ST a payer</div>
+                        <div class="kpi-value">12</div>
+                        <div class="kpi-detail">148 K$ autorisees</div>
+                    </div>
+                    <div class="kpi-card accent-warning" style="cursor:pointer;">
+                        <div class="kpi-label">Notes de frais (niv 2)</div>
+                        <div class="kpi-value">9</div>
+                        <div class="kpi-detail">Validees Directeur</div>
+                    </div>
+                    <div class="kpi-card accent-primary" style="cursor:pointer;">
+                        <div class="kpi-label">Export Intacct du jour</div>
+                        <div class="kpi-value">42</div>
+                        <div class="kpi-detail">lignes a exporter</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-grid">
+                <div>
+                    <!-- Notes de frais double validation (UPDATED) -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Notes de frais a valider</div>
+                            <span class="badge badge-amber">9 en attente niveau Finance</span>
+                        </div>
+                        <p class="text-muted" style="font-size: 12px; margin-bottom: 12px;">
+                            <strong>Workflow:</strong> Soumetteur &#8594; PM &#8594; Directeur en charge &#8594; <strong>Finance (vous)</strong>
+                        </p>
+                        <table>
+                            <thead><tr><th>Employe</th><th>Projet</th><th class="text-right">Montant</th><th>PM</th><th>Directeur</th><th>Action</th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td>Marie Lavoie</td>
+                                    <td>Desjardins</td>
+                                    <td class="text-right mono">87.50 $</td>
+                                    <td><span class="badge badge-green">&#10004; J-F T.</span></td>
+                                    <td><span class="badge badge-green">&#10004; R. Bouchard</span></td>
+                                    <td><button class="btn btn-primary btn-sm">Valider</button></td>
+                                </tr>
+                                <tr>
+                                    <td>Eric Cote</td>
+                                    <td>Desjardins</td>
+                                    <td class="text-right mono">145.00 $</td>
+                                    <td><span class="badge badge-green">&#10004; J-F T.</span></td>
+                                    <td><span class="badge badge-green">&#10004; R. Bouchard</span></td>
+                                    <td><button class="btn btn-primary btn-sm">Valider</button></td>
+                                </tr>
+                                <tr>
+                                    <td>Sophie Dube</td>
+                                    <td>Sherbrooke</td>
+                                    <td class="text-right mono">320.00 $</td>
+                                    <td><span class="badge badge-green">&#10004; S. Pelletier</span></td>
+                                    <td><span class="badge badge-amber">En attente</span></td>
+                                    <td><button class="btn btn-ghost btn-sm" disabled>En attente Directeur</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Aging deplace en bas (moins prioritaire) -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Aging factures clients <span class="text-muted" style="font-size: 12px; font-weight: 400;">&mdash; Vue de surveillance</span></div>
+                            <button class="btn btn-ghost btn-sm">Voir tout</button>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Tranche</th>
+                                    <th class="text-right">Nb factures</th>
+                                    <th class="text-right">Montant</th>
+                                    <th>Repartition</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="badge badge-green">0-30 jours</span></td>
+                                    <td class="text-right mono">14</td>
+                                    <td class="text-right mono"><strong>1.2 M$</strong></td>
+                                    <td><div class="progress-bar"><div class="progress-fill" style="width: 51%; background: var(--success);"></div></div></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge badge-amber">30-60 jours</span></td>
+                                    <td class="text-right mono">6</td>
+                                    <td class="text-right mono"><strong>680 K$</strong></td>
+                                    <td><div class="progress-bar"><div class="progress-fill" style="width: 29%; background: var(--warning);"></div></div></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge badge-amber">60-90 jours</span></td>
+                                    <td class="text-right mono">5</td>
+                                    <td class="text-right mono"><strong>320 K$</strong></td>
+                                    <td><div class="progress-bar"><div class="progress-fill" style="width: 14%; background: var(--warning);"></div></div></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge badge-red">&gt; 90 jours</span></td>
+                                    <td class="text-right mono">3</td>
+                                    <td class="text-right mono text-danger"><strong>140 K$</strong></td>
+                                    <td><div class="progress-bar"><div class="progress-fill" style="width: 6%; background: var(--danger);"></div></div></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="action-panel">
+                        <div class="action-panel-title">&#128229;&#128228; Imports / Exports Intacct</div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--primary-light);">&#128228;</div>
+                            <div class="action-text">
+                                <div class="action-title">Exporter factures du mois</div>
+                                <div class="action-detail">42 lignes &middot; mars 2026</div>
+                            </div>
+                            <span class="action-cta">Lancer &#8594;</span>
+                        </div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--primary-light);">&#128228;</div>
+                            <div class="action-text">
+                                <div class="action-title">Exporter notes de frais</div>
+                                <div class="action-detail">9 validees a transferer</div>
+                            </div>
+                            <span class="action-cta">Lancer &#8594;</span>
+                        </div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--success-light);">&#128229;</div>
+                            <div class="action-text">
+                                <div class="action-title">Importer paiements clients</div>
+                                <div class="action-detail">Dernier import: il y a 2j</div>
+                            </div>
+                            <span class="action-cta">Lancer &#8594;</span>
+                        </div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--success-light);">&#128229;</div>
+                            <div class="action-text">
+                                <div class="action-title">Importer factures ST</div>
+                                <div class="action-detail">12 factures fournisseurs</div>
+                            </div>
+                            <span class="action-cta">Lancer &#8594;</span>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Indicateurs cles (mois)</div>
+                        </div>
+                        <div class="mini-list">
+                            <div class="mini-list-item">
+                                <strong>CA facture &mdash; 890 K$</strong>
+                                <span><span class="text-success">+18%</span> vs mars</span>
+                            </div>
+                            <div class="mini-list-item">
+                                <strong>Comptes recevables &mdash; 2.34 M$</strong>
+                                <span>8 factures &gt; 60j</span>
+                            </div>
+                            <div class="mini-list-item">
+                                <strong>Heures totales &mdash; 2 850 h</strong>
+                                <span>82% facturables</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section Consortiums separee (NEW) -->
+            <div class="card" style="margin-top: 24px; border-left: 4px solid #7C3AED;">
+                <div class="card-header">
+                    <div class="card-title">&#127959; Consortiums &mdash; Gestion separee (FR62)</div>
+                    <span class="badge badge-purple">3 actifs &middot; vue duale</span>
+                </div>
+                <p class="text-muted" style="font-size: 12px; margin-bottom: 12px;">
+                    Les consortiums sont geres dans une vue dediee : factures, sous-traitants, distributions, et comptabilite separee. Le CA consortium n'est pas comptabilise dans le CA Provencher Roy direct.
+                </p>
+                <div class="kpi-grid kpi-grid-4" style="margin-bottom: 0;">
+                    <div class="kpi-card accent-purple">
+                        <div class="kpi-label">Factures consortium en attente</div>
+                        <div class="kpi-value">7</div>
+                        <div class="kpi-detail">1.2 M$ a traiter</div>
+                    </div>
+                    <div class="kpi-card accent-purple">
+                        <div class="kpi-label">ST consortium a payer</div>
+                        <div class="kpi-value">5</div>
+                        <div class="kpi-detail">320 K$</div>
+                    </div>
+                    <div class="kpi-card accent-purple">
+                        <div class="kpi-label">Distributions a calculer</div>
+                        <div class="kpi-value">2</div>
+                        <div class="kpi-detail">Q1 2026</div>
+                    </div>
+                    <div class="kpi-card accent-purple">
+                        <div class="kpi-label">Quote-part PR YTD</div>
+                        <div class="kpi-value">5.1 M$</div>
+                        <div class="kpi-detail">3 consortiums</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- 6. PAIE — Sylvie                                                     -->
+<!-- ================================================================== -->
+<div id="screen-paie" class="app-shell">
+    <div class="app-topbar">
+        <div class="topbar-left">
+            <div class="topbar-logo">PR<span>|Paie</span></div>
+            <input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly>
+        </div>
+        <div class="topbar-right">
+            <div class="topbar-bell">&#128276;<span class="bell-badge">15</span></div>
+            <div class="topbar-avatar" style="background: #BE123C;">SL</div>
+        </div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Validation paie</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128200;</span> Tableau de bord</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#9989;</span> A valider</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128274;</span> Verrouillage periodes</div>
+            <div class="sidebar-section-label">Aide</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#10067;</span> Centre d'aide</div>
+        </aside>
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>Validation paie &mdash; Semaine 15</h1>
+                    <div class="subline">Sylvie Larouche &middot; Technicienne paie &middot; Periode 7-11 avril 2026</div>
+                </div>
+                <button class="btn btn-primary">&#128274; Verrouiller la periode</button>
+            </div>
+
+            <div class="alert-bar danger">
+                <span>&#128680;</span>
+                <span><strong>3 alertes critiques</strong> &mdash; Maladie + travail meme jour (Marc T.), Heures supp + maladie (Eric C.), Maximum legal 50h depasse (Sophie D.)</span>
+            </div>
+
+            <div class="kpi-grid kpi-grid-4">
+                <div class="kpi-card accent-danger">
+                    <div class="kpi-label">Feuilles a valider</div>
+                    <div class="kpi-value">42</div>
+                    <div class="kpi-detail">Sur 68 attendues</div>
+                </div>
+                <div class="kpi-card accent-danger">
+                    <div class="kpi-label">Alertes critiques</div>
+                    <div class="kpi-value">3</div>
+                    <div class="kpi-detail">Erreurs bloquantes</div>
+                </div>
+                <div class="kpi-card accent-warning">
+                    <div class="kpi-label">Avertissements</div>
+                    <div class="kpi-value">11</div>
+                    <div class="kpi-detail">A reviser</div>
+                </div>
+                <div class="kpi-card accent-success">
+                    <div class="kpi-label">Total heures (sem.)</div>
+                    <div class="kpi-value">2 850 h</div>
+                    <div class="kpi-detail">68 employes</div>
+                </div>
+            </div>
+
+            <div class="content-grid">
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Resume des 11 controles paie</div>
+                            <span class="badge badge-red">3 erreurs &middot; 11 warnings</span>
+                        </div>
+                        <table class="control-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Controle</th>
+                                    <th class="text-center">Severite</th>
+                                    <th class="text-right">Cas detectes</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="mono">1</td><td>Heures incompletes (&lt; contrat)</td>
+                                    <td class="text-center"><span class="badge badge-amber">Warning</span></td>
+                                    <td class="text-right mono">5</td>
+                                    <td><button class="btn btn-ghost btn-sm">Voir</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">2</td><td>Heures supp + maladie meme semaine</td>
+                                    <td class="text-center"><span class="badge badge-red">Erreur</span></td>
+                                    <td class="text-right mono text-danger"><strong>1</strong></td>
+                                    <td><button class="btn btn-primary btn-sm">Resoudre</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">3</td><td>Heures supp + autre conge</td>
+                                    <td class="text-center"><span class="badge badge-amber">Warning</span></td>
+                                    <td class="text-right mono">2</td>
+                                    <td><button class="btn btn-ghost btn-sm">Voir</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">4</td><td>Heures supplementaires (seuil)</td>
+                                    <td class="text-center"><span class="badge badge-amber">Warning</span></td>
+                                    <td class="text-right mono">3</td>
+                                    <td><button class="btn btn-ghost btn-sm">Voir</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">5</td><td>Journee &gt; 10h</td>
+                                    <td class="text-center"><span class="badge badge-amber">Warning</span></td>
+                                    <td class="text-right mono">1</td>
+                                    <td><button class="btn btn-ghost btn-sm">Voir</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">6</td><td>Travail fin de semaine</td>
+                                    <td class="text-center"><span class="badge badge-amber">Warning</span></td>
+                                    <td class="text-right mono">0</td>
+                                    <td>&mdash;</td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">7</td><td>Maladie + travail meme jour</td>
+                                    <td class="text-center"><span class="badge badge-red">Erreur</span></td>
+                                    <td class="text-right mono text-danger"><strong>1</strong></td>
+                                    <td><button class="btn btn-primary btn-sm">Resoudre</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">8</td><td>Tendance inhabituelle (&gt;20%)</td>
+                                    <td class="text-center"><span class="badge badge-blue">Info</span></td>
+                                    <td class="text-right mono">4</td>
+                                    <td><button class="btn btn-ghost btn-sm">Voir</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">9</td><td>3+ semaines consecutives supp</td>
+                                    <td class="text-center"><span class="badge badge-red">Erreur</span></td>
+                                    <td class="text-right mono">0</td>
+                                    <td>&mdash;</td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">10</td><td>PM non approuve</td>
+                                    <td class="text-center"><span class="badge badge-red">Erreur</span></td>
+                                    <td class="text-right mono">0</td>
+                                    <td>&mdash;</td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">11</td><td>Maximum legal 50h/sem (LNT)</td>
+                                    <td class="text-center"><span class="badge badge-red">Erreur</span></td>
+                                    <td class="text-right mono text-danger"><strong>1</strong></td>
+                                    <td><button class="btn btn-primary btn-sm">Resoudre</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="action-panel">
+                        <div class="action-panel-title">&#128680; Cas critiques</div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--danger-light);">&#9888;</div>
+                            <div class="action-text">
+                                <div class="action-title">Marc Tremblay</div>
+                                <div class="action-detail">Maladie + travail le 9/04</div>
+                            </div>
+                            <span class="action-cta">Resoudre &#8594;</span>
+                        </div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--danger-light);">&#9888;</div>
+                            <div class="action-text">
+                                <div class="action-title">Eric Cote</div>
+                                <div class="action-detail">Heures supp + maladie sem. 15</div>
+                            </div>
+                            <span class="action-cta">Resoudre &#8594;</span>
+                        </div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--danger-light);">&#9888;</div>
+                            <div class="action-text">
+                                <div class="action-title">Sophie Dube</div>
+                                <div class="action-detail">52h/semaine (depasse LNT)</div>
+                            </div>
+                            <span class="action-cta">Resoudre &#8594;</span>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Periodes verrouillees</div>
+                        </div>
+                        <div class="mini-list">
+                            <div class="mini-list-item" style="background: var(--success-light);">
+                                <strong>Sem. 14 (31 mar - 4 avr)</strong>
+                                <span>Verrouillee &middot; Envoi ADP OK</span>
+                            </div>
+                            <div class="mini-list-item" style="background: var(--success-light);">
+                                <strong>Sem. 13 (24-28 mars)</strong>
+                                <span>Verrouillee &middot; Envoi ADP OK</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- 7. DEPT_ASSISTANT — Sophie                                           -->
+<!-- ================================================================== -->
+<div id="screen-asst" class="app-shell">
+    <div class="app-topbar">
+        <div class="topbar-left">
+            <div class="topbar-logo">PR<span>|Assistance</span></div>
+            <input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly>
+        </div>
+        <div class="topbar-right">
+            <div class="topbar-bell">&#128276;<span class="bell-badge">3</span></div>
+            <div class="topbar-avatar" style="background: #92400E;">SD</div>
+        </div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Mon travail</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128200;</span> Tableau de bord</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128197;</span> Mes feuilles de temps</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127958;</span> Mes conges</div>
+            <div class="sidebar-section-label">Assistance</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128193;</span> Projets</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#9989;</span> Approbations</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128176;</span> Facturation (lecture)</div>
+            <div class="sidebar-section-label">Delegations</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128101;</span> Mes delegations</div>
+            <div class="sidebar-section-label">Aide</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#10067;</span> Centre d'aide</div>
+        </aside>
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>Bonjour Sophie &#128075;</h1>
+                    <div class="subline">Adjointe administrative BU Batiment &middot; 3 delegations actives</div>
+                </div>
+                <button class="btn btn-primary">&#128101; Voir mes delegations</button>
+            </div>
+
+            <div class="alert-bar success">
+                <span>&#128274;</span>
+                <span>Vous agissez actuellement par delegation pour <strong>Jean-Francois Tremblay</strong>, <strong>Sophie Pelletier</strong> et <strong>Marc Lavoie</strong>.</span>
+            </div>
+
+            <div class="kpi-grid kpi-grid-4">
+                <div class="kpi-card accent-primary">
+                    <div class="kpi-label">Mes delegations</div>
+                    <div class="kpi-value">3</div>
+                    <div class="kpi-detail">PMs delegateurs</div>
+                </div>
+                <div class="kpi-card accent-warning">
+                    <div class="kpi-label">Approbations en attente</div>
+                    <div class="kpi-value">7</div>
+                    <div class="kpi-detail">Pour mes 3 PMs</div>
+                </div>
+                <div class="kpi-card accent-success">
+                    <div class="kpi-label">Mes heures (sem.)</div>
+                    <div class="kpi-value">35.0 h</div>
+                    <div class="kpi-detail">Norme: 37.5h</div>
+                </div>
+                <div class="kpi-card accent-purple">
+                    <div class="kpi-label">Projets supervises</div>
+                    <div class="kpi-value">9</div>
+                    <div class="kpi-detail">Via delegations</div>
+                </div>
+            </div>
+
+            <div class="content-grid">
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Mes delegations actives</div>
+                            <span class="badge badge-blue">3 actives</span>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Delegateur</th>
+                                    <th>Scope</th>
+                                    <th>Permissions</th>
+                                    <th>Expire le</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>J-F Tremblay</strong></td>
+                                    <td>3 projets</td>
+                                    <td>Approbations TS + lecture factures</td>
+                                    <td class="mono">30 avr 2026</td>
+                                    <td><button class="btn btn-ghost btn-sm">Voir</button></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>S. Pelletier</strong></td>
+                                    <td>2 projets</td>
+                                    <td>Saisie ST + ecritures clients</td>
+                                    <td class="mono">15 mai 2026</td>
+                                    <td><button class="btn btn-ghost btn-sm">Voir</button></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Marc Lavoie</strong></td>
+                                    <td>4 projets</td>
+                                    <td>Tous droits PM</td>
+                                    <td class="mono">22 avr 2026</td>
+                                    <td><button class="btn btn-ghost btn-sm">Voir</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Approbations a traiter (par delegation)</div>
+                        </div>
+                        <table>
+                            <thead><tr><th>Type</th><th>De la part de</th><th>Description</th><th>Date</th><th></th></tr></thead>
+                            <tbody>
+                                <tr><td><span class="badge badge-blue">Timesheet</span></td><td>J-F Tremblay</td><td>Marie Lavoie &mdash; 15h</td><td>11/04</td><td><button class="btn btn-primary btn-sm">Approuver</button></td></tr>
+                                <tr><td><span class="badge badge-blue">Timesheet</span></td><td>J-F Tremblay</td><td>Eric Cote &mdash; 22.5h</td><td>11/04</td><td><button class="btn btn-primary btn-sm">Approuver</button></td></tr>
+                                <tr><td><span class="badge badge-amber">Depense</span></td><td>S. Pelletier</td><td>Marc T. &mdash; 145 $</td><td>10/04</td><td><button class="btn btn-primary btn-sm">Approuver</button></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="action-panel">
+                        <div class="action-panel-title">&#128203; Mes taches</div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--warning-light);">&#9989;</div>
+                            <div class="action-text">
+                                <div class="action-title">7 approbations en attente</div>
+                                <div class="action-detail">Pour 3 delegateurs</div>
+                            </div>
+                            <span class="action-cta">Voir &#8594;</span>
+                        </div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--primary-light);">&#128197;</div>
+                            <div class="action-text">
+                                <div class="action-title">Completer ma feuille</div>
+                                <div class="action-detail">Vendredi 11 avril &mdash; 2.5h</div>
+                            </div>
+                            <span class="action-cta">Saisir &#8594;</span>
+                        </div>
+                    </div>
+
+                    <div class="card" style="background: var(--warning-light); border-left: 4px solid var(--warning);">
+                        <div class="card-header">
+                            <div class="card-title" style="color: #92400E;">Sprint 3 (ABAC)</div>
+                        </div>
+                        <p style="font-size: 12px; color: #92400E; line-height: 1.5;">
+                            Le mode <strong>miroir adaptatif</strong> complet (qui adapte automatiquement le menu de Sophie selon le PM courant) sera livre dans le Sprint 3 avec la matrice de permissions ABAC.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- 8. PROPOSAL MANAGER — Eric                                           -->
+<!-- ================================================================== -->
+<div id="screen-prop" class="app-shell">
+    <div class="app-topbar">
+        <div class="topbar-left">
+            <div class="topbar-logo">PR<span>|Commercial</span></div>
+            <input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly>
+        </div>
+        <div class="topbar-right">
+            <div class="topbar-bell">&#128276;<span class="bell-badge">4</span></div>
+            <div class="topbar-avatar" style="background: #0E7490;">EC</div>
+        </div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Commercial</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128200;</span> Tableau de bord</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128203;</span> Propositions</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#129309;</span> Clients</div>
+            <div class="sidebar-section-label">Aide</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#10067;</span> Centre d'aide</div>
+        </aside>
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>Pipeline commercial</h1>
+                    <div class="subline">Eric Cote &middot; Charge des propositions &middot; Q2 2026</div>
+                </div>
+                <button class="btn btn-primary">&#128203; Nouvelle proposition</button>
+            </div>
+
+            <div class="alert-bar">
+                <span>&#9432;</span>
+                <span>Module Propositions disponible en <strong>MVP-1.5</strong>. Les donnees affichees sont des previsions.</span>
+            </div>
+
+            <div class="kpi-grid kpi-grid-4">
+                <div class="kpi-card accent-primary">
+                    <div class="kpi-label">Propositions actives</div>
+                    <div class="kpi-value">12</div>
+                    <div class="kpi-detail">3.8 M$ pipeline</div>
+                </div>
+                <div class="kpi-card accent-success">
+                    <div class="kpi-label">Taux conversion</div>
+                    <div class="kpi-value">38%</div>
+                    <div class="kpi-detail">YTD &middot; cible 35%</div>
+                </div>
+                <div class="kpi-card accent-warning">
+                    <div class="kpi-label">A soumettre</div>
+                    <div class="kpi-value">3</div>
+                    <div class="kpi-detail">Echeance &lt; 7j</div>
+                </div>
+                <div class="kpi-card accent-success">
+                    <div class="kpi-label">Gagnees Q2</div>
+                    <div class="kpi-value">5</div>
+                    <div class="kpi-detail">2.1 M$ converti</div>
+                </div>
+            </div>
+
+            <div class="content-grid">
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Pipeline en cours</div>
+                            <button class="btn btn-ghost btn-sm">Vue Kanban</button>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Client</th>
+                                    <th>Statut</th>
+                                    <th class="text-right">Budget</th>
+                                    <th>Echeance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="mono">OFF-2026-018</td>
+                                    <td>Bibliotheque Laval</td>
+                                    <td><span class="badge badge-amber">A soumettre</span></td>
+                                    <td class="text-right mono">450 K$</td>
+                                    <td class="mono">15 avr</td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">OFF-2026-019</td>
+                                    <td>Ville Quebec</td>
+                                    <td><span class="badge badge-blue">Soumise</span></td>
+                                    <td class="text-right mono">820 K$</td>
+                                    <td class="mono">22 avr</td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">OFF-2026-020</td>
+                                    <td>CIUSSS Estrie</td>
+                                    <td><span class="badge badge-blue">Soumise</span></td>
+                                    <td class="text-right mono">1.2 M$</td>
+                                    <td class="mono">30 avr</td>
+                                </tr>
+                                <tr>
+                                    <td class="mono">OFF-2026-021</td>
+                                    <td>CSS Laval</td>
+                                    <td><span class="badge badge-green">Gagnee</span></td>
+                                    <td class="text-right mono">340 K$</td>
+                                    <td class="mono">A convertir</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="action-panel">
+                        <div class="action-panel-title">&#128640; Mes priorites</div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--warning-light);">&#9888;</div>
+                            <div class="action-text">
+                                <div class="action-title">Bibliotheque Laval</div>
+                                <div class="action-detail">A soumettre dans 4 jours</div>
+                            </div>
+                            <span class="action-cta">Finaliser &#8594;</span>
+                        </div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--success-light);">&#10004;</div>
+                            <div class="action-text">
+                                <div class="action-title">CSS Laval gagnee</div>
+                                <div class="action-detail">Convertir en projet</div>
+                            </div>
+                            <span class="action-cta">Convertir &#8594;</span>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Top clients pipeline</div>
+                        </div>
+                        <div class="mini-list">
+                            <div class="mini-list-item">
+                                <strong>CIUSSS Estrie &mdash; 1.2 M$</strong>
+                                <span>1 proposition active</span>
+                            </div>
+                            <div class="mini-list-item">
+                                <strong>Ville Quebec &mdash; 820 K$</strong>
+                                <span>1 proposition + 2 clos</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- 9. ADMIN — Philippe                                                  -->
+<!-- ================================================================== -->
+<div id="screen-admin" class="app-shell">
+    <div class="app-topbar">
+        <div class="topbar-left">
+            <div class="topbar-logo">PR<span>|Admin</span></div>
+            <input class="topbar-search" placeholder="Rechercher... (&#8984;K)" readonly>
+        </div>
+        <div class="topbar-right">
+            <div class="topbar-bell">&#128276;<span class="bell-badge">1</span></div>
+            <div class="topbar-avatar" style="background: var(--gray-700);">PH</div>
+        </div>
+    </div>
+    <div class="app-body">
+        <aside class="sidebar">
+            <div class="sidebar-section-label">Mon travail</div>
+            <div class="sidebar-item active"><span class="sidebar-icon">&#128200;</span> Tableau de bord</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128197;</span> Mes feuilles de temps</div>
+            <div class="sidebar-section-label">Pilotage</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128193;</span> Projets</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#9989;</span> Approbations</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128197;</span> Planification</div>
+            <div class="sidebar-section-label">Finance</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#128176;</span> Facturation</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#129534;</span> Notes de frais</div>
+            <div class="sidebar-section-label">Referentiels</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#129309;</span> Clients</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127959;</span> Consortiums</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#127970;</span> Fournisseurs</div>
+            <div class="sidebar-section-label">Administration</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#9881;</span> Admin systeme</div>
+            <div class="sidebar-section-label">Aide</div>
+            <div class="sidebar-item"><span class="sidebar-icon">&#10067;</span> Centre d'aide</div>
+        </aside>
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>Sante systeme</h1>
+                    <div class="subline">Philippe Haumesser &middot; Administrateur &middot; 11 avril 2026 19:30</div>
+                </div>
+                <button class="btn btn-primary">&#9881; Configuration</button>
+            </div>
+
+            <div class="alert-bar success">
+                <span>&#9989;</span>
+                <span>Tous les systemes operent normalement. Derniere alerte resolue: il y a 4 jours.</span>
+            </div>
+
+            <div class="kpi-grid kpi-grid-5">
+                <div class="kpi-card accent-success">
+                    <div class="kpi-label">Statut systeme</div>
+                    <div class="kpi-value text-success">OK</div>
+                    <div class="kpi-detail">99.8% uptime 30j</div>
+                </div>
+                <div class="kpi-card accent-success">
+                    <div class="kpi-label">Temps reponse moy.</div>
+                    <div class="kpi-value">142 ms</div>
+                    <div class="kpi-detail"><span class="kpi-trend-up">&#9660; -8%</span></div>
+                </div>
+                <div class="kpi-card accent-warning">
+                    <div class="kpi-label">Erreurs (24h)</div>
+                    <div class="kpi-value">3</div>
+                    <div class="kpi-detail">Non bloquantes</div>
+                </div>
+                <div class="kpi-card accent-primary">
+                    <div class="kpi-label">Utilisateurs actifs</div>
+                    <div class="kpi-value">68</div>
+                    <div class="kpi-detail">Derniere heure</div>
+                </div>
+                <div class="kpi-card accent-success">
+                    <div class="kpi-label">Stockage</div>
+                    <div class="kpi-value">42%</div>
+                    <div class="kpi-detail">21 / 50 Go</div>
+                </div>
+            </div>
+
+            <div class="content-grid">
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Activite des dernieres 24h</div>
+                        </div>
+                        <div class="chart-placeholder" style="height: 120px;">
+                            <div class="chart-bar"><div class="chart-bar-value">12</div><div class="chart-bar-fill" style="height: 30%; background: var(--primary);"></div><div class="chart-bar-label">00h</div></div>
+                            <div class="chart-bar"><div class="chart-bar-value">5</div><div class="chart-bar-fill" style="height: 12%; background: var(--primary);"></div><div class="chart-bar-label">04h</div></div>
+                            <div class="chart-bar"><div class="chart-bar-value">35</div><div class="chart-bar-fill" style="height: 60%; background: var(--primary);"></div><div class="chart-bar-label">08h</div></div>
+                            <div class="chart-bar"><div class="chart-bar-value">68</div><div class="chart-bar-fill" style="height: 100%; background: var(--success);"></div><div class="chart-bar-label">12h</div></div>
+                            <div class="chart-bar"><div class="chart-bar-value">52</div><div class="chart-bar-fill" style="height: 80%; background: var(--primary);"></div><div class="chart-bar-label">16h</div></div>
+                            <div class="chart-bar"><div class="chart-bar-value">28</div><div class="chart-bar-fill" style="height: 45%; background: var(--primary);"></div><div class="chart-bar-label">20h</div></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Erreurs recentes (24h)</div>
+                            <span class="badge badge-amber">3 erreurs</span>
+                        </div>
+                        <table>
+                            <thead><tr><th>Heure</th><th>Endpoint</th><th>Code</th><th>Utilisateur</th><th>Message</th></tr></thead>
+                            <tbody>
+                                <tr><td class="mono">14:32</td><td class="mono">/api/v1/invoices/</td><td><span class="badge badge-amber">409</span></td><td>finance@test.com</td><td>Version conflict</td></tr>
+                                <tr><td class="mono">11:15</td><td class="mono">/api/v1/expenses/</td><td><span class="badge badge-amber">400</span></td><td>employe@test.com</td><td>Recu manquant</td></tr>
+                                <tr><td class="mono">09:48</td><td class="mono">/api/v1/timesheets/submit/</td><td><span class="badge badge-amber">403</span></td><td>pm2@test.com</td><td>Periode verrouillee</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="action-panel">
+                        <div class="action-panel-title">&#9881; Maintenance</div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--primary-light);">&#128190;</div>
+                            <div class="action-text">
+                                <div class="action-title">Backup automatique</div>
+                                <div class="action-detail">Dernier: 03:00 (OK)</div>
+                            </div>
+                            <span class="action-cta">Voir &#8594;</span>
+                        </div>
+                        <div class="action-item">
+                            <div class="action-icon" style="background: var(--success-light);">&#9201;</div>
+                            <div class="action-text">
+                                <div class="action-title">Celery beat</div>
+                                <div class="action-detail">7/7 taches OK</div>
+                            </div>
+                            <span class="action-cta">Voir &#8594;</span>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Adoption par BU</div>
+                        </div>
+                        <div class="mini-list">
+                            <div class="mini-list-item">
+                                <strong>BU Batiment &mdash; 92%</strong>
+                                <div class="progress-bar" style="margin-top: 6px;"><div class="progress-fill" style="width: 92%; background: var(--success);"></div></div>
+                            </div>
+                            <div class="mini-list-item">
+                                <strong>BU Urbanisme &mdash; 78%</strong>
+                                <div class="progress-bar" style="margin-top: 6px;"><div class="progress-fill" style="width: 78%; background: var(--success);"></div></div>
+                            </div>
+                            <div class="mini-list-item">
+                                <strong>BU Design &mdash; 65%</strong>
+                                <div class="progress-bar" style="margin-top: 6px;"><div class="progress-fill" style="width: 65%; background: var(--warning);"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script>
+function showScreen(evt, personaId) {
+    document.querySelectorAll('.app-shell').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('screen-' + personaId).classList.add('active');
+    if (evt && evt.target) evt.target.classList.add('active');
+    window.scrollTo(0, 0);
+}
+</script>
+
+</body>
+</html>
