@@ -52,6 +52,16 @@ class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
             return obj.task.client_facing_label or obj.task.name
         return ""
 
+    def validate_hours(self, value):
+        """Reject negative hours and absurd values >24h/day."""
+        if value is None:
+            return value
+        if value < 0:
+            raise serializers.ValidationError("Les heures ne peuvent pas etre negatives.")
+        if value > 24:
+            raise serializers.ValidationError("Les heures ne peuvent pas depasser 24h sur une journee.")
+        return value
+
 
 class WeeklyApprovalSerializer(serializers.ModelSerializer):
     employee_name = serializers.SerializerMethodField()

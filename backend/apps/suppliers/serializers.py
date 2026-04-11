@@ -25,14 +25,14 @@ class ExternalOrganizationSerializer(serializers.ModelSerializer):
 
 
 class STPaymentSerializer(serializers.ModelSerializer):
-    invoice_number = serializers.CharField(source="invoice.invoice_number", read_only=True)
-    supplier_name = serializers.CharField(source="invoice.supplier.name", read_only=True)
+    invoice_number = serializers.CharField(source="st_invoice.invoice_number", read_only=True)
+    supplier_name = serializers.CharField(source="st_invoice.supplier.name", read_only=True)
 
     class Meta:
         model = STPayment
         fields = [
-            "id", "invoice", "invoice_number", "supplier_name",
-            "amount", "payment_date", "payment_method", "reference",
+            "id", "st_invoice", "invoice_number", "supplier_name",
+            "amount", "payment_date", "status",
             "version", "created_at",
         ]
         read_only_fields = ["id", "created_at"]
@@ -44,8 +44,8 @@ class STCreditNoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = STCreditNote
         fields = [
-            "id", "supplier", "supplier_name", "invoice",
-            "credit_number", "credit_date", "amount", "reason",
+            "id", "supplier", "supplier_name", "st_invoice",
+            "amount", "status",
             "version", "created_at",
         ]
         read_only_fields = ["id", "created_at"]

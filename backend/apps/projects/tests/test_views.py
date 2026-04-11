@@ -32,6 +32,37 @@ class TestProjectAPI:
         )
         assert response.status_code == 201
 
+    def test_create_project_with_consortium(self):
+        """P-017: Create project linked to a consortium."""
+        from apps.clients.models import Client
+        from apps.consortiums.models import Consortium
+
+        client = Client.objects.create(tenant=self.tenant, name="Ville XYZ", alias="VXYZ")
+        consortium = Consortium.objects.create(
+            tenant=self.tenant,
+            name="PR + ABC + DEF",
+            client=client,
+            pr_role="MANDATAIRE",
+        )
+        response = self.api.post(
+            "/api/v1/projects/",
+            {
+                "code": "PRJ-CONS",
+                "name": "Projet Consortium",
+                "contract_type": "CONSORTIUM",
+                "is_consortium": True,
+                "consortium": consortium.pk,
+            },
+            format="json",
+            HTTP_X_TENANT_ID=str(self.tenant.pk),
+        )
+        assert response.status_code == 201, response.data
+        data = response.data.get("data") or response.data
+        assert data["is_consortium"] is True
+        # Reload from DB to verify FK
+        project = Project.objects.get(pk=data["id"])
+        assert project.consortium_id == consortium.pk
+
     def test_retrieve_project(self):
         p = Project.objects.create(
             tenant=self.tenant, code="PRJ-R", name="Retrieve"

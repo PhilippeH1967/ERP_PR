@@ -43,6 +43,36 @@ class TestTimeEntryAPI:
         )
         assert response.status_code == 201
 
+    def test_create_entry_negative_hours_rejected(self):
+        """TS-014: Negative hours must be rejected."""
+        response = self.api.post(
+            "/api/v1/time_entries/",
+            {
+                "project": self.project.pk,
+                "phase": self.phase.pk,
+                "date": "2026-03-16",
+                "hours": "-2.0",
+            },
+            format="json",
+            HTTP_X_TENANT_ID=str(self.tenant.pk),
+        )
+        assert response.status_code == 400
+
+    def test_create_entry_excessive_hours_rejected(self):
+        """TS-014: Hours >24 must be rejected."""
+        response = self.api.post(
+            "/api/v1/time_entries/",
+            {
+                "project": self.project.pk,
+                "phase": self.phase.pk,
+                "date": "2026-03-16",
+                "hours": "25.0",
+            },
+            format="json",
+            HTTP_X_TENANT_ID=str(self.tenant.pk),
+        )
+        assert response.status_code == 400
+
     def test_submit_week(self):
         TimeEntry.objects.create(
             tenant=self.tenant, employee=self.user,

@@ -61,6 +61,35 @@ class TestInvoiceAPI:
         response = self.api.post(f"/api/v1/invoices/{inv.pk}/approve/")
         assert response.status_code == 200
 
+    def test_self_approval_blocked(self):
+        """FAC-008: User who submitted an invoice cannot approve it (anti-self-approval)."""
+        inv = Invoice.objects.create(
+            tenant=self.tenant, project=self.project, client=self.client_obj,
+            invoice_number="PROV-SELF", status="SUBMITTED",
+            submitted_by=self.user,
+        )
+        response = self.api.post(f"/api/v1/invoices/{inv.pk}/approve/")
+        assert response.status_code == 403
+        data = response.json()
+        assert data["error"]["code"] == "SELF_APPROVAL"
+
+    def test_approval_by_other_user_succeeds(self):
+        """FAC-008: An invoice submitted by user A can be approved by user B."""
+        # User A submits
+        user_a = User.objects.create_user(username="finance_a", password="pass123!")
+        ProjectRole.objects.create(user=user_a, tenant=self.tenant, role=Role.FINANCE)
+        inv = Invoice.objects.create(
+            tenant=self.tenant, project=self.project, client=self.client_obj,
+            invoice_number="PROV-OTHER", status="SUBMITTED",
+            submitted_by=user_a,
+        )
+        # User B (self.user) approves
+        response = self.api.post(f"/api/v1/invoices/{inv.pk}/approve/")
+        assert response.status_code == 200
+        inv.refresh_from_db()
+        assert inv.status == "APPROVED"
+        assert inv.approved_by == self.user
+
     def test_aging_analysis(self):
         inv = Invoice.objects.create(
             tenant=self.tenant, project=self.project, client=self.client_obj,
