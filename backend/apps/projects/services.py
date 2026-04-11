@@ -75,8 +75,12 @@ def create_project_from_template(template_id, project_data, tenant_id=None):
         **cleaned,
     )
 
+    # Optional phase budgets override (passed by wizard step 2)
+    phase_budgets = project_data.get("phase_budgets") or {}
+
     # Create phases and tasks from template
     for i, phase_config in enumerate(template.phases_config or []):
+        budget_override = phase_budgets.get(str(i)) or phase_budgets.get(i) or {}
         phase = Phase.objects.create(
             tenant=tenant,
             project=project,
@@ -87,6 +91,8 @@ def create_project_from_template(template_id, project_data, tenant_id=None):
             billing_mode=phase_config.get("billing_mode", "FORFAIT"),
             order=i,
             is_mandatory=phase_config.get("is_mandatory", False),
+            budgeted_hours=budget_override.get("budgeted_hours") or phase_config.get("budgeted_hours", 0) or 0,
+            budgeted_cost=budget_override.get("budgeted_cost") or phase_config.get("budgeted_cost", 0) or 0,
         )
 
         # Create tasks under this phase

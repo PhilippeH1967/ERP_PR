@@ -138,7 +138,17 @@ class Command(BaseCommand):
         # 5. Dunning levels
         self._seed_dunning_levels(tenant)
 
+        # 6. Leave types (Quebec standard)
+        self._seed_leave_types(tenant)
+
         self.stdout.write(self.style.SUCCESS("\nDonnées de référence créées!"))
+
+    def _seed_leave_types(self, tenant):
+        self.stdout.write("6. Types de congés (Québec)...")
+        from apps.leaves.services import seed_leave_types
+
+        count = seed_leave_types(tenant)
+        self.stdout.write(self.style.SUCCESS(f"  ✓ {count} types de congés créés"))
 
     def _seed_position_profiles(self, tenant):
         """Try to read listePoste.xlsx, fallback to defaults."""

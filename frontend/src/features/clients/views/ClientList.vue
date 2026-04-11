@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useClientStore } from '../stores/useClientStore'
@@ -13,16 +13,16 @@ const showCreateModal = ref(false)
 
 onMounted(() => store.fetchClients())
 
-// Live search filtering (client-side)
-const filteredClients = computed(() => {
-  const q = search.value.trim().toLowerCase()
-  if (!q) return store.clients
-  return store.clients.filter(
-    (c: Record<string, unknown>) =>
-      String(c.name || '').toLowerCase().includes(q) ||
-      String(c.alias || '').toLowerCase().includes(q) ||
-      String(c.sector || '').toLowerCase().includes(q),
-  )
+// Server-side search with debounce (300ms)
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(search, (q) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    const params: Record<string, string> = {}
+    const trimmed = q.trim()
+    if (trimmed) params.search = trimmed
+    store.fetchClients(params)
+  }, 300)
 })
 </script>
 
@@ -69,7 +69,7 @@ const filteredClients = computed(() => {
         </thead>
         <tbody>
           <tr
-            v-for="client in filteredClients"
+            v-for="client in store.clients"
             :key="client.id"
             class="cursor-pointer border-b border-border last:border-0 hover:bg-surface-alt"
             @click="router.push(`/clients/${client.id}`)"

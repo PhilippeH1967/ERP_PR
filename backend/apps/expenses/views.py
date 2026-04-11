@@ -27,16 +27,19 @@ class ExpenseReportViewSet(viewsets.ModelViewSet):
         return qs.prefetch_related("lines")
 
     def perform_create(self, serializer):
-        tenant_id = getattr(self.request, "tenant_id", None)
-        if tenant_id:
-            from apps.core.models import Tenant
+        from apps.core.models import Tenant, UserTenantAssociation
 
-            serializer.save(
-                tenant=Tenant.objects.get(pk=tenant_id),
-                employee=self.request.user,
-            )
-        else:
-            serializer.save(employee=self.request.user)
+        tenant_id = getattr(self.request, "tenant_id", None)
+        tenant = None
+        if tenant_id:
+            tenant = Tenant.objects.filter(pk=tenant_id).first()
+        if tenant is None:
+            assoc = UserTenantAssociation.objects.filter(user=self.request.user).select_related("tenant").first()
+            if assoc:
+                tenant = assoc.tenant
+        if tenant is None:
+            tenant = Tenant.objects.first()
+        serializer.save(tenant=tenant, employee=self.request.user)
 
     def _transition(self, request, pk, from_statuses, to_status):
         """Generic status transition helper."""
@@ -131,7 +134,13 @@ class ExpenseLineViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         report = ExpenseReport.objects.get(pk=self.kwargs["report_pk"])
+        # Inherit tenant from parent report (always set)
         serializer.save(report=report, tenant=report.tenant)
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx["report_pk"] = self.kwargs.get("report_pk")
+        return ctx
 
 
 class ExpenseCategoryViewSet(viewsets.ModelViewSet):

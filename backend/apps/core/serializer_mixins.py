@@ -24,11 +24,12 @@ class CostFieldFilterMixin:
             return fields
 
         # Check if user can see cost fields
+        # PM included: PMs need to see/edit budgets on their own projects
         from apps.core.models import ProjectRole, Role
 
         can_see = ProjectRole.objects.filter(
             user=request.user,
-            role__in=[Role.FINANCE, Role.PROJECT_DIRECTOR, Role.BU_DIRECTOR, Role.ADMIN],
+            role__in=[Role.PM, Role.FINANCE, Role.PROJECT_DIRECTOR, Role.BU_DIRECTOR, Role.ADMIN],
         ).exists()
 
         if not can_see:

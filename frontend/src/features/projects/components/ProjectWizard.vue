@@ -232,6 +232,18 @@ async function onSubmit() {
     if (form.value.pm) payload.pm = Number(form.value.pm)
     if (form.value.associate_in_charge) payload.associate_in_charge = Number(form.value.associate_in_charge)
     if (form.value.invoice_approver) payload.invoice_approver = Number(form.value.invoice_approver)
+    // Pass phase budgets directly with the template creation
+    if (form.value.template_id && phases.value.length) {
+      const phaseBudgets: Record<number, { budgeted_hours: number; budgeted_cost: number }> = {}
+      phases.value.forEach((p, idx) => {
+        const h = parseFloat(String(p.budgeted_hours || '0')) || 0
+        const c = parseFloat(String(p.budgeted_cost || '0')) || 0
+        if (h > 0 || c > 0) phaseBudgets[idx] = { budgeted_hours: h, budgeted_cost: c }
+      })
+      if (Object.keys(phaseBudgets).length) {
+        payload.phase_budgets = phaseBudgets
+      }
+    }
     let project
     if (form.value.template_id) {
       project = await store.createFromTemplate(form.value.template_id, payload)
