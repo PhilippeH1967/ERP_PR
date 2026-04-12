@@ -68,6 +68,11 @@ const router = createRouter({
           name: 'project-detail',
           component: () => import('@/features/projects/views/ProjectDetail.vue'),
         },
+        {
+          path: 'projects/:id/overview',
+          name: 'project-employee-view',
+          component: () => import('@/features/projects/views/EmployeeProjectView.vue'),
+        },
         // Consortiums
         {
           path: 'consortiums',
@@ -179,6 +184,11 @@ const router = createRouter({
           path: 'st-invoices',
           name: 'st-invoices',
           component: () => import('@/features/suppliers/views/STInvoiceList.vue'),
+        },
+        {
+          path: 'st-approvals',
+          name: 'st-approvals',
+          component: () => import('@/features/suppliers/views/STApprovalQueue.vue'),
         },
         // Delegation
         {

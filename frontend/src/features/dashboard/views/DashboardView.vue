@@ -44,6 +44,19 @@ const pmProjects = ref<Array<Record<string, unknown>>>([])
 const buKpis = ref<BUKPIs | null>(null)
 const healthKpis = ref<SystemHealth | null>(null)
 
+// Employee weekly forecast
+const leaveBalance = ref(0)
+interface WeeklyStats { actual: string; budget: string; remaining: number }
+const weeklyStats = ref<WeeklyStats>({ actual: '0', budget: '37.5', remaining: 37.5 })
+interface DayForecast { label: string; planned: number; actual: number }
+const weekForecast = ref<DayForecast[]>([
+  { label: 'Lun', planned: 7.5, actual: 0 },
+  { label: 'Mar', planned: 7.5, actual: 0 },
+  { label: 'Mer', planned: 7.5, actual: 0 },
+  { label: 'Jeu', planned: 7.5, actual: 0 },
+  { label: 'Ven', planned: 7.5, actual: 0 },
+])
+
 const roles = computed(() => currentUser.value?.roles || [])
 const isPM = computed(() => roles.value.includes('PM') || roles.value.includes('PROJECT_DIRECTOR'))
 const isBUDirector = computed(() => roles.value.includes('BU_DIRECTOR'))
@@ -56,6 +69,35 @@ onMounted(async () => {
     const resp = await apiClient.get('dashboard/')
     kpis.value = resp.data?.kpis || resp.data?.data?.kpis
   } catch { /* empty */ }
+
+  // Weekly stats for employee header (heures budget vs reel)
+  try {
+    const resp = await apiClient.get('time_entries/weekly_stats/')
+    const stats = resp.data?.data || resp.data
+    if (stats) {
+      const actual = parseFloat(stats.total_hours || '0')
+      const budget = parseFloat(stats.contract_hours || '37.5')
+      weeklyStats.value = { actual: actual.toFixed(1), budget: budget.toFixed(1), remaining: Math.max(0, budget - actual) }
+      // Build forecast from daily breakdown if available
+      if (stats.daily_hours && Array.isArray(stats.daily_hours)) {
+        const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven']
+        weekForecast.value = days.map((label, i) => ({
+          label,
+          planned: budget / 5,
+          actual: parseFloat(stats.daily_hours[i] || '0'),
+        }))
+      }
+    }
+  } catch { /* empty */ }
+
+  // Leave balance
+  try {
+    const resp = await apiClient.get('leave_banks/my_balances/')
+    const data = resp.data?.data || resp.data
+    if (Array.isArray(data)) {
+      leaveBalance.value = data.reduce((sum: number, b: { remaining?: number }) => sum + (b.remaining || 0), 0)
+    }
+  } catch { leaveBalance.value = 0 }
 
   // PM KPIs + projects list
   if (isPM.value || isAdmin.value) {
@@ -103,19 +145,25 @@ onMounted(async () => {
     <!-- Base KPIs (all roles) -->
     <div class="kpi-grid">
       <div class="kpi-card">
-        <p class="kpi-label">Projets actifs</p>
-        <p class="kpi-value">{{ kpis?.projects_active ?? '—' }}</p>
+        <p class="kpi-label">Heures semaine (reel / budget)</p>
+        <p class="kpi-value mono">{{ weeklyStats.actual }}h / {{ weeklyStats.budget }}h</p>
+        <p v-if="weeklyStats.remaining > 0" class="kpi-target" style="color: var(--color-warning);">Reste {{ weeklyStats.remaining }}h</p>
       </div>
       <div class="kpi-card">
         <p class="kpi-label">Feuilles en attente</p>
         <p class="kpi-value warning">{{ kpis?.timesheets_pending ?? '—' }}</p>
       </div>
-      <div class="kpi-card">
-        <p class="kpi-label">Factures impayées</p>
+      <div v-if="isFinance || isAdmin" class="kpi-card">
+        <p class="kpi-label">Factures impayees</p>
         <p class="kpi-value danger mono">{{ kpis?.invoices_outstanding ? fmt.currency(kpis.invoices_outstanding) : '—' }}</p>
       </div>
+      <div v-else class="kpi-card">
+        <p class="kpi-label">Conges restants</p>
+        <p class="kpi-value primary">{{ leaveBalance }} j</p>
+        <p class="kpi-target">Vacances + personnels</p>
+      </div>
       <div class="kpi-card">
-        <p class="kpi-label">Dépenses en attente</p>
+        <p class="kpi-label">Depenses en attente</p>
         <p class="kpi-value">{{ kpis?.expenses_pending ?? '—' }}</p>
       </div>
     </div>
@@ -234,15 +282,23 @@ onMounted(async () => {
         </router-link>
         <router-link to="/expenses" class="action-card">
           <span class="action-icon">🧾</span>
-          <span class="action-label">Nouvelle dépense</span>
+          <span class="action-label">Nouvelle depense</span>
         </router-link>
         <router-link to="/projects" class="action-card">
           <span class="action-icon">📁</span>
           <span class="action-label">Mes projets</span>
         </router-link>
+        <router-link to="/leaves" class="action-card">
+          <span class="action-icon">🏖️</span>
+          <span class="action-label">Mes conges</span>
+        </router-link>
         <router-link v-if="isPM || isAdmin" to="/approvals" class="action-card">
           <span class="action-icon">✅</span>
           <span class="action-label">Approbations</span>
+        </router-link>
+        <router-link v-if="isPM || isAdmin" to="/st-approvals" class="action-card">
+          <span class="action-icon">🏭</span>
+          <span class="action-label">Factures ST</span>
         </router-link>
         <router-link v-if="isFinance || isAdmin" to="/billing" class="action-card">
           <span class="action-icon">📄</span>
@@ -252,6 +308,28 @@ onMounted(async () => {
           <span class="action-icon">⚙️</span>
           <span class="action-label">Administration</span>
         </router-link>
+      </div>
+    </div>
+
+    <!-- Previsionnel semaine (Employee) -->
+    <div class="section">
+      <h2 class="section-title">Previsionnel de la semaine</h2>
+      <div class="forecast-grid">
+        <div v-for="day in weekForecast" :key="day.label" class="forecast-day">
+          <div class="forecast-bars">
+            <div class="forecast-bar planned" :style="{ height: `${Math.min(100, (day.planned / 10) * 100)}%` }"></div>
+            <div class="forecast-bar actual" :style="{ height: `${Math.min(100, (day.actual / 10) * 100)}%` }"></div>
+          </div>
+          <div class="forecast-values">
+            <span class="forecast-actual">{{ day.actual > 0 ? day.actual.toFixed(1) : '—' }}</span>
+            <span class="forecast-planned">/ {{ day.planned.toFixed(1) }}h</span>
+          </div>
+          <div class="forecast-label" :class="{ today: day.actual > 0 && day.actual < day.planned }">{{ day.label }}</div>
+        </div>
+      </div>
+      <div class="forecast-legend">
+        <span class="legend-item"><span class="legend-dot planned"></span> Planifie</span>
+        <span class="legend-item"><span class="legend-dot actual"></span> Reel</span>
       </div>
     </div>
   </div>
@@ -302,4 +380,22 @@ onMounted(async () => {
 .health-dot.gray { background: var(--color-gray-400); }
 .see-all { display: block; padding: 8px 12px; font-size: 11px; font-weight: 600; color: var(--color-primary); text-decoration: none; text-align: right; border-top: 1px solid var(--color-gray-100); }
 .see-all:hover { text-decoration: underline; }
+
+/* Weekly forecast */
+.forecast-grid { display: flex; gap: 12px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; }
+.forecast-day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.forecast-bars { display: flex; gap: 4px; align-items: flex-end; height: 80px; }
+.forecast-bar { width: 14px; border-radius: 3px 3px 0 0; min-height: 4px; }
+.forecast-bar.planned { background: var(--color-gray-200); }
+.forecast-bar.actual { background: var(--color-primary); }
+.forecast-values { text-align: center; }
+.forecast-actual { font-size: 13px; font-weight: 700; font-family: var(--font-mono); color: var(--color-gray-800); }
+.forecast-planned { font-size: 10px; color: var(--color-gray-400); }
+.forecast-label { font-size: 11px; font-weight: 600; color: var(--color-gray-500); }
+.forecast-label.today { color: var(--color-primary); }
+.forecast-legend { display: flex; gap: 16px; justify-content: center; margin-top: 10px; font-size: 11px; color: var(--color-gray-500); }
+.legend-item { display: flex; align-items: center; gap: 4px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+.legend-dot.planned { background: var(--color-gray-200); }
+.legend-dot.actual { background: var(--color-primary); }
 </style>

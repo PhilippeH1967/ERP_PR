@@ -109,13 +109,14 @@ const ROLE_MENU_MAP: Record<DominantRole, SidebarConfig> = {
         label: 'sidebar.section.finance_projects',
         items: [
           { key: 'sidebar.item.invoices_to_validate', path: '/billing', icon: '📄' },
-          { key: 'sidebar.item.subcontractor_invoices', path: '/suppliers', icon: '🏭' },
+          { key: 'sidebar.item.subcontractor_invoices', path: '/st-approvals', icon: '🏭' },
         ],
       },
       {
         label: 'sidebar.section.references',
         items: [
           { key: 'sidebar.item.clients', path: '/clients', icon: '🤝' },
+          { key: 'sidebar.item.suppliers', path: '/suppliers', icon: '🏢' },
         ],
       },
       HELP_SECTION,
