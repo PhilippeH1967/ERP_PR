@@ -796,7 +796,7 @@ watch(activeTab, (tab) => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="phase in store.currentProject.phases" :key="phase.id">
+              <tr v-for="phase in (store.currentProject.phases || []).filter(Boolean)" :key="phase.id">
                 <td class="font-semibold">{{ phase.name }}</td>
                 <td><span class="badge badge-gray">{{ phase.phase_type === 'SUPPORT' ? 'Support' : 'Réalisation' }}</span></td>
                 <td><span class="badge" :class="phase.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ phase.billing_mode }}</span></td>
@@ -864,7 +864,7 @@ watch(activeTab, (tab) => {
         <table>
           <thead><tr><th>Phase</th><th>Libellé client</th><th>Type</th><th>Mode</th><th class="text-right">Heures</th><th class="text-right">Actions</th></tr></thead>
           <tbody>
-            <tr v-for="phase in store.currentProject.phases" :key="phase.id">
+            <tr v-for="phase in (store.currentProject.phases || []).filter(Boolean)" :key="phase.id">
               <template v-if="editingPhaseId === phase.id">
                 <td><input v-model="phaseForm.name" class="inline-input" /></td>
                 <td><input v-model="phaseForm.client_facing_label" class="inline-input" /></td>
