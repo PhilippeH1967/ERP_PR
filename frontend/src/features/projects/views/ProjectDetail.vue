@@ -864,7 +864,14 @@ watch(activeTab, (tab) => {
       </div>
       <div class="card-table">
         <table>
-          <thead><tr><th>Phase</th><th>Libellé client</th><th>Type</th><th>Mode</th><th class="text-right">Heures</th><th class="text-right">Actions</th></tr></thead>
+          <thead><tr>
+            <th>Phase</th><th>Libellé client</th><th>Type</th><th>Mode</th>
+            <th class="text-right">H. budgetées</th>
+            <th class="text-right">H. réelles</th>
+            <th class="text-right">Écart</th>
+            <th>Statut</th>
+            <th v-if="isEditing" class="text-right">Actions</th>
+          </tr></thead>
           <tbody>
             <tr v-for="phase in (store.currentProject.phases || []).filter(Boolean)" :key="phase.id">
               <template v-if="editingPhaseId === phase.id">
@@ -873,6 +880,9 @@ watch(activeTab, (tab) => {
                 <td><span class="badge badge-gray">{{ phase.phase_type }}</span></td>
                 <td><select v-model="phaseForm.billing_mode" class="inline-select"><option value="FORFAIT">Forfait</option><option value="HORAIRE">Horaire</option></select></td>
                 <td class="text-right"><input v-model="phaseForm.budgeted_hours" type="number" class="inline-input-sm" /></td>
+                <td class="text-right">—</td>
+                <td class="text-right">—</td>
+                <td>—</td>
                 <td class="text-right actions-cell">
                   <button class="btn-action" @click="savePhase">OK</button>
                   <button class="btn-action" @click="editingPhaseId = null">×</button>
@@ -881,11 +891,19 @@ watch(activeTab, (tab) => {
               <template v-else>
                 <td class="font-semibold">{{ phase.name }}</td>
                 <td class="text-muted">{{ phase.client_facing_label || '—' }}</td>
-                <td><span class="badge badge-gray">{{ phase.phase_type }}</span></td>
+                <td><span class="badge badge-gray">{{ phase.phase_type === 'SUPPORT' ? 'Support' : 'Réalisation' }}</span></td>
                 <td><span class="badge" :class="phase.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ phase.billing_mode }}</span></td>
-                <td class="text-right font-mono">{{ fmt.hours(phase.budgeted_hours) }}</td>
-                <td class="text-right actions-cell">
-                  <template v-if="isEditing">
+                <td class="text-right font-mono">{{ (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0).toFixed(1) }}h</td>
+                <td class="text-right font-mono">{{ (phase.actual_hours || 0).toFixed(1) }}h</td>
+                <td class="text-right font-mono" :class="{
+                  'text-success': (phase.actual_hours || 0) <= (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0),
+                  'text-danger': (phase.actual_hours || 0) > (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0) && (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0) > 0,
+                }">{{ ((phase.actual_hours || 0) - (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0)).toFixed(1) }}h</td>
+                <td>
+                  <span v-if="phase.is_locked" class="badge badge-gray">🔒 Verrouillée</span>
+                  <span v-else class="badge badge-green">Active</span>
+                </td>
+                <td v-if="isEditing" class="text-right actions-cell">
                     <button class="btn-action" @click="startEditPhase(phase)">Modifier</button>
                     <button class="btn-action" @click="openAssignModal(phase.id, phase.name)">Affecter</button>
                     <template v-if="phase.is_mandatory">
@@ -898,7 +916,6 @@ watch(activeTab, (tab) => {
                       </template>
                       <button v-else class="btn-action danger" @click="confirmDeletePhase = phase.id">Supprimer...</button>
                     </template>
-                  </template>
                 </td>
               </template>
             </tr>

@@ -19,14 +19,31 @@ from .models import (
 
 
 class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
+    tasks_budgeted_hours = serializers.SerializerMethodField()
+    actual_hours = serializers.SerializerMethodField()
+
     class Meta:
         model = Phase
         fields = [
             "id", "code", "name", "client_facing_label", "phase_type",
             "billing_mode", "order", "start_date", "end_date",
             "is_mandatory", "is_locked", "budgeted_hours", "budgeted_cost",
+            "tasks_budgeted_hours", "actual_hours",
         ]
         read_only_fields = ["id"]
+
+    def get_tasks_budgeted_hours(self, obj):
+        """Sum of budgeted_hours from all tasks in this phase."""
+        from django.db.models import Sum
+        total = obj.tasks.aggregate(s=Sum("budgeted_hours"))["s"]
+        return float(total) if total else 0
+
+    def get_actual_hours(self, obj):
+        """Sum of actual hours from TimeEntries for this phase."""
+        from django.db.models import Sum
+        from apps.time_entries.models import TimeEntry
+        total = TimeEntry.objects.filter(phase=obj).aggregate(s=Sum("hours"))["s"]
+        return float(total) if total else 0
 
 
 class TaskSerializer(serializers.ModelSerializer):
