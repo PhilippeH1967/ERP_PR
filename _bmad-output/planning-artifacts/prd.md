@@ -928,6 +928,36 @@ Three complementary locking mechanisms protect time entry integrity:
 | Import 13 types (6 ref + 7 transactional) | FR84/FR93 | ✅ Implemented |
 | Route guards (RBAC on frontend routes) | FR72 | ✅ Implemented |
 
+### Sprint 3-4 — Planned: Full ABAC (Attribute-Based Access Control)
+
+**Status:** Planned (not started) — Estimated 15-20 days (2 sprints)
+**Source:** Brainstorming session 2026-04-11, Proposition C
+**Tech Spec:** `_bmad-output/tech-specs/tech-spec-sidebar-quick-win-2026-04-11.md` (section Sprint 3-4)
+**Brainstorming:** `_bmad-output/brainstorming/brainstorming-session-2026-04-11-200000.md` (ideas #19-#24, #36)
+
+| ID | Feature | Brainstorming Idea | Description | Effort |
+|----|---------|-------------------|-------------|--------|
+| C1 | PermissionMatrix model | #20 | CRUD matrix per module × action (CRUD + Approve + Export) × scope (global/BU/project). Replaces fixed ProjectRole progressively | 5 days |
+| C2 | Reusable permission profiles | #21 | Templates: "Assistante BU type 1", "PM + delegation factures". Admin assigns profile + individual overrides | 2 days |
+| C3 | Temporary permissions with auto-expiry | #22 | Expiry date on permissions. Celery daily task deactivates expired permissions | 1 day |
+| C4 | Admin "Permissions" page | #23 | Visual matrix 16 modules × 6 actions × 3 scopes. Profile drag-drop, filter by user/module | 3 days |
+| C5 | "Effective permissions" audit view | #23 | Tab on user profile: preview effective menu ("View as"). Icons per action | 2 days |
+| C6 | App Selector mode (multi-hat) | #36 | Dropdown top of sidebar: "Mode PM" / "Mode Architecte". Switches entire menu | 2 days |
+| C7 | DEPT_ASSISTANT full mirror mode | #19 | Sophie sees the menu of PM(s)/Director(s) she assists. Toggle to switch "mirror" | 3 days |
+| C8 | Per-project permission override | #24 | Marie = EMPLOYEE globally but "Sub-PM" on a specific project. Override at project level | 2 days |
+
+**Dependencies:**
+- Sprint 1 (role-adaptive sidebar) ✅ Completed
+- Sprint 2 (smart adaptive UX) ✅ Completed
+- Migration strategy: existing ProjectRole must be translated to PermissionMatrix without breaking access
+
+**What it unlocks:**
+- Sophie (DEPT_ASSISTANT): full mirror mode instead of current hybrid menu
+- Total flexibility: admin configures any permission combo without code changes
+- Multi-hat: Jean-François can switch between "PM mode" and "Architect mode"
+- Audit: visualize exactly what each user sees (support simplification)
+- SaaS readiness: ABAC model is the foundation for Phase 2 multi-tenant
+
 ### Deferred to MVP-2
 
 | Feature | FR | Notes |
@@ -942,8 +972,21 @@ Three complementary locking mechanisms protect time entry integrity:
 | Import absences from HRIS | FR27b | Leave model ready, import handler needed |
 | Auto-expiry PeriodUnlock | FR27c | Model ready, Celery task needed |
 
+### UX Improvement History (2026-04-11)
+
+**Brainstorming session:** 43 ideas generated across 5 themes (Personnalisation, Action-driven, ABAC, Architecture sidebar, Vocabulaire)
+**Mockup:** `_bmad-output/mockups/flux/sidebar-quick-win-personas.html` — 9 personas with full dashboards
+
+| Sprint | Proposition | Status | Commit | Key deliverables |
+|--------|-------------|--------|--------|------------------|
+| Sprint 1 | A — Quick Win Sidebar | ✅ Completed | 2ac52d2 | useSidebarMenu composable, 9 role menus, contextual logo PR\|Production/Direction/Finance/Paie/Admin, 70+ i18n keys, Mon/Ma/Mes prefixes |
+| Sprint 1+ | Dashboard + Pages Employee | ✅ Completed | f75338c | STApprovalQueue (PM), EmployeeProjectView, dashboard previsionnel semaine, conges KPI |
+| Sprint 2 | B — Smart Adaptive UX | ✅ Completed | 570893f | Cmd+K search, Action Center "A faire", collapsible sections, badges/health/freshness, favorites API |
+| Sprint 3-4 | C — Full ABAC | Planned | — | PermissionMatrix, profiles, auto-expiry, admin page, mirror mode, app selector |
+
 ### Test Coverage
 
-- **~100 backend tests** (pytest) — all passing
-- **357 visual tests** documented in `tests_visuels/plan_tests_complet_v3.xlsx` (13 tabs)
-- Last QA report: 107 PASS, 4 FAIL (fixed), 7 PARTIAL, 33 SKIP
+- **361 backend tests** (pytest) — all passing
+- **357+ visual tests** documented in `tests_visuels/plan_tests_complet_v3.xlsx` (13 tabs) + `plan_tests_master_v2.xlsx` (17 tabs)
+- **58 UX tests** added for Sprint 1+2 in `plan_tests_master_v2.xlsx` (SB-001→SB-014, CK-001→CK-006, AC-001→AC-006, SC-001→SC-003, BG-001→BG-003, HI-001→HI-002, FV-001→FV-002)
+- Last full QA report: 361 PASS (backend), 4 bugs fixed (BUG-001→004), 3 PARTIAL resolved
