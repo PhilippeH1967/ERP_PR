@@ -23,7 +23,11 @@ export const useProjectStore = defineStore('projects', () => {
     isLoading.value = true
     try {
       const response = await projectApi.get(id)
-      currentProject.value = response.data?.data || response.data
+      const data = response.data?.data || response.data
+      // Guard against undefined/null entries in nested arrays
+      if (data?.phases) data.phases = data.phases.filter(Boolean)
+      if (data?.support_services) data.support_services = data.support_services.filter(Boolean)
+      currentProject.value = data
     } finally {
       isLoading.value = false
     }

@@ -154,8 +154,8 @@ const canEditBudget = computed(() => {
 })
 
 const budgetTotal = computed(() => {
-  const phases = store.currentProject?.phases || []
-  return phases.reduce((sum: number, p: { budgeted_cost: string | number }) => sum + Number(p.budgeted_cost || 0), 0)
+  const phases = (store.currentProject?.phases || []).filter(Boolean)
+  return phases.reduce((sum: number, p: { budgeted_cost: string | number }) => sum + Number(p?.budgeted_cost || 0), 0)
 })
 
 const budgetInvoiced = computed(() => 0) // placeholder — will come from invoices
