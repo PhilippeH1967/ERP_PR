@@ -941,7 +941,8 @@ watch(activeTab, (tab) => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="task in group.tasks" :key="task.id" :class="{ 'subtask-row': task.task_type === 'SUBTASK' }">
+              <template v-for="task in group.tasks" :key="task.id">
+              <tr :class="{ 'subtask-row': task.task_type === 'SUBTASK' }">
                 <td class="font-mono">{{ task.wbs_code || '—' }}</td>
                 <td>
                   <span v-if="task.task_type === 'SUBTASK'" class="subtask-indent"></span>
@@ -988,7 +989,7 @@ watch(activeTab, (tab) => {
                   <button v-else class="btn-action danger" @click="confirmDeleteTask = task.id">Supprimer...</button>
                 </td>
               </tr>
-              <!-- Inline subtask form -->
+              <!-- Inline subtask form (inside template v-for scope) -->
               <tr v-if="showAddSubtask === task.id && isEditing" class="subtask-add-row">
                 <td></td>
                 <td colspan="5">
@@ -1001,6 +1002,7 @@ watch(activeTab, (tab) => {
                 </td>
                 <td v-if="isEditing"></td>
               </tr>
+              </template>
             </tbody>
           </table>
         </div>
