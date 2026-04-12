@@ -348,13 +348,14 @@ const newSubtaskName = ref('')
 const tasksByPhase = computed(() => {
   const grouped: Record<string, { phase_name: string; phase_id: number | null; tasks: TaskItem[] }> = {}
   for (const t of tasks.value) {
+    if (!t || !t.id) continue // Skip undefined/null tasks
     const key = t.phase_name || 'Sans phase'
     if (!grouped[key]) grouped[key] = { phase_name: key, phase_id: t.phase, tasks: [] }
     grouped[key].tasks.push(t)
   }
   // Sort tasks by order within each group
   for (const g of Object.values(grouped)) {
-    g.tasks.sort((a, b) => a.order - b.order)
+    g.tasks.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   }
   return Object.values(grouped)
 })
@@ -366,7 +367,8 @@ async function loadTasks() {
   try {
     const r = await projectApi.listTasks(projectId)
     const d = r.data?.data || r.data
-    tasks.value = Array.isArray(d) ? d : d?.results || []
+    const arr = Array.isArray(d) ? d : d?.results || []
+    tasks.value = arr.filter((t: unknown) => t && typeof t === 'object' && 'id' in (t as Record<string, unknown>)) as TaskItem[]
   } catch { tasks.value = [] }
 }
 
