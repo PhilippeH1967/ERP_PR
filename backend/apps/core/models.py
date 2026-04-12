@@ -369,3 +369,7 @@ class SampleTenantModel(TenantScopedModel, VersionedModel):
 
     def __str__(self):
         return self.name
+
+
+# Sprint 2 — Sidebar config per user
+from apps.core.sidebar_config import UserSidebarConfig  # noqa: F401, E402

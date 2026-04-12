@@ -4,13 +4,19 @@ import { useI18n } from 'vue-i18n'
 import { useAuth } from '@/shared/composables/useAuth'
 import { useLocale } from '@/shared/composables/useLocale'
 import { useSidebarMenu } from '@/shared/composables/useSidebarMenu'
+import { useSidebarBadges } from '@/shared/composables/useSidebarBadges'
+import { useSidebarCollapse } from '@/shared/composables/useSidebarCollapse'
 import apiClient from '@/plugins/axios'
 import { useIdleTimeout } from '@/shared/composables/useIdleTimeout'
+import CommandPalette from '@/shared/components/CommandPalette.vue'
+import ActionCenterSection from '@/shared/components/ActionCenterSection.vue'
 
 const { t } = useI18n()
 const { currentUser, logout } = useAuth()
 const { currentLocale, switchLocale, initLocale } = useLocale()
 const { sections: sidebarSections, subtitleKey } = useSidebarMenu()
+const { badges, health, hasNew } = useSidebarBadges()
+const { isCollapsed, toggleSection } = useSidebarCollapse()
 initLocale()
 
 const userMenuOpen = ref(false)
@@ -80,24 +86,47 @@ function toggleLocale() {
         <span style="font-size: 9px; color: var(--color-gray-400); letter-spacing: 0.5px;">v1.2.000</span>
       </div>
 
-      <!-- Navigation (role-adaptive via useSidebarMenu) -->
-      <nav class="flex-1 overflow-y-auto py-4">
+      <!-- Action Center (Sprint 2 - B1) -->
+      <ActionCenterSection />
+
+      <!-- Navigation (role-adaptive + collapsible + badges) -->
+      <nav class="flex-1 overflow-y-auto py-2">
         <template v-for="section in sidebarSections" :key="section.label">
           <div
-            style="padding: 12px 20px 4px; font-size: 10px; font-weight: 700; color: var(--color-gray-400); text-transform: uppercase; letter-spacing: 0.5px;"
+            class="sidebar-section-header"
+            @click="toggleSection(section.label)"
           >
-            {{ t(section.label) }}
+            <span>{{ t(section.label) }}</span>
+            <span class="collapse-arrow" :class="{ collapsed: isCollapsed(section.label) }">&#9662;</span>
           </div>
-          <router-link
-            v-for="item in section.items"
-            :key="`${section.label}-${item.key}`"
-            :to="item.path"
-            class="sidebar-item"
-            active-class="sidebar-item-active"
-          >
-            <span style="width: 18px; text-align: center; font-size: 15px;">{{ item.icon }}</span>
-            <span>{{ t(item.key) }}</span>
-          </router-link>
+          <template v-if="!isCollapsed(section.label)">
+            <router-link
+              v-for="item in section.items"
+              :key="`${section.label}-${item.key}`"
+              :to="item.path"
+              class="sidebar-item"
+              active-class="sidebar-item-active"
+            >
+              <span style="width: 18px; text-align: center; font-size: 15px;">{{ item.icon }}</span>
+              <span class="sidebar-item-label">{{ t(item.key) }}</span>
+              <!-- Badge count (B4) -->
+              <span
+                v-if="badges[item.path.replace('/', '')] > 0"
+                class="sidebar-badge"
+              >{{ badges[item.path.replace('/', '')] }}</span>
+              <!-- Health dot (B5) -->
+              <span
+                v-if="health[item.path.replace('/', '')]"
+                class="sidebar-health-dot"
+                :class="`dot-${health[item.path.replace('/', '')]}`"
+              ></span>
+              <!-- Freshness dot (B4) -->
+              <span
+                v-if="hasNew[item.path.replace('/', '')]"
+                class="sidebar-new-dot"
+              ></span>
+            </router-link>
+          </template>
         </template>
       </nav>
     </aside>
@@ -186,6 +215,9 @@ function toggleLocale() {
         <router-view />
       </main>
     </div>
+
+    <!-- Cmd+K search (Sprint 2 - B3) -->
+    <CommandPalette />
   </div>
 </template>
 
@@ -209,6 +241,69 @@ function toggleLocale() {
   background: var(--color-primary-light);
   color: var(--color-primary);
   font-weight: 600;
+}
+
+/* Sprint 2 — Collapsible sections */
+.sidebar-section-header {
+  padding: 10px 20px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-gray-400);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+}
+.sidebar-section-header:hover {
+  color: var(--color-gray-600);
+}
+.collapse-arrow {
+  font-size: 10px;
+  transition: transform 0.15s;
+}
+.collapse-arrow.collapsed {
+  transform: rotate(-90deg);
+}
+.sidebar-item-label {
+  flex: 1;
+}
+
+/* Sprint 2 — Badges */
+.sidebar-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+  background: var(--color-danger, #DC2626);
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+}
+
+/* Sprint 2 — Health dots */
+.sidebar-health-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot-green { background: #16A34A; }
+.dot-amber { background: #D97706; }
+.dot-red { background: #DC2626; }
+
+/* Sprint 2 — Freshness dot */
+.sidebar-new-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2563EB;
+  flex-shrink: 0;
 }
 
 .topbar-search {

@@ -22,6 +22,7 @@ urlpatterns = [
     path("api/v1/", include("apps.planning.urls")),
     path("api/v1/", include("apps.expenses.urls")),
     path("api/v1/", include("apps.dashboards.urls")),
+    path("api/v1/", include("apps.dashboards.urls_sprint2")),
     path("api/v1/", include("apps.data_ops.urls")),
     path("api/v1/", include("apps.notifications.urls")),
     # SSO (django-allauth)
