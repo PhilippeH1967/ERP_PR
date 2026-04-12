@@ -865,10 +865,11 @@ watch(activeTab, (tab) => {
       <div class="card-table">
         <table>
           <thead><tr>
-            <th>Phase</th><th>Libellé client</th><th>Type</th><th>Mode</th>
-            <th class="text-right">H. budgetées</th>
+            <th>Phase</th><th>Type</th><th>Mode</th>
+            <th class="text-right">Budget ($)</th>
+            <th class="text-right">H. budget</th>
             <th class="text-right">H. réelles</th>
-            <th class="text-right">Écart</th>
+            <th class="text-right">Écart h</th>
             <th>Statut</th>
             <th v-if="isEditing" class="text-right">Actions</th>
           </tr></thead>
@@ -876,9 +877,9 @@ watch(activeTab, (tab) => {
             <tr v-for="phase in (store.currentProject.phases || []).filter(Boolean)" :key="phase.id">
               <template v-if="editingPhaseId === phase.id">
                 <td><input v-model="phaseForm.name" class="inline-input" /></td>
-                <td><input v-model="phaseForm.client_facing_label" class="inline-input" /></td>
                 <td><span class="badge badge-gray">{{ phase.phase_type }}</span></td>
                 <td><select v-model="phaseForm.billing_mode" class="inline-select"><option value="FORFAIT">Forfait</option><option value="HORAIRE">Horaire</option></select></td>
+                <td class="text-right">—</td>
                 <td class="text-right"><input v-model="phaseForm.budgeted_hours" type="number" class="inline-input-sm" /></td>
                 <td class="text-right">—</td>
                 <td class="text-right">—</td>
@@ -889,12 +890,12 @@ watch(activeTab, (tab) => {
                 </td>
               </template>
               <template v-else>
-                <td class="font-semibold">{{ phase.name }}</td>
-                <td class="text-muted">{{ phase.client_facing_label || '—' }}</td>
+                <td class="font-semibold" :title="phase.client_facing_label || ''">{{ phase.name }}</td>
                 <td><span class="badge badge-gray">{{ phase.phase_type === 'SUPPORT' ? 'Support' : 'Réalisation' }}</span></td>
                 <td><span class="badge" :class="phase.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ phase.billing_mode }}</span></td>
+                <td class="text-right font-mono">{{ formatAmount(phase.budgeted_cost || 0) }} $</td>
                 <td class="text-right font-mono">{{ (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0).toFixed(1) }}h</td>
-                <td class="text-right font-mono">{{ (phase.actual_hours || 0).toFixed(1) }}h</td>
+                <td class="text-right font-mono" :class="{ 'font-semibold': (phase.actual_hours || 0) > 0 }">{{ (phase.actual_hours || 0).toFixed(1) }}h</td>
                 <td class="text-right font-mono" :class="{
                   'text-success': (phase.actual_hours || 0) <= (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0),
                   'text-danger': (phase.actual_hours || 0) > (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0) && (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0) > 0,
@@ -998,12 +999,13 @@ watch(activeTab, (tab) => {
                   <span v-else class="badge badge-gray">Non fact.</span>
                 </td>
                 <td v-if="isEditing" class="actions-cell">
-                  <button v-if="task.task_type !== 'SUBTASK'" class="btn-action" @click="showAddSubtask = task.id; newSubtaskName = ''">+ ST</button>
+                  <button class="btn-action" @click="saveTaskField(task.id, 'name', prompt('Nouveau nom:', task.name) || task.name)">Modifier</button>
+                  <button v-if="task.task_type !== 'SUBTASK'" class="btn-action" @click="showAddSubtask = task.id; newSubtaskName = ''">+ Sous-tache</button>
                   <template v-if="confirmDeleteTask === task.id">
                     <button class="btn-action danger" @click="removeTask(task.id)">Confirmer</button>
                     <button class="btn-action" @click="confirmDeleteTask = null">Annuler</button>
                   </template>
-                  <button v-else class="btn-action danger" @click="confirmDeleteTask = task.id">Supprimer...</button>
+                  <button v-else class="btn-action danger" @click="confirmDeleteTask = task.id">Supprimer</button>
                 </td>
               </tr>
               <!-- Inline subtask form (inside template v-for scope) -->
