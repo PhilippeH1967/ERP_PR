@@ -49,6 +49,7 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
 class TaskSerializer(serializers.ModelSerializer):
     phase_name = serializers.CharField(source="phase.name", read_only=True)
     display_label = serializers.SerializerMethodField()
+    actual_hours = serializers.SerializerMethodField()
     wbs_code = serializers.CharField(max_length=20, required=False, allow_blank=True, default="")
 
     class Meta:
@@ -58,12 +59,19 @@ class TaskSerializer(serializers.ModelSerializer):
             "wbs_code", "name", "client_facing_label", "display_label",
             "task_type", "billing_mode", "order",
             "budgeted_hours", "budgeted_cost", "hourly_rate",
-            "is_billable", "is_active", "progress_pct",
+            "is_billable", "is_active", "progress_pct", "actual_hours",
         ]
-        read_only_fields = ["id", "display_label", "phase_name"]
+        read_only_fields = ["id", "display_label", "phase_name", "actual_hours"]
 
     def get_display_label(self, obj):
         return obj.client_facing_label or obj.name
+
+    def get_actual_hours(self, obj):
+        """Sum of actual hours from TimeEntries for this task."""
+        from django.db.models import Sum
+        from apps.time_entries.models import TimeEntry
+        total = TimeEntry.objects.filter(task=obj).aggregate(s=Sum("hours"))["s"]
+        return float(total) if total else 0
 
 
 class WBSElementSerializer(CostFieldFilterMixin, serializers.ModelSerializer):

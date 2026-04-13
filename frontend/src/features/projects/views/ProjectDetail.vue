@@ -946,57 +946,53 @@ watch(activeTab, (tab) => {
           </div>
 
           <!-- Tasks table -->
-          <table v-if="!collapsedPhases.has(group.phase_name)" class="data-table task-table" style="table-layout:auto; width:100%;">
+          <table v-if="!collapsedPhases.has(group.phase_name)" class="data-table task-table" style="table-layout:auto; width:100%; min-width:850px;">
             <thead>
               <tr>
-                <th style="width:55px;">WBS</th>
-                <th style="max-width:250px;">Nom</th>
-                <th style="width:70px;">Mode</th>
-                <th class="text-right" style="width:85px;">Budget ($)</th>
-                <th class="text-right" style="width:65px;">Heures</th>
-                <th style="width:75px;">Fact.</th>
-                <th v-if="isEditing" style="width:220px;">Actions</th>
+                <th style="width:90px;">WBS</th>
+                <th style="width:180px;">Nom</th>
+                <th style="width:65px;">Mode</th>
+                <th class="text-right" style="width:80px;">Budget ($)</th>
+                <th class="text-right" style="width:65px;">H. plan.</th>
+                <th class="text-right" style="width:65px;">H. réel</th>
+                <th class="text-right" style="width:60px;">Écart</th>
+                <th style="width:55px;">Fact.</th>
+                <th v-if="isEditing" style="width:200px;">Actions</th>
               </tr>
             </thead>
             <tbody>
               <template v-for="task in group.tasks" :key="task.id">
               <tr :class="{ 'subtask-row': task.task_type === 'SUBTASK' }">
-                <td class="font-mono">{{ task.wbs_code || '—' }}</td>
-                <td style="max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="task.display_label || task.name">
+                <td style="font-size:11px; color:var(--color-gray-500);">{{ task.wbs_code || '—' }}</td>
+                <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="task.display_label || task.name">
                   <span v-if="task.task_type === 'SUBTASK'" class="subtask-indent"></span>
-                  <span class="badge task-type-badge" :class="task.task_type === 'SUBTASK' ? 'badge-gray' : 'badge-blue'" style="margin-right:4px;">{{ task.task_type === 'SUBTASK' ? 'ST' : 'T' }}</span>
                   {{ task.display_label || task.name }}
                 </td>
-                <td><span class="badge" :class="task.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ task.billing_mode }}</span></td>
+                <td><span class="badge" :class="task.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'" style="font-size:10px;">{{ task.billing_mode === 'HORAIRE' ? 'H' : 'F' }}</span></td>
                 <td class="text-right">
                   <template v-if="canEditBudget">
-                    <input
-                      class="budget-input"
-                      :value="task.budgeted_cost"
-                      type="text"
-                      inputmode="decimal"
+                    <input class="budget-input" :value="task.budgeted_cost" type="text" inputmode="decimal"
                       @blur="(e: Event) => { const v = parseFloat(((e.target as HTMLInputElement).value || '0').replace(/\\s/g, '').replace(',', '.')); if (!isNaN(v)) saveTaskField(task.id, 'budgeted_cost', v) }"
-                      @keydown.enter="(e: Event) => (e.target as HTMLInputElement).blur()"
-                    />
+                      @keydown.enter="(e: Event) => (e.target as HTMLInputElement).blur()" />
                   </template>
-                  <template v-else><span class="font-mono">{{ formatAmount(task.budgeted_cost) }}</span></template>
+                  <template v-else><span class="font-mono" style="font-size:11px;">{{ formatAmount(task.budgeted_cost) }}</span></template>
                 </td>
                 <td class="text-right">
                   <template v-if="canEditBudget">
-                    <input
-                      class="budget-input"
-                      :value="task.budgeted_hours"
-                      type="text"
-                      inputmode="decimal"
+                    <input class="budget-input" :value="task.budgeted_hours" type="text" inputmode="decimal"
                       @blur="(e: Event) => { const v = parseFloat(((e.target as HTMLInputElement).value || '0').replace(/\\s/g, '').replace(',', '.')); if (!isNaN(v)) saveTaskField(task.id, 'budgeted_hours', v) }"
-                      @keydown.enter="(e: Event) => (e.target as HTMLInputElement).blur()"
-                    />
+                      @keydown.enter="(e: Event) => (e.target as HTMLInputElement).blur()" />
                   </template>
-                  <template v-else><span class="font-mono">{{ task.budgeted_hours }}</span></template>
+                  <template v-else><span class="font-mono" style="font-size:11px;">{{ Number(task.budgeted_hours || 0).toFixed(1) }}</span></template>
                 </td>
+                <td class="text-right font-mono" style="font-size:11px;" :class="{ 'font-semibold': (task.actual_hours || 0) > 0 }">{{ (task.actual_hours || 0).toFixed(1) }}</td>
+                <td class="text-right font-mono" style="font-size:11px;" :class="{
+                  'text-success': (task.actual_hours || 0) <= Number(task.budgeted_hours || 0),
+                  'text-danger': (task.actual_hours || 0) > Number(task.budgeted_hours || 0) && Number(task.budgeted_hours || 0) > 0,
+                }">{{ ((task.actual_hours || 0) - Number(task.budgeted_hours || 0)).toFixed(1) }}</td>
                 <td>
-                  <span v-if="task.is_billable" class="badge badge-green">Facturable</span>
-                  <span v-else class="badge badge-gray">Non fact.</span>
+                  <span v-if="task.is_billable" class="badge badge-green" style="font-size:9px;">Oui</span>
+                  <span v-else class="badge badge-gray" style="font-size:9px;">Non</span>
                 </td>
                 <td v-if="isEditing" class="actions-cell">
                   <button class="btn-action" @click="saveTaskField(task.id, 'name', prompt('Nouveau nom:', task.name) || task.name)">Modifier</button>
