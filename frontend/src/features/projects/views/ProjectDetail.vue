@@ -565,7 +565,7 @@ async function loadProjectTime() {
   if (!store.currentProject) return
   timeLoading.value = true
   try {
-    const resp = await apiClient.get('time_entries/', { params: { project: store.currentProject.id } })
+    const resp = await apiClient.get('time_entries/', { params: { project: store.currentProject.id, page_size: 1000 } })
     const data = resp.data?.data || resp.data
     projectTimeEntries.value = Array.isArray(data) ? data : data?.results || []
   } catch { projectTimeEntries.value = [] }

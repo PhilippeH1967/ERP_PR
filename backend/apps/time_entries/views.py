@@ -65,10 +65,23 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
     ordering = ["-date"]
 
     def get_queryset(self):
-        qs = TimeEntry.objects.filter(employee=self.request.user)
+        # When filtering by project, privileged roles see all entries (for project detail tabs)
+        project_filter = self.request.query_params.get("project")
+        if project_filter:
+            from apps.core.models import ProjectRole, Role
+            user_roles = set(
+                ProjectRole.objects.filter(user=self.request.user).values_list("role", flat=True)
+            )
+            privileged = {Role.ADMIN, Role.FINANCE, Role.PM, Role.PROJECT_DIRECTOR, Role.BU_DIRECTOR, Role.PAIE}
+            if user_roles & privileged:
+                qs = TimeEntry.objects.all()
+            else:
+                qs = TimeEntry.objects.filter(employee=self.request.user)
+        else:
+            qs = TimeEntry.objects.filter(employee=self.request.user)
         if hasattr(self.request, "tenant_id") and self.request.tenant_id:
             qs = qs.filter(tenant_id=self.request.tenant_id)
-        return qs.select_related("project", "phase")
+        return qs.select_related("project", "phase", "task")
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
