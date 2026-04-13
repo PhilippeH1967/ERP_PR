@@ -862,14 +862,14 @@ watch(activeTab, (tab) => {
         </div>
         <div class="form-actions"><button class="btn-ghost" @click="showAddPhaseForm = false">Annuler</button><button class="btn-primary" @click="addPhase">Ajouter</button></div>
       </div>
-      <div class="card-table">
-        <table>
+      <div class="card-table" style="overflow-x:auto;">
+        <table style="table-layout:auto; width:100%; min-width:800px;">
           <thead><tr>
-            <th>Phase</th><th>Type</th><th>Mode</th>
-            <th class="text-right">Budget ($)</th>
-            <th class="text-right">H. budget</th>
-            <th class="text-right">H. réelles</th>
-            <th class="text-right">Écart h</th>
+            <th style="max-width:220px;">Phase</th><th style="width:80px;">Type</th><th style="width:70px;">Mode</th>
+            <th class="text-right" style="width:90px;">Budget ($)</th>
+            <th class="text-right" style="width:75px;">H. budget</th>
+            <th class="text-right" style="width:75px;">H. réelles</th>
+            <th class="text-right" style="width:70px;">Écart h</th>
             <th>Statut</th>
             <th v-if="isEditing" class="text-right">Actions</th>
           </tr></thead>
@@ -890,7 +890,7 @@ watch(activeTab, (tab) => {
                 </td>
               </template>
               <template v-else>
-                <td class="font-semibold" :title="phase.client_facing_label || ''">{{ phase.name }}</td>
+                <td class="font-semibold" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="(phase.client_facing_label ? phase.client_facing_label + ' — ' : '') + phase.name">{{ phase.name }}</td>
                 <td><span class="badge badge-gray">{{ phase.phase_type === 'SUPPORT' ? 'Support' : 'Réalisation' }}</span></td>
                 <td><span class="badge" :class="phase.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ phase.billing_mode }}</span></td>
                 <td class="text-right font-mono">{{ formatAmount(phase.budgeted_cost || 0) }} $</td>
@@ -946,23 +946,23 @@ watch(activeTab, (tab) => {
           </div>
 
           <!-- Tasks table -->
-          <table v-if="!collapsedPhases.has(group.phase_name)" class="data-table task-table task-table-fixed">
+          <table v-if="!collapsedPhases.has(group.phase_name)" class="data-table task-table" style="table-layout:auto; width:100%;">
             <thead>
               <tr>
-                <th style="width:60px;">WBS</th>
-                <th>Nom</th>
-                <th style="width:80px;">Mode</th>
-                <th class="text-right" style="width:100px;">Budget ($)</th>
-                <th class="text-right" style="width:80px;">Heures</th>
-                <th style="width:90px;">Facturable</th>
-                <th v-if="isEditing" style="width:120px;">Actions</th>
+                <th style="width:55px;">WBS</th>
+                <th style="max-width:250px;">Nom</th>
+                <th style="width:70px;">Mode</th>
+                <th class="text-right" style="width:85px;">Budget ($)</th>
+                <th class="text-right" style="width:65px;">Heures</th>
+                <th style="width:75px;">Fact.</th>
+                <th v-if="isEditing" style="width:220px;">Actions</th>
               </tr>
             </thead>
             <tbody>
               <template v-for="task in group.tasks" :key="task.id">
               <tr :class="{ 'subtask-row': task.task_type === 'SUBTASK' }">
                 <td class="font-mono">{{ task.wbs_code || '—' }}</td>
-                <td>
+                <td style="max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="task.display_label || task.name">
                   <span v-if="task.task_type === 'SUBTASK'" class="subtask-indent"></span>
                   <span class="badge task-type-badge" :class="task.task_type === 'SUBTASK' ? 'badge-gray' : 'badge-blue'" style="margin-right:4px;">{{ task.task_type === 'SUBTASK' ? 'ST' : 'T' }}</span>
                   {{ task.display_label || task.name }}
