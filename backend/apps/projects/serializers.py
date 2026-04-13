@@ -20,6 +20,7 @@ from .models import (
 
 class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
     tasks_budgeted_hours = serializers.SerializerMethodField()
+    planned_hours = serializers.SerializerMethodField()
     actual_hours = serializers.SerializerMethodField()
 
     class Meta:
@@ -28,7 +29,7 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
             "id", "code", "name", "client_facing_label", "phase_type",
             "billing_mode", "order", "start_date", "end_date",
             "is_mandatory", "is_locked", "budgeted_hours", "budgeted_cost",
-            "tasks_budgeted_hours", "actual_hours",
+            "tasks_budgeted_hours", "planned_hours", "actual_hours",
         ]
         read_only_fields = ["id"]
 
@@ -37,6 +38,13 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
         from django.db.models import Sum
         total = obj.tasks.aggregate(s=Sum("budgeted_hours"))["s"]
         return float(total) if total else 0
+
+    def get_planned_hours(self, obj):
+        """Sum of planned hours from ResourceAllocations for this phase."""
+        total = 0
+        for alloc in obj.resource_allocations.filter(status="ACTIVE"):
+            total += alloc.total_planned_hours
+        return total
 
     def get_actual_hours(self, obj):
         """Sum of actual hours from TimeEntries for this phase."""
@@ -49,6 +57,7 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
 class TaskSerializer(serializers.ModelSerializer):
     phase_name = serializers.CharField(source="phase.name", read_only=True)
     display_label = serializers.SerializerMethodField()
+    planned_hours = serializers.SerializerMethodField()
     actual_hours = serializers.SerializerMethodField()
     wbs_code = serializers.CharField(max_length=20, required=False, allow_blank=True, default="")
 
@@ -59,12 +68,20 @@ class TaskSerializer(serializers.ModelSerializer):
             "wbs_code", "name", "client_facing_label", "display_label",
             "task_type", "billing_mode", "order",
             "budgeted_hours", "budgeted_cost", "hourly_rate",
-            "is_billable", "is_active", "progress_pct", "actual_hours",
+            "is_billable", "is_active", "progress_pct",
+            "planned_hours", "actual_hours",
         ]
-        read_only_fields = ["id", "display_label", "phase_name", "actual_hours"]
+        read_only_fields = ["id", "display_label", "phase_name", "planned_hours", "actual_hours"]
 
     def get_display_label(self, obj):
         return obj.client_facing_label or obj.name
+
+    def get_planned_hours(self, obj):
+        """Sum of planned hours from ResourceAllocations for this task."""
+        total = 0
+        for alloc in obj.resource_allocations.filter(status="ACTIVE"):
+            total += alloc.total_planned_hours
+        return total
 
     def get_actual_hours(self, obj):
         """Sum of actual hours from TimeEntries for this task."""

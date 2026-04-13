@@ -863,13 +863,14 @@ watch(activeTab, (tab) => {
         <div class="form-actions"><button class="btn-ghost" @click="showAddPhaseForm = false">Annuler</button><button class="btn-primary" @click="addPhase">Ajouter</button></div>
       </div>
       <div class="card-table" style="overflow-x:auto;">
-        <table style="table-layout:auto; width:100%; min-width:800px;">
+        <table style="table-layout:auto; width:100%; min-width:900px;">
           <thead><tr>
-            <th style="max-width:220px;">Phase</th><th style="width:80px;">Type</th><th style="width:70px;">Mode</th>
-            <th class="text-right" style="width:90px;">Budget ($)</th>
-            <th class="text-right" style="width:75px;">H. budget</th>
-            <th class="text-right" style="width:75px;">H. réelles</th>
-            <th class="text-right" style="width:70px;">Écart h</th>
+            <th style="max-width:200px;">Phase</th><th style="width:75px;">Type</th><th style="width:60px;">Mode</th>
+            <th class="text-right" style="width:85px;">Budget ($)</th>
+            <th class="text-right" style="width:70px;">H. budget</th>
+            <th class="text-right" style="width:70px;">H. planif.</th>
+            <th class="text-right" style="width:70px;">H. réelles</th>
+            <th class="text-right" style="width:70px;">Écart</th>
             <th>Statut</th>
             <th v-if="isEditing" class="text-right">Actions</th>
           </tr></thead>
@@ -883,6 +884,7 @@ watch(activeTab, (tab) => {
                 <td class="text-right"><input v-model="phaseForm.budgeted_hours" type="number" class="inline-input-sm" /></td>
                 <td class="text-right">—</td>
                 <td class="text-right">—</td>
+                <td class="text-right">—</td>
                 <td>—</td>
                 <td class="text-right actions-cell">
                   <button class="btn-action" @click="savePhase">OK</button>
@@ -893,13 +895,14 @@ watch(activeTab, (tab) => {
                 <td class="font-semibold" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="(phase.client_facing_label ? phase.client_facing_label + ' — ' : '') + phase.name">{{ phase.name }}</td>
                 <td><span class="badge badge-gray">{{ phase.phase_type === 'SUPPORT' ? 'Support' : 'Réalisation' }}</span></td>
                 <td><span class="badge" :class="phase.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ phase.billing_mode }}</span></td>
-                <td class="text-right font-mono">{{ formatAmount(phase.budgeted_cost || 0) }} $</td>
-                <td class="text-right font-mono">{{ (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0).toFixed(1) }}h</td>
-                <td class="text-right font-mono" :class="{ 'font-semibold': (phase.actual_hours || 0) > 0 }">{{ (phase.actual_hours || 0).toFixed(1) }}h</td>
-                <td class="text-right font-mono" :class="{
+                <td class="text-right font-mono" style="font-size:11px;">{{ formatAmount(phase.budgeted_cost || 0) }} $</td>
+                <td class="text-right font-mono" style="font-size:11px;">{{ (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0).toFixed(1) }}</td>
+                <td class="text-right font-mono" style="font-size:11px;" :class="{ 'text-primary': (phase.planned_hours || 0) > 0 }">{{ (phase.planned_hours || 0).toFixed(1) }}</td>
+                <td class="text-right font-mono" style="font-size:11px;" :class="{ 'font-semibold': (phase.actual_hours || 0) > 0 }">{{ (phase.actual_hours || 0).toFixed(1) }}</td>
+                <td class="text-right font-mono" style="font-size:11px;" :class="{
                   'text-success': (phase.actual_hours || 0) <= (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0),
                   'text-danger': (phase.actual_hours || 0) > (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0) && (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0) > 0,
-                }">{{ ((phase.actual_hours || 0) - (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0)).toFixed(1) }}h</td>
+                }">{{ ((phase.actual_hours || 0) - (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0)).toFixed(1) }}</td>
                 <td>
                   <span v-if="phase.is_locked" class="badge badge-gray">🔒 Verrouillée</span>
                   <span v-else class="badge badge-green">Active</span>
@@ -946,17 +949,18 @@ watch(activeTab, (tab) => {
           </div>
 
           <!-- Tasks table -->
-          <table v-if="!collapsedPhases.has(group.phase_name)" class="data-table task-table" style="table-layout:auto; width:100%; min-width:850px;">
+          <table v-if="!collapsedPhases.has(group.phase_name)" class="data-table task-table" style="table-layout:auto; width:100%; min-width:950px;">
             <thead>
               <tr>
-                <th style="width:90px;">WBS</th>
-                <th style="width:180px;">Nom</th>
-                <th style="width:65px;">Mode</th>
-                <th class="text-right" style="width:80px;">Budget ($)</th>
-                <th class="text-right" style="width:65px;">H. plan.</th>
-                <th class="text-right" style="width:65px;">H. réel</th>
-                <th class="text-right" style="width:60px;">Écart</th>
-                <th style="width:55px;">Fact.</th>
+                <th style="width:85px;">WBS</th>
+                <th style="width:170px;">Nom</th>
+                <th style="width:35px;">Mode</th>
+                <th class="text-right" style="width:75px;">Budget ($)</th>
+                <th class="text-right" style="width:60px;">H. budg.</th>
+                <th class="text-right" style="width:60px;">H. planif.</th>
+                <th class="text-right" style="width:60px;">H. réel</th>
+                <th class="text-right" style="width:55px;">Écart</th>
+                <th style="width:40px;">Fact.</th>
                 <th v-if="isEditing" style="width:200px;">Actions</th>
               </tr>
             </thead>
@@ -985,6 +989,7 @@ watch(activeTab, (tab) => {
                   </template>
                   <template v-else><span class="font-mono" style="font-size:11px;">{{ Number(task.budgeted_hours || 0).toFixed(1) }}</span></template>
                 </td>
+                <td class="text-right font-mono" style="font-size:11px;" :class="{ 'text-primary': (task.planned_hours || 0) > 0 }">{{ (task.planned_hours || 0).toFixed(1) }}</td>
                 <td class="text-right font-mono" style="font-size:11px;" :class="{ 'font-semibold': (task.actual_hours || 0) > 0 }">{{ (task.actual_hours || 0).toFixed(1) }}</td>
                 <td class="text-right font-mono" style="font-size:11px;" :class="{
                   'text-success': (task.actual_hours || 0) <= Number(task.budgeted_hours || 0),
