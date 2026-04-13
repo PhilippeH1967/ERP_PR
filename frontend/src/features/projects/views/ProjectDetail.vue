@@ -506,11 +506,31 @@ const financeData = ref([
   { year: new Date().getFullYear(), ca: 0, costs: 0, margin: 0, margin_pct: 0 },
 ])
 
-// Team tab — grouped by employee with hours
+// Team tab — grouped by employee with hours + monthly chart + budget health
 const expandedTeamMembers = ref(new Set<number>())
 function toggleTeamMember(empId: number) {
   if (expandedTeamMembers.value.has(empId)) expandedTeamMembers.value.delete(empId)
   else expandedTeamMembers.value.add(empId)
+}
+
+interface TeamStats {
+  budget_status: string
+  over_budget_phases: number
+  total_phases: number
+  phases_health: Array<{ phase_id: number; phase_name: string; budget_hours: number; planned_hours: number; actual_hours: number; over_budget: boolean }>
+  employees_monthly: Array<{ employee_id: number; employee_name: string; months: Array<{ month: string; hours: number }> }>
+  employees_planning: Record<string, number>
+}
+const teamStats = ref<TeamStats | null>(null)
+const teamStatsLoading = ref(false)
+
+async function loadTeamStats() {
+  teamStatsLoading.value = true
+  try {
+    const r = await projectApi.teamStats(projectId)
+    teamStats.value = r.data?.data || r.data
+  } catch { teamStats.value = null }
+  finally { teamStatsLoading.value = false }
 }
 
 interface TeamMember {
@@ -519,6 +539,8 @@ interface TeamMember {
   assignments: Assignment[]
   totalPlanned: number
   totalActual: number
+  monthlyHours: Array<{ month: string; hours: number }>
+  hasPlanning: boolean
 }
 
 const teamByEmployee = computed<TeamMember[]>(() => {
@@ -531,30 +553,30 @@ const teamByEmployee = computed<TeamMember[]>(() => {
         assignments: [],
         totalPlanned: 0,
         totalActual: 0,
+        monthlyHours: [],
+        hasPlanning: false,
       })
     }
     map.get(a.employee)!.assignments.push(a)
   }
-  // Add actual hours from time entries (match by employee ID)
+  // Actual hours from time entries
   for (const entry of projectTimeEntries.value) {
     const member = map.get(entry.employee)
-    if (member) {
-      member.totalActual += Number(entry.hours || 0)
+    if (member) member.totalActual += Number(entry.hours || 0)
+  }
+  // Planning + monthly from teamStats
+  if (teamStats.value) {
+    const planning = teamStats.value.employees_planning || {}
+    const monthly = teamStats.value.employees_monthly || []
+    for (const [, member] of map) {
+      member.totalPlanned = planning[String(member.employee)] || 0
+      member.hasPlanning = member.totalPlanned > 0
+      const empMonthly = monthly.find(m => m.employee_id === member.employee)
+      if (empMonthly) member.monthlyHours = empMonthly.months
     }
   }
   return Array.from(map.values()).sort((a, b) => a.employee_name.localeCompare(b.employee_name))
 })
-
-const showAssignEmployeeModal = ref(false)
-const assignEmployeeId = ref<number | null>(null)
-function openAssignEmployee(empId: number) {
-  assignEmployeeId.value = empId
-  // Find a phase to assign — use the first available
-  const phases = store.currentProject?.phases || []
-  if (phases.length > 0) {
-    openAssignModal(null, '')
-  }
-}
 
 // Time entries for Temps tab
 interface ProjectTimeEntry { id: number; employee: number; user_name: string; date: string; hours: string; task_name: string; phase_name: string; status: string }
@@ -705,7 +727,7 @@ watch(activeTab, (tab) => {
   if (tab === 'tasks' && !tasks.value.length) loadTasks()
   if (tab === 'progress' && !tasks.value.length) loadTasks()
   if (tab === 'budget') initHonoraires()
-  if (tab === 'team' && !projectTimeEntries.value.length) loadProjectTime()
+  if (tab === 'team') { if (!projectTimeEntries.value.length) loadProjectTime(); loadTeamStats() }
   if (tab === 'time') loadProjectTime()
   if (tab === 'st') loadSTInvoices()
   if (tab === 'invoices') loadProjectInvoices()
@@ -1083,8 +1105,20 @@ watch(activeTab, (tab) => {
 
     <!-- ═══ Team ═══ -->
     <template v-if="activeTab === 'team'">
-      <!-- Team summary -->
-      <div v-if="teamByEmployee.length" class="kpi-grid-3" style="margin-bottom:16px;">
+      <!-- Budget health banner -->
+      <div v-if="teamStats" class="team-budget-banner" :class="{
+        'banner-green': teamStats.budget_status === 'green',
+        'banner-orange': teamStats.budget_status === 'orange',
+        'banner-red': teamStats.budget_status === 'red',
+      }">
+        <span v-if="teamStats.budget_status === 'green'">&#9989; Projet dans le budget — aucune phase en depassement</span>
+        <span v-else-if="teamStats.budget_status === 'orange'">&#9888;&#65039; {{ teamStats.over_budget_phases }} phase{{ teamStats.over_budget_phases > 1 ? 's' : '' }} en depassement sur {{ teamStats.total_phases }}</span>
+        <span v-else>&#128680; {{ teamStats.over_budget_phases }} phases en depassement sur {{ teamStats.total_phases }} — attention budget critique</span>
+        <button class="btn-action" style="margin-left:auto; font-size:10px; color:inherit;" @click="activeTab = 'phases'">Voir phases &#8594;</button>
+      </div>
+
+      <!-- Team summary KPIs -->
+      <div v-if="teamByEmployee.length" class="kpi-grid-4" style="margin-bottom:16px;">
         <div class="kpi-card">
           <div class="kpi-value">{{ teamByEmployee.length }}</div>
           <div class="kpi-label">Membres</div>
@@ -1094,8 +1128,14 @@ watch(activeTab, (tab) => {
           <div class="kpi-label">Affectations</div>
         </div>
         <div class="kpi-card">
+          <div class="kpi-value mono" :class="{ 'text-primary': teamByEmployee.some(m => m.hasPlanning), 'text-danger': !teamByEmployee.some(m => m.hasPlanning) }">
+            {{ teamByEmployee.filter(m => m.hasPlanning).length }} / {{ teamByEmployee.length }}
+          </div>
+          <div class="kpi-label">Planifies</div>
+        </div>
+        <div class="kpi-card">
           <div class="kpi-value mono">{{ projectTotalHours.toFixed(1) }}h</div>
-          <div class="kpi-label">Heures totales saisies</div>
+          <div class="kpi-label">H. reelles totales</div>
         </div>
       </div>
 
@@ -1106,16 +1146,19 @@ watch(activeTab, (tab) => {
           <div class="team-member-header" @click="toggleTeamMember(member.employee)">
             <div class="team-member-left">
               <span class="team-toggle">{{ expandedTeamMembers.has(member.employee) ? '&#9660;' : '&#9654;' }}</span>
-              <span class="team-avatar">{{ member.employee_name.substring(0, 2).toUpperCase() }}</span>
+              <span class="team-avatar" :class="{ 'avatar-noplanning': !member.hasPlanning }">{{ member.employee_name.substring(0, 2).toUpperCase() }}</span>
               <div>
                 <div class="team-name">{{ member.employee_name }}</div>
-                <div class="team-sub">{{ member.assignments.length }} phase{{ member.assignments.length > 1 ? 's' : '' }}</div>
+                <div class="team-sub">
+                  {{ member.assignments.length }} phase{{ member.assignments.length > 1 ? 's' : '' }}
+                  <span v-if="!member.hasPlanning" class="team-no-planning">&#9888; Pas de planification</span>
+                </div>
               </div>
             </div>
             <div class="team-member-right">
               <div class="team-hours">
                 <span class="team-hours-label">Planifie</span>
-                <span class="team-hours-value text-primary">{{ member.totalPlanned.toFixed(1) }}h</span>
+                <span class="team-hours-value" :class="member.hasPlanning ? 'text-primary' : 'team-no-planning'">{{ member.totalPlanned.toFixed(1) }}h</span>
               </div>
               <div class="team-hours">
                 <span class="team-hours-label">Reel</span>
@@ -1124,15 +1167,29 @@ watch(activeTab, (tab) => {
             </div>
           </div>
 
-          <!-- Accordion content: assignments/tasks -->
+          <!-- Accordion content -->
           <div v-if="expandedTeamMembers.has(member.employee)" class="team-member-detail">
+            <!-- Monthly chart (6 months) -->
+            <div v-if="member.monthlyHours.length" class="team-chart">
+              <div class="team-chart-title">Historique mensuel (heures reelles)</div>
+              <div class="team-chart-bars">
+                <div v-for="m in member.monthlyHours" :key="m.month" class="team-chart-bar">
+                  <div class="team-chart-val">{{ m.hours.toFixed(0) }}</div>
+                  <div class="team-chart-fill" :style="{ height: `${Math.min(100, m.hours / (Math.max(...member.monthlyHours.map(x => x.hours)) || 1) * 100)}%` }"></div>
+                  <div class="team-chart-label">{{ m.month.substring(5) }}</div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="team-chart-empty">Pas encore d'historique mensuel</div>
+
+            <!-- Assignments table -->
             <table class="data-table" style="font-size:12px; margin:0;">
               <thead>
                 <tr>
-                  <th>Phase / Tache</th>
+                  <th>Phase</th>
                   <th class="text-right" style="width:60px;">%</th>
-                  <th style="width:140px;">Periode</th>
-                  <th v-if="isEditing" style="width:80px;"></th>
+                  <th style="width:130px;">Periode</th>
+                  <th style="width:150px;">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1140,7 +1197,8 @@ watch(activeTab, (tab) => {
                   <td>{{ a.phase ? (a.phase_name || `Phase #${a.phase}`) : 'Global (toutes phases)' }}</td>
                   <td class="text-right"><span class="badge badge-blue" style="font-size:10px;">{{ a.percentage }}%</span></td>
                   <td class="text-muted" style="font-size:11px;">{{ a.start_date || '—' }} → {{ a.end_date || '...' }}</td>
-                  <td v-if="isEditing" class="text-right">
+                  <td>
+                    <button class="btn-action" style="font-size:10px;" @click="router.push('/planning')">Planifier</button>
                     <template v-if="confirmDeleteAssignment === a.id">
                       <button class="btn-action danger" style="font-size:10px;" @click="deleteAssignment(a.id)">OK</button>
                       <button class="btn-action" style="font-size:10px;" @click="confirmDeleteAssignment = null">×</button>
@@ -1150,8 +1208,9 @@ watch(activeTab, (tab) => {
                 </tr>
               </tbody>
             </table>
-            <div v-if="isEditing" style="padding:8px 12px; border-top:1px solid var(--color-gray-100);">
+            <div style="padding:8px 12px; border-top:1px solid var(--color-gray-100); display:flex; gap:8px;">
               <button class="btn-action" @click="openAssignModal(null, '')">+ Affecter a une phase</button>
+              <button class="btn-action" @click="router.push('/planning')">&#128197; Aller a la planification</button>
             </div>
           </div>
         </div>
@@ -1793,6 +1852,12 @@ watch(activeTab, (tab) => {
 
 .form-actions { display: flex; gap: 6px; justify-content: flex-end; }
 .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* Team budget banner */
+.team-budget-banner { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+.banner-green { background: #DCFCE7; color: #166534; border-left: 4px solid #16A34A; }
+.banner-orange { background: #FEF3C7; color: #92400E; border-left: 4px solid #D97706; }
+.banner-red { background: #FEE2E2; color: #991B1B; border-left: 4px solid #DC2626; }
+
 /* Team tab — accordion */
 .team-list { display: flex; flex-direction: column; gap: 8px; }
 .team-member-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
@@ -1808,4 +1873,16 @@ watch(activeTab, (tab) => {
 .team-hours-label { display: block; font-size: 9px; color: var(--color-gray-400); text-transform: uppercase; letter-spacing: 0.3px; }
 .team-hours-value { font-size: 14px; font-weight: 600; font-family: var(--font-mono); color: var(--color-gray-800); }
 .team-member-detail { border-top: 1px solid var(--color-gray-200); }
+.avatar-noplanning { background: #D97706 !important; }
+.team-no-planning { color: #D97706; font-weight: 600; font-size: 10px; margin-left: 6px; }
+
+/* Team monthly chart */
+.team-chart { padding: 12px 16px; background: var(--color-gray-50); }
+.team-chart-title { font-size: 10px; font-weight: 600; color: var(--color-gray-500); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 8px; }
+.team-chart-bars { display: flex; gap: 6px; align-items: flex-end; height: 80px; }
+.team-chart-bar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; justify-content: flex-end; }
+.team-chart-fill { width: 100%; border-radius: 3px 3px 0 0; background: var(--color-primary); min-height: 3px; }
+.team-chart-val { font-size: 9px; font-weight: 600; font-family: var(--font-mono); color: var(--color-gray-700); }
+.team-chart-label { font-size: 9px; color: var(--color-gray-500); }
+.team-chart-empty { padding: 12px 16px; font-size: 11px; color: var(--color-gray-400); font-style: italic; background: var(--color-gray-50); }
 </style>

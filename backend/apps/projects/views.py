@@ -216,6 +216,85 @@ class ProjectViewSet(viewsets.ModelViewSet):
             "health": health,
         })
 
+    @action(detail=True, methods=["get"], url_path="team_stats")
+    def team_stats(self, request, pk=None):
+        """Team statistics: monthly hours per employee + budget health per phase."""
+        from datetime import timedelta
+        from decimal import Decimal
+
+        from django.db.models import Sum
+        from django.db.models.functions import TruncMonth
+
+        project = self.get_object()
+
+        from apps.time_entries.models import TimeEntry
+        from apps.planning.models import ResourceAllocation
+
+        # Budget health per phase: which phases are over budget?
+        phases_health = []
+        for phase in project.phases.all():
+            budget_h = float(phase.tasks.aggregate(s=Sum("budgeted_hours"))["s"] or phase.budgeted_hours or 0)
+            actual_h = float(TimeEntry.objects.filter(phase=phase).aggregate(s=Sum("hours"))["s"] or 0)
+            planned_h = sum(a.total_planned_hours for a in phase.resource_allocations.filter(status="ACTIVE"))
+            over = actual_h > budget_h > 0
+            phases_health.append({
+                "phase_id": phase.id, "phase_name": phase.name,
+                "budget_hours": budget_h, "planned_hours": planned_h,
+                "actual_hours": actual_h, "over_budget": over,
+            })
+
+        over_count = sum(1 for p in phases_health if p["over_budget"])
+        total_phases = len(phases_health)
+        budget_status = "green"
+        if over_count >= 3 or (total_phases > 0 and over_count / total_phases > 0.3):
+            budget_status = "red"
+        elif over_count > 0:
+            budget_status = "orange"
+
+        # Monthly hours per employee (last 6 months)
+        from django.utils import timezone
+        six_months_ago = (timezone.now() - timedelta(days=180)).date().replace(day=1)
+        monthly = (
+            TimeEntry.objects.filter(project=project, date__gte=six_months_ago)
+            .annotate(month=TruncMonth("date"))
+            .values("employee__id", "employee__first_name", "employee__last_name", "employee__username", "month")
+            .annotate(total_hours=Sum("hours"))
+            .order_by("employee__username", "month")
+        )
+
+        # Group by employee
+        emp_monthly = {}
+        for row in monthly:
+            eid = row["employee__id"]
+            if eid not in emp_monthly:
+                name = f"{row['employee__first_name']} {row['employee__last_name']}".strip()
+                emp_monthly[eid] = {
+                    "employee_id": eid,
+                    "employee_name": name or row["employee__username"],
+                    "months": [],
+                }
+            emp_monthly[eid]["months"].append({
+                "month": row["month"].strftime("%Y-%m"),
+                "hours": float(row["total_hours"]),
+            })
+
+        # Planning status per employee
+        emp_planning = {}
+        for alloc in ResourceAllocation.objects.filter(project=project, status="ACTIVE"):
+            eid = alloc.employee_id
+            emp_planning[eid] = emp_planning.get(eid, 0) + alloc.total_planned_hours
+
+        return Response({
+            "data": {
+                "budget_status": budget_status,
+                "over_budget_phases": over_count,
+                "total_phases": total_phases,
+                "phases_health": phases_health,
+                "employees_monthly": list(emp_monthly.values()),
+                "employees_planning": {str(k): v for k, v in emp_planning.items()},
+            }
+        })
+
 
 class PhaseViewSet(viewsets.ModelViewSet):
     """CRUD for project phases."""

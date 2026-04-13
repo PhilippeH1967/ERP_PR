@@ -18,6 +18,7 @@ export const projectApi = {
       project: projectData,
     }),
   dashboard: (id: number) => apiClient.get(`${BASE}/${id}/dashboard/`),
+  teamStats: (id: number) => apiClient.get(`${BASE}/${id}/team_stats/`),
 
   // Templates
   listTemplates: () => apiClient.get('project_templates/'),
