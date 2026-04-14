@@ -5,8 +5,21 @@
  */
 import { ref, computed, onMounted } from 'vue'
 import apiClient from '@/plugins/axios'
+import PhaseSlideOver from './PhaseSlideOver.vue'
 
 const props = defineProps<{ projectId: number }>()
+
+const selectedPhaseId = ref<number | null>(null)
+const showSlideOver = ref(false)
+
+function openPhasePanel(phaseId: number) {
+  selectedPhaseId.value = phaseId
+  showSlideOver.value = true
+}
+
+function onSlideOverUpdated() {
+  load() // refresh Gantt after changes
+}
 
 interface GanttPhase {
   id: number; name: string; client_label: string; code: string; type: string
@@ -290,7 +303,7 @@ const tooltipData = computed(() => {
               :style="{ ...barStyle(phase.start_date, phase.end_date), backgroundColor: '#E5E7EB' }"
               @mouseenter="showTooltip($event, phase.id, 'phase')"
               @mouseleave="hideTooltip"
-              @dblclick="startEdit(phase)"
+              @click="openPhasePanel(phase.id)"
             >
               <!-- Advancement fill -->
               <div class="gantt-bar-fill" :style="{ width: phaseAdvancement(phase) + '%', backgroundColor: phaseColors[phase.type] || '#3B82F6' }"></div>
@@ -395,6 +408,14 @@ const tooltipData = computed(() => {
         </tbody>
       </table>
     </div>
+    <!-- Phase planning slide-over -->
+    <PhaseSlideOver
+      :open="showSlideOver"
+      :project-id="props.projectId"
+      :phase-id="selectedPhaseId"
+      @close="showSlideOver = false"
+      @updated="onSlideOverUpdated"
+    />
   </div>
 </template>
 
