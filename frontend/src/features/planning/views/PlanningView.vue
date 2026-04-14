@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
 import { planningApi } from '../api/planningApi'
+import ResourceGantt from '../components/ResourceGantt.vue'
+
+const viewMode = ref<'gantt' | 'table'>('gantt')
 
 const isLoading = ref(false)
 const employees = ref<Array<Record<string, unknown>>>([])
@@ -56,6 +59,17 @@ function loadLabel(status: unknown): string {
 
 <template>
   <div>
+    <!-- View toggle -->
+    <div class="mb-4 flex items-center gap-3">
+      <button class="rounded-md px-3 py-1.5 text-sm font-semibold" :class="viewMode === 'gantt' ? 'bg-primary text-white' : 'bg-surface border border-border text-text-muted'" @click="viewMode = 'gantt'">Vue Gantt</button>
+      <button class="rounded-md px-3 py-1.5 text-sm font-semibold" :class="viewMode === 'table' ? 'bg-primary text-white' : 'bg-surface border border-border text-text-muted'" @click="viewMode = 'table'">Vue tableau</button>
+    </div>
+
+    <!-- Resource Gantt (new) -->
+    <ResourceGantt v-if="viewMode === 'gantt'" />
+
+    <!-- Original table view -->
+    <template v-if="viewMode === 'table'">
     <div class="mb-6 flex items-center justify-between">
       <h1 class="text-2xl font-semibold text-text">Planification des ressources</h1>
       <div class="flex items-center gap-3">
@@ -124,6 +138,7 @@ function loadLabel(status: unknown): string {
         </tbody>
       </table>
     </div>
+    </template>
   </div>
 </template>
 
