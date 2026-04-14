@@ -362,6 +362,33 @@ const tasksByPhase = computed(() => {
 
 const taskBudgetTotal = computed(() => tasks.value.reduce((sum, t) => sum + Number(t.budgeted_cost || 0), 0))
 const taskHoursTotal = computed(() => tasks.value.reduce((sum, t) => sum + Number(t.budgeted_hours || 0), 0))
+const taskPlannedTotal = computed(() => tasks.value.reduce((sum, t) => sum + Number((t as Record<string, unknown>).planned_hours || 0), 0))
+const tasksWithoutBudget = computed(() => tasks.value.filter(t => Number(t.budgeted_hours || 0) === 0 && Number(t.budgeted_cost || 0) === 0))
+
+// Phase-level alerts
+const phaseBudgetTotal = computed(() => {
+  const phases = (store.currentProject?.phases || []).filter(Boolean)
+  return phases.reduce((sum: number, p: Record<string, unknown>) => {
+    const taskBudget = Number(p.tasks_budgeted_hours || 0)
+    const phaseBudget = Number(p.budgeted_hours || 0)
+    return sum + (taskBudget || phaseBudget)
+  }, 0)
+})
+const phasesWithoutBudget = computed(() => {
+  return (store.currentProject?.phases || []).filter(Boolean).filter((p: Record<string, unknown>) => {
+    return Number(p.tasks_budgeted_hours || 0) === 0 && Number(p.budgeted_hours || 0) === 0 && Number(p.budgeted_cost || 0) === 0
+  })
+})
+const phasePlannedTotal = computed(() => {
+  return (store.currentProject?.phases || []).filter(Boolean).reduce((sum: number, p: Record<string, unknown>) => sum + Number(p.planned_hours || 0), 0)
+})
+const phaseFuturePlannedTotal = computed(() => {
+  // Check if any ResourceAllocation has end_date >= today
+  // Approximation: if planned > 0 and project active, check teamStats
+  if (!teamStats.value) return phasePlannedTotal.value // assume OK if no stats loaded
+  const planning = teamStats.value.employees_planning || {}
+  return Object.values(planning).reduce((sum: number, h) => sum + (h as number), 0)
+})
 
 async function loadTasks() {
   try {
@@ -916,6 +943,19 @@ watch(activeTab, (tab) => {
 
     <!-- ═══ Phases ═══ -->
     <template v-if="activeTab === 'phases'">
+      <!-- Alertes budget + planification -->
+      <div v-if="phaseBudgetTotal <= 0 && (store.currentProject.phases || []).length > 0" class="phase-alert alert-orange">
+        &#9888;&#65039; <strong>Aucun budget defini</strong> — aucune phase n'a de budget en heures ou en dollars. Definissez les budgets pour suivre l'avancement.
+      </div>
+      <div v-else-if="phasesWithoutBudget.length > 0" class="phase-alert alert-amber">
+        &#9888;&#65039; <strong>{{ phasesWithoutBudget.length }} phase{{ phasesWithoutBudget.length > 1 ? 's' : '' }} sans budget</strong> : {{ phasesWithoutBudget.map(p => p.name).join(', ') }}
+      </div>
+      <div v-if="phasePlannedTotal <= 0 && store.currentProject?.status === 'ACTIVE'" class="phase-alert alert-orange">
+        &#128197; <strong>Aucune planification</strong> — aucune allocation de ressources n'est definie. <button class="btn-link-inline" @click="router.push('/planning')">Aller a la planification &rarr;</button>
+      </div>
+      <div v-else-if="phaseFuturePlannedTotal <= 0 && store.currentProject?.status === 'ACTIVE'" class="phase-alert alert-red">
+        &#128680; <strong>Pas de planification a venir</strong> — toutes les allocations sont dans le passe. Le projet est actif mais aucune ressource n'est planifiee pour les prochaines semaines. <button class="btn-link-inline" @click="router.push('/planning')">Planifier &rarr;</button>
+      </div>
       <div v-if="isEditing" class="section-actions" style="margin-bottom:10px;">
         <button class="btn-primary" @click="showAddPhaseForm = !showAddPhaseForm">+ Ajouter une phase</button>
       </div>
@@ -1004,6 +1044,16 @@ watch(activeTab, (tab) => {
 
     <!-- ═══ Tâches ═══ -->
     <template v-if="activeTab === 'tasks'">
+      <!-- Alertes budget + planification -->
+      <div v-if="taskBudgetTotal <= 0 && tasks.length > 0" class="phase-alert alert-orange">
+        &#9888;&#65039; <strong>Aucun budget sur les taches</strong> — definissez les heures et couts budgetes pour chaque tache.
+      </div>
+      <div v-else-if="tasksWithoutBudget.length > 0 && tasksWithoutBudget.length < tasks.length" class="phase-alert alert-amber">
+        &#9888;&#65039; <strong>{{ tasksWithoutBudget.length }} tache{{ tasksWithoutBudget.length > 1 ? 's' : '' }} sans budget</strong> sur {{ tasks.length }}
+      </div>
+      <div v-if="taskPlannedTotal <= 0 && tasks.length > 0 && store.currentProject?.status === 'ACTIVE'" class="phase-alert alert-orange">
+        &#128197; <strong>Aucune planification sur les taches</strong> — les ressources ne sont pas encore planifiees. <button class="btn-link-inline" @click="router.push('/planning')">Planifier &rarr;</button>
+      </div>
       <div v-if="tasksByPhase.length">
         <div v-for="group in tasksByPhase" :key="group.phase_name" class="task-phase-group">
           <!-- Phase header -->
@@ -1852,6 +1902,13 @@ watch(activeTab, (tab) => {
 
 .form-actions { display: flex; gap: 6px; justify-content: flex-end; }
 .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* Phase/Task alerts */
+.phase-alert { padding: 10px 16px; border-radius: 6px; font-size: 12px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.alert-orange { background: #FEF3C7; color: #92400E; border-left: 4px solid #D97706; }
+.alert-amber { background: #FEF9C3; color: #854D0E; border-left: 4px solid #EAB308; }
+.alert-red { background: #FEE2E2; color: #991B1B; border-left: 4px solid #DC2626; }
+.btn-link-inline { background: none; border: none; color: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; font-size: 12px; padding: 0; }
+
 /* Team budget banner */
 .team-budget-banner { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
 .banner-green { background: #DCFCE7; color: #166534; border-left: 4px solid #16A34A; }
