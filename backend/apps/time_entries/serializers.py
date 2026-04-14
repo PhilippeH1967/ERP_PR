@@ -10,6 +10,7 @@ from .models import PeriodUnlock, TimeEntry, TimesheetLock, WeeklyApproval
 class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
     """TimeEntry with nested project/phase names for grid display."""
 
+    employee_name = serializers.SerializerMethodField()
     project_code = serializers.CharField(source="project.code", read_only=True)
     project_name = serializers.CharField(source="project.name", read_only=True)
     phase_name = serializers.SerializerMethodField()
@@ -20,7 +21,7 @@ class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
     class Meta:
         model = TimeEntry
         fields = [
-            "id", "employee", "project", "project_code", "project_name",
+            "id", "employee", "employee_name", "project", "project_code", "project_name",
             "phase", "phase_name", "task", "task_wbs_code", "task_name",
             "client_label",
             "date", "hours", "notes", "rejection_reason", "status", "is_favorite",
@@ -28,11 +29,17 @@ class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
         read_only_fields = [
-            "id", "employee", "project_code", "project_name",
+            "id", "employee", "employee_name", "project_code", "project_name",
             "phase_name", "task_wbs_code", "task_name",
             "client_label", "rejection_reason", "is_invoiced",
             "created_at", "updated_at",
         ]
+
+    def get_employee_name(self, obj):
+        if obj.employee:
+            name = f"{obj.employee.first_name} {obj.employee.last_name}".strip()
+            return name or obj.employee.username
+        return ""
 
     def get_phase_name(self, obj):
         if obj.phase:

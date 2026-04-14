@@ -622,6 +622,45 @@ async function loadProjectTime() {
 }
 
 const projectTotalHours = computed(() => projectTimeEntries.value.reduce((s, e) => s + Number(e.hours || 0), 0))
+const timeViewMode = ref<'employee' | 'phase'>('employee')
+const expandedTimeGroups = ref(new Set<string>())
+const expandedTimeMonths = ref(new Set<string>())
+function toggleTimeGroup(key: string) { expandedTimeGroups.value.has(key) ? expandedTimeGroups.value.delete(key) : expandedTimeGroups.value.add(key) }
+function toggleTimeMonth(key: string) { expandedTimeMonths.value.has(key) ? expandedTimeMonths.value.delete(key) : expandedTimeMonths.value.add(key) }
+
+interface TimeGroup {
+  key: string
+  label: string
+  totalHours: number
+  months: Map<string, { label: string; totalHours: number; entries: typeof projectTimeEntries.value }>
+}
+
+const timeGrouped = computed<TimeGroup[]>(() => {
+  const map = new Map<string, TimeGroup>()
+  for (const e of projectTimeEntries.value) {
+    const groupKey = timeViewMode.value === 'employee'
+      ? String(e.employee)
+      : (e.phase_name || 'Sans phase')
+    const groupLabel = timeViewMode.value === 'employee'
+      ? (e.employee_name || `Employe #${e.employee}`)
+      : (e.phase_name || 'Sans phase')
+    if (!map.has(groupKey)) {
+      map.set(groupKey, { key: groupKey, label: groupLabel, totalHours: 0, months: new Map() })
+    }
+    const group = map.get(groupKey)!
+    const hours = Number(e.hours || 0)
+    group.totalHours += hours
+    const monthKey = e.date?.substring(0, 7) || 'inconnu'
+    const monthLabel = monthKey
+    if (!group.months.has(monthKey)) {
+      group.months.set(monthKey, { label: monthLabel, totalHours: 0, entries: [] })
+    }
+    const month = group.months.get(monthKey)!
+    month.totalHours += hours
+    month.entries.push(e)
+  }
+  return Array.from(map.values()).sort((a, b) => b.totalHours - a.totalHours)
+})
 
 const tabs = [
   { key: 'overview', label: 'Vue d\'ensemble' },
@@ -1273,44 +1312,78 @@ watch(activeTab, (tab) => {
       <div class="tab-header">
         <h3>Feuilles de temps du projet</h3>
         <div class="flex items-center gap-3">
+          <div class="time-view-toggle">
+            <button class="time-view-btn" :class="{ active: timeViewMode === 'employee' }" @click="timeViewMode = 'employee'; expandedTimeGroups.clear(); expandedTimeMonths.clear()">Par employe</button>
+            <button class="time-view-btn" :class="{ active: timeViewMode === 'phase' }" @click="timeViewMode = 'phase'; expandedTimeGroups.clear(); expandedTimeMonths.clear()">Par phase / tache</button>
+          </div>
           <span class="text-sm font-mono font-semibold">Total: {{ projectTotalHours.toFixed(1) }}h</span>
         </div>
       </div>
       <div v-if="timeLoading" class="empty">Chargement...</div>
-      <div v-else-if="!projectTimeEntries.length" class="empty">Aucune entrée de temps pour ce projet</div>
-      <table v-else class="data-table">
-        <thead>
-          <tr>
-            <th style="width:18%;">Employé</th>
-            <th style="width:12%;">Date</th>
-            <th style="width:20%;">Phase</th>
-            <th style="width:25%;">Tâche</th>
-            <th class="text-right" style="width:10%;">Heures</th>
-            <th style="width:15%;">Statut</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="entry in projectTimeEntries" :key="entry.id">
-            <td class="font-semibold">{{ entry.user_name || '—' }}</td>
-            <td>{{ entry.date }}</td>
-            <td>{{ entry.phase_name || '—' }}</td>
-            <td>{{ entry.task_name || '—' }}</td>
-            <td class="text-right font-mono">{{ Number(entry.hours).toFixed(1) }}</td>
-            <td>
-              <span class="badge" :class="entry.status === 'APPROVED' ? 'badge-green' : entry.status === 'SUBMITTED' ? 'badge-amber' : 'badge-gray'">
-                {{ entry.status === 'APPROVED' ? 'Approuvé' : entry.status === 'SUBMITTED' ? 'Soumis' : 'Brouillon' }}
-              </span>
-            </td>
-          </tr>
-        </tbody>
-        <tfoot>
-          <tr>
-            <td colspan="4" class="font-semibold">Total</td>
-            <td class="text-right font-mono font-semibold">{{ projectTotalHours.toFixed(1) }}</td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
+      <div v-else-if="!projectTimeEntries.length" class="empty">Aucune entree de temps pour ce projet</div>
+
+      <!-- Grouped accordion view -->
+      <div v-else class="time-accordion">
+        <div v-for="group in timeGrouped" :key="group.key" class="time-group">
+          <!-- Group header -->
+          <div class="time-group-header" @click="toggleTimeGroup(group.key)">
+            <span class="time-toggle">{{ expandedTimeGroups.has(group.key) ? '&#9660;' : '&#9654;' }}</span>
+            <span class="time-group-name">{{ group.label }}</span>
+            <span class="time-group-hours">{{ group.totalHours.toFixed(1) }}h</span>
+            <span class="time-group-count">{{ group.months.size }} mois</span>
+          </div>
+
+          <!-- Months accordion -->
+          <div v-if="expandedTimeGroups.has(group.key)" class="time-months">
+            <div v-for="[monthKey, month] of group.months" :key="monthKey" class="time-month">
+              <!-- Month header -->
+              <div class="time-month-header" @click="toggleTimeMonth(group.key + '-' + monthKey)">
+                <span class="time-toggle-sm">{{ expandedTimeMonths.has(group.key + '-' + monthKey) ? '&#9660;' : '&#9654;' }}</span>
+                <span class="time-month-label">{{ month.label }}</span>
+                <span class="time-month-hours">{{ month.totalHours.toFixed(1) }}h</span>
+                <span class="time-month-count">{{ month.entries.length }} entree{{ month.entries.length > 1 ? 's' : '' }}</span>
+              </div>
+
+              <!-- Day entries -->
+              <div v-if="expandedTimeMonths.has(group.key + '-' + monthKey)" class="time-entries">
+                <table class="data-table" style="font-size:11px; margin:0;">
+                  <thead>
+                    <tr>
+                      <th style="width:80px;">Date</th>
+                      <th v-if="timeViewMode === 'phase'">Employe</th>
+                      <th v-else>Phase / Tache</th>
+                      <th class="text-right" style="width:65px;">Heures</th>
+                      <th style="width:70px;">Statut</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="entry in month.entries" :key="entry.id">
+                      <td class="font-mono">{{ entry.date?.substring(5) }}</td>
+                      <td v-if="timeViewMode === 'phase'" class="font-semibold">{{ entry.employee_name || '—' }}</td>
+                      <td v-else style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="(entry.phase_name || '') + ' / ' + (entry.task_name || '')">{{ entry.task_name || entry.phase_name || '—' }}</td>
+                      <td class="text-right font-mono font-semibold">{{ Number(entry.hours).toFixed(1) }}</td>
+                      <td>
+                        <span class="badge" style="font-size:9px;" :class="entry.status === 'PM_APPROVED' || entry.status === 'APPROVED' ? 'badge-green' : entry.status === 'SUBMITTED' ? 'badge-amber' : 'badge-gray'">
+                          {{ entry.status === 'PM_APPROVED' ? 'PM' : entry.status === 'FINANCE_APPROVED' ? 'FIN' : entry.status === 'PAIE_VALIDATED' ? 'PAIE' : entry.status === 'LOCKED' ? 'Verr.' : entry.status === 'SUBMITTED' ? 'Soumis' : entry.status === 'DRAFT' ? 'Brouillon' : entry.status }}
+                        </span>
+                      </td>
+                      <td class="text-muted" style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px;" :title="entry.notes">{{ entry.notes || '' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Total footer -->
+        <div class="time-total">
+          <span class="font-semibold">Total projet</span>
+          <span class="font-mono font-semibold">{{ projectTotalHours.toFixed(1) }}h</span>
+          <span class="text-muted">{{ projectTimeEntries.length }} entrees &middot; {{ timeGrouped.length }} {{ timeViewMode === 'employee' ? 'employes' : 'phases' }}</span>
+        </div>
+      </div>
     </template>
 
     <!-- ═══ Amendments ═══ -->
@@ -1942,4 +2015,28 @@ watch(activeTab, (tab) => {
 .team-chart-val { font-size: 9px; font-weight: 600; font-family: var(--font-mono); color: var(--color-gray-700); }
 .team-chart-label { font-size: 9px; color: var(--color-gray-500); }
 .team-chart-empty { padding: 12px 16px; font-size: 11px; color: var(--color-gray-400); font-style: italic; background: var(--color-gray-50); }
+
+/* Time tab — accordion view */
+.time-view-toggle { display: flex; border: 1px solid var(--color-gray-200); border-radius: 6px; overflow: hidden; }
+.time-view-btn { padding: 4px 12px; font-size: 11px; font-weight: 600; background: white; border: none; cursor: pointer; color: var(--color-gray-500); transition: all 0.1s; }
+.time-view-btn.active { background: var(--color-primary); color: white; }
+.time-accordion { display: flex; flex-direction: column; gap: 6px; }
+.time-group { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+.time-group-header { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; transition: background 0.1s; }
+.time-group-header:hover { background: var(--color-gray-50); }
+.time-toggle { font-size: 10px; color: var(--color-gray-400); width: 12px; }
+.time-toggle-sm { font-size: 8px; color: var(--color-gray-400); width: 10px; }
+.time-group-name { font-size: 13px; font-weight: 600; color: var(--color-gray-800); flex: 1; }
+.time-group-hours { font-size: 13px; font-weight: 700; font-family: var(--font-mono); color: var(--color-primary); }
+.time-group-count { font-size: 10px; color: var(--color-gray-400); margin-left: 8px; }
+.time-months { border-top: 1px solid var(--color-gray-200); }
+.time-month { border-top: 1px solid var(--color-gray-100); }
+.time-month:first-child { border-top: none; }
+.time-month-header { display: flex; align-items: center; gap: 8px; padding: 7px 16px 7px 32px; cursor: pointer; background: var(--color-gray-50); transition: background 0.1s; }
+.time-month-header:hover { background: var(--color-gray-100); }
+.time-month-label { font-size: 12px; font-weight: 600; color: var(--color-gray-600); flex: 1; }
+.time-month-hours { font-size: 12px; font-weight: 600; font-family: var(--font-mono); color: var(--color-gray-700); }
+.time-month-count { font-size: 10px; color: var(--color-gray-400); margin-left: 6px; }
+.time-entries { padding: 0 16px 8px 32px; }
+.time-total { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: var(--color-gray-100); border-radius: 8px; margin-top: 8px; }
 </style>
