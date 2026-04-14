@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * GanttChart — Project Gantt with today line, % advancement, tooltips, tasks.
+ * Enriched version (Sprint UX — Alternative #1).
+ */
 import { ref, computed, onMounted } from 'vue'
 import apiClient from '@/plugins/axios'
 
@@ -8,18 +12,28 @@ interface GanttPhase {
   id: number; name: string; client_label: string; code: string; type: string
   start_date: string | null; end_date: string | null
   billing_mode: string; budgeted_hours: number; is_mandatory: boolean; order: number
+  tasks_budgeted_hours?: number; planned_hours?: number; actual_hours?: number
 }
 interface GanttMilestone { id: number; title: string; date: string; status: string; color: string }
 interface GanttDependency { id: number; from: number; to: number; type: string; lag: number }
+interface GanttTask {
+  id: number; name: string; client_facing_label: string; wbs_code: string
+  phase: number; budgeted_hours: number; actual_hours?: number; planned_hours?: number
+  progress_pct?: number
+}
 
 const phases = ref<GanttPhase[]>([])
+const tasks = ref<GanttTask[]>([])
 const milestones = ref<GanttMilestone[]>([])
 const dependencies = ref<GanttDependency[]>([])
-const projectInfo = ref({ code: '', name: '' })
+const projectInfo = ref({ code: '', name: '', start_date: '', end_date: '' })
 const isLoading = ref(true)
 const editingPhase = ref<number | null>(null)
 const editDates = ref({ start: '', end: '' })
 const zoomLevel = ref<'month' | 'quarter' | 'year'>('quarter')
+const showTasks = ref(false)
+const hoveredItem = ref<{ id: number; type: string } | null>(null)
+const tooltipPos = ref({ x: 0, y: 0 })
 
 async function load() {
   isLoading.value = true
@@ -29,28 +43,49 @@ async function load() {
     phases.value = data.phases || []
     milestones.value = data.milestones || []
     dependencies.value = data.dependencies || []
-    projectInfo.value = data.project || { code: '', name: '' }
+    projectInfo.value = data.project || { code: '', name: '', start_date: '', end_date: '' }
+    // Load tasks with actual hours
+    try {
+      const tr = await apiClient.get(`projects/${props.projectId}/tasks/`)
+      const td = tr.data?.data || tr.data
+      tasks.value = Array.isArray(td) ? td : td?.results || []
+    } catch { tasks.value = [] }
+    // Load phase actual hours
+    try {
+      const pr = await apiClient.get(`projects/${props.projectId}/phases/`)
+      const pd = pr.data?.data || pr.data
+      const phaseData = Array.isArray(pd) ? pd : pd?.results || []
+      for (const p of phases.value) {
+        const match = phaseData.find((ph: Record<string, unknown>) => ph.id === p.id)
+        if (match) {
+          p.tasks_budgeted_hours = Number(match.tasks_budgeted_hours || 0)
+          p.planned_hours = Number(match.planned_hours || 0)
+          p.actual_hours = Number(match.actual_hours || 0)
+        }
+      }
+    } catch { /* */ }
   } catch { /* */ }
   finally { isLoading.value = false }
 }
 
 onMounted(load)
 
+const today = new Date()
+const todayStr = today.toISOString().substring(0, 10)
+
 // Timeline range
 const timelineStart = computed(() => {
   const dates = phases.value.filter(p => p.start_date).map(p => new Date(p.start_date!))
   if (!dates.length) return new Date()
   const min = new Date(Math.min(...dates.map(d => d.getTime())))
-  min.setDate(1) // start of month
+  min.setDate(1)
   return min
 })
 
 const timelineEnd = computed(() => {
   const dates = phases.value.filter(p => p.end_date).map(p => new Date(p.end_date!))
   if (!dates.length) {
-    const d = new Date()
-    d.setFullYear(d.getFullYear() + 2)
-    return d
+    const d = new Date(); d.setFullYear(d.getFullYear() + 2); return d
   }
   const max = new Date(Math.max(...dates.map(d => d.getTime())))
   max.setMonth(max.getMonth() + 3)
@@ -59,12 +94,18 @@ const timelineEnd = computed(() => {
 
 const totalDays = computed(() => Math.max(1, Math.round((timelineEnd.value.getTime() - timelineStart.value.getTime()) / 86400000)))
 
-// Generate period headers
+// Today marker position
+const todayPosition = computed(() => {
+  const t = today.getTime()
+  if (t < timelineStart.value.getTime() || t > timelineEnd.value.getTime()) return -1
+  return ((t - timelineStart.value.getTime()) / 86400000) / totalDays.value * 100
+})
+
+// Period headers
 const periods = computed(() => {
   const result: { label: string; width: number }[] = []
   const start = new Date(timelineStart.value)
   const end = timelineEnd.value
-
   if (zoomLevel.value === 'quarter') {
     let d = new Date(start)
     while (d < end) {
@@ -80,15 +121,14 @@ const periods = computed(() => {
     while (d < end) {
       const mEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0)
       const daySpan = Math.round((Math.min(mEnd.getTime(), end.getTime()) - Math.max(d.getTime(), start.getTime())) / 86400000)
-      const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
+      const months = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec']
       result.push({ label: `${months[d.getMonth()]} ${d.getFullYear()}`, width: (daySpan / totalDays.value) * 100 })
       d = new Date(d.getFullYear(), d.getMonth() + 1, 1)
     }
   } else {
     let y = start.getFullYear()
     while (y <= end.getFullYear()) {
-      const yStart = new Date(y, 0, 1)
-      const yEnd = new Date(y, 11, 31)
+      const yStart = new Date(y, 0, 1); const yEnd = new Date(y, 11, 31)
       const daySpan = Math.round((Math.min(yEnd.getTime(), end.getTime()) - Math.max(yStart.getTime(), start.getTime())) / 86400000)
       result.push({ label: String(y), width: (daySpan / totalDays.value) * 100 })
       y++
@@ -97,13 +137,12 @@ const periods = computed(() => {
   return result
 })
 
-function barStyle(phase: GanttPhase) {
-  if (!phase.start_date || !phase.end_date) return { display: 'none' }
-  const start = new Date(phase.start_date)
-  const end = new Date(phase.end_date)
-  const left = ((start.getTime() - timelineStart.value.getTime()) / 86400000) / totalDays.value * 100
-  const width = ((end.getTime() - start.getTime()) / 86400000) / totalDays.value * 100
-  return { left: `${Math.max(0, left)}%`, width: `${Math.max(1, width)}%` }
+function barStyle(startDate: string | null, endDate: string | null) {
+  if (!startDate || !endDate) return { display: 'none' }
+  const s = new Date(startDate); const e = new Date(endDate)
+  const left = ((s.getTime() - timelineStart.value.getTime()) / 86400000) / totalDays.value * 100
+  const width = ((e.getTime() - s.getTime()) / 86400000) / totalDays.value * 100
+  return { left: `${Math.max(0, left)}%`, width: `${Math.max(0.5, width)}%` }
 }
 
 function milestoneStyle(m: GanttMilestone) {
@@ -112,9 +151,26 @@ function milestoneStyle(m: GanttMilestone) {
   return { left: `${left}%` }
 }
 
-const phaseColors: Record<string, string> = {
-  REALIZATION: '#3B82F6',
-  SUPPORT: '#F59E0B',
+// Phase advancement %
+function phaseAdvancement(phase: GanttPhase): number {
+  const budget = phase.tasks_budgeted_hours || phase.budgeted_hours || 0
+  const actual = phase.actual_hours || 0
+  if (budget <= 0) return 0
+  return Math.min(100, Math.round((actual / budget) * 100))
+}
+
+function advancementColor(pct: number): string {
+  if (pct < 50) return '#3B82F6'
+  if (pct < 80) return '#16A34A'
+  if (pct < 100) return '#D97706'
+  return '#DC2626'
+}
+
+const phaseColors: Record<string, string> = { REALIZATION: '#3B82F6', SUPPORT: '#F59E0B' }
+
+// Tasks for a phase
+function phaseTasks(phaseId: number) {
+  return tasks.value.filter(t => t.phase === phaseId)
 }
 
 function startEdit(phase: GanttPhase) {
@@ -125,8 +181,7 @@ function startEdit(phase: GanttPhase) {
 async function saveEdit(phaseId: number) {
   try {
     await apiClient.patch(`projects/${props.projectId}/phases/${phaseId}/`, {
-      start_date: editDates.value.start || null,
-      end_date: editDates.value.end || null,
+      start_date: editDates.value.start || null, end_date: editDates.value.end || null,
     })
     editingPhase.value = null
     await load()
@@ -135,24 +190,70 @@ async function saveEdit(phaseId: number) {
 
 function formatDate(d: string | null) {
   if (!d) return '—'
-  return new Date(d).toLocaleDateString('fr-CA', { month: 'short', year: 'numeric' })
+  return new Date(d).toLocaleDateString('fr-CA', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function durationWeeks(start: string | null, end: string | null) {
   if (!start || !end) return '—'
-  const days = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000)
-  return `${Math.round(days / 7)} sem.`
+  return `${Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000 / 7)} sem.`
 }
+
+function showTooltip(e: MouseEvent, id: number, type: string) {
+  hoveredItem.value = { id, type }
+  tooltipPos.value = { x: e.clientX + 10, y: e.clientY - 10 }
+}
+function hideTooltip() { hoveredItem.value = null }
+
+const tooltipData = computed(() => {
+  if (!hoveredItem.value) return null
+  if (hoveredItem.value.type === 'phase') {
+    const p = phases.value.find(ph => ph.id === hoveredItem.value!.id)
+    if (!p) return null
+    return {
+      title: p.client_label || p.name,
+      lines: [
+        `${formatDate(p.start_date)} → ${formatDate(p.end_date)}`,
+        `Duree: ${durationWeeks(p.start_date, p.end_date)}`,
+        `Budget: ${(p.tasks_budgeted_hours || p.budgeted_hours || 0).toFixed(0)}h`,
+        `Planifie: ${(p.planned_hours || 0).toFixed(0)}h`,
+        `Reel: ${(p.actual_hours || 0).toFixed(1)}h`,
+        `Avancement: ${phaseAdvancement(p)}%`,
+      ],
+    }
+  }
+  if (hoveredItem.value.type === 'task') {
+    const t = tasks.value.find(tk => tk.id === hoveredItem.value!.id)
+    if (!t) return null
+    return {
+      title: t.client_facing_label || t.name,
+      lines: [
+        `WBS: ${t.wbs_code}`,
+        `Budget: ${(t.budgeted_hours || 0).toFixed(0)}h`,
+        `Planifie: ${(t.planned_hours || 0).toFixed(0)}h`,
+        `Reel: ${(t.actual_hours || 0).toFixed(1)}h`,
+        `Avancement: ${t.progress_pct || 0}%`,
+      ],
+    }
+  }
+  return null
+})
 </script>
 
 <template>
   <div class="gantt-container">
     <!-- Header -->
     <div class="gantt-header">
-      <h3>Diagramme de Gantt — {{ projectInfo.code }}</h3>
+      <div>
+        <h3>Gantt — {{ projectInfo.code }}</h3>
+        <span class="gantt-subtitle">{{ projectInfo.name }}</span>
+      </div>
       <div class="gantt-controls">
+        <label class="gantt-toggle">
+          <input v-model="showTasks" type="checkbox" />
+          <span>Taches</span>
+        </label>
         <button v-for="z in (['month', 'quarter', 'year'] as const)" :key="z" class="zoom-btn" :class="{ active: zoomLevel === z }" @click="zoomLevel = z">
-          {{ z === 'month' ? 'Mois' : z === 'quarter' ? 'Trimestre' : 'Année' }}
+          {{ z === 'month' ? 'Mois' : z === 'quarter' ? 'Trim.' : 'Annee' }}
         </button>
       </div>
     </div>
@@ -163,50 +264,82 @@ function durationWeeks(start: string | null, end: string | null) {
     <div v-else class="gantt-body">
       <!-- Timeline header -->
       <div class="gantt-timeline-header">
-        <div class="gantt-label-col"></div>
+        <div class="gantt-label-col gantt-label-header">Phase / Tache</div>
         <div class="gantt-timeline-periods">
-          <div v-for="(p, i) in periods" :key="i" class="gantt-period" :style="{ width: p.width + '%' }">
-            {{ p.label }}
-          </div>
+          <div v-for="(p, i) in periods" :key="i" class="gantt-period" :style="{ width: p.width + '%' }">{{ p.label }}</div>
         </div>
       </div>
 
-      <!-- Phase rows -->
-      <div v-for="phase in phases" :key="phase.id" class="gantt-row">
-        <div class="gantt-label-col">
-          <div class="gantt-phase-label">
-            <span class="phase-code">{{ phase.code }}</span>
-            <span class="phase-name">{{ phase.client_label || phase.name }}</span>
-            <span v-if="phase.is_mandatory" class="mandatory-badge">Obl.</span>
+      <!-- Phase rows + task rows -->
+      <template v-for="phase in phases" :key="phase.id">
+        <!-- Phase bar -->
+        <div class="gantt-row" :class="{ 'gantt-row-noDates': !phase.start_date }">
+          <div class="gantt-label-col">
+            <div class="gantt-phase-label">
+              <span class="phase-code">{{ phase.code }}</span>
+              <span class="phase-name">{{ phase.client_label || phase.name }}</span>
+              <span class="phase-pct" :style="{ color: advancementColor(phaseAdvancement(phase)) }">{{ phaseAdvancement(phase) }}%</span>
+            </div>
+          </div>
+          <div class="gantt-timeline-area">
+            <!-- Today line -->
+            <div v-if="todayPosition >= 0" class="gantt-today" :style="{ left: todayPosition + '%' }"></div>
+            <!-- Phase bar with advancement fill -->
+            <div
+              class="gantt-bar"
+              :style="{ ...barStyle(phase.start_date, phase.end_date), backgroundColor: '#E5E7EB' }"
+              @mouseenter="showTooltip($event, phase.id, 'phase')"
+              @mouseleave="hideTooltip"
+              @dblclick="startEdit(phase)"
+            >
+              <!-- Advancement fill -->
+              <div class="gantt-bar-fill" :style="{ width: phaseAdvancement(phase) + '%', backgroundColor: phaseColors[phase.type] || '#3B82F6' }"></div>
+              <span class="bar-label">{{ phaseAdvancement(phase) }}%</span>
+            </div>
+            <!-- Milestones -->
+            <div
+              v-for="m in milestones.filter(ms => phase.start_date && phase.end_date && ms.date >= phase.start_date && ms.date <= phase.end_date)"
+              :key="'m-' + m.id"
+              class="gantt-milestone"
+              :style="milestoneStyle(m)"
+              :title="m.title + ' — ' + m.date"
+            >
+              <span class="milestone-diamond" :style="{ borderBottomColor: m.color }"></span>
+            </div>
           </div>
         </div>
-        <div class="gantt-timeline-area">
-          <!-- Bar -->
-          <div
-            class="gantt-bar"
-            :style="{ ...barStyle(phase), backgroundColor: phaseColors[phase.type] || '#3B82F6' }"
-            :title="`${phase.name}: ${formatDate(phase.start_date)} → ${formatDate(phase.end_date)}`"
-            @dblclick="startEdit(phase)"
-          >
-            <span class="bar-label">{{ formatDate(phase.start_date) }} → {{ formatDate(phase.end_date) }}</span>
-          </div>
-          <!-- Milestones on this row (if date falls within phase) -->
-          <div
-            v-for="m in milestones.filter(ms => phase.start_date && phase.end_date && ms.date >= phase.start_date && ms.date <= phase.end_date)"
-            :key="'m-' + m.id"
-            class="gantt-milestone"
-            :style="milestoneStyle(m)"
-            :title="m.title + ' — ' + m.date"
-          >
-            <span class="milestone-diamond" :style="{ borderBottomColor: m.color }"></span>
-          </div>
-        </div>
-      </div>
 
-      <!-- Milestones row (independent) -->
+        <!-- Task rows (if expanded) -->
+        <template v-if="showTasks">
+          <div v-for="task in phaseTasks(phase.id)" :key="'t-' + task.id" class="gantt-row gantt-task-row">
+            <div class="gantt-label-col">
+              <div class="gantt-task-label">
+                <span class="task-wbs">{{ task.wbs_code }}</span>
+                <span class="task-name">{{ task.client_facing_label || task.name }}</span>
+              </div>
+            </div>
+            <div class="gantt-timeline-area">
+              <div v-if="todayPosition >= 0" class="gantt-today" :style="{ left: todayPosition + '%' }"></div>
+              <!-- Task uses parent phase dates but thinner -->
+              <div
+                v-if="phase.start_date && phase.end_date"
+                class="gantt-bar gantt-bar-task"
+                :style="{ ...barStyle(phase.start_date, phase.end_date), backgroundColor: '#E5E7EB' }"
+                @mouseenter="showTooltip($event, task.id, 'task')"
+                @mouseleave="hideTooltip"
+              >
+                <div class="gantt-bar-fill" :style="{ width: (task.progress_pct || 0) + '%', backgroundColor: advancementColor(task.progress_pct || 0) }"></div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </template>
+
+      <!-- Milestones row -->
       <div v-if="milestones.length" class="gantt-row milestone-row">
         <div class="gantt-label-col"><span class="phase-name" style="font-style:italic;">Jalons</span></div>
         <div class="gantt-timeline-area">
+          <div v-if="todayPosition >= 0" class="gantt-today" :style="{ left: todayPosition + '%' }"></div>
           <div v-for="m in milestones" :key="'mrow-' + m.id" class="gantt-milestone" :style="milestoneStyle(m)" :title="m.title">
             <span class="milestone-diamond" :style="{ borderBottomColor: m.color }"></span>
             <span class="milestone-label">{{ m.title }}</span>
@@ -215,7 +348,13 @@ function durationWeeks(start: string | null, end: string | null) {
       </div>
     </div>
 
-    <!-- Edit date modal (inline) -->
+    <!-- Tooltip -->
+    <div v-if="tooltipData" class="gantt-tooltip" :style="{ left: tooltipPos.x + 'px', top: tooltipPos.y + 'px' }">
+      <div class="tooltip-title">{{ tooltipData.title }}</div>
+      <div v-for="(line, i) in tooltipData.lines" :key="i" class="tooltip-line">{{ line }}</div>
+    </div>
+
+    <!-- Edit date inline -->
     <div v-if="editingPhase" class="gantt-edit-bar">
       <span>Modifier dates :</span>
       <input v-model="editDates.start" type="date" class="date-input" />
@@ -225,25 +364,33 @@ function durationWeeks(start: string | null, end: string | null) {
       <button class="btn-cancel" @click="editingPhase = null">Annuler</button>
     </div>
 
-    <!-- Phase dates table -->
+    <!-- Summary table -->
     <div v-if="phases.length" class="gantt-table">
       <table>
         <thead>
           <tr>
             <th>Phase</th>
-            <th>Début</th>
+            <th>Debut</th>
             <th>Fin</th>
-            <th>Durée</th>
-            <th class="text-right">Heures</th>
+            <th>Duree</th>
+            <th class="text-right">H. budget</th>
+            <th class="text-right">H. planif.</th>
+            <th class="text-right">H. reel</th>
+            <th class="text-right">Avanc.</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="phase in phases" :key="'tbl-' + phase.id" @dblclick="startEdit(phase)">
-            <td class="font-semibold">{{ phase.code }} — {{ phase.name }}</td>
+            <td class="font-semibold" style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ phase.code }} — {{ phase.name }}</td>
             <td>{{ phase.start_date || '—' }}</td>
             <td>{{ phase.end_date || '—' }}</td>
             <td>{{ durationWeeks(phase.start_date, phase.end_date) }}</td>
-            <td class="text-right font-mono">{{ phase.budgeted_hours }}h</td>
+            <td class="text-right font-mono">{{ (phase.tasks_budgeted_hours || phase.budgeted_hours || 0).toFixed(0) }}</td>
+            <td class="text-right font-mono" :class="{ 'text-primary': (phase.planned_hours || 0) > 0 }">{{ (phase.planned_hours || 0).toFixed(0) }}</td>
+            <td class="text-right font-mono" :class="{ 'font-semibold': (phase.actual_hours || 0) > 0 }">{{ (phase.actual_hours || 0).toFixed(1) }}</td>
+            <td class="text-right">
+              <span :style="{ color: advancementColor(phaseAdvancement(phase)), fontWeight: 600, fontSize: '12px' }">{{ phaseAdvancement(phase) }}%</span>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -254,47 +401,75 @@ function durationWeeks(start: string | null, end: string | null) {
 <style scoped>
 .gantt-container { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
 .gantt-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--color-gray-200); }
-.gantt-header h3 { font-size: 14px; font-weight: 600; color: var(--color-gray-800); }
-.gantt-controls { display: flex; gap: 4px; }
+.gantt-header h3 { font-size: 14px; font-weight: 600; color: var(--color-gray-800); margin: 0; }
+.gantt-subtitle { font-size: 11px; color: var(--color-gray-500); }
+.gantt-controls { display: flex; align-items: center; gap: 8px; }
+.gantt-toggle { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--color-gray-600); cursor: pointer; margin-right: 8px; }
+.gantt-toggle input { cursor: pointer; }
 .zoom-btn { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; border: 1px solid var(--color-gray-300); background: white; cursor: pointer; color: var(--color-gray-600); }
 .zoom-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
 .gantt-loading, .gantt-empty { padding: 40px; text-align: center; color: var(--color-gray-400); font-size: 13px; }
 
 .gantt-body { overflow-x: auto; }
-.gantt-timeline-header { display: flex; border-bottom: 2px solid var(--color-gray-200); }
-.gantt-label-col { width: 200px; min-width: 200px; padding: 6px 12px; font-size: 12px; }
+.gantt-timeline-header { display: flex; border-bottom: 2px solid var(--color-gray-200); position: sticky; top: 0; background: white; z-index: 3; }
+.gantt-label-col { width: 220px; min-width: 220px; padding: 6px 12px; font-size: 12px; }
+.gantt-label-header { font-size: 10px; font-weight: 600; color: var(--color-gray-500); text-transform: uppercase; display: flex; align-items: center; }
 .gantt-timeline-periods { display: flex; flex: 1; }
 .gantt-period { padding: 6px 4px; text-align: center; font-size: 10px; font-weight: 600; color: var(--color-gray-500); text-transform: uppercase; border-left: 1px dashed var(--color-gray-200); }
 
-.gantt-row { display: flex; border-bottom: 1px solid var(--color-gray-100); min-height: 36px; align-items: center; }
+.gantt-row { display: flex; border-bottom: 1px solid var(--color-gray-100); min-height: 34px; align-items: center; }
 .gantt-row:hover { background: var(--color-gray-50); }
+.gantt-row-noDates { opacity: 0.5; }
+.gantt-task-row { min-height: 26px; background: var(--color-gray-50); }
 .milestone-row { background: var(--color-gray-50); }
 
 .gantt-phase-label { display: flex; align-items: center; gap: 6px; }
-.phase-code { font-family: var(--font-mono); font-size: 10px; color: var(--color-gray-400); }
-.phase-name { font-size: 11px; font-weight: 500; color: var(--color-gray-700); }
+.phase-code { font-family: var(--font-mono); font-size: 9px; color: var(--color-gray-400); }
+.phase-name { font-size: 11px; font-weight: 500; color: var(--color-gray-700); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.phase-pct { font-size: 10px; font-weight: 700; font-family: var(--font-mono); }
 .mandatory-badge { font-size: 8px; font-weight: 700; background: #FEF3C7; color: #92400E; padding: 1px 4px; border-radius: 3px; }
 
-.gantt-timeline-area { flex: 1; position: relative; height: 28px; }
-.gantt-bar { position: absolute; top: 4px; height: 20px; border-radius: 4px; cursor: grab; opacity: 0.85; transition: opacity 0.15s; display: flex; align-items: center; overflow: hidden; }
-.gantt-bar:hover { opacity: 1; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
-.bar-label { font-size: 9px; color: white; font-weight: 600; padding: 0 6px; white-space: nowrap; overflow: hidden; }
+.gantt-task-label { display: flex; align-items: center; gap: 6px; padding-left: 20px; }
+.task-wbs { font-family: var(--font-mono); font-size: 9px; color: var(--color-gray-400); }
+.task-name { font-size: 10px; color: var(--color-gray-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.gantt-milestone { position: absolute; top: 2px; transform: translateX(-6px); }
+.gantt-timeline-area { flex: 1; position: relative; height: 28px; }
+.gantt-task-row .gantt-timeline-area { height: 20px; }
+
+/* Today line */
+.gantt-today { position: absolute; top: 0; bottom: 0; width: 2px; background: #DC2626; z-index: 2; opacity: 0.7; }
+.gantt-today::after { content: ''; position: absolute; top: -3px; left: -3px; width: 8px; height: 8px; background: #DC2626; border-radius: 50%; }
+
+/* Bars */
+.gantt-bar { position: absolute; top: 4px; height: 20px; border-radius: 4px; cursor: pointer; overflow: hidden; transition: box-shadow 0.15s; }
+.gantt-bar:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.gantt-bar-task { top: 3px; height: 14px; border-radius: 3px; }
+.gantt-bar-fill { height: 100%; border-radius: 4px 0 0 4px; transition: width 0.3s; }
+.bar-label { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-size: 9px; color: var(--color-gray-600); font-weight: 700; z-index: 1; }
+
+.gantt-milestone { position: absolute; top: 2px; transform: translateX(-6px); z-index: 1; }
 .milestone-diamond { display: inline-block; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid #3B82F6; }
 .milestone-label { font-size: 8px; color: var(--color-gray-600); position: absolute; top: 14px; left: -10px; white-space: nowrap; }
 
+/* Tooltip */
+.gantt-tooltip { position: fixed; background: var(--color-gray-900); color: white; padding: 8px 12px; border-radius: 6px; font-size: 11px; z-index: 100; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3); max-width: 280px; }
+.tooltip-title { font-weight: 700; margin-bottom: 4px; font-size: 12px; }
+.tooltip-line { color: #D1D5DB; line-height: 1.4; }
+
+/* Edit bar */
 .gantt-edit-bar { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: #EFF6FF; border-top: 1px solid #BFDBFE; font-size: 12px; }
 .date-input { padding: 4px 8px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; }
 .btn-save { padding: 4px 12px; background: var(--color-primary); color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; }
 .btn-cancel { padding: 4px 12px; background: none; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 11px; cursor: pointer; }
 
-.gantt-table { padding: 12px 16px; border-top: 1px solid var(--color-gray-200); }
-.gantt-table table { width: 100%; font-size: 12px; border-collapse: collapse; }
+/* Summary table */
+.gantt-table { padding: 12px 16px; border-top: 1px solid var(--color-gray-200); overflow-x: auto; }
+.gantt-table table { width: 100%; font-size: 11px; border-collapse: collapse; min-width: 700px; }
 .gantt-table th { font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--color-gray-500); padding: 4px 8px; text-align: left; border-bottom: 1px solid var(--color-gray-200); }
-.gantt-table td { padding: 6px 8px; border-bottom: 1px solid var(--color-gray-100); cursor: pointer; }
+.gantt-table td { padding: 5px 8px; border-bottom: 1px solid var(--color-gray-100); cursor: pointer; }
 .gantt-table tr:hover td { background: var(--color-gray-50); }
 .text-right { text-align: right; }
+.text-primary { color: var(--color-primary); }
 .font-mono { font-family: var(--font-mono); }
 .font-semibold { font-weight: 600; }
 </style>
