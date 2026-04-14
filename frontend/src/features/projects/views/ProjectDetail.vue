@@ -623,43 +623,79 @@ async function loadProjectTime() {
 
 const projectTotalHours = computed(() => projectTimeEntries.value.reduce((s, e) => s + Number(e.hours || 0), 0))
 const timeViewMode = ref<'employee' | 'phase'>('employee')
-const expandedTimeGroups = ref(new Set<string>())
 const expandedTimeMonths = ref(new Set<string>())
-function toggleTimeGroup(key: string) { expandedTimeGroups.value.has(key) ? expandedTimeGroups.value.delete(key) : expandedTimeGroups.value.add(key) }
-function toggleTimeMonth(key: string) { expandedTimeMonths.value.has(key) ? expandedTimeMonths.value.delete(key) : expandedTimeMonths.value.add(key) }
+function toggleTimeMonth(month: string) {
+  expandedTimeMonths.value.has(month) ? expandedTimeMonths.value.delete(month) : expandedTimeMonths.value.add(month)
+}
 
-interface TimeGroup {
+// Unique sorted months from time entries
+const timeMonths = computed(() => {
+  const months = new Set<string>()
+  for (const e of projectTimeEntries.value) {
+    if (e.date) months.add(e.date.substring(0, 7))
+  }
+  return Array.from(months).sort()
+})
+
+// Unique sorted days per month
+const timeDaysByMonth = computed(() => {
+  const map = new Map<string, string[]>()
+  for (const e of projectTimeEntries.value) {
+    if (!e.date) continue
+    const month = e.date.substring(0, 7)
+    if (!map.has(month)) map.set(month, [])
+    const day = e.date.substring(8, 10)
+    if (!map.get(month)!.includes(day)) map.get(month)!.push(day)
+  }
+  for (const [, days] of map) days.sort()
+  return map
+})
+
+// Rows: grouped by employee or phase
+interface TimePivotRow {
   key: string
   label: string
   totalHours: number
-  months: Map<string, { label: string; totalHours: number; entries: typeof projectTimeEntries.value }>
+  hoursByMonth: Record<string, number>
+  hoursByDay: Record<string, number> // key: "YYYY-MM-DD"
 }
 
-const timeGrouped = computed<TimeGroup[]>(() => {
-  const map = new Map<string, TimeGroup>()
+const timePivotRows = computed<TimePivotRow[]>(() => {
+  const map = new Map<string, TimePivotRow>()
   for (const e of projectTimeEntries.value) {
-    const groupKey = timeViewMode.value === 'employee'
+    const key = timeViewMode.value === 'employee'
       ? String(e.employee)
       : (e.phase_name || 'Sans phase')
-    const groupLabel = timeViewMode.value === 'employee'
+    const label = timeViewMode.value === 'employee'
       ? (e.employee_name || `Employe #${e.employee}`)
       : (e.phase_name || 'Sans phase')
-    if (!map.has(groupKey)) {
-      map.set(groupKey, { key: groupKey, label: groupLabel, totalHours: 0, months: new Map() })
+    if (!map.has(key)) {
+      map.set(key, { key, label, totalHours: 0, hoursByMonth: {}, hoursByDay: {} })
     }
-    const group = map.get(groupKey)!
+    const row = map.get(key)!
     const hours = Number(e.hours || 0)
-    group.totalHours += hours
-    const monthKey = e.date?.substring(0, 7) || 'inconnu'
-    const monthLabel = monthKey
-    if (!group.months.has(monthKey)) {
-      group.months.set(monthKey, { label: monthLabel, totalHours: 0, entries: [] })
-    }
-    const month = group.months.get(monthKey)!
-    month.totalHours += hours
-    month.entries.push(e)
+    row.totalHours += hours
+    const month = e.date?.substring(0, 7) || ''
+    row.hoursByMonth[month] = (row.hoursByMonth[month] || 0) + hours
+    if (e.date) row.hoursByDay[e.date] = (row.hoursByDay[e.date] || 0) + hours
   }
   return Array.from(map.values()).sort((a, b) => b.totalHours - a.totalHours)
+})
+
+// Column totals per month and per day
+const monthTotals = computed(() => {
+  const t: Record<string, number> = {}
+  for (const row of timePivotRows.value) {
+    for (const [m, h] of Object.entries(row.hoursByMonth)) t[m] = (t[m] || 0) + h
+  }
+  return t
+})
+const dayTotals = computed(() => {
+  const t: Record<string, number> = {}
+  for (const row of timePivotRows.value) {
+    for (const [d, h] of Object.entries(row.hoursByDay)) t[d] = (t[d] || 0) + h
+  }
+  return t
 })
 
 const tabs = [
@@ -1313,8 +1349,8 @@ watch(activeTab, (tab) => {
         <h3>Feuilles de temps du projet</h3>
         <div class="flex items-center gap-3">
           <div class="time-view-toggle">
-            <button class="time-view-btn" :class="{ active: timeViewMode === 'employee' }" @click="timeViewMode = 'employee'; expandedTimeGroups.clear(); expandedTimeMonths.clear()">Par employe</button>
-            <button class="time-view-btn" :class="{ active: timeViewMode === 'phase' }" @click="timeViewMode = 'phase'; expandedTimeGroups.clear(); expandedTimeMonths.clear()">Par phase / tache</button>
+            <button class="time-view-btn" :class="{ active: timeViewMode === 'employee' }" @click="timeViewMode = 'employee'; expandedTimeMonths.clear()">Par employe</button>
+            <button class="time-view-btn" :class="{ active: timeViewMode === 'phase' }" @click="timeViewMode = 'phase'; expandedTimeMonths.clear()">Par phase</button>
           </div>
           <span class="text-sm font-mono font-semibold">Total: {{ projectTotalHours.toFixed(1) }}h</span>
         </div>
@@ -1322,67 +1358,71 @@ watch(activeTab, (tab) => {
       <div v-if="timeLoading" class="empty">Chargement...</div>
       <div v-else-if="!projectTimeEntries.length" class="empty">Aucune entree de temps pour ce projet</div>
 
-      <!-- Grouped accordion view -->
-      <div v-else class="time-accordion">
-        <div v-for="group in timeGrouped" :key="group.key" class="time-group">
-          <!-- Group header -->
-          <div class="time-group-header" @click="toggleTimeGroup(group.key)">
-            <span class="time-toggle">{{ expandedTimeGroups.has(group.key) ? '&#9660;' : '&#9654;' }}</span>
-            <span class="time-group-name">{{ group.label }}</span>
-            <span class="time-group-hours">{{ group.totalHours.toFixed(1) }}h</span>
-            <span class="time-group-count">{{ group.months.size }} mois</span>
-          </div>
+      <!-- Pivot table: rows = employees/phases, columns = months (expandable to days) -->
+      <div v-else class="card-table" style="overflow-x:auto;">
+        <table class="data-table time-pivot" style="min-width:600px;">
+          <thead>
+            <tr>
+              <th class="time-pivot-label" style="min-width:180px; position:sticky; left:0; background:var(--color-gray-50); z-index:2;">
+                {{ timeViewMode === 'employee' ? 'Employe' : 'Phase' }}
+              </th>
+              <template v-for="month in timeMonths" :key="month">
+                <!-- Month column (always visible) -->
+                <th class="text-right time-pivot-month" @click="toggleTimeMonth(month)" style="cursor:pointer; user-select:none; min-width:70px;">
+                  <span class="time-pivot-month-toggle">{{ expandedTimeMonths.has(month) ? '&#9660;' : '&#9654;' }}</span>
+                  {{ month.substring(5) }}/{{ month.substring(2, 4) }}
+                </th>
+                <!-- Day columns (only if month expanded) -->
+                <template v-if="expandedTimeMonths.has(month)">
+                  <th v-for="day in (timeDaysByMonth.get(month) || [])" :key="month + '-' + day" class="text-right time-pivot-day" style="min-width:40px;">
+                    {{ day }}
+                  </th>
+                </template>
+              </template>
+              <th class="text-right time-pivot-total" style="min-width:70px; position:sticky; right:0; background:var(--color-gray-50); z-index:2;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in timePivotRows" :key="row.key">
+              <td class="font-semibold time-pivot-label-cell" style="position:sticky; left:0; background:white; z-index:1; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="row.label">
+                {{ row.label }}
+              </td>
+              <template v-for="month in timeMonths" :key="month">
+                <!-- Month total cell -->
+                <td class="text-right font-mono time-pivot-month-cell" :class="{ 'has-hours': (row.hoursByMonth[month] || 0) > 0 }">
+                  {{ (row.hoursByMonth[month] || 0) > 0 ? (row.hoursByMonth[month]).toFixed(1) : '' }}
+                </td>
+                <!-- Day cells (only if month expanded) -->
+                <template v-if="expandedTimeMonths.has(month)">
+                  <td v-for="day in (timeDaysByMonth.get(month) || [])" :key="month + '-' + day" class="text-right font-mono time-pivot-day-cell" :class="{ 'has-hours': (row.hoursByDay[month + '-' + day] || 0) > 0 }">
+                    {{ (row.hoursByDay[month + '-' + day] || 0) > 0 ? (row.hoursByDay[month + '-' + day]).toFixed(1) : '' }}
+                  </td>
+                </template>
+              </template>
+              <td class="text-right font-mono font-semibold time-pivot-total-cell" style="position:sticky; right:0; background:white; z-index:1;">
+                {{ row.totalHours.toFixed(1) }}
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="time-pivot-footer">
+              <td class="font-semibold" style="position:sticky; left:0; background:var(--color-gray-100); z-index:2;">Total</td>
+              <template v-for="month in timeMonths" :key="'t-' + month">
+                <td class="text-right font-mono font-semibold">{{ (monthTotals[month] || 0).toFixed(1) }}</td>
+                <template v-if="expandedTimeMonths.has(month)">
+                  <td v-for="day in (timeDaysByMonth.get(month) || [])" :key="'t-' + month + '-' + day" class="text-right font-mono" style="font-size:10px;">
+                    {{ (dayTotals[month + '-' + day] || 0) > 0 ? (dayTotals[month + '-' + day]).toFixed(1) : '' }}
+                  </td>
+                </template>
+              </template>
+              <td class="text-right font-mono font-semibold" style="position:sticky; right:0; background:var(--color-gray-100); z-index:2;">{{ projectTotalHours.toFixed(1) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
 
-          <!-- Months accordion -->
-          <div v-if="expandedTimeGroups.has(group.key)" class="time-months">
-            <div v-for="[monthKey, month] of group.months" :key="monthKey" class="time-month">
-              <!-- Month header -->
-              <div class="time-month-header" @click="toggleTimeMonth(group.key + '-' + monthKey)">
-                <span class="time-toggle-sm">{{ expandedTimeMonths.has(group.key + '-' + monthKey) ? '&#9660;' : '&#9654;' }}</span>
-                <span class="time-month-label">{{ month.label }}</span>
-                <span class="time-month-hours">{{ month.totalHours.toFixed(1) }}h</span>
-                <span class="time-month-count">{{ month.entries.length }} entree{{ month.entries.length > 1 ? 's' : '' }}</span>
-              </div>
-
-              <!-- Day entries -->
-              <div v-if="expandedTimeMonths.has(group.key + '-' + monthKey)" class="time-entries">
-                <table class="data-table" style="font-size:11px; margin:0;">
-                  <thead>
-                    <tr>
-                      <th style="width:80px;">Date</th>
-                      <th v-if="timeViewMode === 'phase'">Employe</th>
-                      <th v-else>Phase / Tache</th>
-                      <th class="text-right" style="width:65px;">Heures</th>
-                      <th style="width:70px;">Statut</th>
-                      <th>Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="entry in month.entries" :key="entry.id">
-                      <td class="font-mono">{{ entry.date?.substring(5) }}</td>
-                      <td v-if="timeViewMode === 'phase'" class="font-semibold">{{ entry.employee_name || '—' }}</td>
-                      <td v-else style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="(entry.phase_name || '') + ' / ' + (entry.task_name || '')">{{ entry.task_name || entry.phase_name || '—' }}</td>
-                      <td class="text-right font-mono font-semibold">{{ Number(entry.hours).toFixed(1) }}</td>
-                      <td>
-                        <span class="badge" style="font-size:9px;" :class="entry.status === 'PM_APPROVED' || entry.status === 'APPROVED' ? 'badge-green' : entry.status === 'SUBMITTED' ? 'badge-amber' : 'badge-gray'">
-                          {{ entry.status === 'PM_APPROVED' ? 'PM' : entry.status === 'FINANCE_APPROVED' ? 'FIN' : entry.status === 'PAIE_VALIDATED' ? 'PAIE' : entry.status === 'LOCKED' ? 'Verr.' : entry.status === 'SUBMITTED' ? 'Soumis' : entry.status === 'DRAFT' ? 'Brouillon' : entry.status }}
-                        </span>
-                      </td>
-                      <td class="text-muted" style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px;" :title="entry.notes">{{ entry.notes || '' }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Total footer -->
-        <div class="time-total">
-          <span class="font-semibold">Total projet</span>
-          <span class="font-mono font-semibold">{{ projectTotalHours.toFixed(1) }}h</span>
-          <span class="text-muted">{{ projectTimeEntries.length }} entrees &middot; {{ timeGrouped.length }} {{ timeViewMode === 'employee' ? 'employes' : 'phases' }}</span>
-        </div>
+      <div class="time-total" style="margin-top:8px;">
+        <span class="text-muted" style="font-size:11px;">{{ projectTimeEntries.length }} entrees &middot; {{ timePivotRows.length }} {{ timeViewMode === 'employee' ? 'employes' : 'phases' }} &middot; {{ timeMonths.length }} mois &middot; Cliquer sur un mois pour voir les jours</span>
       </div>
     </template>
 
@@ -2016,27 +2056,23 @@ watch(activeTab, (tab) => {
 .team-chart-label { font-size: 9px; color: var(--color-gray-500); }
 .team-chart-empty { padding: 12px 16px; font-size: 11px; color: var(--color-gray-400); font-style: italic; background: var(--color-gray-50); }
 
-/* Time tab — accordion view */
+/* Time tab — pivot table */
 .time-view-toggle { display: flex; border: 1px solid var(--color-gray-200); border-radius: 6px; overflow: hidden; }
 .time-view-btn { padding: 4px 12px; font-size: 11px; font-weight: 600; background: white; border: none; cursor: pointer; color: var(--color-gray-500); transition: all 0.1s; }
 .time-view-btn.active { background: var(--color-primary); color: white; }
-.time-accordion { display: flex; flex-direction: column; gap: 6px; }
-.time-group { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
-.time-group-header { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; transition: background 0.1s; }
-.time-group-header:hover { background: var(--color-gray-50); }
-.time-toggle { font-size: 10px; color: var(--color-gray-400); width: 12px; }
-.time-toggle-sm { font-size: 8px; color: var(--color-gray-400); width: 10px; }
-.time-group-name { font-size: 13px; font-weight: 600; color: var(--color-gray-800); flex: 1; }
-.time-group-hours { font-size: 13px; font-weight: 700; font-family: var(--font-mono); color: var(--color-primary); }
-.time-group-count { font-size: 10px; color: var(--color-gray-400); margin-left: 8px; }
-.time-months { border-top: 1px solid var(--color-gray-200); }
-.time-month { border-top: 1px solid var(--color-gray-100); }
-.time-month:first-child { border-top: none; }
-.time-month-header { display: flex; align-items: center; gap: 8px; padding: 7px 16px 7px 32px; cursor: pointer; background: var(--color-gray-50); transition: background 0.1s; }
-.time-month-header:hover { background: var(--color-gray-100); }
-.time-month-label { font-size: 12px; font-weight: 600; color: var(--color-gray-600); flex: 1; }
-.time-month-hours { font-size: 12px; font-weight: 600; font-family: var(--font-mono); color: var(--color-gray-700); }
-.time-month-count { font-size: 10px; color: var(--color-gray-400); margin-left: 6px; }
-.time-entries { padding: 0 16px 8px 32px; }
-.time-total { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: var(--color-gray-100); border-radius: 8px; margin-top: 8px; }
+.time-pivot { border-collapse: collapse; font-size: 11px; }
+.time-pivot th { padding: 6px 8px; font-size: 10px; white-space: nowrap; }
+.time-pivot td { padding: 5px 8px; }
+.time-pivot-month { background: var(--color-gray-50); }
+.time-pivot-month-toggle { font-size: 8px; margin-right: 3px; color: var(--color-gray-400); }
+.time-pivot-day { background: var(--color-primary-light, #EFF6FF); font-size: 9px; color: var(--color-gray-500); }
+.time-pivot-month-cell { font-size: 11px; }
+.time-pivot-month-cell.has-hours { color: var(--color-primary); font-weight: 600; }
+.time-pivot-day-cell { font-size: 10px; }
+.time-pivot-day-cell.has-hours { background: var(--color-primary-light, #EFF6FF); color: var(--color-gray-800); }
+.time-pivot-total { background: var(--color-gray-100); }
+.time-pivot-total-cell { background: var(--color-gray-50); }
+.time-pivot-footer td { background: var(--color-gray-100); border-top: 2px solid var(--color-gray-300); }
+.time-pivot-label-cell { font-size: 12px; }
+.time-total { display: flex; align-items: center; gap: 16px; padding: 8px 16px; }
 </style>
