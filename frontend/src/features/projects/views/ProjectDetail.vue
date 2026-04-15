@@ -2033,12 +2033,12 @@ watch(activeTab, (tab) => {
 .team-member-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
 .team-member-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; cursor: pointer; transition: background 0.1s; }
 .team-member-header:hover { background: var(--color-gray-50); }
-.team-member-left { display: flex; align-items: center; gap: 10px; }
+.team-member-left { display: flex; align-items: center; gap: 10px; flex: 0 1 200px; min-width: 0; }
 .team-toggle { font-size: 10px; color: var(--color-gray-400); width: 14px; }
 .team-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--color-primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
-.team-name { font-size: 13px; font-weight: 600; color: var(--color-gray-800); }
+.team-name { font-size: 13px; font-weight: 600; color: var(--color-gray-800); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
 .team-sub { font-size: 11px; color: var(--color-gray-500); }
-.team-member-right { display: flex; gap: 20px; }
+.team-member-right { display: flex; gap: 20px; flex: 1; justify-content: flex-end; }
 .team-hours { text-align: right; }
 .team-hours-label { display: block; font-size: 9px; color: var(--color-gray-400); text-transform: uppercase; letter-spacing: 0.3px; }
 .team-hours-value { font-size: 14px; font-weight: 600; font-family: var(--font-mono); color: var(--color-gray-800); }
