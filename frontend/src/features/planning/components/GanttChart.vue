@@ -41,8 +41,6 @@ const milestones = ref<GanttMilestone[]>([])
 const dependencies = ref<GanttDependency[]>([])
 const projectInfo = ref({ code: '', name: '', start_date: '', end_date: '' })
 const isLoading = ref(true)
-const editingPhase = ref<number | null>(null)
-const editDates = ref({ start: '', end: '' })
 const zoomLevel = ref<'month' | 'quarter' | 'year'>('quarter')
 const showTasks = ref(false)
 const hoveredItem = ref<{ id: number; type: string } | null>(null)
@@ -184,21 +182,6 @@ const phaseColors: Record<string, string> = { REALIZATION: '#3B82F6', SUPPORT: '
 // Tasks for a phase
 function phaseTasks(phaseId: number) {
   return tasks.value.filter(t => t.phase === phaseId)
-}
-
-function startEdit(phase: GanttPhase) {
-  editingPhase.value = phase.id
-  editDates.value = { start: phase.start_date || '', end: phase.end_date || '' }
-}
-
-async function saveEdit(phaseId: number) {
-  try {
-    await apiClient.patch(`projects/${props.projectId}/phases/${phaseId}/`, {
-      start_date: editDates.value.start || null, end_date: editDates.value.end || null,
-    })
-    editingPhase.value = null
-    await load()
-  } catch { /* */ }
 }
 
 function formatDate(d: string | null) {
@@ -367,16 +350,6 @@ const tooltipData = computed(() => {
       <div v-for="(line, i) in tooltipData.lines" :key="i" class="tooltip-line">{{ line }}</div>
     </div>
 
-    <!-- Edit date inline -->
-    <div v-if="editingPhase" class="gantt-edit-bar">
-      <span>Modifier dates :</span>
-      <input v-model="editDates.start" type="date" class="date-input" />
-      <span>→</span>
-      <input v-model="editDates.end" type="date" class="date-input" />
-      <button class="btn-save" @click="saveEdit(editingPhase!)">OK</button>
-      <button class="btn-cancel" @click="editingPhase = null">Annuler</button>
-    </div>
-
     <!-- Summary table -->
     <div v-if="phases.length" class="gantt-table">
       <table>
@@ -393,7 +366,7 @@ const tooltipData = computed(() => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="phase in phases" :key="'tbl-' + phase.id" @dblclick="startEdit(phase)">
+          <tr v-for="phase in phases" :key="'tbl-' + phase.id" style="cursor:pointer;" @click="openPhasePanel(phase.id)">
             <td class="font-semibold" style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ phase.code }} — {{ phase.name }}</td>
             <td>{{ phase.start_date || '—' }}</td>
             <td>{{ phase.end_date || '—' }}</td>
@@ -476,12 +449,6 @@ const tooltipData = computed(() => {
 .gantt-tooltip { position: fixed; background: var(--color-gray-900); color: white; padding: 8px 12px; border-radius: 6px; font-size: 11px; z-index: 100; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3); max-width: 280px; }
 .tooltip-title { font-weight: 700; margin-bottom: 4px; font-size: 12px; }
 .tooltip-line { color: #D1D5DB; line-height: 1.4; }
-
-/* Edit bar */
-.gantt-edit-bar { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: #EFF6FF; border-top: 1px solid #BFDBFE; font-size: 12px; }
-.date-input { padding: 4px 8px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; }
-.btn-save { padding: 4px 12px; background: var(--color-primary); color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; }
-.btn-cancel { padding: 4px 12px; background: none; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 11px; cursor: pointer; }
 
 /* Summary table */
 .gantt-table { padding: 12px 16px; border-top: 1px solid var(--color-gray-200); overflow-x: auto; }
