@@ -6,6 +6,7 @@ Gantt/dependencies and export features deferred to MVP-2.
 """
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.core.models import TenantScopedModel
@@ -19,6 +20,15 @@ class AllocationStatus(models.TextChoices):
 
 class ResourceAllocation(TenantScopedModel):
     """Employee allocation to a project/phase for a given period."""
+
+    class DistributionMode(models.TextChoices):
+        UNIFORM = "uniform", "Uniforme"
+        STANDARD = "standard", "Standard"
+        MANUAL = "manual", "Manuelle"
+
+    class TimeUnit(models.TextChoices):
+        WEEK = "week", "Semaine"
+        MONTH = "month", "Mois"
 
     employee = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -48,6 +58,29 @@ class ResourceAllocation(TenantScopedModel):
         max_digits=5, decimal_places=1, default=40,
         help_text="Planned hours per week on this allocation (min 0.5)",
     )
+    distribution_mode = models.CharField(
+        max_length=10,
+        choices=DistributionMode.choices,
+        default=DistributionMode.UNIFORM,
+    )
+    time_unit = models.CharField(
+        max_length=10,
+        choices=TimeUnit.choices,
+        default=TimeUnit.WEEK,
+    )
+    time_breakdown = models.JSONField(
+        null=True, blank=True,
+        help_text=(
+            'For manual/standard modes: {"2026-W18": 20, ...} (week) '
+            'or {"2026-05": 80, ...} (month)'
+        ),
+    )
+    standard = models.ForeignKey(
+        "planning.PlanningStandard",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="applied_allocations",
+    )
     status = models.CharField(
         max_length=20,
         choices=AllocationStatus.choices,
@@ -64,6 +97,23 @@ class ResourceAllocation(TenantScopedModel):
         db_table = "planning_allocation"
         ordering = ["start_date", "employee__username"]
 
+    def clean(self):
+        super().clean()
+        has_phase = self.phase_id is not None
+        has_task = self.task_id is not None
+        if has_phase == has_task:
+            raise ValidationError(
+                "Allocation must target exactly one of phase or task (not both, not neither)."
+            )
+
+    def save(self, *args, **kwargs):
+        # Clear stale breakdown when mode is not manual
+        if self.distribution_mode != self.DistributionMode.MANUAL:
+            self.time_breakdown = None
+        # Enforce clean() on every persistence path (ORM, admin, shell)
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.employee.username} → {self.project.code} ({self.hours_per_week}h/sem)"
 
@@ -76,6 +126,14 @@ class ResourceAllocation(TenantScopedModel):
 
     @property
     def total_planned_hours(self):
+        if self.distribution_mode == self.DistributionMode.MANUAL:
+            if not self.time_breakdown:
+                return 0.0
+            try:
+                return float(sum(float(v) for v in self.time_breakdown.values()))
+            except (TypeError, ValueError):
+                return 0.0
+        # uniform or standard (Sprint 1: standard falls back to uniform)
         return float(self.hours_per_week) * self.total_weeks
 
 
@@ -194,3 +252,47 @@ class PhaseDependency(TenantScopedModel):
 
     def __str__(self):
         return f"{self.predecessor.name} → {self.successor.name} ({self.dependency_type})"
+
+
+class PlanningStandard(TenantScopedModel):
+    """Reusable load curve template, bound to a phase code (e.g., ESQUISSE, APS)."""
+
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, default="")
+    phase_code = models.CharField(
+        max_length=50, db_index=True,
+        help_text="Matches projects.Phase.code (e.g., ESQUISSE, APS, DD, CHANTIER)",
+    )
+    time_unit = models.CharField(
+        max_length=10,
+        choices=ResourceAllocation.TimeUnit.choices,
+        default=ResourceAllocation.TimeUnit.WEEK,
+    )
+    curve = models.JSONField(
+        default=list,
+        help_text=(
+            "Normalized relative distribution: [0.4, 0.3, 0.2, 0.1] — "
+            "sum must equal 1.0 ± 0.01"
+        ),
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "planning_standard"
+        ordering = ["phase_code", "name"]
+
+    def __str__(self):
+        return f"{self.name} [{self.phase_code}]"
+
+    def clean(self):
+        super().clean()
+        if not isinstance(self.curve, list) or not self.curve:
+            raise ValidationError("Curve must be a non-empty list of floats.")
+        try:
+            total = sum(float(v) for v in self.curve)
+        except (TypeError, ValueError) as exc:
+            raise ValidationError("All curve values must be numeric.") from exc
+        if abs(total - 1.0) > 0.01:
+            raise ValidationError(
+                f"Curve values must sum to 1.0 ± 0.01, got {total:.3f}."
+            )

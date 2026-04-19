@@ -11,11 +11,18 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Availability, Milestone, PhaseDependency, ResourceAllocation
+from .models import (
+    Availability,
+    Milestone,
+    PhaseDependency,
+    PlanningStandard,
+    ResourceAllocation,
+)
 from .serializers import (
     AvailabilitySerializer,
     MilestoneSerializer,
     PhaseDependencySerializer,
+    PlanningStandardSerializer,
     ResourceAllocationSerializer,
 )
 
@@ -32,7 +39,9 @@ class ResourceAllocationViewSet(viewsets.ModelViewSet):
     serializer_class = ResourceAllocationSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ["employee", "project", "status"]
+    filterset_fields = [
+        "employee", "project", "status", "phase", "task", "distribution_mode",
+    ]
     ordering = ["start_date"]
 
     def get_queryset(self):
@@ -369,3 +378,22 @@ class AvailabilityViewSet(viewsets.ModelViewSet):
             current += timedelta(days=1)
 
         return Response({"generated": created})
+
+
+class PlanningStandardViewSet(viewsets.ModelViewSet):
+    """CRUD for reusable load-curve standards (tenant-scoped)."""
+
+    serializer_class = PlanningStandardSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ["phase_code", "time_unit", "is_active"]
+    ordering = ["phase_code", "name"]
+
+    def get_queryset(self):
+        qs = PlanningStandard.objects.all()
+        if hasattr(self.request, "tenant_id") and self.request.tenant_id:
+            qs = qs.filter(tenant_id=self.request.tenant_id)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(tenant=_get_tenant(self.request))

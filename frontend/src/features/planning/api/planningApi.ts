@@ -20,4 +20,10 @@ export const planningApi = {
   listAvailability: (params?: Record<string, string>) => apiClient.get('availability/', { params }),
   generateAvailability: (employeeId: number, startDate: string, endDate: string) =>
     apiClient.post('availability/generate/', { employee_id: employeeId, start_date: startDate, end_date: endDate }),
+
+  // Planning standards
+  listStandards: (params?: Record<string, string>) => apiClient.get('planning-standards/', { params }),
+  createStandard: (data: Record<string, unknown>) => apiClient.post('planning-standards/', data),
+  updateStandard: (id: number, data: Record<string, unknown>) => apiClient.patch(`planning-standards/${id}/`, data),
+  deleteStandard: (id: number) => apiClient.delete(`planning-standards/${id}/`),
 }

@@ -1,8 +1,19 @@
 """Planning serializers."""
 
+import re
+
 from rest_framework import serializers
 
-from .models import Availability, Milestone, PhaseDependency, ResourceAllocation
+from .models import (
+    Availability,
+    Milestone,
+    PhaseDependency,
+    PlanningStandard,
+    ResourceAllocation,
+)
+
+_WEEK_KEY_RE = re.compile(r"^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$")
+_MONTH_KEY_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
 
 class ResourceAllocationSerializer(serializers.ModelSerializer):
@@ -11,9 +22,7 @@ class ResourceAllocationSerializer(serializers.ModelSerializer):
     project_name = serializers.CharField(source="project.name", read_only=True)
     phase_name = serializers.CharField(source="phase.name", read_only=True, default="")
     task_name = serializers.CharField(source="task.name", read_only=True, default="")
-    total_planned_hours = serializers.DecimalField(
-        max_digits=8, decimal_places=1, read_only=True
-    )
+    total_planned_hours = serializers.SerializerMethodField()
 
     class Meta:
         model = ResourceAllocation
@@ -22,6 +31,7 @@ class ResourceAllocationSerializer(serializers.ModelSerializer):
             "project", "project_code", "project_name",
             "phase", "phase_name", "task", "task_name",
             "start_date", "end_date", "hours_per_week",
+            "distribution_mode", "time_unit", "time_breakdown", "standard",
             "total_planned_hours", "status", "notes",
             "created_at",
         ]
@@ -30,6 +40,77 @@ class ResourceAllocationSerializer(serializers.ModelSerializer):
     def get_employee_name(self, obj):
         name = obj.employee.get_full_name()
         return name if name.strip() else obj.employee.username
+
+    def get_total_planned_hours(self, obj):
+        return obj.total_planned_hours
+
+    def validate(self, attrs):
+        # XOR phase/task — on PATCH, attrs may omit one; fall back to self.instance.
+        has_phase_key = "phase" in attrs
+        has_task_key = "task" in attrs
+        phase = attrs.get("phase") if has_phase_key else getattr(self.instance, "phase", None)
+        task = attrs.get("task") if has_task_key else getattr(self.instance, "task", None)
+        if (phase is None) == (task is None):
+            raise serializers.ValidationError(
+                {"phase": "Allocation must target exactly one of phase or task."}
+            )
+        # Date ordering
+        start = attrs.get("start_date", getattr(self.instance, "start_date", None))
+        end = attrs.get("end_date", getattr(self.instance, "end_date", None))
+        if start and end and end < start:
+            raise serializers.ValidationError(
+                {"end_date": "end_date must be on or after start_date."}
+            )
+        return attrs
+
+    def validate_time_breakdown(self, value):
+        if value in (None, {}):
+            return value
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("time_breakdown must be an object.")
+        time_unit = self.initial_data.get("time_unit") or getattr(
+            self.instance, "time_unit", "week"
+        )
+        pattern = _WEEK_KEY_RE if time_unit == "week" else _MONTH_KEY_RE
+        for k, v in value.items():
+            if not pattern.match(str(k)):
+                raise serializers.ValidationError(
+                    f"Invalid key '{k}' for time_unit={time_unit}. "
+                    "Expected format 'YYYY-Www' or 'YYYY-MM'."
+                )
+            try:
+                float(v)
+            except (TypeError, ValueError) as exc:
+                raise serializers.ValidationError(
+                    f"Value for '{k}' must be numeric."
+                ) from exc
+        return value
+
+
+class PlanningStandardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlanningStandard
+        fields = [
+            "id", "name", "description", "phase_code",
+            "time_unit", "curve", "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+    def validate_curve(self, value):
+        if not isinstance(value, list) or not value:
+            raise serializers.ValidationError("Curve must be a non-empty list.")
+        try:
+            total = sum(float(v) for v in value)
+        except (TypeError, ValueError) as exc:
+            raise serializers.ValidationError(
+                "All curve values must be numeric."
+            ) from exc
+        if abs(total - 1.0) > 0.01:
+            raise serializers.ValidationError(
+                f"Curve values must sum to 1.0 ± 0.01 (got {total:.3f})."
+            )
+        return value
 
 
 class MilestoneSerializer(serializers.ModelSerializer):

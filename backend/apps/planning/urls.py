@@ -7,6 +7,7 @@ from .views import (
     GanttViewSet,
     MilestoneViewSet,
     PhaseDependencyViewSet,
+    PlanningStandardViewSet,
     ResourceAllocationViewSet,
 )
 
@@ -16,5 +17,6 @@ router.register(r"milestones", MilestoneViewSet, basename="milestone")
 router.register(r"availability", AvailabilityViewSet, basename="availability")
 router.register(r"phase_dependencies", PhaseDependencyViewSet, basename="phase-dependency")
 router.register(r"gantt", GanttViewSet, basename="gantt")
+router.register(r"planning-standards", PlanningStandardViewSet, basename="planning-standard")
 
 urlpatterns = router.urls

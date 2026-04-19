@@ -242,6 +242,8 @@ class Task(TenantScopedModel):
         max_length=10, choices=BillingMode.choices, default=BillingMode.FORFAIT,
     )
     order = models.PositiveIntegerField(default=0)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
     budgeted_hours = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     budgeted_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     hourly_rate = models.DecimalField(

@@ -6,15 +6,23 @@
 import { ref, computed, onMounted } from 'vue'
 import apiClient from '@/plugins/axios'
 import PhaseSlideOver from './PhaseSlideOver.vue'
+import TaskSlideOver from './TaskSlideOver.vue'
 
 const props = defineProps<{ projectId: number }>()
 
 const selectedPhaseId = ref<number | null>(null)
 const showSlideOver = ref(false)
+const selectedTaskId = ref<number | null>(null)
+const showTaskSlideOver = ref(false)
 
 function openPhasePanel(phaseId: number) {
   selectedPhaseId.value = phaseId
   showSlideOver.value = true
+}
+
+function openTaskPanel(taskId: number) {
+  selectedTaskId.value = taskId
+  showTaskSlideOver.value = true
 }
 
 function onSlideOverUpdated() {
@@ -33,6 +41,7 @@ interface GanttTask {
   id: number; name: string; client_facing_label: string; wbs_code: string
   phase: number; budgeted_hours: number; actual_hours?: number; planned_hours?: number
   progress_pct?: number
+  start_date: string | null; end_date: string | null
 }
 
 const phases = ref<GanttPhase[]>([])
@@ -316,13 +325,14 @@ const tooltipData = computed(() => {
             </div>
             <div class="gantt-timeline-area">
               <div v-if="todayPosition >= 0" class="gantt-today" :style="{ left: todayPosition + '%' }"></div>
-              <!-- Task uses parent phase dates but thinner -->
+              <!-- Task bar: task dates preferred, phase dates as fallback -->
               <div
-                v-if="phase.start_date && phase.end_date"
+                v-if="(task.start_date || phase.start_date) && (task.end_date || phase.end_date)"
                 class="gantt-bar gantt-bar-task"
-                :style="{ ...barStyle(phase.start_date, phase.end_date), backgroundColor: '#E5E7EB' }"
+                :style="{ ...barStyle(task.start_date || phase.start_date, task.end_date || phase.end_date), backgroundColor: '#E5E7EB' }"
                 @mouseenter="showTooltip($event, task.id, 'task')"
                 @mouseleave="hideTooltip"
+                @click="openTaskPanel(task.id)"
               >
                 <div class="gantt-bar-fill" :style="{ width: (task.progress_pct || 0) + '%', backgroundColor: advancementColor(task.progress_pct || 0) }"></div>
               </div>
@@ -387,6 +397,14 @@ const tooltipData = computed(() => {
       :project-id="props.projectId"
       :phase-id="selectedPhaseId"
       @close="showSlideOver = false"
+      @updated="onSlideOverUpdated"
+    />
+    <!-- Task planning slide-over -->
+    <TaskSlideOver
+      :open="showTaskSlideOver"
+      :project-id="props.projectId"
+      :task-id="selectedTaskId"
+      @close="showTaskSlideOver = false"
       @updated="onSlideOverUpdated"
     />
   </div>

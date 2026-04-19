@@ -67,6 +67,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "id", "project", "phase", "phase_name", "parent",
             "wbs_code", "name", "client_facing_label", "display_label",
             "task_type", "billing_mode", "order",
+            "start_date", "end_date",
             "budgeted_hours", "budgeted_cost", "hourly_rate",
             "is_billable", "is_active", "progress_pct",
             "planned_hours", "actual_hours",
@@ -75,6 +76,15 @@ class TaskSerializer(serializers.ModelSerializer):
 
     def get_display_label(self, obj):
         return obj.client_facing_label or obj.name
+
+    def validate(self, attrs):
+        start = attrs.get("start_date", getattr(self.instance, "start_date", None))
+        end = attrs.get("end_date", getattr(self.instance, "end_date", None))
+        if start and end and end < start:
+            raise serializers.ValidationError(
+                {"end_date": "end_date must be on or after start_date."}
+            )
+        return attrs
 
     def get_planned_hours(self, obj):
         """Sum of planned hours from ResourceAllocations for this task."""
