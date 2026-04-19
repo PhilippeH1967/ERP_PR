@@ -31,7 +31,11 @@ interface EmployeeRow {
   approval_id: number | null
   pm_status: string | null
   finance_status: string | null
+  paie_status: string | null
   approved_by_other: string
+  has_submitted: boolean
+  all_pm_approved: boolean
+  alerts?: Array<{ code: string; severity: string; message: string }>
 }
 interface ProjectInfo {
   id: number

@@ -41,7 +41,10 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 function onModalKeydown(e: KeyboardEvent) {
   if (e.key === 'ArrowDown') { e.preventDefault(); selectedIndex.value = Math.min(selectedIndex.value + 1, results.value.length - 1) }
   if (e.key === 'ArrowUp') { e.preventDefault(); selectedIndex.value = Math.max(selectedIndex.value - 1, 0) }
-  if (e.key === 'Enter' && results.value[selectedIndex.value]) { selectResult(results.value[selectedIndex.value]) }
+  if (e.key === 'Enter') {
+    const r = results.value[selectedIndex.value]
+    if (r) selectResult(r)
+  }
 }
 
 function selectResult(r: { url: string }) {

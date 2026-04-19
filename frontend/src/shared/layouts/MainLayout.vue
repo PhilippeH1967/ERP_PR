@@ -111,7 +111,7 @@ function toggleLocale() {
               <span class="sidebar-item-label">{{ t(item.key) }}</span>
               <!-- Badge count (B4) -->
               <span
-                v-if="badges[item.path.replace('/', '')] > 0"
+                v-if="(badges[item.path.replace('/', '')] ?? 0) > 0"
                 class="sidebar-badge"
               >{{ badges[item.path.replace('/', '')] }}</span>
               <!-- Health dot (B5) -->
