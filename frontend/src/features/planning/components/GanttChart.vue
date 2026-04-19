@@ -369,10 +369,10 @@ const tooltipData = computed(() => {
             <th>Debut</th>
             <th>Fin</th>
             <th>Duree</th>
-            <th class="text-right">H. budget</th>
-            <th class="text-right">H. planif.</th>
-            <th class="text-right">H. reel</th>
-            <th class="text-right">Avanc.</th>
+            <th class="text-center">H. budget</th>
+            <th class="text-center">H. planif.</th>
+            <th class="text-center">H. reel</th>
+            <th class="text-center">Avanc.</th>
           </tr>
         </thead>
         <tbody>
@@ -381,10 +381,10 @@ const tooltipData = computed(() => {
             <td>{{ phase.start_date || '—' }}</td>
             <td>{{ phase.end_date || '—' }}</td>
             <td>{{ durationWeeks(phase.start_date, phase.end_date) }}</td>
-            <td class="text-right font-mono">{{ (phase.tasks_budgeted_hours || phase.budgeted_hours || 0).toFixed(0) }}</td>
-            <td class="text-right font-mono" :class="{ 'text-primary': (phase.planned_hours || 0) > 0 }">{{ (phase.planned_hours || 0).toFixed(0) }}</td>
-            <td class="text-right font-mono" :class="{ 'font-semibold': (phase.actual_hours || 0) > 0 }">{{ (phase.actual_hours || 0).toFixed(1) }}</td>
-            <td class="text-right">
+            <td class="text-center font-mono">{{ (phase.tasks_budgeted_hours || phase.budgeted_hours || 0).toFixed(0) }}</td>
+            <td class="text-center font-mono" :class="{ 'text-primary': (phase.planned_hours || 0) > 0 }">{{ (phase.planned_hours || 0).toFixed(0) }}</td>
+            <td class="text-center font-mono" :class="{ 'font-semibold': (phase.actual_hours || 0) > 0 }">{{ (phase.actual_hours || 0).toFixed(1) }}</td>
+            <td class="text-center">
               <span :style="{ color: advancementColor(phaseAdvancement(phase)), fontWeight: 600, fontSize: '12px' }">{{ phaseAdvancement(phase) }}%</span>
             </td>
           </tr>
@@ -475,6 +475,7 @@ const tooltipData = computed(() => {
 .gantt-table td { padding: 5px 8px; border-bottom: 1px solid var(--color-gray-100); cursor: pointer; }
 .gantt-table tr:hover td { background: var(--color-gray-50); }
 .text-right { text-align: right; }
+.text-center { text-align: center; }
 .text-primary { color: var(--color-primary); }
 .font-mono { font-family: var(--font-mono); }
 .font-semibold { font-weight: 600; }

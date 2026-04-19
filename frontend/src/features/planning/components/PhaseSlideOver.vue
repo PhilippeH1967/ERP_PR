@@ -142,12 +142,26 @@ async function saveDates() {
   finally { isSaving.value = false }
 }
 
-// Update allocation hours
+// Update allocation — optimistic local merge, no full reload (avoids vnode churn)
 async function updateAllocation(allocId: number, field: string, value: unknown) {
   isSaving.value = true
   try {
-    await apiClient.patch(`allocations/${allocId}/`, { [field]: value })
-    await loadPhase()
+    const resp = await apiClient.patch(`allocations/${allocId}/`, { [field]: value })
+    const updated = resp.data?.data || resp.data
+    const idx = allocations.value.findIndex(a => a.id === allocId)
+    if (idx >= 0 && updated) {
+      const cur = allocations.value[idx]
+      allocations.value[idx] = {
+        ...cur,
+        hours_per_week: Number(updated.hours_per_week ?? cur.hours_per_week),
+        start_date: updated.start_date ?? cur.start_date,
+        end_date: updated.end_date ?? cur.end_date,
+        status: updated.status ?? cur.status,
+        distribution_mode: (updated.distribution_mode as DistributionMode) || cur.distribution_mode,
+        time_unit: (updated.time_unit as TimeUnit) || cur.time_unit,
+        time_breakdown: (updated.time_breakdown ?? null) as Record<string, number> | null,
+      }
+    }
     emit('updated')
   } catch { /* */ }
   finally { isSaving.value = false }
@@ -268,19 +282,21 @@ const maxChartVal = computed(() => Math.max(1, ...monthlyChart.value.map(m => Ma
         <div v-if="isLoading" class="pso-loading">Chargement...</div>
 
         <div v-else-if="phase" class="pso-body">
-          <!-- Section 1: Dates -->
+          <!-- Section 1: Dates (auto-save on change) -->
           <div class="pso-section">
-            <h4 class="pso-section-title">Dates</h4>
+            <h4 class="pso-section-title">
+              Dates
+              <span v-if="isSaving" class="pso-section-badge">enregistrement…</span>
+            </h4>
             <div class="pso-dates">
               <div>
                 <label>Debut</label>
-                <input v-model="editDates.start" type="date" class="pso-input" />
+                <input v-model="editDates.start" type="date" class="pso-input" @change="saveDates" />
               </div>
               <div>
                 <label>Fin</label>
-                <input v-model="editDates.end" type="date" class="pso-input" />
+                <input v-model="editDates.end" type="date" class="pso-input" @change="saveDates" />
               </div>
-              <button class="pso-btn-save" :disabled="isSaving" @click="saveDates">{{ isSaving ? '...' : 'Enregistrer' }}</button>
             </div>
           </div>
 
@@ -501,11 +517,13 @@ const maxChartVal = computed(() => Math.max(1, ...monthlyChart.value.map(m => Ma
 .pso-manual-grid { display: flex; gap: 4px; overflow-x: auto; padding: 4px 0; }
 .pso-manual-cell { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; gap: 2px; }
 .pso-manual-label { font-size: 9px; font-weight: 600; color: #6B7280; font-family: var(--font-mono, monospace); }
-.pso-manual-input { width: 42px; padding: 3px 4px; border: 1px solid #D1D5DB; border-radius: 3px; font-size: 11px; font-family: var(--font-mono, monospace); text-align: center; background: white; }
+.pso-manual-input { width: 42px; padding: 3px 4px; border: 1px solid #D1D5DB; border-radius: 3px; font-size: 11px; font-family: var(--font-mono, monospace); text-align: center; background: white; -moz-appearance: textfield; appearance: textfield; }
+.pso-manual-input::-webkit-outer-spin-button, .pso-manual-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .pso-manual-input:focus { outline: 2px solid #2563EB; outline-offset: -1px; border-color: #2563EB; }
 .pso-manual-total { font-size: 10px; color: #6B7280; padding-top: 4px; }
 .pso-manual-total strong { color: #111827; font-family: var(--font-mono, monospace); }
-.pso-hours-input { width: 50px; padding: 3px 6px; border: 1px solid #D1D5DB; border-radius: 4px; font-size: 12px; font-family: var(--font-mono, monospace); text-align: right; }
+.pso-hours-input { width: 50px; padding: 3px 6px; border: 1px solid #D1D5DB; border-radius: 4px; font-size: 12px; font-family: var(--font-mono, monospace); text-align: right; -moz-appearance: textfield; appearance: textfield; }
+.pso-hours-input::-webkit-outer-spin-button, .pso-hours-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .pso-hours-unit { font-size: 10px; color: #9CA3AF; }
 .pso-btn-remove { background: none; border: none; font-size: 18px; color: #9CA3AF; cursor: pointer; padding: 0 4px; }
 .pso-btn-remove:hover { color: #DC2626; }
