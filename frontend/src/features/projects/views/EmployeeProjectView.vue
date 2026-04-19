@@ -20,7 +20,7 @@ interface Project { id: number; code: string; name: string; client_name: string;
 interface Phase { id: number; name: string; client_facing_label: string; budgeted_hours: string; billing_mode: string; is_locked: boolean }
 interface Task { id: number; phase: number; phase_name: string; wbs_code: string; name: string; client_facing_label: string; budgeted_hours: string; progress_pct: number }
 interface TimeEntry { id: number; phase: number; task: number; task_name: string; date: string; hours: string; status: string }
-interface Assignment { id: number; employee: number; employee_name: string; phase: number; phase_name: string; allocation_pct: number }
+interface Assignment { id: number; employee: number; employee_name: string; phase: number; phase_name: string; hours_per_week: string }
 
 const project = ref<Project | null>(null)
 const phases = ref<Phase[]>([])
@@ -37,7 +37,7 @@ onMounted(async () => {
       apiClient.get(`projects/${projectId.value}/phases/`),
       apiClient.get(`projects/${projectId.value}/tasks/`),
       apiClient.get(`time_entries/`, { params: { project: projectId.value } }),
-      apiClient.get(`projects/${projectId.value}/assignments/`),
+      apiClient.get(`allocations/`, { params: { project: projectId.value, page_size: '500' } }),
     ])
     project.value = pResp.data?.data || pResp.data
     const phData = phResp.data?.data || phResp.data
@@ -98,7 +98,7 @@ const teamMembers = computed<TeamMember[]>(() => {
     if (!map.has(name)) map.set(name, { name, phases: [], totalAllocation: 0 })
     const m = map.get(name)!
     if (a.phase_name && !m.phases.includes(a.phase_name)) m.phases.push(a.phase_name)
-    m.totalAllocation += a.allocation_pct || 0
+    m.totalAllocation += parseFloat(a.hours_per_week || '0')
   }
   return Array.from(map.values()).sort((a, b) => b.totalAllocation - a.totalAllocation)
 })

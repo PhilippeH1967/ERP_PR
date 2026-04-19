@@ -120,37 +120,8 @@ class TestWBSCrud(BaseV4Test):
         self.assertEqual(resp.status_code, 204)
 
 
-class TestAssignment(BaseV4Test):
-    def setUp(self):
-        super().setUp()
-        self.project = Project.objects.create(
-            tenant=self.tenant, code="PR-ASS", name="Assignment Test",
-            client=self.client_obj, status="ACTIVE", contract_type="FORFAITAIRE",
-        )
-        self.phase = Phase.objects.create(
-            tenant=self.tenant, project=self.project, name="Concept",
-            phase_type="REALIZATION", billing_mode="FORFAIT",
-        )
-        self.employee = User.objects.create_user(username="emp_assign", password="x")
-
-    def test_create_assignment(self):
-        resp = self.c.post(f"/api/v1/projects/{self.project.id}/assignments/", {
-            "employee": self.employee.id,
-            "phase": self.phase.id,
-            "percentage": "50",
-        }, format="json")
-        if resp.status_code != 201:
-            print("ASSIGNMENT ERROR:", resp.json())
-        self.assertIn(resp.status_code, [200, 201])
-
-    def test_delete_assignment(self):
-        from apps.projects.models import EmployeeAssignment
-        a = EmployeeAssignment.objects.create(
-            tenant=self.tenant, project=self.project,
-            employee=self.employee, phase=self.phase, percentage=100,
-        )
-        resp = self.c.delete(f"/api/v1/projects/{self.project.id}/assignments/{a.id}/")
-        self.assertEqual(resp.status_code, 204)
+# TestAssignment supprimé: EmployeeAssignment déprécié au profit de ResourceAllocation.
+# La planification d'équipe se fait désormais via /api/v1/allocations/ (module planning).
 
 
 class TestUserSearch(BaseV4Test):

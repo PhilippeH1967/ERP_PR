@@ -55,13 +55,4 @@ export const projectApi = {
     apiClient.patch(`${BASE}/${projectId}/amendments/${amendmentId}/`, data),
   deleteAmendment: (projectId: number, amendmentId: number) =>
     apiClient.delete(`${BASE}/${projectId}/amendments/${amendmentId}/`),
-
-  // Assignments
-  listAssignments: (projectId: number) => apiClient.get(`${BASE}/${projectId}/assignments/`),
-  createAssignment: (projectId: number, data: Record<string, unknown>) =>
-    apiClient.post(`${BASE}/${projectId}/assignments/`, data),
-  updateAssignment: (projectId: number, assignmentId: number, data: Record<string, unknown>) =>
-    apiClient.patch(`${BASE}/${projectId}/assignments/${assignmentId}/`, data),
-  deleteAssignment: (projectId: number, assignmentId: number) =>
-    apiClient.delete(`${BASE}/${projectId}/assignments/${assignmentId}/`),
 }

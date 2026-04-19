@@ -5,7 +5,6 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     AmendmentViewSet,
-    EmployeeAssignmentViewSet,
     PhaseViewSet,
     ProjectTemplateViewSet,
     ProjectViewSet,
@@ -27,9 +26,6 @@ wbs_router.register(r"wbs", WBSElementViewSet, basename="project-wbs")
 amendment_router = DefaultRouter()
 amendment_router.register(r"amendments", AmendmentViewSet, basename="project-amendment")
 
-assignment_router = DefaultRouter()
-assignment_router.register(r"assignments", EmployeeAssignmentViewSet, basename="project-assignment")
-
 task_router = DefaultRouter()
 task_router.register(r"tasks", TaskViewSet, basename="project-task")
 
@@ -38,6 +34,5 @@ urlpatterns = [
     path("projects/<int:project_pk>/", include(phase_router.urls)),
     path("projects/<int:project_pk>/", include(wbs_router.urls)),
     path("projects/<int:project_pk>/", include(amendment_router.urls)),
-    path("projects/<int:project_pk>/", include(assignment_router.urls)),
     path("projects/<int:project_pk>/", include(task_router.urls)),
 ]

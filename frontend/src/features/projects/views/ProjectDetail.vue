@@ -8,7 +8,6 @@ import { projectApi } from '../api/projectApi'
 import { billingApi } from '@/features/billing/api/billingApi'
 import { consortiumApi } from '@/features/consortiums/api/consortiumApi'
 import { useProjectStore } from '../stores/useProjectStore'
-import AssignmentModal from '../components/AssignmentModal.vue'
 import GanttChart from '@/features/planning/components/GanttChart.vue'
 
 const route = useRoute()
@@ -29,16 +28,13 @@ const confirmDeleteAmendment = ref<number | null>(null)
 
 interface DashboardData { hours_consumed: string; budget_hours: string; budget_utilization_percent: number; health: 'green' | 'yellow' | 'red' }
 interface WBSNode { id: number; standard_label: string; client_facing_label: string; element_type: string; budgeted_hours: string; children: WBSNode[] }
-interface Assignment { id: number; employee: number; employee_name: string; phase: number | null; phase_name: string; percentage: string; start_date: string | null; end_date: string | null }
+interface Assignment { id: number; employee: number; employee_name: string; phase: number | null; phase_name: string; task: number | null; task_name: string; hours_per_week: string; start_date: string | null; end_date: string | null }
 interface Amendment { id: number; amendment_number: number; description: string; status: string; budget_impact: string; created_at: string }
 
 const dashboard = ref<DashboardData | null>(null)
 const wbsTree = ref<WBSNode[]>([])
 const assignments = ref<Assignment[]>([])
 const amendments = ref<Amendment[]>([])
-const showAssignModal = ref(false)
-const assignPhaseId = ref<number | null>(null)
-const assignPhaseName = ref('')
 
 // WBS create/edit
 const showWBSForm = ref(false)
@@ -742,7 +738,11 @@ async function reload() {
   try { const r = await apiClient.get('users/search/'); const d = r.data?.data || r.data; allUsers.value = Array.isArray(d) ? d : [] } catch { allUsers.value = [] }
   try { const r = await projectApi.dashboard(projectId); dashboard.value = r.data?.data || r.data } catch { dashboard.value = null }
   try { const r = await projectApi.listWBS(projectId); wbsTree.value = r.data?.data || r.data || [] } catch { wbsTree.value = [] }
-  try { const r = await projectApi.listAssignments(projectId); assignments.value = r.data?.data || r.data || [] } catch { assignments.value = [] }
+  try {
+    const r = await apiClient.get('allocations/', { params: { project: String(projectId), page_size: '500' } })
+    const d = r.data?.data || r.data
+    assignments.value = Array.isArray(d) ? d : d?.results || []
+  } catch { assignments.value = [] }
   try { const r = await projectApi.listAmendments(projectId); amendments.value = r.data?.data || r.data || [] } catch { amendments.value = [] }
   await loadClientData()
   await loadConsortiumData()
@@ -766,8 +766,9 @@ async function deleteProject() {
   router.push('/projects')
 }
 
-function openAssignModal(phaseId: number | null, phaseName: string) {
-  assignPhaseId.value = phaseId; assignPhaseName.value = phaseName; showAssignModal.value = true
+function openAssignModal(phaseId: number | null, _phaseName: string) {
+  const query = phaseId ? { phase: String(phaseId) } : undefined
+  router.push({ name: 'gantt', params: { projectId: String(projectId) }, query })
 }
 
 async function deletePhase(phaseId: number) {
@@ -781,7 +782,7 @@ async function deletePhase(phaseId: number) {
 async function deleteAssignment(assignId: number) {
   confirmDeleteAssignment.value = null
   assignments.value = assignments.value.filter(a => a.id !== assignId)
-  try { await projectApi.deleteAssignment(projectId, assignId) } catch { /* ok */ }
+  try { await apiClient.delete(`allocations/${assignId}/`) } catch { /* ok */ }
 }
 
 async function deleteWBS(wbsId: number) {
@@ -1319,8 +1320,8 @@ watch(activeTab, (tab) => {
               </thead>
               <tbody>
                 <tr v-for="a in member.assignments" :key="a.id">
-                  <td>{{ a.phase ? (a.phase_name || `Phase #${a.phase}`) : 'Global (toutes phases)' }}</td>
-                  <td class="text-right"><span class="badge badge-blue" style="font-size:10px;">{{ a.percentage }}%</span></td>
+                  <td>{{ a.task ? (a.task_name || `Tache #${a.task}`) : (a.phase ? (a.phase_name || `Phase #${a.phase}`) : 'Global') }}</td>
+                  <td class="text-right"><span class="badge badge-blue" style="font-size:10px;">{{ a.hours_per_week }}h/sem</span></td>
                   <td class="text-muted" style="font-size:11px;">{{ a.start_date || '—' }} → {{ a.end_date || '...' }}</td>
                   <td>
                     <button class="btn-action" style="font-size:10px;" @click="router.push('/planning')">Planifier</button>
@@ -1834,7 +1835,6 @@ watch(activeTab, (tab) => {
       </table>
     </template>
 
-    <AssignmentModal :open="showAssignModal" :project-id="projectId" :phase-id="assignPhaseId" :phase-name="assignPhaseName" @close="showAssignModal = false" @assigned="reload" />
   </div>
 </template>
 

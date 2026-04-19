@@ -1,6 +1,6 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
-from .models import Amendment, EmployeeAssignment, FinancialPhase, Phase, Project, ProjectTemplate, SupportService, WBSElement
+from .models import Amendment, FinancialPhase, Phase, Project, ProjectTemplate, SupportService, WBSElement
 
 
 class PhaseInline(admin.TabularInline):
@@ -53,9 +53,3 @@ class AmendmentAdmin(admin.ModelAdmin):
 @admin.register(FinancialPhase)
 class FinancialPhaseAdmin(admin.ModelAdmin):
     list_display = ("name", "project", "billing_mode")
-
-
-@admin.register(EmployeeAssignment)
-class EmployeeAssignmentAdmin(admin.ModelAdmin):
-    list_display = ("employee", "project", "phase", "percentage", "start_date", "end_date")
-    list_filter = ("project",)

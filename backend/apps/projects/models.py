@@ -393,20 +393,3 @@ class FinancialPhase(TenantScopedModel):
         return f"{self.code} — {self.name}"
 
 
-class EmployeeAssignment(TenantScopedModel):
-    """Real employee assignment to project phase."""
-
-    employee = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="project_assignments"
-    )
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="assignments")
-    phase = models.ForeignKey(Phase, on_delete=models.CASCADE, null=True, blank=True)
-    percentage = models.DecimalField(max_digits=5, decimal_places=2, default=100)
-    start_date = models.DateField(null=True, blank=True)
-    end_date = models.DateField(null=True, blank=True)
-
-    class Meta:
-        db_table = "projects_employee_assignment"
-
-    def __str__(self):
-        return f"{self.employee} → {self.project.code} ({self.percentage}%)"

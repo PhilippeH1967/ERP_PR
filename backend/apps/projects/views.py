@@ -9,7 +9,6 @@ from rest_framework.response import Response
 
 from .models import (
     Amendment,
-    EmployeeAssignment,
     Phase,
     Project,
     ProjectTemplate,
@@ -18,7 +17,6 @@ from .models import (
 )
 from .serializers import (
     AmendmentSerializer,
-    EmployeeAssignmentSerializer,
     PhaseSerializer,
     ProjectListSerializer,
     ProjectSerializer,
@@ -103,7 +101,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             Role.BU_DIRECTOR, Role.DEPT_ASSISTANT, Role.PAIE,
         }
         if not user_roles & privileged:
-            assigned_project_ids = EmployeeAssignment.objects.filter(
+            from apps.planning.models import ResourceAllocation
+
+            assigned_project_ids = ResourceAllocation.objects.filter(
                 employee=self.request.user
             ).values_list("project_id", flat=True)
             qs = qs.filter(id__in=assigned_project_ids)
@@ -351,22 +351,6 @@ class AmendmentViewSet(viewsets.ModelViewSet):
             project=project, tenant=project.tenant,
             amendment_number=next_num, requested_by=self.request.user,
         )
-
-
-class EmployeeAssignmentViewSet(viewsets.ModelViewSet):
-    """CRUD for employee assignments to projects."""
-
-    serializer_class = EmployeeAssignmentSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return EmployeeAssignment.objects.filter(
-            project_id=self.kwargs["project_pk"]
-        ).select_related("employee", "phase")
-
-    def perform_create(self, serializer):
-        project = Project.objects.get(pk=self.kwargs["project_pk"])
-        serializer.save(project=project, tenant=project.tenant)
 
 
 class TaskViewSet(viewsets.ModelViewSet):

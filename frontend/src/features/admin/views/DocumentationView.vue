@@ -33,7 +33,7 @@ const apiGroups: ApiGroup[] = [
     { method: 'GET', path: '/projects/{id}/dashboard/', desc: 'KPIs du projet' },
     { method: 'GET', path: '/projects/{id}/phases/', desc: 'Phases du projet' },
     { method: 'GET', path: '/projects/{id}/tasks/', desc: 'Tâches WBS du projet' },
-    { method: 'GET', path: '/projects/{id}/assignments/', desc: 'Affectations équipe' },
+    { method: 'GET', path: '/allocations/?project={id}', desc: 'Affectations équipe (via planning)' },
     { method: 'GET', path: '/projects/{id}/amendments/', desc: 'Avenants' },
   ]},
   { name: 'Feuilles de temps', endpoints: [
@@ -197,7 +197,6 @@ const methodColors: Record<string, string> = {
               │
               ├── Invoice ─── InvoiceLine ─── TaxScheme → TaxRate
               ├── Consortium ─── ConsortiumMember
-              ├── EmployeeAssignment
               ├── ResourceAllocation
               └── Milestone</pre>
       </template>

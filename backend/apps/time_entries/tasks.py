@@ -97,7 +97,7 @@ def escalate_missing_timesheets():
 
     from apps.core.models import ProjectRole, Role, Tenant
     from apps.notifications.models import Notification
-    from apps.projects.models import EmployeeAssignment
+    from apps.planning.models import ResourceAllocation
 
     monday = _get_current_monday()
 
@@ -119,7 +119,7 @@ def escalate_missing_timesheets():
 
         for pm_id in pm_user_ids:
             # Find which missing employees are assigned to PM's projects
-            managed_projects = EmployeeAssignment.objects.filter(
+            managed_projects = ResourceAllocation.objects.filter(
                 project__pm_id=pm_id,
             ).values_list("employee_id", flat=True)
             my_missing = missing_ids & set(managed_projects)
