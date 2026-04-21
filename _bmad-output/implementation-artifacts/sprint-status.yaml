@@ -133,15 +133,22 @@ development_status:
   11-3-parallel-run-period: done
   epic-11-retrospective: optional
 
-  # === MVP-1.5: Productivity Enhancement ===
-
-  # Epic 12: Project Lifecycle Extended (4 stories)
-  epic-12: backlog
-  12-1-contract-amendments-avenants: backlog          # +GAP5: Delegation API réelle (modèle + endpoints)
-  12-2-three-level-budget-view-rebaseline: backlog
-  12-3-project-reopening-archival: backlog
-  12-4-consortium-project-flag: backlog
+  # Epic 12: Projets Module Finalization (8 stories)
+  # PROMOTED MVP-1.5 → MVP-1 (2026-04-21) — finalisation module Projets
+  # Chantiers module-projets.md §9 : tests, avenants UX, finance réelle, WBSElement cleanup, NFR32
+  # Anciennes stories (rebaseline/reopening/consortium-flag) conservées en backlog sous 12-6/7/8
+  epic-12: in-progress
+  12-1-amendment-ux-functional-validation: ready-for-dev     # Avenants UX : planning/Gantt + facturation mergée/dédiée
+  12-2-projects-app-test-coverage: done                      # Couverture 95.31% apps.projects (138 tests) — 2026-04-21
+  12-3-finance-tab-real-data: ready-for-dev                  # Finance tab réel : rentabilité + cashflow + décisions ST
+  12-4-wbselement-deprecation-cleanup: ready-for-dev         # Dette technique B2 : retrait WBSElement (modèle + API + frontend)
+  12-5-realtime-dashboard-presence-nfr32: ready-for-dev      # NFR32 MVP-1 : WebSocket dashboard + presence screens
+  12-6-three-level-budget-view-rebaseline: backlog           # Ex-12-2 — conservé pour MVP-1.5
+  12-7-project-reopening-archival: backlog                   # Ex-12-3 — conservé pour MVP-1.5
+  12-8-consortium-project-flag: backlog                      # Ex-12-4 — conservé pour MVP-1.5
   epic-12-retrospective: optional
+
+  # === MVP-1.5: Productivity Enhancement ===
 
   # Epic 13: Service Proposals (4 stories)
   epic-13: backlog
@@ -168,6 +175,7 @@ development_status:
   epic-15-retrospective: optional
 
   # Epic 16: Consortium Management (6 stories)
+  # POSTPONED (2026-04-21) — reporté par décision utilisateur ; reste MVP-1.5 mais dépriorisé
   epic-16: backlog
   16-1-consortium-entity-member-configuration: backlog
   16-2-dual-financial-perspective: backlog

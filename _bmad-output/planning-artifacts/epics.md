@@ -1556,25 +1556,84 @@ So that billing accuracy is verified.
 **And** daily reconciliation, Finance sign-off gate
 **And** 48h rollback plan
 
-## Epic 12: Project Lifecycle Extended (MVP-1.5)
+## Epic 12: Projets Module Finalization (MVP-1)
 
-Amendments, rebaseline, reopening, archival, consortium flag.
+> ✅ **Promotion 2026-04-21** : **MVP-1.5 → MVP-1**. Epic renommé pour couvrir la finalisation complète du module Projets.
+> Sprint plan : [sprint-module-projets-finalization.md](../implementation-artifacts/sprint-module-projets-finalization.md) (3 sprints A/B/C, git per story, batch Hostinger deploy final).
+>
+> **Périmètre MVP-1 (5 stories, ready-for-dev)** :
+> - **12.1** [Amendment UX Functional Validation](../implementation-artifacts/12-1-amendment-ux-functional-validation.md) — avenants UX + planning/Gantt + facturation mergée/dédiée (implémentation technique héritée à valider)
+> - **12.2** [Projects App Test Coverage](../implementation-artifacts/12-2-projects-app-test-coverage.md) — couverture ≥85% sur `apps.projects` (prérequis 12.1/12.3/12.4)
+> - **12.3** [Finance Tab Real Data](../implementation-artifacts/12-3-finance-tab-real-data.md) — KPIs rentabilité + cashflow + décisions paiement ST
+> - **12.4** [WBSElement Deprecation Cleanup](../implementation-artifacts/12-4-wbselement-deprecation-cleanup.md) — retrait modèle deprecated (B2)
+> - **12.5** [Realtime Dashboard & Presence NFR32](../implementation-artifacts/12-5-realtime-dashboard-presence-nfr32.md) — WebSocket Django Channels (promu MVP-1)
+>
+> **Backlog MVP-1.5 (3 stories conservées, renumérotées 12-6/7/8)** : rebaseline, reopening, consortium flag.
+> Approbation avenant : **Associé en charge** (pas PM).
 
-### Story 12.1: Contract Amendments (Avenants)
+Amendments, rebaseline, reopening, archival, consortium flag — plus finalisation tests, finance, WBSElement cleanup, NFR32.
 
-As a **PM**,
-I want to create contract amendments,
-So that contractual changes are formally tracked.
+### Story 12.1: Amendment UX Functional Validation (MVP-1, ready-for-dev)
 
-**Acceptance Criteria:**
+> Story détaillée : [12-1-amendment-ux-functional-validation.md](../implementation-artifacts/12-1-amendment-ux-functional-validation.md)
 
-**Given** active project
-**When** I create amendment
-**Then** sequential number, impact on value and phases (FR15k)
-**And** approval workflow: Draft → PM → Associate → Active
-**And** dashboard shows current value = original + amendments
+As an **Assistante / PM / Finance**,
+I want to create and manage amendments with full UX validation,
+So that contractual changes are formally tracked, visible in planning/Gantt with dedicated phase/task, and billable either merged or as a dedicated invoice.
 
-### Story 12.2: Three-Level Budget View & Rebaseline
+**Acceptance Criteria (résumé) :**
+
+- Création par 3 rôles (Assistante, PM, Finance) via wizard
+- Approbation par **Associé en charge uniquement** (pas PM)
+- Impact budget reflété dans onglet Budget (original + avenants actifs = contrat courant)
+- **Avenants visibles dans planning + Gantt** avec swimlane dédié (phases/tâches de l'avenant séparées)
+- **Facturation flexible** : choix à la création entre `MERGED` (intégré facture projet) OU `AMENDMENT_DEDICATED` (facture dédiée)
+- Permissions et isolement tenant respectés
+
+### Story 12.2: Projects App Test Coverage (MVP-1, ready-for-dev)
+
+> Story détaillée : [12-2-projects-app-test-coverage.md](../implementation-artifacts/12-2-projects-app-test-coverage.md)
+
+As a **developer**,
+I want `apps.projects` test coverage raised from ~50% → ≥85%,
+So that stories 12.1 / 12.3 / 12.4 can be merged without regression risk.
+
+**AC résumé :** baseline audit (`pytest --cov`), conftest enrichi, tests models/serializers/services/views avec matrice permissions paramétrée, CI `--cov-fail-under=85`.
+
+### Story 12.3: Finance Tab Real Data (MVP-1, ready-for-dev)
+
+> Story détaillée : [12-3-finance-tab-real-data.md](../implementation-artifacts/12-3-finance-tab-real-data.md)
+
+As a **Finance user / PM / Associate**,
+I want the Finance tab fed by real data (profitability + cashflow + ST payment decisions),
+So that financial steering is accurate and actionable.
+
+**AC résumé :** endpoint `/api/projects/{id}/finance-summary/` avec KPIs rentabilité (CA, coûts, marge), cashflow (payé/impayé/aging >60j/cash net), décisions paiement ST Finance-only avec audit trail, éclaté annuel, intégration contrat + avenants.
+**MVP-2 :** lien API logiciel de comptabilité (Acomba / QuickBooks / Sage).
+
+### Story 12.4: WBSElement Deprecation Cleanup (MVP-1, ready-for-dev)
+
+> Story détaillée : [12-4-wbselement-deprecation-cleanup.md](../implementation-artifacts/12-4-wbselement-deprecation-cleanup.md)
+
+As a **developer**,
+I want to remove the deprecated `WBSElement` model end-to-end,
+So that the codebase has a single canonical WBS representation via `Phase` → `Task` (décision B2 actée).
+
+**AC résumé :** ChangePoint import migré vers Task, backfill avec reverse symétrique, retrait backend (model/views/serializers/admin/urls) + frontend (types/api/ProjectDetail.vue), `DeleteModel` final après confirmation utilisateur.
+
+### Story 12.5: Realtime Dashboard & Presence NFR32 (MVP-1, ready-for-dev)
+
+> Story détaillée : [12-5-realtime-dashboard-presence-nfr32.md](../implementation-artifacts/12-5-realtime-dashboard-presence-nfr32.md)
+
+As a **user of dashboards and shared screens**,
+I want real-time KPI updates and presence indicators on critical edit screens,
+So that the team avoids stale data and concurrent-edit collisions.
+
+**AC résumé :** Django Channels + channels-redis, JWT auth WebSocket (subprotocol), DashboardConsumer (groupes `dashboard:<tenant>:<role>`), PresenceConsumer (heartbeat 30s/timeout 60s) sur `invoice_prep` + `project_budget`, migration WSGI → ASGI Uvicorn + nginx `/ws/` upgrade.
+
+### Story 12.6: Three-Level Budget View & Rebaseline (MVP-1.5, backlog)
+
+> Ex-Story 12.2 — renumérotée 2026-04-21.
 
 As a **PM**,
 I want three budget levels and rebaseline capability,
@@ -1588,7 +1647,9 @@ So that I track progress against contractual and operational budgets.
 **And** rebaseline without changing contract (FR15n)
 **And** variance reports against any of three levels
 
-### Story 12.3: Project Reopening & Archival
+### Story 12.7: Project Reopening & Archival (MVP-1.5, backlog)
+
+> Ex-Story 12.3 — renumérotée 2026-04-21.
 
 As a **Finance user**,
 I want to reopen closed projects and manage archival,
@@ -1602,7 +1663,9 @@ So that exceptions are possible while keeping system clean.
 **And** archival after configurable period (FR15j)
 **And** archived excluded from active but accessible via filter
 
-### Story 12.4: Consortium Project Flag
+### Story 12.8: Consortium Project Flag (MVP-1.5, backlog)
+
+> Ex-Story 12.4 — renumérotée 2026-04-21.
 
 As a **PM**,
 I want to flag a project as consortium,
@@ -1782,6 +1845,11 @@ So that entry is minimized and docs centralized.
 **And** multiple attachments and version history per invoice (FR52f)
 
 ## Epic 16: Consortium Management (MVP-1.5)
+
+> ⏸️ **Statut 2026-04-21** : **Reporté par décision utilisateur.**
+> Le module Consortium existe partiellement (FK `Project.consortium`, modèle `Consortium`, flag `is_consortium`) mais les flux financiers, la facturation partenaires et la double perspective CA ne sont pas à l'agenda immédiat.
+> Décision : **maintenir MVP-1.5 mais déprioriser** — à reprendre après consolidation du module Projets et stabilisation des Avenants.
+> Ne pas créer de stories dérivées tant que la priorisation n'est pas réouverte.
 
 Consortium entity, dual financial view, partner invoicing, profit distributions, budget by partner.
 

@@ -53,3 +53,7 @@ htmlcov/
 # Sensitive / local files
 **/password.md
 tests_module_projet.xlsx
+
+# Claude Code (local only)
+CLAUDE.md
+.claude/agents/
