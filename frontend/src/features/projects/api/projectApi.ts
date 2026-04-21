@@ -55,4 +55,14 @@ export const projectApi = {
     apiClient.patch(`${BASE}/${projectId}/amendments/${amendmentId}/`, data),
   deleteAmendment: (projectId: number, amendmentId: number) =>
     apiClient.delete(`${BASE}/${projectId}/amendments/${amendmentId}/`),
+  submitAmendment: (projectId: number, amendmentId: number) =>
+    apiClient.post(`${BASE}/${projectId}/amendments/${amendmentId}/submit/`),
+  approveAmendment: (projectId: number, amendmentId: number) =>
+    apiClient.post(`${BASE}/${projectId}/amendments/${amendmentId}/approve/`),
+  rejectAmendment: (projectId: number, amendmentId: number, reason: string) =>
+    apiClient.post(`${BASE}/${projectId}/amendments/${amendmentId}/reject/`, { reason }),
+
+  // Budget summary (original + current contract value + approved amendments breakdown)
+  budgetSummary: (projectId: number) =>
+    apiClient.get(`${BASE}/${projectId}/budget-summary/`),
 }

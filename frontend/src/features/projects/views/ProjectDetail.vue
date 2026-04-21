@@ -149,6 +149,11 @@ const canEditBudget = computed(() => {
   return roles.includes('ADMIN') || roles.includes('FINANCE')
 })
 
+const canApproveAmendment = computed(() => {
+  const roles = currentUser.value?.roles || []
+  return roles.includes('PROJECT_DIRECTOR') || roles.includes('ADMIN')
+})
+
 const budgetTotal = computed(() => {
   const phases = (store.currentProject?.phases || []).filter(Boolean)
   return phases.reduce((sum: number, p: { budgeted_cost: string | number }) => sum + Number(p?.budgeted_cost || 0), 0)
@@ -823,13 +828,84 @@ async function deleteAmendment(id: number) {
   try { await projectApi.deleteAmendment(projectId, id) } catch { /* ok */ }
 }
 
+// Amendment workflow actions (submit/approve/reject)
+const rejectingAmendmentId = ref<number | null>(null)
+const rejectReason = ref('')
+
+async function submitAmendment(id: number) {
+  actionError.value = ''
+  try {
+    await projectApi.submitAmendment(projectId, id)
+    await reload()
+    if (activeTab.value === 'budget') await loadBudgetSummary()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur soumission avenant'
+  }
+}
+
+async function approveAmendment(id: number) {
+  actionError.value = ''
+  try {
+    await projectApi.approveAmendment(projectId, id)
+    await reload()
+    if (activeTab.value === 'budget') await loadBudgetSummary()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur approbation avenant'
+  }
+}
+
+function startRejectAmendment(id: number) {
+  rejectingAmendmentId.value = id
+  rejectReason.value = ''
+}
+
+async function confirmRejectAmendment() {
+  if (!rejectingAmendmentId.value) return
+  actionError.value = ''
+  try {
+    await projectApi.rejectAmendment(projectId, rejectingAmendmentId.value, rejectReason.value)
+    rejectingAmendmentId.value = null
+    rejectReason.value = ''
+    await reload()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur rejet avenant'
+  }
+}
+
+// Budget summary (original + current contract + approved amendments breakdown)
+interface BudgetSummary {
+  project_id: number
+  original_contract_value: string
+  current_contract_value: string
+  total_approved_impact: string
+  amendments: Array<{
+    id: number
+    amendment_number: number
+    description: string
+    budget_impact: string
+    status: string
+    approval_date: string | null
+    approved_by_id: number | null
+  }>
+}
+const budgetSummary = ref<BudgetSummary | null>(null)
+
+async function loadBudgetSummary() {
+  try {
+    const r = await projectApi.budgetSummary(projectId)
+    budgetSummary.value = r.data?.data || r.data || null
+  } catch {
+    budgetSummary.value = null
+  }
+}
+
 onMounted(reload)
 
 // Lazy load tab data
 watch(activeTab, (tab) => {
   if (tab === 'tasks' && !tasks.value.length) loadTasks()
   if (tab === 'progress' && !tasks.value.length) loadTasks()
-  if (tab === 'budget') initHonoraires()
+  if (tab === 'budget') { initHonoraires(); loadBudgetSummary() }
   if (tab === 'team') { if (!projectTimeEntries.value.length) loadProjectTime(); loadTeamStats() }
   if (tab === 'time') loadProjectTime()
   if (tab === 'st') loadSTInvoices()
@@ -1471,13 +1547,25 @@ watch(activeTab, (tab) => {
                 <td><span class="badge" :class="am.status === 'APPROVED' ? 'badge-green' : am.status === 'SUBMITTED' ? 'badge-amber' : am.status === 'REJECTED' ? 'badge-red' : 'badge-gray'">{{ amendmentStatusLabels[am.status] || am.status }}</span></td>
                 <td class="text-muted">{{ am.created_at?.substring(0, 10) }}</td>
                 <td class="text-right">
-                  <template v-if="isEditing">
-                    <button class="btn-action" @click="startEditAmendment(am)">Modifier</button>
-                    <template v-if="confirmDeleteAmendment === am.id">
-                      <button class="btn-action danger" @click="deleteAmendment(am.id)">Confirmer</button>
-                      <button class="btn-action" @click="confirmDeleteAmendment = null">Annuler</button>
+                  <template v-if="rejectingAmendmentId === am.id">
+                    <input v-model="rejectReason" type="text" class="inline-input-sm" placeholder="Motif du rejet" />
+                    <button class="btn-action danger" @click="confirmRejectAmendment">Rejeter</button>
+                    <button class="btn-action" @click="rejectingAmendmentId = null">Annuler</button>
+                  </template>
+                  <template v-else>
+                    <button v-if="am.status === 'DRAFT'" class="btn-action" @click="submitAmendment(am.id)">Soumettre</button>
+                    <template v-if="am.status === 'SUBMITTED' && canApproveAmendment">
+                      <button class="btn-action" @click="approveAmendment(am.id)">Valider</button>
+                      <button class="btn-action danger" @click="startRejectAmendment(am.id)">Rejeter...</button>
                     </template>
-                    <button v-else class="btn-action danger" @click="confirmDeleteAmendment = am.id">Supprimer...</button>
+                    <template v-if="isEditing">
+                      <button class="btn-action" @click="startEditAmendment(am)">Modifier</button>
+                      <template v-if="confirmDeleteAmendment === am.id">
+                        <button class="btn-action danger" @click="deleteAmendment(am.id)">Confirmer</button>
+                        <button class="btn-action" @click="confirmDeleteAmendment = null">Annuler</button>
+                      </template>
+                      <button v-else class="btn-action danger" @click="confirmDeleteAmendment = am.id">Supprimer...</button>
+                    </template>
                   </template>
                 </td>
               </template>
@@ -1532,6 +1620,55 @@ watch(activeTab, (tab) => {
           <button class="btn-primary btn-sm" :disabled="honorairesSaving" @click="saveHonoraires">
             {{ honorairesSaving ? 'Sauvegarde...' : 'Enregistrer les honoraires' }}
           </button>
+        </div>
+      </div>
+
+      <!-- Contrat original / courant / avenants approuvés -->
+      <div v-if="budgetSummary" class="card" style="margin-bottom: 16px;">
+        <h3 class="card-title-edit">Valeur du contrat</h3>
+        <div class="kpi-grid-3">
+          <div class="kpi-card">
+            <div class="kpi-value mono">{{ formatAmount(parseFloat(budgetSummary.original_contract_value) || 0) }}&nbsp;$</div>
+            <div class="kpi-label">Contrat original</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value mono">{{ formatAmount(parseFloat(budgetSummary.current_contract_value) || 0) }}&nbsp;$</div>
+            <div class="kpi-label">Contrat courant</div>
+          </div>
+          <div class="kpi-card">
+            <div
+              class="kpi-value mono"
+              :class="{ success: parseFloat(budgetSummary.total_approved_impact) > 0, danger: parseFloat(budgetSummary.total_approved_impact) < 0 }"
+            >
+              {{ parseFloat(budgetSummary.total_approved_impact) >= 0 ? '+' : '' }}{{ formatAmount(parseFloat(budgetSummary.total_approved_impact) || 0) }}&nbsp;$
+            </div>
+            <div class="kpi-label">Impact avenants approuvés</div>
+          </div>
+        </div>
+        <div v-if="budgetSummary.amendments.length" style="margin-top: 12px;">
+          <table class="budget-table">
+            <thead>
+              <tr>
+                <th>Avenant</th>
+                <th>Description</th>
+                <th>Date approbation</th>
+                <th class="text-right">Impact ($)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="amd in budgetSummary.amendments" :key="amd.id">
+                <td class="font-mono">AV-{{ amd.amendment_number }}</td>
+                <td>{{ amd.description }}</td>
+                <td>{{ amd.approval_date ? new Date(amd.approval_date).toLocaleDateString('fr-CA') : '—' }}</td>
+                <td class="text-right mono" :class="{ success: parseFloat(amd.budget_impact) > 0, danger: parseFloat(amd.budget_impact) < 0 }">
+                  {{ parseFloat(amd.budget_impact) >= 0 ? '+' : '' }}{{ formatAmount(parseFloat(amd.budget_impact) || 0) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-else class="text-xs text-text-muted" style="margin-top: 8px;">
+          Aucun avenant approuvé pour ce projet.
         </div>
       </div>
 
