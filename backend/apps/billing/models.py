@@ -15,18 +15,50 @@ class InvoiceStatus(models.TextChoices):
     PAID = "PAID", "Payé"
 
 
+class InvoiceMode(models.TextChoices):
+    """Billing mode relative to amendments (avenants).
+
+    - ``MERGED`` : the invoice covers the main project scope and may also
+      include amendment-related lines. Main and amendment lines are grouped
+      in the PDF but remain on the same invoice.
+    - ``AMENDMENT_DEDICATED`` : the invoice is exclusively for a single
+      amendment; only lines belonging to that amendment may appear.
+    """
+
+    MERGED = "MERGED", "Fusionné"
+    AMENDMENT_DEDICATED = "AMENDMENT_DEDICATED", "Dédié avenant"
+
+
 class Invoice(TenantScopedModel, VersionedModel):
     """Client invoice with 7-column line items."""
 
     project = models.ForeignKey(
-        "projects.Project", on_delete=models.CASCADE, related_name="invoices",
-        null=True, blank=True,
+        "projects.Project",
+        on_delete=models.CASCADE,
+        related_name="invoices",
+        null=True,
+        blank=True,
     )
-    client = models.ForeignKey(
-        "clients.Client", on_delete=models.PROTECT, related_name="invoices"
+    invoice_mode = models.CharField(
+        max_length=25,
+        choices=InvoiceMode.choices,
+        default=InvoiceMode.MERGED,
+        help_text="MERGED: main + amendment lines combined. "
+        "AMENDMENT_DEDICATED: only lines of one amendment.",
     )
+    amendment = models.ForeignKey(
+        "projects.Amendment",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="invoices",
+        help_text="Required when invoice_mode=AMENDMENT_DEDICATED. "
+        "Must remain NULL when invoice_mode=MERGED.",
+    )
+    client = models.ForeignKey("clients.Client", on_delete=models.PROTECT, related_name="invoices")
     invoice_number = models.CharField(
-        max_length=50, db_index=True,
+        max_length=50,
+        db_index=True,
         help_text="PROV-xxxx provisional, definitive at send",
     )
     status = models.CharField(
@@ -34,24 +66,34 @@ class Invoice(TenantScopedModel, VersionedModel):
     )
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tax_scheme = models.ForeignKey(
-        "core.TaxScheme", on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="invoices",
+        "core.TaxScheme",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="invoices",
         help_text="Tax scheme used for this invoice",
     )
     tax_tps = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tax_tvq = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     taxes_detail = models.JSONField(
-        default=list, blank=True,
+        default=list,
+        blank=True,
         help_text='Calculated taxes: [{"type": "TPS", "label": "TPS", "rate": 5.0, "amount": 125.00}, ...]',
     )
     total_with_taxes = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     submitted_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="submitted_invoices",
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="submitted_invoices",
     )
     approved_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="approved_invoices",
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_invoices",
     )
     date_created = models.DateField(auto_now_add=True)
     date_sent = models.DateField(null=True, blank=True)
@@ -83,25 +125,40 @@ class InvoiceLine(TenantScopedModel):
 
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="lines")
     financial_phase = models.ForeignKey(
-        "projects.FinancialPhase", on_delete=models.SET_NULL, null=True, blank=True,
+        "projects.FinancialPhase",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         help_text="DEPRECATED — use task instead",
     )
     task = models.ForeignKey(
-        "projects.Task", on_delete=models.SET_NULL, null=True, blank=True,
+        "projects.Task",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="invoice_lines",
         help_text="Task (WBS) for this invoice line — replaces financial_phase",
     )
-    deliverable_name = models.CharField(max_length=255)
-    line_type = models.CharField(
-        max_length=10, choices=LineType.choices, default=LineType.FORFAIT
+    amendment = models.ForeignKey(
+        "projects.Amendment",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="invoice_lines",
+        help_text="If set, this line belongs to an amendment (avenant) rather "
+        "than the main project scope.",
     )
+    deliverable_name = models.CharField(max_length=255)
+    line_type = models.CharField(max_length=10, choices=LineType.choices, default=LineType.FORFAIT)
     # 7-column structure
     total_contract_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     invoiced_to_date = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     pct_billing_advancement = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     pct_hours_advancement = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     amount_to_bill = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0,
+        max_digits=12,
+        decimal_places=2,
+        default=0,
         help_text="Editable — amount to bill this period (FR29)",
     )
     pct_after_billing = models.DecimalField(max_digits=5, decimal_places=2, default=0)
@@ -119,7 +176,10 @@ class CreditNote(TenantScopedModel, VersionedModel):
     """Credit note (avoir) — partial or full adjustment to invoice."""
 
     invoice = models.ForeignKey(
-        Invoice, on_delete=models.CASCADE, null=True, blank=True,
+        Invoice,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name="credit_notes",
     )
     project = models.ForeignKey("projects.Project", on_delete=models.CASCADE)
@@ -142,9 +202,7 @@ class CreditNote(TenantScopedModel, VersionedModel):
 class Payment(TenantScopedModel, VersionedModel):
     """Payment received — can be partial, allocated across invoices."""
 
-    invoice = models.ForeignKey(
-        Invoice, on_delete=models.CASCADE, related_name="payments"
-    )
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="payments")
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     payment_date = models.DateField()
     reference = models.CharField(max_length=100, blank=True, default="")
@@ -163,9 +221,7 @@ class Payment(TenantScopedModel, VersionedModel):
 class PaymentAllocation(TenantScopedModel):
     """Allocates a single payment across multiple invoices."""
 
-    payment = models.ForeignKey(
-        Payment, on_delete=models.CASCADE, related_name="allocations"
-    )
+    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name="allocations")
     invoice = models.ForeignKey(
         Invoice, on_delete=models.CASCADE, related_name="payment_allocations"
     )
@@ -185,14 +241,19 @@ class Holdback(TenantScopedModel, VersionedModel):
         "projects.Project", on_delete=models.CASCADE, related_name="holdbacks"
     )
     invoice = models.ForeignKey(
-        Invoice, on_delete=models.CASCADE, null=True, blank=True,
+        Invoice,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name="holdbacks",
     )
     percentage_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     accumulated = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     released = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     remaining = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0,
+        max_digits=12,
+        decimal_places=2,
+        default=0,
         help_text="accumulated - released",
     )
     release_date = models.DateField(null=True, blank=True)
@@ -210,9 +271,7 @@ class Holdback(TenantScopedModel, VersionedModel):
 class WriteOff(TenantScopedModel, VersionedModel):
     """Invoice write-off (radiation)."""
 
-    invoice = models.ForeignKey(
-        Invoice, on_delete=models.CASCADE, related_name="write_offs"
-    )
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="write_offs")
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     reason = models.TextField()
     status = models.CharField(max_length=20, default="pending")
@@ -285,9 +344,7 @@ class DunningLevel(TenantScopedModel):
 class DunningAction(TenantScopedModel):
     """Record of dunning communication sent."""
 
-    invoice = models.ForeignKey(
-        Invoice, on_delete=models.CASCADE, related_name="dunning_actions"
-    )
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="dunning_actions")
     dunning_level = models.ForeignKey(DunningLevel, on_delete=models.CASCADE)
     sent_at = models.DateTimeField(auto_now_add=True)
 
@@ -302,9 +359,7 @@ class DunningAction(TenantScopedModel):
 class BillingDossier(TenantScopedModel):
     """Assembled billing package with annexes."""
 
-    invoice = models.ForeignKey(
-        Invoice, on_delete=models.CASCADE, related_name="dossiers"
-    )
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="dossiers")
     annexes_config = models.JSONField(default=list)
     status = models.CharField(
         max_length=20,

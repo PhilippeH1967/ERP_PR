@@ -13,6 +13,7 @@ from .models import (
     Holdback,
     Invoice,
     InvoiceLine,
+    InvoiceMode,
     InvoiceTemplate,
     Payment,
     PaymentAllocation,
@@ -29,12 +30,21 @@ class InvoiceLineSerializer(serializers.ModelSerializer):
     class Meta:
         model = InvoiceLine
         fields = [
-            "id", "financial_phase", "task", "task_wbs_code",
-            "deliverable_name", "line_type",
-            "total_contract_amount", "invoiced_to_date",
-            "pct_billing_advancement", "pct_hours_advancement",
-            "amount_to_bill", "pct_after_billing", "order",
-            "project_id", "phase_name",
+            "id",
+            "financial_phase",
+            "task",
+            "task_wbs_code",
+            "deliverable_name",
+            "line_type",
+            "total_contract_amount",
+            "invoiced_to_date",
+            "pct_billing_advancement",
+            "pct_hours_advancement",
+            "amount_to_bill",
+            "pct_after_billing",
+            "order",
+            "project_id",
+            "phase_name",
         ]
         read_only_fields = ["id", "project_id", "phase_name", "task_wbs_code"]
 
@@ -53,13 +63,17 @@ class InvoiceLineSerializer(serializers.ModelSerializer):
         if amount_to_bill is None:
             return data
 
-        total_contract = data.get("total_contract_amount") or (self.instance.total_contract_amount if self.instance else 0)
-        invoiced_to_date = data.get("invoiced_to_date") or (self.instance.invoiced_to_date if self.instance else 0)
+        total_contract = data.get("total_contract_amount") or (
+            self.instance.total_contract_amount if self.instance else 0
+        )
+        invoiced_to_date = data.get("invoiced_to_date") or (
+            self.instance.invoiced_to_date if self.instance else 0
+        )
 
         if float(amount_to_bill) < 0:
-            raise serializers.ValidationError({
-                "amount_to_bill": "Le montant à facturer ne peut pas être négatif."
-            })
+            raise serializers.ValidationError(
+                {"amount_to_bill": "Le montant à facturer ne peut pas être négatif."}
+            )
 
         # Warning: if amount exceeds contract, add a flag but don't block
         # Blocking is only if force_override is not set in context
@@ -69,10 +83,12 @@ class InvoiceLineSerializer(serializers.ModelSerializer):
                 request = self.context.get("request")
                 force = request.data.get("force_override") if request else False
                 if not force:
-                    raise serializers.ValidationError({
-                        "amount_to_bill": f"Le montant à facturer ({amount_to_bill}) dépasse le solde disponible ({remaining:.2f}). Confirmez pour continuer.",
-                        "requires_confirmation": True,
-                    })
+                    raise serializers.ValidationError(
+                        {
+                            "amount_to_bill": f"Le montant à facturer ({amount_to_bill}) dépasse le solde disponible ({remaining:.2f}). Confirmez pour continuer.",
+                            "requires_confirmation": True,
+                        }
+                    )
         return data
 
 
@@ -90,15 +106,61 @@ class InvoiceSerializer(OptimisticLockMixin, serializers.ModelSerializer):
     class Meta:
         model = Invoice
         fields = [
-            "id", "project", "project_code", "project_name",
-            "client", "client_name", "invoice_number", "status",
-            "total_amount", "tax_scheme", "tax_tps", "tax_tvq",
-            "taxes_detail", "total_with_taxes",
-            "submitted_by", "approved_by", "template",
-            "date_created", "date_sent", "date_paid",
-            "version", "lines", "created_at", "updated_at",
+            "id",
+            "project",
+            "project_code",
+            "project_name",
+            "client",
+            "client_name",
+            "invoice_number",
+            "status",
+            "invoice_mode",
+            "amendment",
+            "total_amount",
+            "tax_scheme",
+            "tax_tps",
+            "tax_tvq",
+            "taxes_detail",
+            "total_with_taxes",
+            "submitted_by",
+            "approved_by",
+            "template",
+            "date_created",
+            "date_sent",
+            "date_paid",
+            "version",
+            "lines",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "date_created", "created_at", "updated_at", "project_code", "project_name", "client_name"]
+        read_only_fields = [
+            "id",
+            "date_created",
+            "created_at",
+            "updated_at",
+            "project_code",
+            "project_name",
+            "client_name",
+        ]
+
+    def validate(self, attrs):
+        mode = attrs.get(
+            "invoice_mode",
+            getattr(self.instance, "invoice_mode", InvoiceMode.MERGED),
+        )
+        amendment = attrs.get(
+            "amendment",
+            getattr(self.instance, "amendment", None),
+        )
+        if mode == InvoiceMode.AMENDMENT_DEDICATED and amendment is None:
+            raise serializers.ValidationError(
+                {"amendment": "Une facture dédiée avenant doit référencer un avenant."}
+            )
+        if mode == InvoiceMode.MERGED and amendment is not None:
+            raise serializers.ValidationError(
+                {"amendment": "Une facture fusionnée ne doit pas référencer un avenant."}
+            )
+        return super().validate(attrs)
 
 
 class InvoiceListSerializer(serializers.ModelSerializer):
@@ -108,9 +170,16 @@ class InvoiceListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invoice
         fields = [
-            "id", "invoice_number", "project", "project_code",
-            "client", "client_name", "status", "total_amount",
-            "date_created", "date_sent",
+            "id",
+            "invoice_number",
+            "project",
+            "project_code",
+            "client",
+            "client_name",
+            "status",
+            "total_amount",
+            "date_created",
+            "date_sent",
         ]
 
 
@@ -118,9 +187,16 @@ class CreditNoteSerializer(OptimisticLockMixin, serializers.ModelSerializer):
     class Meta:
         model = CreditNote
         fields = [
-            "id", "invoice", "project", "credit_note_number",
-            "amount", "reason", "status", "version",
-            "created_at", "updated_at",
+            "id",
+            "invoice",
+            "project",
+            "credit_note_number",
+            "amount",
+            "reason",
+            "status",
+            "version",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
@@ -129,9 +205,15 @@ class PaymentSerializer(OptimisticLockMixin, serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = [
-            "id", "invoice", "amount", "payment_date",
-            "reference", "method", "version",
-            "created_at", "updated_at",
+            "id",
+            "invoice",
+            "amount",
+            "payment_date",
+            "reference",
+            "method",
+            "version",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
@@ -147,10 +229,18 @@ class HoldbackSerializer(OptimisticLockMixin, serializers.ModelSerializer):
     class Meta:
         model = Holdback
         fields = [
-            "id", "project", "invoice", "percentage_rate",
-            "accumulated", "released", "remaining",
-            "release_date", "status", "version",
-            "created_at", "updated_at",
+            "id",
+            "project",
+            "invoice",
+            "percentage_rate",
+            "accumulated",
+            "released",
+            "remaining",
+            "release_date",
+            "status",
+            "version",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
@@ -159,8 +249,14 @@ class WriteOffSerializer(OptimisticLockMixin, serializers.ModelSerializer):
     class Meta:
         model = WriteOff
         fields = [
-            "id", "invoice", "amount", "reason", "status", "version",
-            "created_at", "updated_at",
+            "id",
+            "invoice",
+            "amount",
+            "reason",
+            "status",
+            "version",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
@@ -197,7 +293,11 @@ class BillingDossierSerializer(serializers.ModelSerializer):
     class Meta:
         model = BillingDossier
         fields = [
-            "id", "invoice", "annexes_config", "status",
-            "file_url", "generated_at",
+            "id",
+            "invoice",
+            "annexes_config",
+            "status",
+            "file_url",
+            "generated_at",
         ]
         read_only_fields = ["id", "generated_at"]
