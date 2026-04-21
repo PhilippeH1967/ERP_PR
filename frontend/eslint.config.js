@@ -23,6 +23,16 @@ export default [
     },
   },
   {
+    files: ['*.config.js', '*.config.ts', 'vite.config.*', 'playwright.config.*', 'vitest.config.*'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+      },
+    },
+  },
+  {
     rules: {
       'no-console': 'warn',
       'no-debugger': 'warn',

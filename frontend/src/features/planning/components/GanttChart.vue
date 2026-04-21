@@ -91,7 +91,6 @@ async function load() {
 onMounted(load)
 
 const today = new Date()
-const todayStr = today.toISOString().substring(0, 10)
 
 // Timeline range
 const timelineStart = computed(() => {

@@ -25,7 +25,6 @@ onMounted(load)
 const members = computed(() => (data.value?.members || []) as Array<Record<string, unknown>>)
 const totalCoeff = computed(() => Number(data.value?.total_coefficient || 0))
 const prMember = computed(() => members.value.find(m => m.is_pr))
-const partnerMembers = computed(() => members.value.filter(m => !m.is_pr))
 
 // Associated projects
 const projects = ref<Array<Record<string, unknown>>>([])
@@ -45,7 +44,6 @@ async function loadProjects() {
 
 // Placeholder financials (will be computed from real data later)
 const financials = computed(() => {
-  const prCoeff = Number(prMember.value?.coefficient || 0) / 100
   return {
     // Consortium view
     ca_client: 0,

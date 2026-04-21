@@ -5,10 +5,7 @@
  * Filterable by BU, supervisor, project.
  */
 import { onMounted, ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { planningApi } from '../api/planningApi'
-
-const router = useRouter()
 
 interface Allocation {
   project_code: string; project_name: string; phase_name: string
@@ -25,7 +22,6 @@ const employees = ref<Employee[]>([])
 const isLoading = ref(true)
 
 // Filters
-const filterBU = ref('')
 const filterSearch = ref('')
 
 // Timeline: 12 weeks from today
@@ -42,7 +38,6 @@ const weeks = computed(() => {
     wStart.setDate(monday.getDate() + i * 7)
     const wEnd = new Date(wStart)
     wEnd.setDate(wStart.getDate() + 4) // Friday
-    const isCurrent = i === -startOffset.value
     const label = `${String(wStart.getDate()).padStart(2, '0')}/${String(wStart.getMonth() + 1).padStart(2, '0')}`
     result.push({
       start: wStart.toISOString().substring(0, 10),
@@ -113,7 +108,7 @@ const projectColors = computed(() => {
   for (const e of employees.value) for (const a of e.allocations) codes.add(a.project_code)
   const map: Record<string, string> = {}
   let i = 0
-  for (const code of codes) { map[code] = colors[i % colors.length]; i++ }
+  for (const code of codes) { map[code] = colors[i % colors.length] || '#3B82F6'; i++ }
   return map
 })
 

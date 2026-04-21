@@ -36,6 +36,7 @@ interface EmployeeRow {
   has_submitted: boolean
   all_pm_approved: boolean
   alerts?: Array<{ code: string; severity: string; message: string }>
+  severity?: string
 }
 interface ProjectInfo {
   id: number
@@ -50,6 +51,16 @@ interface KPIs {
   billable_hours: number
   pending_count: number
   employee_count: number
+  total_approvals?: number
+  pending_finance?: number
+  approved_finance?: number
+  rejected_finance?: number
+  total_employees?: number
+  pm_approved?: number
+  validated?: number
+  alerts_error?: number
+  alerts_warning?: number
+  missing?: number
 }
 
 const employees = ref<EmployeeRow[]>([])
@@ -101,7 +112,6 @@ function sparkColor(val: number): string {
 }
 
 const pendingEmployees = computed(() => employees.value.filter(e => e.pm_status === 'PENDING'))
-const approvedEmployees = computed(() => employees.value.filter(e => e.pm_status === 'APPROVED'))
 
 // Determine initial view
 function initView() {
@@ -216,8 +226,8 @@ const detailGroups = computed<ProjectGroup[]>(() => {
       g.phases.push(ph)
     }
     const hrs = parseFloat(e.hours) || 0
-    if (!ph.entries[e.date]) ph.entries[e.date] = []
-    ph.entries[e.date].push({ id: e.id, hours: hrs, status: e.status })
+    const dateBucket = ph.entries[e.date] || (ph.entries[e.date] = [])
+    dateBucket.push({ id: e.id, hours: hrs, status: e.status })
     ph.total += hrs
     ph.entryIds.push(e.id)
     g.dailyTotals[e.date] = (g.dailyTotals[e.date] || 0) + hrs
@@ -252,7 +262,7 @@ function phaseHours(cells: EntryCell[] | undefined): string {
   return String(cells.reduce((s, c) => s + c.hours, 0))
 }
 function cellStatus(cells: EntryCell[] | undefined): string {
-  if (!cells || cells.length === 0) return ''
+  if (!cells || cells.length === 0 || !cells[0]) return ''
   return cells[0].status
 }
 function cellIds(cells: EntryCell[] | undefined): number[] {
@@ -319,18 +329,6 @@ async function approveAllMyForEmployee(emp: EmployeeRow) {
   actionError.value = ''
   try {
     await timesheetApi.approveAllMyEntries(emp.employee_id, weekStart.value)
-    await fetchDashboard()
-  } catch (e: unknown) {
-    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
-  }
-}
-
-// Legacy per-approval actions (kept for batch from list)
-async function approvePM(approvalId: number) {
-  actionError.value = ''
-  try {
-    await timesheetApi.approvePM(approvalId)
-    hideDetail()
     await fetchDashboard()
   } catch (e: unknown) {
     actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
@@ -505,12 +503,12 @@ onMounted(() => { initView(); fetchDashboard() })
         <div class="kpi-value" style="color: #16A34A;">{{ kpis.validated }}</div>
         <div class="kpi-sub">completees</div>
       </div>
-      <div class="kpi-card" :style="kpis.alerts_error > 0 ? 'border-color: #DC2626; background: #FEF2F2;' : ''">
+      <div class="kpi-card" :style="(kpis.alerts_error || 0) > 0 ? 'border-color: #DC2626; background: #FEF2F2;' : ''">
         <div class="kpi-label">Anomalies</div>
         <div class="kpi-value" style="color: #DC2626;">{{ kpis.alerts_error || 0 }}</div>
         <div class="kpi-sub">{{ kpis.alerts_error || 0 }} bloquante(s), {{ kpis.alerts_warning || 0 }} avert.</div>
       </div>
-      <div class="kpi-card" :style="kpis.missing > 0 ? 'border-color: #DC2626; background: #FEF2F2;' : ''">
+      <div class="kpi-card" :style="(kpis.missing || 0) > 0 ? 'border-color: #DC2626; background: #FEF2F2;' : ''">
         <div class="kpi-label">Manquantes</div>
         <div class="kpi-value" style="color: #DC2626;">{{ kpis.missing }}</div>
         <div class="kpi-sub">non soumises</div>

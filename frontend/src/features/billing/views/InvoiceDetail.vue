@@ -194,10 +194,6 @@ const totalTTC = computed(() => {
   const apiTotal = Number((invoice.value as Record<string, unknown>)?.total_with_taxes || 0)
   return apiTotal > 0 ? apiTotal : Math.round((subtotal.value + totalTaxes.value) * 100) / 100
 })
-// Backward compat
-const taxTPS = computed(() => taxesDetail.value.filter(t => ['TPS', 'GST'].includes(t.type)).reduce((s, t) => s + t.amount, 0))
-const taxTVQ = computed(() => taxesDetail.value.filter(t => ['TVQ', 'PST'].includes(t.type)).reduce((s, t) => s + t.amount, 0))
-
 async function updateLine(lineId: number, field: string, value: string, force = false) {
   lineError.value = ''
   lineWarning.value = ''

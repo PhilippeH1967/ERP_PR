@@ -106,6 +106,7 @@ interface FinancialData {
   invoices_outstanding: string
   projects_count: number
   aging: { '0_30': string; '31_60': string; '61_90': string; '90_plus': string }
+  ca_by_year?: Record<string, string>
 }
 
 interface LinkedProject {

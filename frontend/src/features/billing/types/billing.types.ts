@@ -2,6 +2,7 @@ export interface Invoice {
   id: number
   project: number
   project_code?: string
+  project_name?: string
   client: number
   client_name?: string
   invoice_number: string

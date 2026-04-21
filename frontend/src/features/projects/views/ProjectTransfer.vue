@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
 import apiClient from '@/plugins/axios'
 
-const router = useRouter()
 const isSubmitting = ref(false)
 const success = ref('')
 const error = ref('')

@@ -7,13 +7,9 @@
 import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import apiClient from '@/plugins/axios'
-import { useLocale } from '@/shared/composables/useLocale'
-import { useAuth } from '@/shared/composables/useAuth'
 
 const route = useRoute()
 const router = useRouter()
-const { fmt } = useLocale()
-const { currentUser } = useAuth()
 const projectId = computed(() => Number(route.params.id))
 
 interface Project { id: number; code: string; name: string; client_name: string; status: string; start_date: string; end_date: string; pm: number }
@@ -46,7 +42,7 @@ onMounted(async () => {
     tasks.value = Array.isArray(tData) ? tData : tData?.results || []
     const teData = teResp.data?.data || teResp.data
     const allEntries = Array.isArray(teData) ? teData : teData?.results || []
-    myEntries.value = allEntries.filter((e: TimeEntry) => true) // all visible to employee are their own
+    myEntries.value = allEntries // all visible to employee are their own
     const aData = aResp.data?.data || aResp.data
     assignments.value = Array.isArray(aData) ? aData : aData?.results || []
   } catch {

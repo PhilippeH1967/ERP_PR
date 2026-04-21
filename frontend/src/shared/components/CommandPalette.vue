@@ -30,7 +30,8 @@ function close() { isOpen.value = false }
 function onKeydown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault()
-    isOpen.value ? close() : open()
+    if (isOpen.value) close()
+    else open()
   }
   if (e.key === 'Escape' && isOpen.value) close()
 }

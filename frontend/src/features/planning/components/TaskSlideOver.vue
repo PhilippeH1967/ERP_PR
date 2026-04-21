@@ -71,7 +71,7 @@ async function loadTask() {
       time_breakdown: (a.time_breakdown as Record<string, number> | null) ?? null,
     }))
 
-    if (allocations.value.length && !allocations.value[0].employee_name) {
+    if (allocations.value.length && !allocations.value[0]?.employee_name) {
       try {
         const ur = await apiClient.get('users/search/')
         const users = ur.data?.data || ur.data || []
@@ -112,8 +112,8 @@ async function updateAllocation(allocId: number, field: string, value: unknown) 
     const resp = await apiClient.patch(`allocations/${allocId}/`, { [field]: value })
     const updated = resp.data?.data || resp.data
     const idx = allocations.value.findIndex(a => a.id === allocId)
-    if (idx >= 0 && updated) {
-      const cur = allocations.value[idx]
+    const cur = idx >= 0 ? allocations.value[idx] : undefined
+    if (cur && updated) {
       allocations.value[idx] = {
         ...cur,
         hours_per_week: Number(updated.hours_per_week ?? cur.hours_per_week),

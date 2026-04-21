@@ -24,6 +24,10 @@ export interface Project {
   version: number
   phases: Phase[]
   support_services: SupportService[]
+  total_fees?: string | null
+  fee_calculation_method?: 'FORFAIT' | 'COUT_TRAVAUX' | 'HORAIRE'
+  fee_rate_pct?: string | null
+  construction_cost?: string | number | null
   created_at: string
   updated_at: string
 }
@@ -42,6 +46,9 @@ export interface Phase {
   is_locked: boolean
   budgeted_hours: string
   budgeted_cost: string
+  tasks_budgeted_hours?: number
+  planned_hours?: number
+  actual_hours?: number
 }
 
 export interface SupportService {

@@ -36,11 +36,9 @@ const wbsTree = ref<WBSNode[]>([])
 const assignments = ref<Assignment[]>([])
 const amendments = ref<Amendment[]>([])
 
-// WBS create/edit
+// WBS edit state (form refs dropped — legacy WBS tab replaced by tasks-per-phase)
 const showWBSForm = ref(false)
-const wbsForm = ref({ standard_label: '', client_facing_label: '', element_type: 'PHASE', budgeted_hours: '0', phase: null as number | null })
 const editingWBSId = ref<number | null>(null)
-const editingWBSForm = ref({ standard_label: '', client_facing_label: '', budgeted_hours: '', element_type: 'TASK' })
 
 // Amendment edit
 const editingAmendmentId = ref<number | null>(null)
@@ -92,10 +90,10 @@ const stInvoices = ref<STInvoiceItem[]>([])
 const stLoading = ref(false)
 
 async function loadSTInvoices() {
-  if (!project.value) return
+  if (!store.currentProject) return
   stLoading.value = true
   try {
-    const resp = await apiClient.get('st_invoices/', { params: { project: project.value.id } })
+    const resp = await apiClient.get('st_invoices/', { params: { project: store.currentProject.id } })
     const data = resp.data?.data || resp.data
     stInvoices.value = Array.isArray(data) ? data : data?.results || []
   } catch { stInvoices.value = [] }
@@ -108,10 +106,10 @@ const projectInvoices = ref<InvoiceItem[]>([])
 const invoicesLoading = ref(false)
 
 async function loadProjectInvoices() {
-  if (!project.value) return
+  if (!store.currentProject) return
   invoicesLoading.value = true
   try {
-    const resp = await apiClient.get('invoices/', { params: { project: project.value.id } })
+    const resp = await apiClient.get('invoices/', { params: { project: store.currentProject.id } })
     const data = resp.data?.data || resp.data
     projectInvoices.value = Array.isArray(data) ? data : data?.results || []
   } catch { projectInvoices.value = [] }
@@ -175,19 +173,8 @@ function formatAmount(value: number | string): string {
   return n.toLocaleString('fr-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-async function saveBudget(phaseId: number, newValue: string) {
-  budgetError.value = ''
-  const parsed = parseFloat(newValue.replace(/\s/g, '').replace(',', '.'))
-  if (isNaN(parsed) || parsed < 0) { budgetError.value = 'Montant invalide'; return }
-  budgetSaving.value = phaseId
-  try {
-    await projectApi.updatePhase(projectId, phaseId, { budgeted_cost: parsed } as Record<string, unknown>)
-    await reload()
-  } catch (e: unknown) {
-    budgetError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
-  } finally {
-    budgetSaving.value = null
-  }
+function promptRename(current: string): string {
+  return window.prompt('Nouveau nom:', current) || current
 }
 
 // Business Units + Users for dropdowns
@@ -293,43 +280,6 @@ async function savePhase() {
   } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
 }
 
-// WBS create
-async function createWBSElement() {
-  actionError.value = ''
-  try {
-    await projectApi.createWBSElement(projectId, {
-      standard_label: wbsForm.value.standard_label,
-      client_facing_label: wbsForm.value.client_facing_label,
-      element_type: wbsForm.value.element_type,
-      budgeted_hours: wbsForm.value.budgeted_hours,
-      phase: wbsForm.value.phase,
-    } as Record<string, unknown>)
-    showWBSForm.value = false
-    wbsForm.value = { standard_label: '', client_facing_label: '', element_type: 'PHASE', budgeted_hours: '0', phase: null }
-    await reload()
-  } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
-}
-
-function startEditWBS(node: WBSNode) {
-  editingWBSId.value = node.id
-  editingWBSForm.value = {
-    standard_label: node.standard_label,
-    client_facing_label: node.client_facing_label,
-    budgeted_hours: node.budgeted_hours,
-    element_type: node.element_type,
-  }
-}
-
-async function saveWBS() {
-  if (!editingWBSId.value) return
-  actionError.value = ''
-  try {
-    await projectApi.updateWBSElement(projectId, editingWBSId.value, editingWBSForm.value as Record<string, unknown>)
-    editingWBSId.value = null
-    await reload()
-  } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
-}
-
 // Tasks
 interface TaskItem {
   id: number; project: number; phase: number | null; phase_name: string; parent: number | null;
@@ -337,6 +287,7 @@ interface TaskItem {
   task_type: 'TASK' | 'SUBTASK'; billing_mode: 'FORFAIT' | 'HORAIRE'; order: number;
   budgeted_hours: string | number; budgeted_cost: string | number; hourly_rate: string | number;
   is_billable: boolean; is_active: boolean; progress_pct: number | string;
+  planned_hours?: number; actual_hours?: number;
 }
 const tasks = ref<TaskItem[]>([])
 const collapsedPhases = ref<Set<string>>(new Set())
@@ -607,7 +558,7 @@ const teamByEmployee = computed<TeamMember[]>(() => {
 })
 
 // Time entries for Temps tab
-interface ProjectTimeEntry { id: number; employee: number; user_name: string; date: string; hours: string; task_name: string; phase_name: string; status: string }
+interface ProjectTimeEntry { id: number; employee: number; employee_name?: string; user_name: string; date: string; hours: string; task_name: string; phase_name: string; status: string }
 const projectTimeEntries = ref<ProjectTimeEntry[]>([])
 const timeLoading = ref(false)
 
@@ -626,7 +577,11 @@ const projectTotalHours = computed(() => projectTimeEntries.value.reduce((s, e) 
 const timeViewMode = ref<'employee' | 'phase'>('employee')
 const expandedTimeMonths = ref(new Set<string>())
 function toggleTimeMonth(month: string) {
-  expandedTimeMonths.value.has(month) ? expandedTimeMonths.value.delete(month) : expandedTimeMonths.value.add(month)
+  if (expandedTimeMonths.value.has(month)) {
+    expandedTimeMonths.value.delete(month)
+  } else {
+    expandedTimeMonths.value.add(month)
+  }
 }
 
 // Unique sorted months from time entries
@@ -788,12 +743,6 @@ async function deleteAssignment(assignId: number) {
   confirmDeleteAssignment.value = null
   assignments.value = assignments.value.filter(a => a.id !== assignId)
   try { await apiClient.delete(`allocations/${assignId}/`) } catch { /* ok */ }
-}
-
-async function deleteWBS(wbsId: number) {
-  confirmDeleteWBS.value = null
-  wbsTree.value = wbsTree.value.filter(w => w.id !== wbsId)
-  try { await projectApi.deleteWBSElement(projectId, wbsId) } catch { /* ok */ }
 }
 
 async function createAmendment() {
@@ -1275,7 +1224,7 @@ watch(activeTab, (tab) => {
                   <span v-else class="badge badge-gray" style="font-size:9px;">Non</span>
                 </td>
                 <td v-if="isEditing" class="actions-cell">
-                  <button class="btn-action" @click="saveTaskField(task.id, 'name', prompt('Nouveau nom:', task.name) || task.name)">Modifier</button>
+                  <button class="btn-action" @click="saveTaskField(task.id, 'name', promptRename(task.name))">Modifier</button>
                   <button v-if="task.task_type !== 'SUBTASK'" class="btn-action" @click="showAddSubtask = task.id; newSubtaskName = ''">+ Sous-tache</button>
                   <template v-if="confirmDeleteTask === task.id">
                     <button class="btn-action danger" @click="removeTask(task.id)">Confirmer</button>
@@ -1467,12 +1416,12 @@ watch(activeTab, (tab) => {
               <template v-for="month in timeMonths" :key="month">
                 <!-- Month total cell -->
                 <td class="text-right font-mono time-pivot-month-cell" :class="{ 'has-hours': (row.hoursByMonth[month] || 0) > 0 }">
-                  {{ (row.hoursByMonth[month] || 0) > 0 ? (row.hoursByMonth[month]).toFixed(1) : '' }}
+                  {{ (row.hoursByMonth[month] || 0) > 0 ? (row.hoursByMonth[month] || 0).toFixed(1) : '' }}
                 </td>
                 <!-- Day cells (only if month expanded) -->
                 <template v-if="expandedTimeMonths.has(month)">
                   <td v-for="day in (timeDaysByMonth.get(month) || [])" :key="month + '-' + day" class="text-right font-mono time-pivot-day-cell" :class="{ 'has-hours': (row.hoursByDay[month + '-' + day] || 0) > 0 }">
-                    {{ (row.hoursByDay[month + '-' + day] || 0) > 0 ? (row.hoursByDay[month + '-' + day]).toFixed(1) : '' }}
+                    {{ (row.hoursByDay[month + '-' + day] || 0) > 0 ? (row.hoursByDay[month + '-' + day] || 0).toFixed(1) : '' }}
                   </td>
                 </template>
               </template>
@@ -1488,7 +1437,7 @@ watch(activeTab, (tab) => {
                 <td class="text-right font-mono font-semibold">{{ (monthTotals[month] || 0).toFixed(1) }}</td>
                 <template v-if="expandedTimeMonths.has(month)">
                   <td v-for="day in (timeDaysByMonth.get(month) || [])" :key="'t-' + month + '-' + day" class="text-right font-mono" style="font-size:10px;">
-                    {{ (dayTotals[month + '-' + day] || 0) > 0 ? (dayTotals[month + '-' + day]).toFixed(1) : '' }}
+                    {{ (dayTotals[month + '-' + day] || 0) > 0 ? (dayTotals[month + '-' + day] || 0).toFixed(1) : '' }}
                   </td>
                 </template>
               </template>

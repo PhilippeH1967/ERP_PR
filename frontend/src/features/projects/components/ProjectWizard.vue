@@ -260,6 +260,7 @@ async function onSubmit() {
           const phaseList = Array.isArray(createdPhases) ? createdPhases : createdPhases?.results || []
           for (let i = 0; i < Math.min(phaseList.length, phases.value.length); i++) {
             const wizardPhase = phases.value[i]
+            if (!wizardPhase) continue
             const hours = parseFloat(String(wizardPhase.budgeted_hours || '0'))
             const cost = parseFloat(String(wizardPhase.budgeted_cost || '0'))
             if (hours > 0 || cost > 0) {
