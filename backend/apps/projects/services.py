@@ -1,8 +1,90 @@
 """Project business logic services."""
 
-from apps.core.models import Tenant
+from django.db import transaction
+from django.utils import timezone
 
-from .models import Phase, Project, ProjectTemplate, SupportService, Task
+from apps.core.models import ProjectRole, Role, Tenant
+
+from .models import Amendment, Phase, Project, ProjectTemplate, SupportService, Task
+
+
+class AmendmentTransitionError(Exception):
+    """Raised when an amendment state transition is not allowed."""
+
+
+_ALLOWED_TRANSITIONS = {
+    Amendment.AmendmentStatus.DRAFT: {Amendment.AmendmentStatus.SUBMITTED},
+    Amendment.AmendmentStatus.SUBMITTED: {
+        Amendment.AmendmentStatus.APPROVED,
+        Amendment.AmendmentStatus.REJECTED,
+    },
+    Amendment.AmendmentStatus.APPROVED: set(),
+    Amendment.AmendmentStatus.REJECTED: set(),
+}
+
+
+def _assert_transition(amendment, target):
+    if target not in _ALLOWED_TRANSITIONS.get(amendment.status, set()):
+        raise AmendmentTransitionError(
+            f"Transition de '{amendment.status}' vers '{target}' non autorisée."
+        )
+
+
+def _is_project_director(user, tenant):
+    """True if ``user`` holds PROJECT_DIRECTOR role on the tenant."""
+    if user is None or not user.is_authenticated:
+        return False
+    return ProjectRole.objects.filter(
+        user=user,
+        tenant=tenant,
+        role=Role.PROJECT_DIRECTOR,
+    ).exists()
+
+
+@transaction.atomic
+def submit_amendment(amendment, *, actor):
+    """DRAFT → SUBMITTED. Any authenticated actor.
+
+    Used by PM / Assistante / Finance to push an amendment to the Associé en charge
+    for approval.
+    """
+    _assert_transition(amendment, Amendment.AmendmentStatus.SUBMITTED)
+    amendment.status = Amendment.AmendmentStatus.SUBMITTED
+    amendment._history_user = actor  # captured by HistoricalRecords
+    amendment.save(update_fields=["status", "version", "updated_at"])
+    return amendment
+
+
+@transaction.atomic
+def approve_amendment(amendment, *, actor):
+    """SUBMITTED → APPROVED. Only PROJECT_DIRECTOR (Associé en charge)."""
+    if not _is_project_director(actor, amendment.tenant):
+        raise PermissionError("Seul un Associé en charge peut approuver un avenant.")
+    _assert_transition(amendment, Amendment.AmendmentStatus.APPROVED)
+    amendment.status = Amendment.AmendmentStatus.APPROVED
+    amendment.approved_by = actor
+    amendment.approval_date = timezone.now()
+    amendment._history_user = actor
+    amendment.save(
+        update_fields=["status", "approved_by", "approval_date", "version", "updated_at"],
+    )
+    return amendment
+
+
+@transaction.atomic
+def reject_amendment(amendment, *, actor, reason=""):
+    """SUBMITTED → REJECTED. Only PROJECT_DIRECTOR (Associé en charge)."""
+    if not _is_project_director(actor, amendment.tenant):
+        raise PermissionError("Seul un Associé en charge peut rejeter un avenant.")
+    _assert_transition(amendment, Amendment.AmendmentStatus.REJECTED)
+    amendment.status = Amendment.AmendmentStatus.REJECTED
+    if reason:
+        amendment.description = (
+            f"{amendment.description}\n\n[Rejet — {timezone.now():%Y-%m-%d}] {reason}"
+        )
+    amendment._history_user = actor
+    amendment.save(update_fields=["status", "description", "version", "updated_at"])
+    return amendment
 
 
 def create_project_from_template(template_id, project_data, tenant_id=None):
@@ -39,13 +121,35 @@ def create_project_from_template(template_id, project_data, tenant_id=None):
 
     # Accepted project fields (both "client" and "client_id" for compatibility)
     project_fields = [
-        "code", "name", "client", "client_id", "business_unit", "legal_entity",
-        "start_date", "end_date", "is_internal", "is_public", "is_consortium",
-        "consortium", "consortium_id", "services_transversaux",
-        "address", "city", "postal_code", "country",
-        "surface", "surface_unit", "currency", "tags", "title_on_invoice",
-        "pm", "pm_id", "associate_in_charge", "associate_in_charge_id",
-        "invoice_approver", "invoice_approver_id",
+        "code",
+        "name",
+        "client",
+        "client_id",
+        "business_unit",
+        "legal_entity",
+        "start_date",
+        "end_date",
+        "is_internal",
+        "is_public",
+        "is_consortium",
+        "consortium",
+        "consortium_id",
+        "services_transversaux",
+        "address",
+        "city",
+        "postal_code",
+        "country",
+        "surface",
+        "surface_unit",
+        "currency",
+        "tags",
+        "title_on_invoice",
+        "pm",
+        "pm_id",
+        "associate_in_charge",
+        "associate_in_charge_id",
+        "invoice_approver",
+        "invoice_approver_id",
     ]
 
     # Normalize FK fields: convert "client": 5 → "client_id": 5
@@ -91,8 +195,12 @@ def create_project_from_template(template_id, project_data, tenant_id=None):
             billing_mode=phase_config.get("billing_mode", "FORFAIT"),
             order=i,
             is_mandatory=phase_config.get("is_mandatory", False),
-            budgeted_hours=budget_override.get("budgeted_hours") or phase_config.get("budgeted_hours", 0) or 0,
-            budgeted_cost=budget_override.get("budgeted_cost") or phase_config.get("budgeted_cost", 0) or 0,
+            budgeted_hours=budget_override.get("budgeted_hours")
+            or phase_config.get("budgeted_hours", 0)
+            or 0,
+            budgeted_cost=budget_override.get("budgeted_cost")
+            or phase_config.get("budgeted_cost", 0)
+            or 0,
         )
 
         # Create tasks under this phase

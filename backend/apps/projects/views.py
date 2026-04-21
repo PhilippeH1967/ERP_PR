@@ -24,7 +24,13 @@ from .serializers import (
     TaskSerializer,
     WBSElementSerializer,
 )
-from .services import create_project_from_template
+from .services import (
+    AmendmentTransitionError,
+    approve_amendment,
+    create_project_from_template,
+    reject_amendment,
+    submit_amendment,
+)
 
 
 class ProjectTemplateViewSet(viewsets.ModelViewSet):
@@ -97,8 +103,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ProjectRole.objects.filter(user=self.request.user).values_list("role", flat=True)
         )
         privileged = {
-            Role.ADMIN, Role.FINANCE, Role.PM, Role.PROJECT_DIRECTOR,
-            Role.BU_DIRECTOR, Role.DEPT_ASSISTANT, Role.PAIE,
+            Role.ADMIN,
+            Role.FINANCE,
+            Role.PM,
+            Role.PROJECT_DIRECTOR,
+            Role.BU_DIRECTOR,
+            Role.DEPT_ASSISTANT,
+            Role.PAIE,
         }
         if not user_roles & privileged:
             from apps.planning.models import ResourceAllocation
@@ -108,7 +119,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ).values_list("project_id", flat=True)
             qs = qs.filter(id__in=assigned_project_ids)
 
-        return qs.select_related("client", "pm", "consortium").prefetch_related("phases", "tasks", "support_services")
+        return qs.select_related("client", "pm", "consortium").prefetch_related(
+            "phases", "tasks", "support_services"
+        )
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -185,17 +198,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Hours consumed vs budgeted
         from apps.time_entries.models import TimeEntry
 
-        hours_consumed = TimeEntry.objects.filter(
-            project=project
-        ).aggregate(total=Sum("hours"))["total"] or Decimal("0")
+        hours_consumed = TimeEntry.objects.filter(project=project).aggregate(total=Sum("hours"))[
+            "total"
+        ] or Decimal("0")
 
-        budget_hours = project.phases.aggregate(
-            total=Sum("budgeted_hours")
-        )["total"] or Decimal("0")
-
-        utilization = (
-            float(hours_consumed / budget_hours * 100) if budget_hours > 0 else 0
+        budget_hours = project.phases.aggregate(total=Sum("budgeted_hours"))["total"] or Decimal(
+            "0"
         )
+
+        utilization = float(hours_consumed / budget_hours * 100) if budget_hours > 0 else 0
 
         # Health indicator
         if utilization < 75:
@@ -205,16 +216,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
         else:
             health = "red"
 
-        return Response({
-            "project_id": project.pk,
-            "code": project.code,
-            "name": project.name,
-            "status": project.status,
-            "hours_consumed": str(hours_consumed),
-            "budget_hours": str(budget_hours),
-            "budget_utilization_percent": round(utilization, 1),
-            "health": health,
-        })
+        return Response(
+            {
+                "project_id": project.pk,
+                "code": project.code,
+                "name": project.name,
+                "status": project.status,
+                "hours_consumed": str(hours_consumed),
+                "budget_hours": str(budget_hours),
+                "budget_utilization_percent": round(utilization, 1),
+                "health": health,
+            }
+        )
 
     @action(detail=True, methods=["get"], url_path="team_stats")
     def team_stats(self, request, pk=None):
@@ -233,15 +246,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Budget health per phase: which phases are over budget?
         phases_health = []
         for phase in project.phases.all():
-            budget_h = float(phase.tasks.aggregate(s=Sum("budgeted_hours"))["s"] or phase.budgeted_hours or 0)
-            actual_h = float(TimeEntry.objects.filter(phase=phase).aggregate(s=Sum("hours"))["s"] or 0)
-            planned_h = sum(a.total_planned_hours for a in phase.resource_allocations.filter(status="ACTIVE"))
+            budget_h = float(
+                phase.tasks.aggregate(s=Sum("budgeted_hours"))["s"] or phase.budgeted_hours or 0
+            )
+            actual_h = float(
+                TimeEntry.objects.filter(phase=phase).aggregate(s=Sum("hours"))["s"] or 0
+            )
+            planned_h = sum(
+                a.total_planned_hours for a in phase.resource_allocations.filter(status="ACTIVE")
+            )
             over = actual_h > budget_h > 0
-            phases_health.append({
-                "phase_id": phase.id, "phase_name": phase.name,
-                "budget_hours": budget_h, "planned_hours": planned_h,
-                "actual_hours": actual_h, "over_budget": over,
-            })
+            phases_health.append(
+                {
+                    "phase_id": phase.id,
+                    "phase_name": phase.name,
+                    "budget_hours": budget_h,
+                    "planned_hours": planned_h,
+                    "actual_hours": actual_h,
+                    "over_budget": over,
+                }
+            )
 
         over_count = sum(1 for p in phases_health if p["over_budget"])
         total_phases = len(phases_health)
@@ -253,11 +277,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         # Monthly hours per employee (last 6 months)
         from django.utils import timezone
+
         six_months_ago = (timezone.now() - timedelta(days=180)).date().replace(day=1)
         monthly = (
             TimeEntry.objects.filter(project=project, date__gte=six_months_ago)
             .annotate(month=TruncMonth("date"))
-            .values("employee__id", "employee__first_name", "employee__last_name", "employee__username", "month")
+            .values(
+                "employee__id",
+                "employee__first_name",
+                "employee__last_name",
+                "employee__username",
+                "month",
+            )
             .annotate(total_hours=Sum("hours"))
             .order_by("employee__username", "month")
         )
@@ -273,10 +304,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     "employee_name": name or row["employee__username"],
                     "months": [],
                 }
-            emp_monthly[eid]["months"].append({
-                "month": row["month"].strftime("%Y-%m"),
-                "hours": float(row["total_hours"]),
-            })
+            emp_monthly[eid]["months"].append(
+                {
+                    "month": row["month"].strftime("%Y-%m"),
+                    "hours": float(row["total_hours"]),
+                }
+            )
 
         # Planning status per employee
         emp_planning = {}
@@ -284,16 +317,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
             eid = alloc.employee_id
             emp_planning[eid] = emp_planning.get(eid, 0) + alloc.total_planned_hours
 
-        return Response({
-            "data": {
-                "budget_status": budget_status,
-                "over_budget_phases": over_count,
-                "total_phases": total_phases,
-                "phases_health": phases_health,
-                "employees_monthly": list(emp_monthly.values()),
-                "employees_planning": {str(k): v for k, v in emp_planning.items()},
+        return Response(
+            {
+                "data": {
+                    "budget_status": budget_status,
+                    "over_budget_phases": over_count,
+                    "total_phases": total_phases,
+                    "phases_health": phases_health,
+                    "employees_monthly": list(emp_monthly.values()),
+                    "employees_planning": {str(k): v for k, v in emp_planning.items()},
+                }
             }
-        })
+        )
 
 
 class PhaseViewSet(viewsets.ModelViewSet):
@@ -314,7 +349,13 @@ class PhaseViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import ValidationError
 
             raise ValidationError(
-                {"error": {"code": "MANDATORY_PHASE", "message": "Cette phase est obligatoire et ne peut pas être supprimée.", "details": []}}
+                {
+                    "error": {
+                        "code": "MANDATORY_PHASE",
+                        "message": "Cette phase est obligatoire et ne peut pas être supprimée.",
+                        "details": [],
+                    }
+                }
             )
         instance.delete()
 
@@ -326,9 +367,7 @@ class WBSElementViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return WBSElement.objects.filter(
-            project_id=self.kwargs["project_pk"], parent__isnull=True
-        )
+        return WBSElement.objects.filter(project_id=self.kwargs["project_pk"], parent__isnull=True)
 
     def perform_create(self, serializer):
         project = Project.objects.get(pk=self.kwargs["project_pk"])
@@ -348,9 +387,91 @@ class AmendmentViewSet(viewsets.ModelViewSet):
         project = Project.objects.get(pk=self.kwargs["project_pk"])
         next_num = (project.amendments.count() or 0) + 1
         serializer.save(
-            project=project, tenant=project.tenant,
-            amendment_number=next_num, requested_by=self.request.user,
+            project=project,
+            tenant=project.tenant,
+            amendment_number=next_num,
+            requested_by=self.request.user,
         )
+
+    @action(detail=True, methods=["post"])
+    def submit(self, request, project_pk=None, pk=None):
+        """DRAFT → SUBMITTED. Any authenticated user."""
+        amendment = self.get_object()
+        try:
+            submit_amendment(amendment, actor=request.user)
+        except AmendmentTransitionError as exc:
+            return Response(
+                {
+                    "error": {
+                        "code": "INVALID_AMENDMENT_TRANSITION",
+                        "message": str(exc),
+                        "details": [],
+                    }
+                },
+                status=400,
+            )
+        return Response(AmendmentSerializer(amendment).data, status=200)
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, project_pk=None, pk=None):
+        """SUBMITTED → APPROVED. Only Associé en charge."""
+        amendment = self.get_object()
+        try:
+            approve_amendment(amendment, actor=request.user)
+        except PermissionError as exc:
+            return Response(
+                {
+                    "error": {
+                        "code": "FORBIDDEN_AMENDMENT_APPROVAL",
+                        "message": str(exc),
+                        "details": [],
+                    }
+                },
+                status=403,
+            )
+        except AmendmentTransitionError as exc:
+            return Response(
+                {
+                    "error": {
+                        "code": "INVALID_AMENDMENT_TRANSITION",
+                        "message": str(exc),
+                        "details": [],
+                    }
+                },
+                status=400,
+            )
+        return Response(AmendmentSerializer(amendment).data, status=200)
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, project_pk=None, pk=None):
+        """SUBMITTED → REJECTED. Only Associé en charge."""
+        amendment = self.get_object()
+        reason = request.data.get("reason", "") if hasattr(request, "data") else ""
+        try:
+            reject_amendment(amendment, actor=request.user, reason=reason)
+        except PermissionError as exc:
+            return Response(
+                {
+                    "error": {
+                        "code": "FORBIDDEN_AMENDMENT_REJECTION",
+                        "message": str(exc),
+                        "details": [],
+                    }
+                },
+                status=403,
+            )
+        except AmendmentTransitionError as exc:
+            return Response(
+                {
+                    "error": {
+                        "code": "INVALID_AMENDMENT_TRANSITION",
+                        "message": str(exc),
+                        "details": [],
+                    }
+                },
+                status=400,
+            )
+        return Response(AmendmentSerializer(amendment).data, status=200)
 
 
 class TaskViewSet(viewsets.ModelViewSet):
@@ -360,9 +481,9 @@ class TaskViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Task.objects.filter(
-            project_id=self.kwargs["project_pk"]
-        ).select_related("phase", "parent")
+        return Task.objects.filter(project_id=self.kwargs["project_pk"]).select_related(
+            "phase", "parent"
+        )
 
     def perform_create(self, serializer):
         project = Project.objects.get(pk=self.kwargs["project_pk"])
