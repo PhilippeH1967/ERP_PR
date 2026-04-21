@@ -99,7 +99,8 @@ class Project(TenantScopedModel, VersionedModel):
         help_text="Consortium entity this project belongs to (if is_consortium=True)",
     )
     services_transversaux = models.JSONField(
-        default=list, blank=True,
+        default=list,
+        blank=True,
         help_text="Transversal services: ['BIM', 'PAYSAGE', 'DD', 'CIVIL', 'PATRIMOINE', ...]",
     )
     business_unit = models.CharField(max_length=100, blank=True, default="")
@@ -107,7 +108,10 @@ class Project(TenantScopedModel, VersionedModel):
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
     construction_cost = models.DecimalField(
-        max_digits=12, decimal_places=2, null=True, blank=True,
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
         help_text="Informational only — construction cost estimate",
     )
     # Location
@@ -118,43 +122,71 @@ class Project(TenantScopedModel, VersionedModel):
     # Project details
     surface = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     surface_unit = models.CharField(
-        max_length=5, choices=[("m2", "m²"), ("pi2", "pi²")], default="m2", blank=True,
+        max_length=5,
+        choices=[("m2", "m²"), ("pi2", "pi²")],
+        default="m2",
+        blank=True,
     )
     currency = models.CharField(max_length=3, default="CAD", blank=True)
     tags = models.JSONField(default=list, blank=True)
     title_on_invoice = models.CharField(
-        max_length=255, blank=True, default="",
+        max_length=255,
+        blank=True,
+        default="",
         help_text="Titre affiché sur les factures (si différent du titre projet)",
     )
     # Leadership
     pm = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="managed_projects",
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="managed_projects",
     )
     associate_in_charge = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="directed_projects",
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="directed_projects",
     )
     invoice_approver = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="approved_projects",
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_projects",
     )
     bu_director = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="bu_projects",
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="bu_projects",
     )
     # Fee / Honoraires
     total_fees = models.DecimalField(
-        max_digits=12, decimal_places=2, null=True, blank=True,
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
         help_text="Total honoraires HT",
     )
     fee_calculation_method = models.CharField(
         max_length=20,
-        choices=[("FORFAIT", "Forfait"), ("COUT_TRAVAUX", "Coût des travaux %"), ("HORAIRE", "Horaire")],
-        default="FORFAIT", blank=True,
+        choices=[
+            ("FORFAIT", "Forfait"),
+            ("COUT_TRAVAUX", "Coût des travaux %"),
+            ("HORAIRE", "Horaire"),
+        ],
+        default="FORFAIT",
+        blank=True,
     )
     fee_rate_pct = models.DecimalField(
-        max_digits=5, decimal_places=2, null=True, blank=True,
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
         help_text="Percentage of construction cost for fee calculation",
     )
 
@@ -182,6 +214,17 @@ class Phase(TenantScopedModel):
         SUPPORT = "SUPPORT", "Service de soutien"
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="phases")
+    amendment = models.ForeignKey(
+        "Amendment",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="phases",
+        help_text=(
+            "If set, this phase belongs to an amendment (avenant) "
+            "rather than the main project scope."
+        ),
+    )
     code = models.CharField(max_length=50, blank=True, default="")
     name = models.CharField(max_length=255)
     client_facing_label = models.CharField(max_length=255, blank=True, default="")
@@ -224,22 +267,44 @@ class Task(TenantScopedModel):
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="tasks")
     phase = models.ForeignKey(
-        Phase, on_delete=models.CASCADE, related_name="tasks",
+        Phase,
+        on_delete=models.CASCADE,
+        related_name="tasks",
+    )
+    amendment = models.ForeignKey(
+        "Amendment",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="tasks",
+        help_text=(
+            "If set, this task belongs to an amendment (avenant) "
+            "rather than the main project scope."
+        ),
     )
     parent = models.ForeignKey(
-        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="subtasks",
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="subtasks",
     )
     wbs_code = models.CharField(
-        max_length=20, db_index=True,
+        max_length=20,
+        db_index=True,
         help_text="WBS code, e.g., 3.1, 3.2.1",
     )
     name = models.CharField(max_length=255)
     client_facing_label = models.CharField(max_length=255, blank=True, default="")
     task_type = models.CharField(
-        max_length=10, choices=TaskType.choices, default=TaskType.TASK,
+        max_length=10,
+        choices=TaskType.choices,
+        default=TaskType.TASK,
     )
     billing_mode = models.CharField(
-        max_length=10, choices=BillingMode.choices, default=BillingMode.FORFAIT,
+        max_length=10,
+        choices=BillingMode.choices,
+        default=BillingMode.FORFAIT,
     )
     order = models.PositiveIntegerField(default=0)
     start_date = models.DateField(null=True, blank=True)
@@ -247,13 +312,18 @@ class Task(TenantScopedModel):
     budgeted_hours = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     budgeted_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     hourly_rate = models.DecimalField(
-        max_digits=8, decimal_places=2, null=True, blank=True,
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
         help_text="Hourly rate for HORAIRE billing mode",
     )
     is_billable = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
     progress_pct = models.DecimalField(
-        max_digits=5, decimal_places=2, default=0,
+        max_digits=5,
+        decimal_places=2,
+        default=0,
         help_text="Manual progress percentage 0-100",
     )
 
@@ -344,16 +414,23 @@ class Amendment(TenantScopedModel, VersionedModel):
         max_length=20, choices=AmendmentStatus.choices, default=AmendmentStatus.DRAFT
     )
     budget_impact = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0,
+        max_digits=12,
+        decimal_places=2,
+        default=0,
         help_text="Positive or negative impact on contract value",
     )
     requested_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, related_name="requested_amendments",
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="requested_amendments",
     )
     approved_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="approved_amendments",
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_amendments",
     )
     approval_date = models.DateTimeField(null=True, blank=True)
 
@@ -391,5 +468,3 @@ class FinancialPhase(TenantScopedModel):
 
     def __str__(self):
         return f"{self.code} — {self.name}"
-
-
