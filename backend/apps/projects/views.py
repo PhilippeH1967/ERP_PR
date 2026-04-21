@@ -186,6 +186,56 @@ class ProjectViewSet(viewsets.ModelViewSet):
             err = {"code": "TEMPLATE_NOT_FOUND", "message": "Template not found", "details": []}
             return Response({"error": err}, status=404)
 
+    @action(detail=True, methods=["get"], url_path="budget-summary")
+    def budget_summary(self, request, pk=None):
+        """Original + current contract value with approved amendments breakdown.
+
+        Returns the original contract value (``total_fees``), the current
+        contract value (original + Σ approved amendment deltas) and the list
+        of approved amendments contributing to the delta. Amendments in
+        DRAFT/SUBMITTED/REJECTED are excluded from both the sum and breakdown.
+        """
+        from decimal import Decimal
+
+        project = (
+            self.get_queryset().with_current_contract_value().filter(pk=self.kwargs["pk"]).first()
+        )
+        if project is None:
+            return Response(status=404)
+
+        approved = (
+            project.amendments.filter(status=Amendment.AmendmentStatus.APPROVED)
+            .select_related("approved_by")
+            .order_by("amendment_number")
+        )
+
+        original = project.total_fees or Decimal("0")
+        current = project.current_contract_value or Decimal("0")
+        total_impact = current - original
+
+        return Response(
+            {
+                "project_id": project.pk,
+                "original_contract_value": str(original),
+                "current_contract_value": str(current),
+                "total_approved_impact": str(total_impact),
+                "amendments": [
+                    {
+                        "id": amd.pk,
+                        "amendment_number": amd.amendment_number,
+                        "description": amd.description,
+                        "budget_impact": str(amd.budget_impact),
+                        "status": amd.status,
+                        "approval_date": (
+                            amd.approval_date.isoformat() if amd.approval_date else None
+                        ),
+                        "approved_by_id": amd.approved_by_id,
+                    }
+                    for amd in approved
+                ],
+            }
+        )
+
     @action(detail=True, methods=["get"])
     def dashboard(self, request, pk=None):
         """Project health dashboard with real KPIs."""

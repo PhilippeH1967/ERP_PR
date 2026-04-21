@@ -5,11 +5,43 @@ This is the core domain of the ERP — all time, billing, and resource
 modules reference these models.
 """
 
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
+from django.db.models import DecimalField, Q, Sum
+from django.db.models.functions import Coalesce
 from simple_history.models import HistoricalRecords
 
 from apps.core.models import TenantScopedModel, VersionedModel
+
+
+class ProjectQuerySet(models.QuerySet):
+    """Custom queryset with budget/amendment annotations."""
+
+    def with_current_contract_value(self):
+        """Annotate each project with its current contract value.
+
+        ``current_contract_value`` = ``total_fees`` (original contract) plus the
+        sum of ``budget_impact`` of all *APPROVED* amendments. ``NULL`` total fees
+        are coalesced to ``0``. DRAFT / SUBMITTED / REJECTED amendments are
+        excluded from the sum.
+        """
+        zero = Decimal("0")
+        decimal_field = DecimalField(max_digits=12, decimal_places=2)
+        approved_sum = Coalesce(
+            Sum(
+                "amendments__budget_impact",
+                filter=Q(amendments__status="APPROVED"),
+            ),
+            zero,
+            output_field=decimal_field,
+        )
+        original = Coalesce("total_fees", zero, output_field=decimal_field)
+        return self.annotate(current_contract_value=original + approved_sum)
+
+
+ProjectManager = models.Manager.from_queryset(ProjectQuerySet)
 
 
 class ContractType(models.TextChoices):
@@ -191,6 +223,8 @@ class Project(TenantScopedModel, VersionedModel):
     )
 
     history = HistoricalRecords()
+
+    objects = ProjectManager()
 
     class Meta:
         db_table = "projects_project"
