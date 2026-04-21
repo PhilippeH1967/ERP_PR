@@ -288,6 +288,7 @@ interface TaskItem {
   budgeted_hours: string | number; budgeted_cost: string | number; hourly_rate: string | number;
   is_billable: boolean; is_active: boolean; progress_pct: number | string;
   planned_hours?: number; actual_hours?: number;
+  amendment?: number | null; amendment_number?: number | null;
 }
 const tasks = ref<TaskItem[]>([])
 const collapsedPhases = ref<Set<string>>(new Set())
@@ -420,6 +421,16 @@ function togglePhaseCollapse(phaseName: string) {
 // Amendment form
 const showAmendmentForm = ref(false)
 const amendmentForm = ref({ description: '', budget_impact: '0', status: 'DRAFT' })
+
+// Amendment scope (periemetre) — phases + taches rattachees a un avenant
+interface AmendmentScopePhase { id: number; name: string; client_facing_label: string; budgeted_hours: string; budgeted_cost: string; amendment_number?: number | null }
+interface AmendmentScopeTask { id: number; wbs_code: string; name: string; phase: number; phase_name?: string; budgeted_hours: string }
+const expandedAmendmentId = ref<number | null>(null)
+const amendmentScope = ref<{ phases: AmendmentScopePhase[]; tasks: AmendmentScopeTask[] }>({ phases: [], tasks: [] })
+const amendmentScopeLoading = ref(false)
+const addToAmendmentMode = ref<'phase' | 'task' | null>(null)
+const newAmendmentPhase = ref({ name: '', client_facing_label: '', budgeted_hours: '0' })
+const newAmendmentTask = ref<{ phase: number | null; name: string }>({ phase: null, name: '' })
 
 // Honoraires form state
 const honorairesForm = ref({
@@ -821,6 +832,88 @@ async function confirmRejectAmendment() {
   }
 }
 
+async function loadAmendmentScope(id: number) {
+  amendmentScopeLoading.value = true
+  try {
+    const r = await projectApi.amendmentScope(projectId, id)
+    const d = r.data?.data || r.data
+    amendmentScope.value = { phases: d?.phases || [], tasks: d?.tasks || [] }
+  } catch {
+    amendmentScope.value = { phases: [], tasks: [] }
+  } finally {
+    amendmentScopeLoading.value = false
+  }
+}
+
+async function toggleAmendmentScope(id: number) {
+  if (expandedAmendmentId.value === id) {
+    expandedAmendmentId.value = null
+    addToAmendmentMode.value = null
+    return
+  }
+  expandedAmendmentId.value = id
+  addToAmendmentMode.value = null
+  await loadAmendmentScope(id)
+}
+
+async function addPhaseToAmendment(amendmentId: number) {
+  if (!newAmendmentPhase.value.name.trim()) { actionError.value = 'Nom de phase obligatoire'; return }
+  actionError.value = ''
+  try {
+    await projectApi.createPhase(projectId, {
+      ...newAmendmentPhase.value,
+      amendment: amendmentId,
+      billing_mode: 'FORFAIT',
+      phase_type: 'REALIZATION',
+    } as Record<string, unknown>)
+    newAmendmentPhase.value = { name: '', client_facing_label: '', budgeted_hours: '0' }
+    addToAmendmentMode.value = null
+    await Promise.all([reload(), loadAmendmentScope(amendmentId)])
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur creation phase'
+  }
+}
+
+async function addTaskToAmendment(amendmentId: number) {
+  if (!newAmendmentTask.value.name.trim() || !newAmendmentTask.value.phase) {
+    actionError.value = 'Phase et nom de tache obligatoires'
+    return
+  }
+  actionError.value = ''
+  try {
+    await projectApi.createTask(projectId, {
+      phase: newAmendmentTask.value.phase,
+      name: newAmendmentTask.value.name.trim(),
+      amendment: amendmentId,
+      task_type: 'TASK',
+      billing_mode: 'FORFAIT',
+    })
+    newAmendmentTask.value = { phase: null, name: '' }
+    addToAmendmentMode.value = null
+    await Promise.all([loadTasks(), loadAmendmentScope(amendmentId)])
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur creation tache'
+  }
+}
+
+async function detachPhaseFromAmendment(phaseId: number, amendmentId: number) {
+  try {
+    await projectApi.updatePhase(projectId, phaseId, { amendment: null })
+    await Promise.all([reload(), loadAmendmentScope(amendmentId)])
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
+}
+
+async function detachTaskFromAmendment(taskId: number, amendmentId: number) {
+  try {
+    await projectApi.updateTask(projectId, taskId, { amendment: null })
+    await Promise.all([loadTasks(), loadAmendmentScope(amendmentId)])
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
+}
+
 // Budget summary (original + current contract + approved amendments breakdown)
 interface BudgetSummary {
   project_id: number
@@ -1106,7 +1199,10 @@ watch(activeTab, (tab) => {
                 </td>
               </template>
               <template v-else>
-                <td class="font-semibold" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="(phase.client_facing_label ? phase.client_facing_label + ' — ' : '') + phase.name">{{ phase.name }}</td>
+                <td class="font-semibold" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="(phase.client_facing_label ? phase.client_facing_label + ' — ' : '') + phase.name">
+                  {{ phase.name }}
+                  <span v-if="phase.amendment_number" class="badge badge-purple" style="margin-left:6px; font-size:9px;" :title="'Phase ajoutée via avenant #' + phase.amendment_number">AV-{{ phase.amendment_number }}</span>
+                </td>
                 <td><span class="badge badge-gray">{{ phase.phase_type === 'SUPPORT' ? 'Support' : 'Réalisation' }}</span></td>
                 <td><span class="badge" :class="phase.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ phase.billing_mode }}</span></td>
                 <td class="text-right font-mono" style="font-size:11px;">{{ formatAmount(phase.budgeted_cost || 0) }} $</td>
@@ -1195,6 +1291,7 @@ watch(activeTab, (tab) => {
                 <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="task.display_label || task.name">
                   <span v-if="task.task_type === 'SUBTASK'" class="subtask-indent"></span>
                   {{ task.display_label || task.name }}
+                  <span v-if="task.amendment_number" class="badge badge-purple" style="margin-left:6px; font-size:9px;" :title="'Tâche ajoutée via avenant #' + task.amendment_number">AV-{{ task.amendment_number }}</span>
                 </td>
                 <td><span class="badge" :class="task.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'" style="font-size:10px;">{{ task.billing_mode === 'HORAIRE' ? 'H' : 'F' }}</span></td>
                 <td class="text-right">
@@ -1468,57 +1565,148 @@ watch(activeTab, (tab) => {
 
       <div class="card-table" v-if="amendments.length">
         <table>
-          <thead><tr><th>No</th><th>Description</th><th class="text-right">Impact ($)</th><th>Statut</th><th>Date</th><th></th></tr></thead>
+          <thead><tr><th style="width:32px;"></th><th>No</th><th>Description</th><th class="text-right">Impact ($)</th><th>Statut</th><th>Date</th><th></th></tr></thead>
           <tbody>
-            <tr v-for="am in amendments" :key="am.id">
-              <template v-if="editingAmendmentId === am.id">
-                <td class="font-mono font-semibold">#{{ am.amendment_number }}</td>
-                <td><input v-model="editAmendmentForm.description" class="inline-input" /></td>
-                <td><input v-model="editAmendmentForm.budget_impact" type="number" step="0.01" class="inline-input-sm" /></td>
-                <td>
-                  <select v-model="editAmendmentForm.status" class="inline-select">
-                    <option value="DRAFT">Brouillon</option>
-                    <option value="SUBMITTED">Soumis</option>
-                    <option value="APPROVED">Approuvé</option>
-                    <option value="REJECTED">Rejeté</option>
-                  </select>
-                </td>
-                <td class="text-muted">{{ am.created_at?.substring(0, 10) }}</td>
-                <td class="text-right">
-                  <button class="btn-action" @click="saveAmendment">OK</button>
-                  <button class="btn-action" @click="editingAmendmentId = null">×</button>
-                </td>
-              </template>
-              <template v-else>
-                <td class="font-mono font-semibold">#{{ am.amendment_number }}</td>
-                <td>{{ am.description }}</td>
-                <td class="text-right font-mono">{{ fmt.currency(am.budget_impact) }}</td>
-                <td><span class="badge" :class="am.status === 'APPROVED' ? 'badge-green' : am.status === 'SUBMITTED' ? 'badge-amber' : am.status === 'REJECTED' ? 'badge-red' : 'badge-gray'">{{ amendmentStatusLabels[am.status] || am.status }}</span></td>
-                <td class="text-muted">{{ am.created_at?.substring(0, 10) }}</td>
-                <td class="text-right">
-                  <template v-if="rejectingAmendmentId === am.id">
-                    <input v-model="rejectReason" type="text" class="inline-input-sm" placeholder="Motif du rejet" />
-                    <button class="btn-action danger" @click="confirmRejectAmendment">Rejeter</button>
-                    <button class="btn-action" @click="rejectingAmendmentId = null">Annuler</button>
-                  </template>
-                  <template v-else>
-                    <button v-if="am.status === 'DRAFT'" class="btn-action" @click="submitAmendment(am.id)">Soumettre</button>
-                    <template v-if="am.status === 'SUBMITTED' && canApproveAmendment">
-                      <button class="btn-action" @click="approveAmendment(am.id)">Valider</button>
-                      <button class="btn-action danger" @click="startRejectAmendment(am.id)">Rejeter...</button>
+            <template v-for="am in amendments" :key="am.id">
+              <tr>
+                <template v-if="editingAmendmentId === am.id">
+                  <td></td>
+                  <td class="font-mono font-semibold">#{{ am.amendment_number }}</td>
+                  <td><input v-model="editAmendmentForm.description" class="inline-input" /></td>
+                  <td><input v-model="editAmendmentForm.budget_impact" type="number" step="0.01" class="inline-input-sm" /></td>
+                  <td>
+                    <select v-model="editAmendmentForm.status" class="inline-select">
+                      <option value="DRAFT">Brouillon</option>
+                      <option value="SUBMITTED">Soumis</option>
+                      <option value="APPROVED">Approuvé</option>
+                      <option value="REJECTED">Rejeté</option>
+                    </select>
+                  </td>
+                  <td class="text-muted">{{ am.created_at?.substring(0, 10) }}</td>
+                  <td class="text-right">
+                    <button class="btn-action" @click="saveAmendment">OK</button>
+                    <button class="btn-action" @click="editingAmendmentId = null">×</button>
+                  </td>
+                </template>
+                <template v-else>
+                  <td>
+                    <button class="btn-action" :title="expandedAmendmentId === am.id ? 'Replier' : 'Voir le perimetre'" @click="toggleAmendmentScope(am.id)">
+                      {{ expandedAmendmentId === am.id ? '&#9660;' : '&#9654;' }}
+                    </button>
+                  </td>
+                  <td class="font-mono font-semibold">#{{ am.amendment_number }}</td>
+                  <td>{{ am.description }}</td>
+                  <td class="text-right font-mono">{{ fmt.currency(am.budget_impact) }}</td>
+                  <td><span class="badge" :class="am.status === 'APPROVED' ? 'badge-green' : am.status === 'SUBMITTED' ? 'badge-amber' : am.status === 'REJECTED' ? 'badge-red' : 'badge-gray'">{{ amendmentStatusLabels[am.status] || am.status }}</span></td>
+                  <td class="text-muted">{{ am.created_at?.substring(0, 10) }}</td>
+                  <td class="text-right">
+                    <template v-if="rejectingAmendmentId === am.id">
+                      <input v-model="rejectReason" type="text" class="inline-input-sm" placeholder="Motif du rejet" />
+                      <button class="btn-action danger" @click="confirmRejectAmendment">Rejeter</button>
+                      <button class="btn-action" @click="rejectingAmendmentId = null">Annuler</button>
                     </template>
-                    <template v-if="isEditing">
-                      <button class="btn-action" @click="startEditAmendment(am)">Modifier</button>
-                      <template v-if="confirmDeleteAmendment === am.id">
-                        <button class="btn-action danger" @click="deleteAmendment(am.id)">Confirmer</button>
-                        <button class="btn-action" @click="confirmDeleteAmendment = null">Annuler</button>
+                    <template v-else>
+                      <button v-if="am.status === 'DRAFT'" class="btn-action" @click="submitAmendment(am.id)">Soumettre</button>
+                      <template v-if="am.status === 'SUBMITTED' && canApproveAmendment">
+                        <button class="btn-action" @click="approveAmendment(am.id)">Valider</button>
+                        <button class="btn-action danger" @click="startRejectAmendment(am.id)">Rejeter...</button>
                       </template>
-                      <button v-else class="btn-action danger" @click="confirmDeleteAmendment = am.id">Supprimer...</button>
+                      <template v-if="isEditing">
+                        <button class="btn-action" @click="startEditAmendment(am)">Modifier</button>
+                        <template v-if="confirmDeleteAmendment === am.id">
+                          <button class="btn-action danger" @click="deleteAmendment(am.id)">Confirmer</button>
+                          <button class="btn-action" @click="confirmDeleteAmendment = null">Annuler</button>
+                        </template>
+                        <button v-else class="btn-action danger" @click="confirmDeleteAmendment = am.id">Supprimer...</button>
+                      </template>
                     </template>
-                  </template>
+                  </td>
+                </template>
+              </tr>
+              <tr v-if="expandedAmendmentId === am.id" class="amendment-scope-row">
+                <td></td>
+                <td colspan="6">
+                  <div class="amendment-scope-panel">
+                    <div class="amendment-scope-header">
+                      <strong>Perimetre de l'avenant #{{ am.amendment_number }}</strong>
+                      <template v-if="am.status === 'DRAFT' || am.status === 'SUBMITTED'">
+                        <button class="btn-action" @click="addToAmendmentMode = addToAmendmentMode === 'phase' ? null : 'phase'">
+                          + Nouvelle phase
+                        </button>
+                        <button class="btn-action" @click="addToAmendmentMode = addToAmendmentMode === 'task' ? null : 'task'">
+                          + Nouvelle tache
+                        </button>
+                      </template>
+                    </div>
+
+                    <div v-if="addToAmendmentMode === 'phase'" class="amendment-scope-form">
+                      <input v-model="newAmendmentPhase.name" class="inline-input" placeholder="Nom phase *" />
+                      <input v-model="newAmendmentPhase.client_facing_label" class="inline-input" placeholder="Libelle client" />
+                      <input v-model="newAmendmentPhase.budgeted_hours" type="number" class="inline-input-sm" placeholder="Heures" />
+                      <button class="btn-primary btn-sm" @click="addPhaseToAmendment(am.id)">Ajouter</button>
+                      <button class="btn-ghost btn-sm" @click="addToAmendmentMode = null">Annuler</button>
+                    </div>
+
+                    <div v-if="addToAmendmentMode === 'task'" class="amendment-scope-form">
+                      <select v-model.number="newAmendmentTask.phase" class="inline-select">
+                        <option :value="null">-- Choisir phase --</option>
+                        <option v-for="p in (store.currentProject?.phases || [])" :key="p.id" :value="p.id">{{ p.name }}</option>
+                      </select>
+                      <input v-model="newAmendmentTask.name" class="inline-input" placeholder="Nom tache *" />
+                      <button class="btn-primary btn-sm" @click="addTaskToAmendment(am.id)">Ajouter</button>
+                      <button class="btn-ghost btn-sm" @click="addToAmendmentMode = null">Annuler</button>
+                    </div>
+
+                    <div v-if="amendmentScopeLoading" class="text-muted">Chargement...</div>
+
+                    <template v-else>
+                      <div v-if="amendmentScope.phases.length" class="amendment-scope-section">
+                        <div class="text-muted text-sm" style="margin-bottom:4px;">Phases ({{ amendmentScope.phases.length }})</div>
+                        <table class="amendment-scope-table">
+                          <thead>
+                            <tr><th>Nom</th><th>Libelle client</th><th class="text-right">H. budget</th><th></th></tr>
+                          </thead>
+                          <tbody>
+                            <tr v-for="ph in amendmentScope.phases" :key="'ph-' + ph.id">
+                              <td>{{ ph.name }}</td>
+                              <td class="text-muted">{{ ph.client_facing_label || '—' }}</td>
+                              <td class="text-right font-mono">{{ Number(ph.budgeted_hours || 0).toFixed(1) }}</td>
+                              <td class="text-right">
+                                <button v-if="am.status !== 'APPROVED'" class="btn-action" @click="detachPhaseFromAmendment(ph.id, am.id)" title="Detacher de l'avenant">Detacher</button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div v-if="amendmentScope.tasks.length" class="amendment-scope-section">
+                        <div class="text-muted text-sm" style="margin-bottom:4px;">Taches ({{ amendmentScope.tasks.length }})</div>
+                        <table class="amendment-scope-table">
+                          <thead>
+                            <tr><th>WBS</th><th>Nom</th><th>Phase</th><th class="text-right">H. budget</th><th></th></tr>
+                          </thead>
+                          <tbody>
+                            <tr v-for="t in amendmentScope.tasks" :key="'t-' + t.id">
+                              <td class="font-mono">{{ t.wbs_code }}</td>
+                              <td>{{ t.name }}</td>
+                              <td class="text-muted">{{ t.phase_name || '—' }}</td>
+                              <td class="text-right font-mono">{{ Number(t.budgeted_hours || 0).toFixed(1) }}</td>
+                              <td class="text-right">
+                                <button v-if="am.status !== 'APPROVED'" class="btn-action" @click="detachTaskFromAmendment(t.id, am.id)" title="Detacher de l'avenant">Detacher</button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div v-if="!amendmentScope.phases.length && !amendmentScope.tasks.length && !addToAmendmentMode" class="text-muted text-sm" style="padding:8px 0;">
+                        Aucune phase ni tache rattachee a cet avenant. Utilisez les boutons ci-dessus pour ajouter du perimetre.
+                      </div>
+                    </template>
+                  </div>
                 </td>
-              </template>
-            </tr>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>

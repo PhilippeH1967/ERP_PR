@@ -49,6 +49,8 @@ export interface Phase {
   tasks_budgeted_hours?: number
   planned_hours?: number
   actual_hours?: number
+  amendment?: number | null
+  amendment_number?: number | null
 }
 
 export interface SupportService {

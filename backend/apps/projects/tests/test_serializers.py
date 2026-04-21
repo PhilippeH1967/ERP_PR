@@ -118,6 +118,48 @@ class TestTaskSerializer:
         assert not s.is_valid()
         assert "end_date" in s.errors
 
+    def test_amendment_exposed_as_null_by_default(self, project, phase):
+        task = TaskFactory(project=project, phase=phase, tenant=project.tenant, wbs_code="2.1")
+        data = TaskSerializer(task).data
+        assert "amendment" in data
+        assert data["amendment"] is None
+
+    def test_amendment_exposed_when_task_attached(self, project, phase):
+        amd = AmendmentFactory(project=project, tenant=project.tenant, amendment_number=1)
+        task = TaskFactory(
+            project=project,
+            phase=phase,
+            tenant=project.tenant,
+            wbs_code="AV1.1",
+            amendment=amd,
+        )
+        data = TaskSerializer(task).data
+        assert data["amendment"] == amd.pk
+
+    def test_amendment_writable_on_create(self, project, phase):
+        amd = AmendmentFactory(project=project, tenant=project.tenant, amendment_number=1)
+        s = TaskSerializer(
+            data={
+                "project": project.pk,
+                "phase": phase.pk,
+                "wbs_code": "AV1.2",
+                "name": "Task avenant",
+                "amendment": amd.pk,
+            }
+        )
+        assert s.is_valid(), s.errors
+        task = s.save(tenant=project.tenant)
+        assert task.amendment_id == amd.pk
+
+    def test_amendment_patchable_on_existing_task(self, project, phase):
+        task = TaskFactory(project=project, phase=phase, tenant=project.tenant, wbs_code="2.2")
+        amd = AmendmentFactory(project=project, tenant=project.tenant, amendment_number=1)
+        s = TaskSerializer(task, data={"amendment": amd.pk}, partial=True)
+        assert s.is_valid(), s.errors
+        s.save()
+        task.refresh_from_db()
+        assert task.amendment_id == amd.pk
+
 
 # --------------------------------------------------------------------------- #
 # PhaseSerializer (aggregation fields)
@@ -151,6 +193,49 @@ class TestPhaseSerializer:
         )
         data = PhaseSerializer(phase).data
         assert data["tasks_budgeted_hours"] == 25.5
+
+    def test_amendment_exposed_as_null_by_default(self, project):
+        phase = PhaseFactory(project=project, tenant=project.tenant)
+        data = PhaseSerializer(phase).data
+        assert "amendment" in data
+        assert data["amendment"] is None
+
+    def test_amendment_exposed_when_phase_attached(self, project):
+        amd = AmendmentFactory(project=project, tenant=project.tenant, amendment_number=1)
+        phase = PhaseFactory(project=project, tenant=project.tenant, amendment=amd)
+        data = PhaseSerializer(phase).data
+        assert data["amendment"] == amd.pk
+
+    def test_amendment_writable_on_create(self, project):
+        amd = AmendmentFactory(project=project, tenant=project.tenant, amendment_number=1)
+        s = PhaseSerializer(
+            data={
+                "name": "Phase ajoutee par avenant",
+                "amendment": amd.pk,
+                "budgeted_hours": "10.00",
+            }
+        )
+        assert s.is_valid(), s.errors
+        phase = s.save(project=project, tenant=project.tenant)
+        assert phase.amendment_id == amd.pk
+
+    def test_amendment_patchable_on_existing_phase(self, project):
+        phase = PhaseFactory(project=project, tenant=project.tenant)
+        amd = AmendmentFactory(project=project, tenant=project.tenant, amendment_number=1)
+        s = PhaseSerializer(phase, data={"amendment": amd.pk}, partial=True)
+        assert s.is_valid(), s.errors
+        s.save()
+        phase.refresh_from_db()
+        assert phase.amendment_id == amd.pk
+
+    def test_amendment_can_be_cleared_via_patch(self, project):
+        amd = AmendmentFactory(project=project, tenant=project.tenant, amendment_number=1)
+        phase = PhaseFactory(project=project, tenant=project.tenant, amendment=amd)
+        s = PhaseSerializer(phase, data={"amendment": None}, partial=True)
+        assert s.is_valid(), s.errors
+        s.save()
+        phase.refresh_from_db()
+        assert phase.amendment_id is None
 
 
 # --------------------------------------------------------------------------- #

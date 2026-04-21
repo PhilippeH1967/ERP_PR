@@ -578,6 +578,54 @@ class TestAmendmentViewSet:
         )
         assert response.status_code == 409
 
+    def test_scope_returns_phases_and_tasks_attached_to_amendment(
+        self, admin_client, project
+    ):
+        """GET /amendments/<id>/scope/ returns phases+tasks attached to this amendment."""
+        from apps.projects.tests.conftest import PhaseFactory, TaskFactory
+
+        amd = AmendmentFactory(project=project, tenant=project.tenant, amendment_number=1)
+        main_phase = PhaseFactory(project=project, tenant=project.tenant, name="Main")
+        amd_phase = PhaseFactory(
+            project=project, tenant=project.tenant, amendment=amd, name="Scope avenant"
+        )
+        TaskFactory(
+            project=project, phase=main_phase, tenant=project.tenant, wbs_code="1.1"
+        )
+        TaskFactory(
+            project=project,
+            phase=main_phase,
+            tenant=project.tenant,
+            wbs_code="AV1.1",
+            amendment=amd,
+        )
+        TaskFactory(
+            project=project,
+            phase=amd_phase,
+            tenant=project.tenant,
+            wbs_code="AV1.2",
+            amendment=amd,
+        )
+        response = admin_client.get(
+            f"/api/v1/projects/{project.pk}/amendments/{amd.pk}/scope/"
+        )
+        assert response.status_code == 200
+        body = response.json().get("data", response.json())
+        phase_names = {p["name"] for p in body["phases"]}
+        task_codes = {t["wbs_code"] for t in body["tasks"]}
+        assert phase_names == {"Scope avenant"}
+        assert task_codes == {"AV1.1", "AV1.2"}
+
+    def test_scope_empty_amendment_returns_empty_lists(self, admin_client, project):
+        amd = AmendmentFactory(project=project, tenant=project.tenant, amendment_number=1)
+        response = admin_client.get(
+            f"/api/v1/projects/{project.pk}/amendments/{amd.pk}/scope/"
+        )
+        assert response.status_code == 200
+        body = response.json().get("data", response.json())
+        assert body["phases"] == []
+        assert body["tasks"] == []
+
 
 # --------------------------------------------------------------------------- #
 # WBSElementViewSet (legacy — minimal smoke)

@@ -61,6 +61,8 @@ export const projectApi = {
     apiClient.post(`${BASE}/${projectId}/amendments/${amendmentId}/approve/`),
   rejectAmendment: (projectId: number, amendmentId: number, reason: string) =>
     apiClient.post(`${BASE}/${projectId}/amendments/${amendmentId}/reject/`, { reason }),
+  amendmentScope: (projectId: number, amendmentId: number) =>
+    apiClient.get(`${BASE}/${projectId}/amendments/${amendmentId}/scope/`),
 
   // Budget summary (original + current contract value + approved amendments breakdown)
   budgetSummary: (projectId: number) =>

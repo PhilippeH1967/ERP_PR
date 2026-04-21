@@ -21,6 +21,9 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
     tasks_budgeted_hours = serializers.SerializerMethodField()
     planned_hours = serializers.SerializerMethodField()
     actual_hours = serializers.SerializerMethodField()
+    amendment_number = serializers.IntegerField(
+        source="amendment.amendment_number", read_only=True, default=None
+    )
 
     class Meta:
         model = Phase
@@ -29,8 +32,9 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
             "billing_mode", "order", "start_date", "end_date",
             "is_mandatory", "is_locked", "budgeted_hours", "budgeted_cost",
             "tasks_budgeted_hours", "planned_hours", "actual_hours",
+            "amendment", "amendment_number",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "amendment_number"]
 
     def get_tasks_budgeted_hours(self, obj):
         """Sum of budgeted_hours from all tasks in this phase."""
@@ -59,6 +63,9 @@ class TaskSerializer(serializers.ModelSerializer):
     planned_hours = serializers.SerializerMethodField()
     actual_hours = serializers.SerializerMethodField()
     wbs_code = serializers.CharField(max_length=20, required=False, allow_blank=True, default="")
+    amendment_number = serializers.IntegerField(
+        source="amendment.amendment_number", read_only=True, default=None
+    )
 
     class Meta:
         model = Task
@@ -70,8 +77,12 @@ class TaskSerializer(serializers.ModelSerializer):
             "budgeted_hours", "budgeted_cost", "hourly_rate",
             "is_billable", "is_active", "progress_pct",
             "planned_hours", "actual_hours",
+            "amendment", "amendment_number",
         ]
-        read_only_fields = ["id", "display_label", "phase_name", "planned_hours", "actual_hours"]
+        read_only_fields = [
+            "id", "display_label", "phase_name", "planned_hours", "actual_hours",
+            "amendment_number",
+        ]
 
     def get_display_label(self, obj):
         return obj.client_facing_label or obj.name

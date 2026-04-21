@@ -492,6 +492,24 @@ class AmendmentViewSet(viewsets.ModelViewSet):
             )
         return Response(AmendmentSerializer(amendment).data, status=200)
 
+    @action(detail=True, methods=["get"])
+    def scope(self, request, project_pk=None, pk=None):
+        """Return phases and tasks attached to this amendment.
+
+        Used by the UI to show the scope (periemetre) of an avenant so the PM
+        can add phases/tasks directly from the amendment panel.
+        """
+        amendment = self.get_object()
+        phases = amendment.phases.all().order_by("order", "name")
+        tasks = amendment.tasks.select_related("phase").order_by("phase__order", "wbs_code")
+        return Response(
+            {
+                "phases": PhaseSerializer(phases, many=True).data,
+                "tasks": TaskSerializer(tasks, many=True).data,
+            },
+            status=200,
+        )
+
     @action(detail=True, methods=["post"])
     def reject(self, request, project_pk=None, pk=None):
         """SUBMITTED → REJECTED. Only Associé en charge."""
