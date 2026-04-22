@@ -54,7 +54,7 @@ const overrideBudget = ref(false)
 // Scope
 const scope = ref<{ phases: ScopePhase[]; tasks: ScopeTask[] }>({ phases: [], tasks: [] })
 const scopeLoading = ref(false)
-const newPhase = ref({ name: '', client_facing_label: '', budgeted_hours: '0' })
+const newPhase = ref({ name: '', client_facing_label: '', budgeted_hours: '0', budgeted_cost: '0' })
 const newTask = ref<{ phase: number | null; name: string; budgeted_hours: string }>({ phase: null, name: '', budgeted_hours: '0' })
 const showPhaseForm = ref(false)
 const showTaskForm = ref(false)
@@ -103,7 +103,7 @@ function resetState() {
   budgetImpactRaw.value = '0'
   overrideBudget.value = false
   scope.value = { phases: [], tasks: [] }
-  newPhase.value = { name: '', client_facing_label: '', budgeted_hours: '0' }
+  newPhase.value = { name: '', client_facing_label: '', budgeted_hours: '0', budgeted_cost: '0' }
   newTask.value = { phase: null, name: '', budgeted_hours: '0' }
   showPhaseForm.value = false
   showTaskForm.value = false
@@ -287,11 +287,12 @@ async function addPhase() {
       name: newPhase.value.name.trim(),
       client_facing_label: newPhase.value.client_facing_label.trim(),
       budgeted_hours: newPhase.value.budgeted_hours || '0',
+      budgeted_cost: newPhase.value.budgeted_cost || '0',
       amendment: props.amendmentId,
       billing_mode: 'FORFAIT',
       phase_type: 'REALIZATION',
     })
-    newPhase.value = { name: '', client_facing_label: '', budgeted_hours: '0' }
+    newPhase.value = { name: '', client_facing_label: '', budgeted_hours: '0', budgeted_cost: '0' }
     showPhaseForm.value = false
     await loadScope()
     emit('saved')
@@ -470,11 +471,24 @@ function formatAmount(n: number): string {
                   </button>
                 </div>
                 <div v-if="showPhaseForm" class="aso-scope-form">
-                  <input v-model="newPhase.name" class="aso-input" placeholder="Nom phase *" />
-                  <input v-model="newPhase.client_facing_label" class="aso-input" placeholder="Libellé client" />
+                  <div class="aso-field">
+                    <label class="aso-field-label">Nom phase <span class="aso-required">*</span></label>
+                    <input v-model="newPhase.name" class="aso-input" />
+                  </div>
+                  <div class="aso-field">
+                    <label class="aso-field-label">Libellé client</label>
+                    <input v-model="newPhase.client_facing_label" class="aso-input" />
+                  </div>
                   <div class="aso-scope-form-row">
-                    <input v-model="newPhase.budgeted_hours" type="number" class="aso-input aso-input-sm" placeholder="Heures" />
-                    <button class="aso-btn-primary" :disabled="saving" @click="addPhase">Ajouter</button>
+                    <div class="aso-field">
+                      <label class="aso-field-label">Heures budgetées</label>
+                      <input v-model="newPhase.budgeted_hours" type="number" min="0" step="0.25" class="aso-input aso-input-sm" />
+                    </div>
+                    <div class="aso-field">
+                      <label class="aso-field-label">Coût budgeté ($)</label>
+                      <input v-model="newPhase.budgeted_cost" type="number" min="0" step="0.01" class="aso-input aso-input-sm" />
+                    </div>
+                    <button class="aso-btn-primary aso-btn-form" :disabled="saving" @click="addPhase">Ajouter</button>
                   </div>
                 </div>
                 <div v-if="scope.phases.length" class="aso-scope-list">
@@ -510,14 +524,23 @@ function formatAmount(n: number): string {
                   </button>
                 </div>
                 <div v-if="showTaskForm" class="aso-scope-form">
-                  <select v-model.number="newTask.phase" class="aso-input">
-                    <option :value="null">— Choisir phase —</option>
-                    <option v-for="p in phases" :key="p.id" :value="p.id">{{ p.name }}</option>
-                  </select>
-                  <input v-model="newTask.name" class="aso-input" placeholder="Nom tâche *" />
+                  <div class="aso-field">
+                    <label class="aso-field-label">Phase <span class="aso-required">*</span></label>
+                    <select v-model.number="newTask.phase" class="aso-input">
+                      <option :value="null">— Choisir phase —</option>
+                      <option v-for="p in phases" :key="p.id" :value="p.id">{{ p.name }}</option>
+                    </select>
+                  </div>
+                  <div class="aso-field">
+                    <label class="aso-field-label">Nom tâche <span class="aso-required">*</span></label>
+                    <input v-model="newTask.name" class="aso-input" />
+                  </div>
                   <div class="aso-scope-form-row">
-                    <input v-model="newTask.budgeted_hours" type="number" class="aso-input aso-input-sm" placeholder="Heures" />
-                    <button class="aso-btn-primary" :disabled="saving" @click="addTask">Ajouter</button>
+                    <div class="aso-field">
+                      <label class="aso-field-label">Heures budgetées</label>
+                      <input v-model="newTask.budgeted_hours" type="number" min="0" step="0.25" class="aso-input aso-input-sm" />
+                    </div>
+                    <button class="aso-btn-primary aso-btn-form" :disabled="saving" @click="addTask">Ajouter</button>
                   </div>
                 </div>
                 <div v-if="scope.tasks.length" class="aso-scope-list">
@@ -652,11 +675,14 @@ function formatAmount(n: number): string {
 .aso-btn-inline:hover:not(:disabled) { background: var(--color-primary-light); }
 .aso-btn-inline:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.aso-scope-form { display: flex; flex-direction: column; gap: 6px; background: var(--color-gray-50); padding: 8px; border-radius: 4px; margin-bottom: 6px; }
-.aso-scope-form-row { display: flex; gap: 6px; }
+.aso-scope-form { display: flex; flex-direction: column; gap: 8px; background: var(--color-gray-50); padding: 10px; border-radius: 4px; margin-bottom: 6px; }
+.aso-scope-form-row { display: flex; gap: 8px; align-items: flex-end; }
+.aso-field { display: flex; flex-direction: column; gap: 3px; }
+.aso-field-label { font-size: 10px; font-weight: 600; color: var(--color-gray-600); text-transform: uppercase; letter-spacing: 0.2px; }
 .aso-input { padding: 5px 8px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; font-family: inherit; }
 .aso-input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
-.aso-input-sm { width: 80px; }
+.aso-input-sm { width: 100px; }
+.aso-btn-form { align-self: flex-end; }
 
 .aso-scope-list { display: flex; flex-direction: column; gap: 4px; }
 .aso-scope-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--color-gray-50); border-radius: 4px; }
