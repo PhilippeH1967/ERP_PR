@@ -10,6 +10,7 @@ import { consortiumApi } from '@/features/consortiums/api/consortiumApi'
 import { useProjectStore } from '../stores/useProjectStore'
 import GanttChart from '@/features/planning/components/GanttChart.vue'
 import AmendmentSlideOver from '../components/AmendmentSlideOver.vue'
+import TabGroup from '@/shared/components/TabGroup.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -482,24 +483,6 @@ async function saveHonoraires() {
   }
 }
 
-// Progress tab helpers
-function progressColor(pct: number): string {
-  if (pct <= 10) return 'progress-green'
-  if (pct <= 25) return 'progress-amber'
-  return 'progress-red'
-}
-
-async function saveProgressPct(taskId: number, value: string) {
-  const parsed = parseFloat(value)
-  if (isNaN(parsed) || parsed < 0 || parsed > 100) return
-  await saveTaskField(taskId, 'progress_pct', parsed)
-}
-
-// Finance tab data (placeholder)
-const financeData = ref([
-  { year: new Date().getFullYear(), ca: 0, costs: 0, margin: 0, margin_pct: 0 },
-])
-
 // Team tab — grouped by employee with hours + monthly chart + budget health
 const expandedTeamMembers = ref(new Set<number>())
 function toggleTeamMember(empId: number) {
@@ -669,20 +652,74 @@ const dayTotals = computed(() => {
   return t
 })
 
-const tabs = [
+// Grouped tabs — 5 root groups, some with sub-tabs (Sprint C)
+const rootTabs = computed(() => [
   { key: 'overview', label: 'Vue d\'ensemble' },
-  { key: 'phases', label: 'Phases' },
-  { key: 'tasks', label: 'Tâches' },
-  { key: 'team', label: 'Équipe' },
-  { key: 'time', label: 'Temps' },
-  { key: 'amendments', label: 'Avenants' },
-  { key: 'budget', label: 'Budget' },
-  { key: 'progress', label: 'Avancement' },
-  { key: 'gantt', label: 'Gantt' },
-  { key: 'finance', label: 'Finance' },
-  { key: 'st', label: 'Sous-traitants' },
-  { key: 'invoices', label: 'Factures' },
-]
+  {
+    key: 'structure',
+    label: 'Structure',
+    subTabs: [
+      { key: 'phases', label: 'Phases' },
+      { key: 'tasks', label: 'Tâches' },
+      { key: 'gantt', label: 'Gantt' },
+    ],
+  },
+  {
+    key: 'execution',
+    label: 'Exécution',
+    subTabs: [
+      { key: 'team', label: 'Équipe' },
+      { key: 'time', label: 'Temps' },
+    ],
+  },
+  {
+    key: 'finances',
+    label: 'Finances',
+    subTabs: [
+      { key: 'budget', label: 'Budget' },
+      { key: 'invoices', label: 'Factures' },
+      { key: 'st', label: 'Sous-traitants' },
+    ],
+  },
+  {
+    key: 'amendments',
+    label: `Avenants${amendments.value.length ? ` (${amendments.value.length})` : ''}`,
+  },
+])
+
+// Map an activeTab key back to its root (for TabGroup binding)
+const tabToRoot: Record<string, string> = {
+  overview: 'overview',
+  phases: 'structure', tasks: 'structure', gantt: 'structure',
+  team: 'execution', time: 'execution',
+  budget: 'finances', invoices: 'finances', st: 'finances',
+  amendments: 'amendments',
+}
+const rootTab = computed(() => tabToRoot[activeTab.value] || 'overview')
+const currentSubTab = computed(() => {
+  const root = rootTabs.value.find(r => r.key === rootTab.value)
+  return root?.subTabs ? activeTab.value : null
+})
+
+function onTabGroupUpdate(payload: { rootTab: string; subTab: string | null }) {
+  activeTab.value = payload.subTab || payload.rootTab
+}
+
+// URL sync — ?tab=structure/phases or ?tab=overview
+function parseTabQuery(q: unknown): string {
+  if (typeof q !== 'string' || !q) return 'overview'
+  const [, sub] = q.split('/')
+  const candidate = sub || q
+  return Object.prototype.hasOwnProperty.call(tabToRoot, candidate) ? candidate : 'overview'
+}
+activeTab.value = parseTabQuery(route.query.tab)
+watch(activeTab, (tab) => {
+  const root = tabToRoot[tab] || 'overview'
+  const encoded = root === tab ? root : `${root}/${tab}`
+  if (route.query.tab !== encoded) {
+    router.replace({ query: { ...route.query, tab: encoded } })
+  }
+})
 
 const statuses = [
   { value: 'ACTIVE', label: 'Actif', color: 'badge-green' },
@@ -805,7 +842,6 @@ onMounted(reload)
 // Lazy load tab data
 watch(activeTab, (tab) => {
   if (tab === 'tasks' && !tasks.value.length) loadTasks()
-  if (tab === 'progress' && !tasks.value.length) loadTasks()
   if (tab === 'budget') { initHonoraires(); loadBudgetSummary() }
   if (tab === 'team') { if (!projectTimeEntries.value.length) loadProjectTime(); loadTeamStats() }
   if (tab === 'time') loadProjectTime()
@@ -867,13 +903,14 @@ watch(activeTab, (tab) => {
       </div>
     </div>
 
-    <!-- Tabs -->
-    <div class="tabs">
-      <button v-for="tab in tabs" :key="tab.key" class="tab" :class="{ active: activeTab === tab.key }" @click="activeTab = tab.key">
-        {{ tab.label }}
-        <span v-if="tab.key === 'amendments' && amendments.length" class="tab-count">{{ amendments.length }}</span>
-      </button>
-    </div>
+    <!-- Tabs (Sprint C — 5 root groups + sub-tabs) -->
+    <TabGroup
+      :tabs="rootTabs"
+      :root-tab="rootTab"
+      :sub-tab="currentSubTab"
+      :storage-key="`project-${projectId}-tabs`"
+      @update="onTabGroupUpdate"
+    />
 
     <!-- ═══ Overview ═══ -->
     <template v-if="activeTab === 'overview'">
@@ -1675,110 +1712,6 @@ watch(activeTab, (tab) => {
       <p class="budget-hint">Les lignes de facturation référenceront le budget de chaque tâche.</p>
     </template>
 
-    <!-- ═══ Avancement ═══ -->
-    <template v-if="activeTab === 'progress'">
-      <div v-if="tasksByPhase.length">
-        <div v-for="group in tasksByPhase" :key="'prog-' + group.phase_name" class="task-phase-group">
-          <div class="task-phase-header" @click="togglePhaseCollapse('prog-' + group.phase_name)">
-            <span class="task-phase-toggle">{{ collapsedPhases.has('prog-' + group.phase_name) ? '&#9654;' : '&#9660;' }}</span>
-            <span class="font-semibold">{{ group.phase_name }}</span>
-            <span class="text-muted" style="margin-left:8px;">({{ group.tasks.length }} tâche{{ group.tasks.length > 1 ? 's' : '' }})</span>
-          </div>
-          <table v-if="!collapsedPhases.has('prog-' + group.phase_name)" class="data-table task-table task-table-fixed">
-            <thead>
-              <tr>
-                <th style="width:60px;">WBS</th>
-                <th>Tâche</th>
-                <th class="text-right" style="width:100px;">Budget ($)</th>
-                <th class="text-right" style="width:80px;">H. planifiées</th>
-                <th class="text-right" style="width:80px;">H. réelles</th>
-                <th class="text-right" style="width:90px;">% Avancement</th>
-                <th class="text-right" style="width:80px;">Écart</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="task in group.tasks" :key="'prog-t-' + task.id">
-                <td class="font-mono text-muted">{{ task.wbs_code || '—' }}</td>
-                <td>
-                  <span v-if="task.task_type === 'SUBTASK'" class="subtask-indent"></span>
-                  {{ task.display_label || task.name }}
-                </td>
-                <td class="text-right font-mono">{{ formatAmount(task.budgeted_cost) }}</td>
-                <td class="text-right font-mono">{{ task.budgeted_hours }}</td>
-                <td class="text-right font-mono">0</td>
-                <td class="text-right">
-                  <input
-                    class="progress-input"
-                    :value="task.progress_pct ?? 0"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="1"
-                    @blur="(e: Event) => saveProgressPct(task.id, (e.target as HTMLInputElement).value)"
-                    @keydown.enter="(e: Event) => (e.target as HTMLInputElement).blur()"
-                  />
-                </td>
-                <td class="text-right">
-                  <span
-                    class="badge"
-                    :class="progressColor(Number(task.progress_pct ?? 0) - (Number(task.budgeted_hours) > 0 ? (0 / Number(task.budgeted_hours) * 100) : 0))"
-                  >
-                    {{ (Number(task.progress_pct ?? 0) - (Number(task.budgeted_hours) > 0 ? (0 / Number(task.budgeted_hours) * 100) : 0)).toFixed(1) }}%
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr class="budget-total-row">
-                <td class="font-semibold" colspan="2">{{ group.phase_name }} — Total</td>
-                <td class="text-right font-mono font-semibold">{{ formatAmount(group.tasks.reduce((s, t) => s + Number(t.budgeted_cost || 0), 0)) }}</td>
-                <td class="text-right font-mono font-semibold">{{ group.tasks.reduce((s, t) => s + Number(t.budgeted_hours || 0), 0) }}</td>
-                <td class="text-right font-mono font-semibold">0</td>
-                <td class="text-right font-mono font-semibold">{{ (group.tasks.reduce((s, t) => s + Number((t as any).progress_pct ?? 0), 0) / (group.tasks.length || 1)).toFixed(1) }}%</td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
-      <div v-else class="card empty-card">Aucune tâche — ajoutez des tâches dans l'onglet Tâches</div>
-    </template>
-
-    <!-- ═══ Finance ═══ -->
-    <template v-if="activeTab === 'finance'">
-      <div class="kpi-grid-5">
-        <div class="kpi-card"><div class="kpi-value mono">0,00&nbsp;$</div><div class="kpi-label">CA facturé</div></div>
-        <div class="kpi-card"><div class="kpi-value mono">0,00&nbsp;$</div><div class="kpi-label">Coûts salaires</div></div>
-        <div class="kpi-card"><div class="kpi-value mono">0,00&nbsp;$</div><div class="kpi-label">Coûts ST</div></div>
-        <div class="kpi-card"><div class="kpi-value mono">0,00&nbsp;$</div><div class="kpi-label">Marge</div></div>
-        <div class="kpi-card"><div class="kpi-value mono">0,0&nbsp;%</div><div class="kpi-label">Marge %</div></div>
-      </div>
-
-      <div class="card-table">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Année</th>
-              <th class="text-right">CA ($)</th>
-              <th class="text-right">Coûts ($)</th>
-              <th class="text-right">Marge ($)</th>
-              <th class="text-right">Marge %</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in financeData" :key="row.year">
-              <td class="font-semibold">{{ row.year }}</td>
-              <td class="text-right font-mono">{{ formatAmount(row.ca) }}</td>
-              <td class="text-right font-mono">{{ formatAmount(row.costs) }}</td>
-              <td class="text-right font-mono">{{ formatAmount(row.margin) }}</td>
-              <td class="text-right font-mono">{{ row.margin_pct.toFixed(1) }}%</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="budget-hint">Les données financières seront calculées automatiquement à partir des factures et des feuilles de temps.</p>
-    </template>
-
     <!-- ═══ Gantt (US-PL06) ═══ -->
     <template v-if="activeTab === 'gantt'">
       <GanttChart :project-id="projectId" />
@@ -1902,10 +1835,6 @@ watch(activeTab, (tab) => {
 .alert-danger-banner { background: #FEE2E2; color: #DC2626; padding: 12px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
 .banner-actions { display: flex; gap: 8px; margin-top: 8px; }
 
-.tabs { display: flex; gap: 0; border-bottom: 2px solid var(--color-gray-200); margin-bottom: 16px; }
-.tab { padding: 8px 14px; font-size: 12px; font-weight: 500; color: var(--color-gray-500); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -2px; display: flex; align-items: center; gap: 4px; }
-.tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 600; }
-.tab-count { font-size: 9px; background: var(--color-gray-200); color: var(--color-gray-600); padding: 0 5px; border-radius: 8px; }
 
 .kpi-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
 .kpi-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 14px; text-align: center; }
@@ -2039,22 +1968,6 @@ watch(activeTab, (tab) => {
   background: var(--color-gray-50); font-size: 11px; text-transform: uppercase;
   color: var(--color-gray-600); padding: 6px 12px; border-bottom: 1px solid var(--color-gray-200);
 }
-
-/* Progress tab */
-.progress-input {
-  width: 70px; padding: 4px 6px; border: 1px solid var(--color-gray-300); border-radius: 3px;
-  font-size: 12px; font-family: var(--font-mono); text-align: right; background: white;
-  -moz-appearance: textfield;
-}
-.progress-input::-webkit-outer-spin-button,
-.progress-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.progress-input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
-.progress-green { background: #DCFCE7; color: #15803D; }
-.progress-amber { background: #FEF3C7; color: #92400E; }
-.progress-red { background: #FEE2E2; color: #DC2626; }
-
-/* Finance tab */
-.kpi-grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
 
 .form-actions { display: flex; gap: 6px; justify-content: flex-end; }
 .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
