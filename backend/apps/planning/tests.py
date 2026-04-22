@@ -571,3 +571,80 @@ class TestAllocationAPIWithVirtual:
             "hours_per_week": 20,
         }, format="json")
         assert resp.status_code == 400
+
+
+@pytest.mark.django_db
+class TestVirtualResourceReplaceWithEmployee:
+    """Action POST /virtual-resources/{id}/replace_with_employee/.
+
+    Toutes les allocations du profil virtuel sont réassignées à l'employé,
+    et le profil virtuel est désactivé (is_active=False).
+    """
+
+    def setup_method(self):
+        self.tenant = Tenant.objects.create(name="Rep", slug="rep-test")
+        self.pm = User.objects.create_user(username="rep_pm", password="pass123!")
+        self.emp = User.objects.create_user(username="rep_emp", password="pass123!")
+        ProjectRole.objects.create(user=self.pm, tenant=self.tenant, role=Role.PM)
+        self.project = Project.objects.create(
+            tenant=self.tenant, code="RP-01", name="Replace",
+        )
+        self.phase = Phase.objects.create(
+            tenant=self.tenant, project=self.project,
+            code="ESQUISSE", name="Esquisse", order=1,
+        )
+        self.virtual = VirtualResource.objects.create(
+            tenant=self.tenant, project=self.project, name="Architecte senior",
+        )
+        self.api = APIClient()
+        self.api.force_authenticate(user=self.pm)
+
+    def _make_alloc(self):
+        return ResourceAllocation.objects.create(
+            tenant=self.tenant, virtual_resource=self.virtual,
+            project=self.project, phase=self.phase,
+            start_date=date(2026, 5, 4), end_date=date(2026, 5, 31),
+            hours_per_week=20, created_by=self.pm,
+        )
+
+    def test_replaces_all_allocations_and_deactivates_virtual(self):
+        a1 = self._make_alloc()
+        a2 = self._make_alloc()
+        resp = self.api.post(
+            f"/api/v1/virtual-resources/{self.virtual.pk}/replace_with_employee/",
+            {"employee": self.emp.pk}, format="json",
+        )
+        assert resp.status_code == 200, resp.content
+        data = resp.json().get("data", resp.json())
+        assert data["replaced_count"] == 2
+
+        a1.refresh_from_db()
+        a2.refresh_from_db()
+        self.virtual.refresh_from_db()
+        assert a1.employee_id == self.emp.pk
+        assert a1.virtual_resource_id is None
+        assert a2.employee_id == self.emp.pk
+        assert a2.virtual_resource_id is None
+        assert self.virtual.is_active is False
+
+    def test_missing_employee_returns_400(self):
+        resp = self.api.post(
+            f"/api/v1/virtual-resources/{self.virtual.pk}/replace_with_employee/",
+            {}, format="json",
+        )
+        assert resp.status_code == 400
+
+    def test_invalid_employee_returns_400(self):
+        resp = self.api.post(
+            f"/api/v1/virtual-resources/{self.virtual.pk}/replace_with_employee/",
+            {"employee": 999_999}, format="json",
+        )
+        assert resp.status_code == 400
+
+    def test_unauthenticated_returns_401(self):
+        anon = APIClient()
+        resp = anon.post(
+            f"/api/v1/virtual-resources/{self.virtual.pk}/replace_with_employee/",
+            {"employee": self.emp.pk}, format="json",
+        )
+        assert resp.status_code in (401, 403)

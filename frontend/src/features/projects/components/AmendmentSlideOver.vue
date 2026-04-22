@@ -7,7 +7,10 @@
  */
 import { ref, computed, watch, nextTick } from 'vue'
 import { projectApi } from '../api/projectApi'
+import { planningApi } from '@/features/planning/api/planningApi'
+import apiClient from '@/plugins/axios'
 import Stepper from '@/shared/components/Stepper.vue'
+import HourDistribution from '@/shared/components/HourDistribution.vue'
 
 const STEPPER_STEPS = [
   { key: 'DRAFT', label: 'Brouillon' },
@@ -59,6 +62,17 @@ const newTask = ref<{ phase: number | null; name: string; budgeted_hours: string
 const showPhaseForm = ref(false)
 const showTaskForm = ref(false)
 
+// Allocation distribution (employés + profils virtuels)
+interface AllocRow { kind: 'employee' | 'virtual'; id: number; hours: number }
+interface Member { id: number; name: string }
+interface Virtual { id: number; name: string; default_hourly_rate: string }
+const members = ref<Member[]>([])
+const virtuals = ref<Virtual[]>([])
+const projectStart = ref<string | null>(null)
+const projectEnd = ref<string | null>(null)
+const newPhaseAllocations = ref<AllocRow[]>([])
+const newTaskAllocations = ref<AllocRow[]>([])
+
 // Rejection
 const rejectMode = ref(false)
 const rejectReason = ref('')
@@ -105,6 +119,8 @@ function resetState() {
   scope.value = { phases: [], tasks: [] }
   newPhase.value = { name: '', client_facing_label: '', budgeted_hours: '0', budgeted_cost: '0' }
   newTask.value = { phase: null, name: '', budgeted_hours: '0' }
+  newPhaseAllocations.value = []
+  newTaskAllocations.value = []
   showPhaseForm.value = false
   showTaskForm.value = false
   rejectMode.value = false
@@ -161,9 +177,109 @@ function extractError(e: unknown, fallback: string): string {
   return err.response?.data?.error?.message || err.response?.data?.detail || err.message || fallback
 }
 
+async function loadMembersAndVirtuals() {
+  try {
+    const ur = await apiClient.get('users/search/')
+    const data = ur.data?.data ?? ur.data ?? []
+    const list = Array.isArray(data) ? data : []
+    members.value = list.map((u: Record<string, unknown>) => {
+      const fn = String(u.first_name ?? '').trim()
+      const ln = String(u.last_name ?? '').trim()
+      const un = String(u.username ?? '')
+      const display = `${fn} ${ln}`.trim() || un
+      return { id: Number(u.id), name: display }
+    })
+  } catch {
+    members.value = []
+  }
+  try {
+    const vr = await planningApi.listVirtualResources({
+      project: String(props.projectId),
+      is_active: 'true',
+    })
+    const data = vr.data?.data ?? vr.data ?? []
+    const list = Array.isArray(data) ? data : (data.results ?? [])
+    virtuals.value = list.map((v: Record<string, unknown>) => ({
+      id: Number(v.id),
+      name: String(v.name),
+      default_hourly_rate: String(v.default_hourly_rate ?? '0'),
+    }))
+  } catch {
+    virtuals.value = []
+  }
+}
+
+async function loadProjectDates() {
+  try {
+    const r = await projectApi.get(props.projectId)
+    const p = r.data?.data || r.data
+    projectStart.value = p?.start_date ?? null
+    projectEnd.value = p?.end_date ?? null
+  } catch {
+    projectStart.value = null
+    projectEnd.value = null
+  }
+}
+
+async function createAllocationsFor(
+  rows: AllocRow[],
+  target: { phase?: number; task?: number },
+) {
+  if (!rows.length) return
+  const start = projectStart.value
+  const end = projectEnd.value
+  if (!start || !end) {
+    errorMsg.value = 'Dates projet manquantes — impossible de créer les allocations'
+    return
+  }
+  const msStart = new Date(start).getTime()
+  const msEnd = new Date(end).getTime()
+  const weeks = Math.max(1, Math.round((msEnd - msStart) / (7 * 24 * 3600 * 1000)))
+  for (const row of rows) {
+    if (!row.hours || row.hours <= 0) continue
+    const payload: Record<string, unknown> = {
+      project: props.projectId,
+      start_date: start,
+      end_date: end,
+      hours_per_week: Number((row.hours / weeks).toFixed(2)),
+      distribution_mode: 'uniform',
+    }
+    if (row.kind === 'employee') payload.employee = row.id
+    else payload.virtual_resource = row.id
+    if (target.phase) payload.phase = target.phase
+    if (target.task) payload.task = target.task
+    await planningApi.createAllocation(payload)
+  }
+}
+
+async function onCreateVirtual(form: { name: string; rate: string }) {
+  try {
+    const r = await planningApi.createVirtualResource({
+      project: props.projectId,
+      name: form.name,
+      default_hourly_rate: form.rate || '0',
+    })
+    const created = r.data?.data || r.data
+    if (created?.id) {
+      virtuals.value = [
+        ...virtuals.value,
+        {
+          id: Number(created.id),
+          name: String(created.name),
+          default_hourly_rate: String(created.default_hourly_rate ?? '0'),
+        },
+      ]
+    }
+  } catch (e) {
+    errorMsg.value = extractError(e, 'Erreur création profil virtuel')
+  }
+}
+
 watch(() => [props.open, props.amendmentId], async ([openNow, amId]) => {
   if (openNow) {
     resetState()
+    await loadMembersAndVirtuals()
+    await loadProjectDates()
     if (amId) {
       await loadAmendment()
       await loadScope()
@@ -283,7 +399,7 @@ async function addPhase() {
   saving.value = true
   errorMsg.value = ''
   try {
-    await projectApi.createPhase(props.projectId, {
+    const r = await projectApi.createPhase(props.projectId, {
       name: newPhase.value.name.trim(),
       client_facing_label: newPhase.value.client_facing_label.trim(),
       budgeted_hours: newPhase.value.budgeted_hours || '0',
@@ -292,7 +408,12 @@ async function addPhase() {
       billing_mode: 'FORFAIT',
       phase_type: 'REALIZATION',
     })
+    const createdPhase = (r.data?.data || r.data) as { id?: number } | undefined
+    if (createdPhase?.id && newPhaseAllocations.value.length) {
+      await createAllocationsFor(newPhaseAllocations.value, { phase: createdPhase.id })
+    }
     newPhase.value = { name: '', client_facing_label: '', budgeted_hours: '0', budgeted_cost: '0' }
+    newPhaseAllocations.value = []
     showPhaseForm.value = false
     await loadScope()
     emit('saved')
@@ -311,7 +432,7 @@ async function addTask() {
   saving.value = true
   errorMsg.value = ''
   try {
-    await projectApi.createTask(props.projectId, {
+    const r = await projectApi.createTask(props.projectId, {
       phase: newTask.value.phase,
       name: newTask.value.name.trim(),
       budgeted_hours: Number(newTask.value.budgeted_hours || 0),
@@ -319,7 +440,12 @@ async function addTask() {
       task_type: 'TASK',
       billing_mode: 'FORFAIT',
     })
+    const createdTask = (r.data?.data || r.data) as { id?: number } | undefined
+    if (createdTask?.id && newTaskAllocations.value.length) {
+      await createAllocationsFor(newTaskAllocations.value, { task: createdTask.id })
+    }
     newTask.value = { phase: null, name: '', budgeted_hours: '0' }
+    newTaskAllocations.value = []
     showTaskForm.value = false
     await loadScope()
     emit('saved')
@@ -488,6 +614,16 @@ function formatAmount(n: number): string {
                       <label class="aso-field-label">Coût budgeté ($)</label>
                       <input v-model="newPhase.budgeted_cost" type="number" min="0" step="0.01" class="aso-input aso-input-sm" />
                     </div>
+                  </div>
+                  <HourDistribution
+                    v-model="newPhaseAllocations"
+                    :members="members"
+                    :virtuals="virtuals"
+                    :budgeted-hours="Number(newPhase.budgeted_hours || 0)"
+                    :disabled="saving"
+                    @create-virtual="onCreateVirtual"
+                  />
+                  <div class="aso-scope-form-row aso-scope-form-actions">
                     <button class="aso-btn-primary aso-btn-form" :disabled="saving" @click="addPhase">Ajouter</button>
                   </div>
                 </div>
@@ -540,6 +676,16 @@ function formatAmount(n: number): string {
                       <label class="aso-field-label">Heures budgetées</label>
                       <input v-model="newTask.budgeted_hours" type="number" min="0" step="0.25" class="aso-input aso-input-sm" />
                     </div>
+                  </div>
+                  <HourDistribution
+                    v-model="newTaskAllocations"
+                    :members="members"
+                    :virtuals="virtuals"
+                    :budgeted-hours="Number(newTask.budgeted_hours || 0)"
+                    :disabled="saving"
+                    @create-virtual="onCreateVirtual"
+                  />
+                  <div class="aso-scope-form-row aso-scope-form-actions">
                     <button class="aso-btn-primary aso-btn-form" :disabled="saving" @click="addTask">Ajouter</button>
                   </div>
                 </div>
@@ -677,6 +823,7 @@ function formatAmount(n: number): string {
 
 .aso-scope-form { display: flex; flex-direction: column; gap: 8px; background: var(--color-gray-50); padding: 10px; border-radius: 4px; margin-bottom: 6px; }
 .aso-scope-form-row { display: flex; gap: 8px; align-items: flex-end; }
+.aso-scope-form-actions { justify-content: flex-end; }
 .aso-field { display: flex; flex-direction: column; gap: 3px; }
 .aso-field-label { font-size: 10px; font-weight: 600; color: var(--color-gray-600); text-transform: uppercase; letter-spacing: 0.2px; }
 .aso-input { padding: 5px 8px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; font-family: inherit; }

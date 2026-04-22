@@ -400,6 +400,50 @@ class VirtualResourceViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(tenant=_get_tenant(self.request))
 
+    @action(detail=True, methods=["post"])
+    def replace_with_employee(self, request, pk=None):
+        """Remplace toutes les allocations du profil virtuel par un employé réel.
+
+        Body: {"employee": <user_id>}
+        Le profil virtuel est désactivé (is_active=False) après remplacement.
+        """
+        from django.contrib.auth import get_user_model
+        from django.db import transaction
+
+        virtual = self.get_object()
+        employee_id = request.data.get("employee")
+        if not employee_id:
+            return Response(
+                {"error": {"code": "MISSING_EMPLOYEE", "message": "employee required"}},
+                status=400,
+            )
+
+        user_model = get_user_model()
+        try:
+            employee = user_model.objects.get(pk=employee_id)
+        except user_model.DoesNotExist:
+            return Response(
+                {"error": {"code": "INVALID_EMPLOYEE", "message": "employee not found"}},
+                status=400,
+            )
+
+        with transaction.atomic():
+            allocations = ResourceAllocation.objects.filter(virtual_resource=virtual)
+            replaced = 0
+            for alloc in allocations:
+                alloc.employee = employee
+                alloc.virtual_resource = None
+                alloc.save()
+                replaced += 1
+            virtual.is_active = False
+            virtual.save()
+
+        return Response({
+            "replaced_count": replaced,
+            "virtual_resource_id": virtual.pk,
+            "employee_id": employee.pk,
+        })
+
 
 class PlanningStandardViewSet(viewsets.ModelViewSet):
     """CRUD for reusable load-curve standards (tenant-scoped)."""

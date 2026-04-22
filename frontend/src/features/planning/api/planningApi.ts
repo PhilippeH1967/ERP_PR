@@ -26,4 +26,15 @@ export const planningApi = {
   createStandard: (data: Record<string, unknown>) => apiClient.post('planning-standards/', data),
   updateStandard: (id: number, data: Record<string, unknown>) => apiClient.patch(`planning-standards/${id}/`, data),
   deleteStandard: (id: number) => apiClient.delete(`planning-standards/${id}/`),
+
+  // Virtual resources
+  listVirtualResources: (params?: Record<string, string>) =>
+    apiClient.get('virtual-resources/', { params }),
+  createVirtualResource: (data: Record<string, unknown>) =>
+    apiClient.post('virtual-resources/', data),
+  updateVirtualResource: (id: number, data: Record<string, unknown>) =>
+    apiClient.patch(`virtual-resources/${id}/`, data),
+  deleteVirtualResource: (id: number) => apiClient.delete(`virtual-resources/${id}/`),
+  replaceVirtualWithEmployee: (id: number, employeeId: number) =>
+    apiClient.post(`virtual-resources/${id}/replace_with_employee/`, { employee: employeeId }),
 }

@@ -11,6 +11,7 @@ import { useProjectStore } from '../stores/useProjectStore'
 import GanttChart from '@/features/planning/components/GanttChart.vue'
 import AmendmentSlideOver from '../components/AmendmentSlideOver.vue'
 import TabGroup from '@/shared/components/TabGroup.vue'
+import { planningApi } from '@/features/planning/api/planningApi'
 
 const route = useRoute()
 const router = useRouter()
@@ -175,6 +176,57 @@ function formatAmount(value: number | string): string {
 // Business Units + Users for dropdowns
 const businessUnits = ref<Array<{ id: number; name: string }>>([])
 const allUsers = ref<Array<{ id: number; username: string; email: string }>>([])
+
+// Virtual resources (profils virtuels) — onglet Équipe
+interface VirtualResource { id: number; name: string; default_hourly_rate: string; is_active: boolean }
+const projectVirtuals = ref<VirtualResource[]>([])
+const replacingVirtualId = ref<number | null>(null)
+const replaceEmployeeId = ref<number | null>(null)
+const replaceError = ref('')
+const replacing = ref(false)
+
+async function loadProjectVirtuals() {
+  try {
+    const r = await planningApi.listVirtualResources({ project: String(projectId), is_active: 'true' })
+    const d: unknown = (r.data as { data?: unknown })?.data ?? r.data
+    const list = Array.isArray(d) ? d : ((d as { results?: unknown })?.results ?? [])
+    projectVirtuals.value = Array.isArray(list) ? (list as VirtualResource[]) : []
+  } catch {
+    projectVirtuals.value = []
+  }
+}
+
+function startReplaceVirtual(virtualId: number) {
+  replacingVirtualId.value = virtualId
+  replaceEmployeeId.value = null
+  replaceError.value = ''
+}
+
+function cancelReplaceVirtual() {
+  replacingVirtualId.value = null
+  replaceEmployeeId.value = null
+  replaceError.value = ''
+}
+
+async function confirmReplaceVirtual(virtualId: number) {
+  if (!replaceEmployeeId.value) {
+    replaceError.value = 'Sélectionnez un employé pour remplacer ce profil virtuel.'
+    return
+  }
+  replacing.value = true
+  replaceError.value = ''
+  try {
+    await planningApi.replaceVirtualWithEmployee(virtualId, Number(replaceEmployeeId.value))
+    replacingVirtualId.value = null
+    replaceEmployeeId.value = null
+    await Promise.all([loadProjectVirtuals(), loadTeamStats(), reload()])
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+    replaceError.value = msg || 'Erreur lors du remplacement'
+  } finally {
+    replacing.value = false
+  }
+}
 
 // Add phase form
 const showAddPhaseForm = ref(false)
@@ -843,7 +895,7 @@ onMounted(reload)
 watch(activeTab, (tab) => {
   if (tab === 'tasks' && !tasks.value.length) loadTasks()
   if (tab === 'budget') { initHonoraires(); loadBudgetSummary() }
-  if (tab === 'team') { if (!projectTimeEntries.value.length) loadProjectTime(); loadTeamStats() }
+  if (tab === 'team') { if (!projectTimeEntries.value.length) loadProjectTime(); loadTeamStats(); loadProjectVirtuals() }
   if (tab === 'time') loadProjectTime()
   if (tab === 'st') loadSTInvoices()
   if (tab === 'invoices') loadProjectInvoices()
@@ -1297,6 +1349,48 @@ watch(activeTab, (tab) => {
         <div class="kpi-card">
           <div class="kpi-value mono">{{ projectTotalHours.toFixed(1) }}h</div>
           <div class="kpi-label">H. reelles totales</div>
+        </div>
+      </div>
+
+      <!-- Profils virtuels actifs (à remplacer par de vrais employés) -->
+      <div v-if="projectVirtuals.length" class="virtuals-panel" data-virtuals-panel>
+        <div class="virtuals-header">
+          <span class="virtuals-title">Profils virtuels actifs</span>
+          <span class="virtuals-count">{{ projectVirtuals.length }}</span>
+        </div>
+        <p class="virtuals-hint">Remplacez chaque profil virtuel par un employé réel une fois l'équipe connue — toutes les allocations liées basculent automatiquement.</p>
+        <div v-for="v in projectVirtuals" :key="v.id" class="virtual-row" data-virtual-row>
+          <div class="virtual-info">
+            <span class="virtual-avatar">V</span>
+            <div>
+              <div class="virtual-name">{{ v.name }}</div>
+              <div class="virtual-sub">Taux: {{ formatAmount(v.default_hourly_rate) }} $/h</div>
+            </div>
+          </div>
+          <div v-if="replacingVirtualId === v.id" class="virtual-replace-form">
+            <select v-model="replaceEmployeeId" class="select-sm" data-replace-select>
+              <option :value="null">— Choisir un employé —</option>
+              <option v-for="u in allUsers" :key="u.id" :value="u.id">{{ u.username }}</option>
+            </select>
+            <button
+              class="btn-action primary"
+              :disabled="!replaceEmployeeId || replacing"
+              data-replace-confirm
+              @click="confirmReplaceVirtual(v.id)"
+            >
+              {{ replacing ? '…' : 'Confirmer' }}
+            </button>
+            <button class="btn-action" :disabled="replacing" @click="cancelReplaceVirtual">Annuler</button>
+            <div v-if="replaceError" class="virtual-error" data-replace-error>{{ replaceError }}</div>
+          </div>
+          <button
+            v-else
+            class="btn-action"
+            data-replace-start
+            @click="startReplaceVirtual(v.id)"
+          >
+            Remplacer…
+          </button>
         </div>
       </div>
 
@@ -2031,4 +2125,19 @@ watch(activeTab, (tab) => {
 .time-pivot-footer td { background: var(--color-gray-100); border-top: 2px solid var(--color-gray-300); }
 .time-pivot-label-cell { font-size: 12px; }
 .time-total { display: flex; align-items: center; gap: 16px; padding: 8px 16px; }
+
+/* Virtual resources panel (Équipe) */
+.virtuals-panel { background: var(--color-gray-50); border: 1px solid var(--color-gray-200); border-radius: 6px; padding: 12px; margin-bottom: 16px; }
+.virtuals-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.virtuals-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--color-gray-700); }
+.virtuals-count { background: var(--color-primary-light); color: var(--color-primary); font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 10px; }
+.virtuals-hint { font-size: 11px; color: var(--color-gray-500); margin: 0 0 10px; }
+.virtual-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: white; border: 1px solid var(--color-gray-200); border-radius: 4px; margin-bottom: 6px; flex-wrap: wrap; }
+.virtual-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px; }
+.virtual-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--color-gray-300); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+.virtual-name { font-size: 13px; font-weight: 600; color: var(--color-gray-800); }
+.virtual-sub { font-size: 11px; color: var(--color-gray-500); font-family: var(--font-mono); }
+.virtual-replace-form { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.virtual-replace-form .select-sm { padding: 4px 8px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; min-width: 180px; }
+.virtual-error { flex-basis: 100%; font-size: 11px; color: var(--color-danger); }
 </style>
