@@ -18,11 +18,10 @@ const { currentUser } = useAuth()
 const projectId = Number(route.params.id)
 const activeTab = ref('overview')
 const actionError = ref('')
-const isEditing = ref(false)
 const showEditStatus = ref(false)
+const showActionsMenu = ref(false)
 const showDeleteConfirm = ref(false)
 const confirmDeletePhase = ref<number | null>(null)
-const confirmDeleteWBS = ref<number | null>(null)
 const confirmDeleteAssignment = ref<number | null>(null)
 const confirmDeleteAmendment = ref<number | null>(null)
 
@@ -37,7 +36,6 @@ const assignments = ref<Assignment[]>([])
 const amendments = ref<Amendment[]>([])
 
 // WBS edit state (form refs dropped — legacy WBS tab replaced by tasks-per-phase)
-const showWBSForm = ref(false)
 const editingWBSId = ref<number | null>(null)
 
 // Amendment edit
@@ -142,6 +140,10 @@ const canEdit = computed(() => {
   return roles.includes('ADMIN') || roles.includes('FINANCE') || roles.includes('PM') || roles.includes('PROJECT_DIRECTOR') || roles.includes('DEPT_ASSISTANT')
 })
 
+// isEditing is now equivalent to canEdit — no more global mode toggle.
+// Users with rights always see edit affordances; each card manages its own local edit state.
+const isEditing = canEdit
+
 const canEditBudget = computed(() => {
   const roles = currentUser.value?.roles || []
   return roles.includes('ADMIN') || roles.includes('FINANCE')
@@ -173,10 +175,6 @@ function formatAmount(value: number | string): string {
   return n.toLocaleString('fr-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function promptRename(current: string): string {
-  return window.prompt('Nouveau nom:', current) || current
-}
-
 // Business Units + Users for dropdowns
 const businessUnits = ref<Array<{ id: number; name: string }>>([])
 const allUsers = ref<Array<{ id: number; username: string; email: string }>>([])
@@ -190,7 +188,7 @@ const editingProject = ref(false)
 const projectForm = ref({ name: '', start_date: '', end_date: '', business_unit: '', pm: '', associate_in_charge: '' })
 
 function startEditProject() {
-  if (!isEditing.value) return
+  if (!canEdit.value) return
   const p = store.currentProject
   if (!p) return
   projectForm.value = {
@@ -202,19 +200,6 @@ function startEditProject() {
     associate_in_charge: String(p.associate_in_charge || ''),
   }
   editingProject.value = true
-}
-
-function stopEditing() {
-  isEditing.value = false
-  editingProject.value = false
-  editingPhaseId.value = null
-  editingWBSId.value = null
-  showWBSForm.value = false
-  showDeleteConfirm.value = false
-  confirmDeletePhase.value = null
-  confirmDeleteWBS.value = null
-  confirmDeleteAssignment.value = null
-  confirmDeleteAmendment.value = null
 }
 
 async function addPhase() {
@@ -297,6 +282,24 @@ const showAddTaskPhase = ref<number | null>(null)
 const newTaskName = ref('')
 const showAddSubtask = ref<number | null>(null)
 const newSubtaskName = ref('')
+const editingTaskNameId = ref<number | null>(null)
+const editTaskNameValue = ref('')
+
+function startEditTaskName(task: TaskItem) {
+  editingTaskNameId.value = task.id
+  editTaskNameValue.value = task.name
+}
+function commitEditTaskName(taskId: number) {
+  const name = editTaskNameValue.value.trim()
+  const original = tasks.value.find(t => t.id === taskId)?.name ?? ''
+  if (name && name !== original) {
+    saveTaskField(taskId, 'name', name)
+  }
+  editingTaskNameId.value = null
+}
+function cancelEditTaskName() {
+  editingTaskNameId.value = null
+}
 
 const tasksByPhase = computed(() => {
   const grouped: Record<string, { phase_name: string; phase_id: number | null; tasks: TaskItem[] }> = {}
@@ -737,6 +740,19 @@ async function deleteProject() {
   router.push('/projects')
 }
 
+function openActionsMenu() {
+  showActionsMenu.value = !showActionsMenu.value
+}
+function onAction(name: 'archive' | 'duplicate' | 'export' | 'delete') {
+  showActionsMenu.value = false
+  if (name === 'delete') {
+    showDeleteConfirm.value = true
+    return
+  }
+  actionError.value = `${name === 'archive' ? 'Archivage' : name === 'duplicate' ? 'Duplication' : 'Export'} — fonctionnalité à venir`
+  setTimeout(() => { actionError.value = '' }, 3000)
+}
+
 function openAssignModal(phaseId: number | null, _phaseName: string) {
   const query = phaseId ? { phase: String(phaseId) } : undefined
   router.push({ name: 'gantt', params: { projectId: String(projectId) }, query })
@@ -971,21 +987,29 @@ watch(activeTab, (tab) => {
           <span v-if="consortiumData" class="badge badge-amber" style="cursor:default;">{{ consortiumData.pr_role === 'MANDATAIRE' ? 'Mandataire' : 'Partenaire' }} — {{ (consortiumData.members.find((m: Record<string, unknown>) => m.is_pr) as Record<string, unknown>)?.coefficient || '?' }}%</span>
           <button v-if="store.currentProject.consortium" class="btn-link" @click="router.push(`/consortiums/${store.currentProject.consortium}`)">Voir consortium →</button>
         </template>
-        <!-- Status badge (clickable only in edit mode) -->
+        <!-- Status badge (clickable when user has edit rights) -->
         <div class="relative">
-          <button class="badge" :class="statusColors[store.currentProject.status]" @click="isEditing && (showEditStatus = !showEditStatus)" :style="isEditing ? 'cursor:pointer' : 'cursor:default'">
-            {{ statuses.find(s => s.value === store.currentProject?.status)?.label || store.currentProject.status }} <span v-if="isEditing">&#x25BE;</span>
+          <button class="badge" :class="statusColors[store.currentProject.status]" @click="canEdit && (showEditStatus = !showEditStatus)" :style="canEdit ? 'cursor:pointer' : 'cursor:default'">
+            {{ statuses.find(s => s.value === store.currentProject?.status)?.label || store.currentProject.status }} <span v-if="canEdit">&#x25BE;</span>
           </button>
-          <div v-if="showEditStatus && isEditing" class="status-dropdown">
+          <div v-if="showEditStatus && canEdit" class="status-dropdown">
             <button v-for="s in availableStatuses" :key="s.value" class="status-option" @click="changeStatus(s.value)">
               <span class="badge" :class="s.color">{{ s.label }}</span>
             </button>
             <div v-if="!availableStatuses.length" class="status-option" style="color:var(--color-gray-400);font-size:11px;cursor:default;">Aucune transition possible</div>
           </div>
         </div>
-        <button v-if="!isEditing && canEdit" class="btn-primary" @click="isEditing = true">⚙️ Paramètres</button>
-        <button v-if="isEditing" class="btn-ghost" @click="stopEditing">Terminer</button>
-        <button v-if="isEditing" class="btn-danger btn-sm" @click="showDeleteConfirm = true">Supprimer...</button>
+        <!-- Actions menu (replaces Paramètres/Terminer/Supprimer buttons) -->
+        <div v-if="canEdit" class="relative">
+          <button class="btn-ghost actions-trigger" @click="openActionsMenu" title="Actions du projet">⋮</button>
+          <div v-if="showActionsMenu" class="actions-menu">
+            <button class="actions-menu-item" @click="onAction('archive')">Archiver</button>
+            <button class="actions-menu-item" @click="onAction('duplicate')">Dupliquer</button>
+            <button class="actions-menu-item" @click="onAction('export')">Exporter</button>
+            <div class="actions-menu-separator"></div>
+            <button class="actions-menu-item danger" @click="onAction('delete')">Supprimer...</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1010,19 +1034,16 @@ watch(activeTab, (tab) => {
 
     <!-- ═══ Overview ═══ -->
     <template v-if="activeTab === 'overview'">
-      <div v-if="dashboard" class="kpi-grid-3">
-        <div class="kpi-card"><div class="kpi-value" :class="{ success: dashboard.health==='green', warning: dashboard.health==='yellow', danger: dashboard.health==='red' }">{{ dashboard.budget_utilization_percent }}%</div><div class="kpi-label">Utilisation</div></div>
-        <div class="kpi-card"><div class="kpi-value mono">{{ fmt.hours(dashboard.hours_consumed) }}</div><div class="kpi-label">Heures</div></div>
-        <div class="kpi-card"><div class="kpi-value mono">{{ fmt.hours(dashboard.budget_hours) }}</div><div class="kpi-label">Budget</div></div>
-      </div>
       <!-- View mode -->
       <template v-if="!editingProject">
-        <!-- KPIs financiers (E-26) -->
-        <div class="kpi-grid-4" style="margin-bottom:12px;">
+        <!-- KPIs unifiés (finance + heures) — 6 cards -->
+        <div class="kpi-grid-6">
           <div class="kpi-card"><div class="kpi-value mono">{{ formatAmount(taskBudgetTotal) }}&nbsp;$</div><div class="kpi-label">Budget total</div></div>
           <div class="kpi-card"><div class="kpi-value mono">{{ formatAmount(budgetInvoiced) }}&nbsp;$</div><div class="kpi-label">Facturé</div></div>
           <div class="kpi-card"><div class="kpi-value" :class="{ success: budgetConsumedPercent < 75, warning: budgetConsumedPercent >= 75, danger: budgetConsumedPercent >= 90 }">{{ budgetConsumedPercent }}&nbsp;%</div><div class="kpi-label">Consommé</div></div>
           <div class="kpi-card"><div class="kpi-value mono" :class="{ danger: budgetRemaining < 0 }">{{ formatAmount(budgetRemaining) }}&nbsp;$</div><div class="kpi-label">Solde restant</div></div>
+          <div class="kpi-card"><div class="kpi-value mono">{{ dashboard ? fmt.hours(dashboard.hours_consumed) : '0' }}</div><div class="kpi-label">Heures consommées</div></div>
+          <div class="kpi-card"><div class="kpi-value mono">{{ dashboard ? fmt.hours(dashboard.budget_hours) : '0' }}</div><div class="kpi-label">Heures budget</div></div>
         </div>
 
         <div class="info-grid">
@@ -1290,8 +1311,20 @@ watch(activeTab, (tab) => {
                 <td style="font-size:11px; color:var(--color-gray-500);">{{ task.wbs_code || '—' }}</td>
                 <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="task.display_label || task.name">
                   <span v-if="task.task_type === 'SUBTASK'" class="subtask-indent"></span>
-                  {{ task.display_label || task.name }}
-                  <span v-if="task.amendment_number" class="badge badge-purple" style="margin-left:6px; font-size:9px;" :title="'Tâche ajoutée via avenant #' + task.amendment_number">AV-{{ task.amendment_number }}</span>
+                  <template v-if="editingTaskNameId === task.id">
+                    <input
+                      v-model="editTaskNameValue"
+                      class="budget-input"
+                      style="width: 100%; font-size:13px;"
+                      autofocus
+                      @keydown.enter="commitEditTaskName(task.id)"
+                      @keydown.esc="cancelEditTaskName"
+                      @blur="commitEditTaskName(task.id)" />
+                  </template>
+                  <template v-else>
+                    {{ task.display_label || task.name }}
+                    <span v-if="task.amendment_number" class="badge badge-purple" style="margin-left:6px; font-size:9px;" :title="'Tâche ajoutée via avenant #' + task.amendment_number">AV-{{ task.amendment_number }}</span>
+                  </template>
                 </td>
                 <td><span class="badge" :class="task.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'" style="font-size:10px;">{{ task.billing_mode === 'HORAIRE' ? 'H' : 'F' }}</span></td>
                 <td class="text-right">
@@ -1321,7 +1354,7 @@ watch(activeTab, (tab) => {
                   <span v-else class="badge badge-gray" style="font-size:9px;">Non</span>
                 </td>
                 <td v-if="isEditing" class="actions-cell">
-                  <button class="btn-action" @click="saveTaskField(task.id, 'name', promptRename(task.name))">Modifier</button>
+                  <button class="btn-action" @click="startEditTaskName(task)">Modifier</button>
                   <button v-if="task.task_type !== 'SUBTASK'" class="btn-action" @click="showAddSubtask = task.id; newSubtaskName = ''">+ Sous-tache</button>
                   <template v-if="confirmDeleteTask === task.id">
                     <button class="btn-action danger" @click="removeTask(task.id)">Confirmer</button>
@@ -1554,11 +1587,15 @@ watch(activeTab, (tab) => {
       <div v-if="isEditing" class="section-actions"><button class="btn-primary" @click="showAmendmentForm = !showAmendmentForm">+ Nouvel avenant</button></div>
 
       <div v-if="showAmendmentForm" class="card" style="margin-bottom: 12px;">
-        <form @submit.prevent="createAmendment" class="form-row-3">
-          <div class="form-group"><label>Description</label><input v-model="amendmentForm.description" type="text" required placeholder="Description de l'avenant" /></div>
-          <div class="form-group"><label>Impact budget ($)</label><input v-model="amendmentForm.budget_impact" type="number" step="0.01" /></div>
-          <div class="form-group"><label>Statut</label><select v-model="amendmentForm.status"><option value="DRAFT">Brouillon</option><option value="SUBMITTED">Soumis</option><option value="APPROVED">Approuvé</option></select>
-            <div style="margin-top:6px;display:flex;gap:4px;justify-content:flex-end;"><button type="button" class="btn-ghost" @click="showAmendmentForm=false">Annuler</button><button type="submit" class="btn-primary">Créer</button></div>
+        <form @submit.prevent="createAmendment">
+          <div class="form-row-2">
+            <div class="form-group"><label>Description</label><input v-model="amendmentForm.description" type="text" required placeholder="Description de l'avenant" /></div>
+            <div class="form-group"><label>Impact budget ($)</label><input v-model="amendmentForm.budget_impact" type="number" step="0.01" /></div>
+          </div>
+          <p style="font-size:11px; color:var(--color-text-muted); margin: 6px 0 8px 0;">L'avenant sera créé en statut <strong>Brouillon</strong>. Vous pourrez le soumettre pour approbation depuis la liste ci-dessous.</p>
+          <div style="display:flex;gap:6px;justify-content:flex-end;">
+            <button type="button" class="btn-ghost" @click="showAmendmentForm=false">Annuler</button>
+            <button type="submit" class="btn-primary">Créer</button>
           </div>
         </form>
       </div>
@@ -2132,6 +2169,13 @@ watch(activeTab, (tab) => {
 .status-option { display: block; width: 100%; padding: 6px 8px; border: none; background: none; cursor: pointer; text-align: left; border-radius: 4px; }
 .status-option:hover { background: var(--color-gray-50); }
 .status-option.active { background: var(--color-primary-light); }
+.actions-trigger { font-size: 18px; padding: 2px 10px; line-height: 1; }
+.actions-menu { position: absolute; top: 100%; right: 0; z-index: 50; margin-top: 4px; background: white; border: 1px solid var(--color-border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); padding: 4px; min-width: 160px; }
+.actions-menu-item { display: block; width: 100%; padding: 6px 10px; border: none; background: none; cursor: pointer; text-align: left; border-radius: 4px; font-size: 12px; color: var(--color-text); }
+.actions-menu-item:hover { background: var(--color-gray-50); }
+.actions-menu-item.danger { color: var(--color-danger); }
+.actions-menu-item.danger:hover { background: var(--color-danger-light); }
+.actions-menu-separator { height: 1px; background: var(--color-border); margin: 4px 0; }
 
 .alert-error { background: var(--color-danger-light); color: var(--color-danger); padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
 .alert-danger-banner { background: #FEE2E2; color: #DC2626; padding: 12px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
@@ -2196,6 +2240,8 @@ watch(activeTab, (tab) => {
 
 /* Budget tab */
 .kpi-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.kpi-grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 16px; }
+@media (max-width: 1200px) { .kpi-grid-6 { grid-template-columns: repeat(3, 1fr); } }
 
 .budget-table { width: 100%; }
 .budget-table th, .budget-table td { padding: 8px 12px; border-bottom: 1px solid var(--color-gray-200); font-size: 12px; }
