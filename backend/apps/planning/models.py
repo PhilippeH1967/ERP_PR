@@ -18,8 +18,45 @@ class AllocationStatus(models.TextChoices):
     CANCELLED = "CANCELLED", "Annulée"
 
 
+class VirtualResource(TenantScopedModel):
+    """Profil fictif utilisé dans les devis/avenants avant nomination d'un employé.
+
+    Rattaché à un projet (catalogue par projet). Remplaçable plus tard par un
+    employé réel via une action dédiée côté API/UI.
+    """
+
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.CASCADE,
+        related_name="virtual_resources",
+    )
+    name = models.CharField(
+        max_length=255,
+        help_text="Libellé du profil (ex. 'Architecte senior', 'Dessinateur junior').",
+    )
+    default_hourly_rate = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        help_text="Taux horaire par défaut (CA).",
+    )
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True, default="")
+
+    class Meta:
+        db_table = "planning_virtual_resource"
+        ordering = ["project_id", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "name"],
+                name="uq_virtual_resource_project_name",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.project.code})"
+
+
 class ResourceAllocation(TenantScopedModel):
-    """Employee allocation to a project/phase for a given period."""
+    """Allocation de ressource (employé OU profil virtuel) sur un projet/phase."""
 
     class DistributionMode(models.TextChoices):
         UNIFORM = "uniform", "Uniforme"
@@ -33,6 +70,13 @@ class ResourceAllocation(TenantScopedModel):
     employee = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name="resource_allocations",
+    )
+    virtual_resource = models.ForeignKey(
+        "planning.VirtualResource",
+        on_delete=models.CASCADE,
+        null=True, blank=True,
         related_name="resource_allocations",
     )
     project = models.ForeignKey(
@@ -105,6 +149,13 @@ class ResourceAllocation(TenantScopedModel):
             raise ValidationError(
                 "Allocation must target exactly one of phase or task (not both, not neither)."
             )
+        has_employee = self.employee_id is not None
+        has_virtual = self.virtual_resource_id is not None
+        if has_employee == has_virtual:
+            raise ValidationError(
+                "Allocation must target exactly one of employee or virtual_resource "
+                "(not both, not neither)."
+            )
 
     def save(self, *args, **kwargs):
         # Clear stale breakdown when mode is not manual
@@ -115,7 +166,11 @@ class ResourceAllocation(TenantScopedModel):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.employee.username} → {self.project.code} ({self.hours_per_week}h/sem)"
+        target = (
+            self.employee.username if self.employee_id
+            else (self.virtual_resource.name if self.virtual_resource_id else "?")
+        )
+        return f"{target} → {self.project.code} ({self.hours_per_week}h/sem)"
 
     @property
     def total_weeks(self):

@@ -10,7 +10,7 @@ from rest_framework.test import APIClient
 from apps.core.models import ProjectRole, Role, Tenant
 from apps.projects.models import Phase, Project, Task
 
-from .models import Milestone, PlanningStandard, ResourceAllocation
+from .models import Milestone, PlanningStandard, ResourceAllocation, VirtualResource
 
 
 @pytest.mark.django_db
@@ -335,3 +335,239 @@ class TestPlanningStandardAPI:
         names = {it["name"] for it in items}
         assert "A-only" in names
         assert "B-only" not in names
+
+
+@pytest.mark.django_db
+class TestVirtualResourceModel:
+    """Modèle VirtualResource: profils fictifs rattachés à un projet."""
+
+    def setup_method(self):
+        self.tenant = Tenant.objects.create(name="Vr", slug="vr-test")
+        self.project = Project.objects.create(
+            tenant=self.tenant, code="VR-01", name="Virtual Resource Test",
+        )
+
+    def test_create_with_required_fields(self):
+        vr = VirtualResource.objects.create(
+            tenant=self.tenant, project=self.project,
+            name="Architecte senior",
+        )
+        assert vr.pk is not None
+        assert vr.default_hourly_rate == 0
+        assert vr.is_active is True
+
+    def test_create_with_default_hourly_rate(self):
+        vr = VirtualResource.objects.create(
+            tenant=self.tenant, project=self.project,
+            name="Dessinateur junior",
+            default_hourly_rate="55.50",
+        )
+        assert float(vr.default_hourly_rate) == 55.50
+
+    def test_unique_name_per_project(self):
+        from django.db.utils import IntegrityError
+        VirtualResource.objects.create(
+            tenant=self.tenant, project=self.project, name="Chef de projet",
+        )
+        with pytest.raises(IntegrityError):
+            VirtualResource.objects.create(
+                tenant=self.tenant, project=self.project, name="Chef de projet",
+            )
+
+    def test_same_name_on_different_project_allowed(self):
+        other = Project.objects.create(
+            tenant=self.tenant, code="VR-02", name="Other",
+        )
+        VirtualResource.objects.create(
+            tenant=self.tenant, project=self.project, name="Chef de projet",
+        )
+        # Should not raise
+        VirtualResource.objects.create(
+            tenant=self.tenant, project=other, name="Chef de projet",
+        )
+
+
+@pytest.mark.django_db
+class TestResourceAllocationVirtualXOR:
+    """ResourceAllocation accepte employee OU virtual_resource, pas les deux, pas aucun."""
+
+    def setup_method(self):
+        self.tenant = Tenant.objects.create(name="Vrx", slug="vrx-test")
+        self.pm = User.objects.create_user(username="vrx_pm", password="pass123!")
+        self.emp = User.objects.create_user(username="vrx_emp", password="pass123!")
+        ProjectRole.objects.create(user=self.pm, tenant=self.tenant, role=Role.PM)
+        self.project = Project.objects.create(
+            tenant=self.tenant, code="VX-01", name="Virtual XOR",
+        )
+        self.phase = Phase.objects.create(
+            tenant=self.tenant, project=self.project,
+            code="ESQUISSE", name="Esquisse", order=1,
+        )
+        self.virtual = VirtualResource.objects.create(
+            tenant=self.tenant, project=self.project, name="Architecte junior",
+        )
+
+    def _make(self, **overrides):
+        return ResourceAllocation(
+            tenant=self.tenant, project=self.project, phase=self.phase,
+            start_date=date(2026, 5, 4), end_date=date(2026, 5, 31),
+            hours_per_week=20, created_by=self.pm,
+            **overrides,
+        )
+
+    def test_virtual_only_is_valid(self):
+        alloc = self._make(virtual_resource=self.virtual)
+        alloc.full_clean()  # does not raise
+
+    def test_both_employee_and_virtual_raises(self):
+        alloc = self._make(employee=self.emp, virtual_resource=self.virtual)
+        with pytest.raises(ValidationError) as exc:
+            alloc.full_clean()
+        assert "exactly one" in str(exc.value) or "employee" in str(exc.value)
+
+    def test_neither_employee_nor_virtual_raises(self):
+        alloc = self._make()
+        with pytest.raises(ValidationError):
+            alloc.full_clean()
+
+    def test_virtual_allocation_persists(self):
+        alloc = self._make(virtual_resource=self.virtual)
+        alloc.save()
+        alloc.refresh_from_db()
+        assert alloc.virtual_resource_id == self.virtual.pk
+        assert alloc.employee_id is None
+
+
+@pytest.mark.django_db
+class TestVirtualResourceAPI:
+    """API CRUD + filtrage + isolation tenant pour VirtualResource."""
+
+    def setup_method(self):
+        self.tenant_a = Tenant.objects.create(name="VrA", slug="vra")
+        self.tenant_b = Tenant.objects.create(name="VrB", slug="vrb")
+        self.user_a = User.objects.create_user(username="vra_u", password="pass123!")
+        self.user_b = User.objects.create_user(username="vrb_u", password="pass123!")
+        ProjectRole.objects.create(user=self.user_a, tenant=self.tenant_a, role=Role.PM)
+        ProjectRole.objects.create(user=self.user_b, tenant=self.tenant_b, role=Role.PM)
+        self.project_a = Project.objects.create(
+            tenant=self.tenant_a, code="VA-01", name="A",
+        )
+        self.project_b = Project.objects.create(
+            tenant=self.tenant_b, code="VB-01", name="B",
+        )
+        self.api_a = APIClient(HTTP_X_TENANT_ID=str(self.tenant_a.pk))
+        self.api_a.force_authenticate(user=self.user_a)
+        self.api_b = APIClient(HTTP_X_TENANT_ID=str(self.tenant_b.pk))
+        self.api_b.force_authenticate(user=self.user_b)
+
+    def test_create_virtual_resource(self):
+        resp = self.api_a.post("/api/v1/virtual-resources/", {
+            "project": self.project_a.pk,
+            "name": "Architecte senior",
+            "default_hourly_rate": "85.00",
+        }, format="json")
+        assert resp.status_code == 201, resp.content
+        data = resp.json().get("data", resp.json())
+        assert data["name"] == "Architecte senior"
+        assert float(data["default_hourly_rate"]) == 85.0
+
+    def test_requires_authentication(self):
+        anon = APIClient()
+        resp = anon.post("/api/v1/virtual-resources/", {
+            "project": self.project_a.pk, "name": "X",
+        }, format="json")
+        assert resp.status_code in (401, 403)
+
+    def test_filter_by_project(self):
+        VirtualResource.objects.create(
+            tenant=self.tenant_a, project=self.project_a, name="P1-role",
+        )
+        other = Project.objects.create(
+            tenant=self.tenant_a, code="VA-02", name="Other A",
+        )
+        VirtualResource.objects.create(
+            tenant=self.tenant_a, project=other, name="P2-role",
+        )
+        resp = self.api_a.get(f"/api/v1/virtual-resources/?project={self.project_a.pk}")
+        assert resp.status_code == 200
+        body = resp.json()
+        items = body.get("data") or body.get("results") or body
+        if isinstance(items, dict) and "results" in items:
+            items = items["results"]
+        names = {it["name"] for it in items}
+        assert names == {"P1-role"}
+
+    def test_tenant_isolation(self):
+        VirtualResource.objects.create(
+            tenant=self.tenant_a, project=self.project_a, name="A-virtual",
+        )
+        VirtualResource.objects.create(
+            tenant=self.tenant_b, project=self.project_b, name="B-virtual",
+        )
+        resp = self.api_a.get("/api/v1/virtual-resources/")
+        body = resp.json()
+        items = body.get("data") or body.get("results") or body
+        if isinstance(items, dict) and "results" in items:
+            items = items["results"]
+        names = {it["name"] for it in items}
+        assert "A-virtual" in names
+        assert "B-virtual" not in names
+
+
+@pytest.mark.django_db
+class TestAllocationAPIWithVirtual:
+    """API Allocation : accepter virtual_resource au lieu d'employee."""
+
+    def setup_method(self):
+        self.tenant = Tenant.objects.create(name="Avr", slug="avr-test")
+        self.pm = User.objects.create_user(username="avr_pm", password="pass123!")
+        ProjectRole.objects.create(user=self.pm, tenant=self.tenant, role=Role.PM)
+        self.project = Project.objects.create(
+            tenant=self.tenant, code="AV-01", name="Alloc Virtual",
+        )
+        self.phase = Phase.objects.create(
+            tenant=self.tenant, project=self.project,
+            code="ESQUISSE", name="Esquisse", order=1,
+        )
+        self.virtual = VirtualResource.objects.create(
+            tenant=self.tenant, project=self.project, name="Architecte principal",
+        )
+        self.api = APIClient()
+        self.api.force_authenticate(user=self.pm)
+
+    def test_create_allocation_with_virtual_resource(self):
+        resp = self.api.post("/api/v1/allocations/", {
+            "virtual_resource": self.virtual.pk,
+            "project": self.project.pk,
+            "phase": self.phase.pk,
+            "start_date": "2026-04-06",
+            "end_date": "2026-06-26",
+            "hours_per_week": 20,
+        }, format="json")
+        assert resp.status_code == 201, resp.content
+        data = resp.json().get("data", resp.json())
+        assert data["virtual_resource"] == self.virtual.pk
+        assert data["employee"] is None
+
+    def test_create_allocation_rejects_both_employee_and_virtual(self):
+        emp = User.objects.create_user(username="avr_emp", password="pass123!")
+        resp = self.api.post("/api/v1/allocations/", {
+            "employee": emp.pk,
+            "virtual_resource": self.virtual.pk,
+            "project": self.project.pk,
+            "phase": self.phase.pk,
+            "start_date": "2026-04-06",
+            "end_date": "2026-06-26",
+            "hours_per_week": 20,
+        }, format="json")
+        assert resp.status_code == 400
+
+    def test_create_allocation_rejects_neither_employee_nor_virtual(self):
+        resp = self.api.post("/api/v1/allocations/", {
+            "project": self.project.pk,
+            "phase": self.phase.pk,
+            "start_date": "2026-04-06",
+            "end_date": "2026-06-26",
+            "hours_per_week": 20,
+        }, format="json")
+        assert resp.status_code == 400

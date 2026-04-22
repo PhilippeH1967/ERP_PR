@@ -17,6 +17,7 @@ from .models import (
     PhaseDependency,
     PlanningStandard,
     ResourceAllocation,
+    VirtualResource,
 )
 from .serializers import (
     AvailabilitySerializer,
@@ -24,6 +25,7 @@ from .serializers import (
     PhaseDependencySerializer,
     PlanningStandardSerializer,
     ResourceAllocationSerializer,
+    VirtualResourceSerializer,
 )
 
 
@@ -378,6 +380,25 @@ class AvailabilityViewSet(viewsets.ModelViewSet):
             current += timedelta(days=1)
 
         return Response({"generated": created})
+
+
+class VirtualResourceViewSet(viewsets.ModelViewSet):
+    """CRUD pour les profils virtuels (catalogue par projet, tenant-scoped)."""
+
+    serializer_class = VirtualResourceSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ["project", "is_active"]
+    ordering = ["project_id", "name"]
+
+    def get_queryset(self):
+        qs = VirtualResource.objects.all()
+        if hasattr(self.request, "tenant_id") and self.request.tenant_id:
+            qs = qs.filter(tenant_id=self.request.tenant_id)
+        return qs.select_related("project")
+
+    def perform_create(self, serializer):
+        serializer.save(tenant=_get_tenant(self.request))
 
 
 class PlanningStandardViewSet(viewsets.ModelViewSet):
