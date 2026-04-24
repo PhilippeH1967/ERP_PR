@@ -230,3 +230,111 @@ def create_project_from_template(template_id, project_data, tenant_id=None):
         )
 
     return project
+
+
+# --------------------------------------------------------------------------- #
+# Closure checklist (F3.8)
+# --------------------------------------------------------------------------- #
+
+_TIME_ENTRIES_VALIDATED_STATUSES = {"FINANCE_APPROVED", "PAIE_VALIDATED", "LOCKED"}
+_INVOICE_FINALIZED_STATUSES = {"APPROVED", "SENT", "PAID"}
+_EXPENSE_CLOSED_STATUSES = {"FINANCE_VALIDATED", "PAID", "REVERSED", "REJECTED"}
+
+
+def compute_closure_checklist(project: Project) -> dict:
+    """Évalue les prérequis de clôture d'un projet.
+
+    Returns a dict ``{can_close: bool, checks: [...]}`` where each check has
+    keys ``code``, ``label``, ``passed``, ``detail`` and optionally
+    ``severity`` ("warning" → non-bloquant, absent → bloquant).
+    """
+    from apps.billing.models import Invoice
+    from apps.expenses.models import ExpenseReport
+    from apps.planning.models import ResourceAllocation, VirtualResource
+    from apps.time_entries.models import TimeEntry
+
+    today = timezone.now().date()
+    checks: list[dict] = []
+
+    # 1. Heures de travail validées
+    pending_time = TimeEntry.objects.filter(project=project).exclude(
+        status__in=_TIME_ENTRIES_VALIDATED_STATUSES,
+    ).count()
+    checks.append({
+        "code": "TIME_ENTRIES",
+        "label": "Heures de travail validées",
+        "passed": pending_time == 0,
+        "detail": (
+            "Toutes les heures sont validées"
+            if pending_time == 0
+            else f"{pending_time} heure(s) non validée(s)"
+        ),
+    })
+
+    # 2. Factures finalisées
+    draft_invoices = Invoice.objects.filter(project=project).exclude(
+        status__in=_INVOICE_FINALIZED_STATUSES,
+    ).count()
+    checks.append({
+        "code": "INVOICES",
+        "label": "Factures finalisées",
+        "passed": draft_invoices == 0,
+        "detail": (
+            "Toutes les factures sont finalisées"
+            if draft_invoices == 0
+            else f"{draft_invoices} facture(s) en brouillon ou soumise(s)"
+        ),
+    })
+
+    # 3. Dépenses traitées
+    pending_expenses = ExpenseReport.objects.filter(project=project).exclude(
+        status__in=_EXPENSE_CLOSED_STATUSES,
+    ).count()
+    checks.append({
+        "code": "EXPENSES",
+        "label": "Dépenses traitées",
+        "passed": pending_expenses == 0,
+        "detail": (
+            "Toutes les dépenses sont traitées"
+            if pending_expenses == 0
+            else f"{pending_expenses} rapport(s) en attente"
+        ),
+    })
+
+    # 4. Profils virtuels remplacés (warning)
+    active_virtuals = VirtualResource.objects.filter(
+        project=project, is_active=True,
+    ).count()
+    checks.append({
+        "code": "VIRTUAL_RESOURCES",
+        "label": "Profils virtuels remplacés",
+        "passed": active_virtuals == 0,
+        "detail": (
+            "Aucun profil virtuel actif"
+            if active_virtuals == 0
+            else f"{active_virtuals} profil(s) virtuel(s) actif(s) — remplacer par un employé avant clôture"
+        ),
+        "severity": "warning",
+    })
+
+    # 5. Allocations futures (warning)
+    future_allocs = ResourceAllocation.objects.filter(
+        project=project, end_date__gt=today,
+    ).count()
+    checks.append({
+        "code": "FUTURE_ALLOCATIONS",
+        "label": "Allocations soldées",
+        "passed": future_allocs == 0,
+        "detail": (
+            "Aucune allocation future"
+            if future_allocs == 0
+            else f"{future_allocs} allocation(s) dont la fin est dans le futur"
+        ),
+        "severity": "warning",
+    })
+
+    blockers = [c for c in checks if not c["passed"] and c.get("severity") != "warning"]
+    return {
+        "can_close": len(blockers) == 0,
+        "checks": checks,
+    }

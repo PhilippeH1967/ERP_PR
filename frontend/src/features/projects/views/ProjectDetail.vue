@@ -10,6 +10,7 @@ import { consortiumApi } from '@/features/consortiums/api/consortiumApi'
 import { useProjectStore } from '../stores/useProjectStore'
 import GanttChart from '@/features/planning/components/GanttChart.vue'
 import AmendmentSlideOver from '../components/AmendmentSlideOver.vue'
+import ProjectCloseModal from '../components/ProjectCloseModal.vue'
 import TabGroup from '@/shared/components/TabGroup.vue'
 import { planningApi } from '@/features/planning/api/planningApi'
 
@@ -826,11 +827,54 @@ async function reload() {
 
 async function changeStatus(newStatus: string) {
   actionError.value = ''
+  // Clôture → checklist obligatoire via modal dédié
+  if (newStatus === 'COMPLETED') {
+    showEditStatus.value = false
+    await openCloseModal()
+    return
+  }
   try {
     await projectApi.update(projectId, { status: newStatus } as Record<string, unknown>)
     showEditStatus.value = false
     await reload()
   } catch (e: unknown) { actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur' }
+}
+
+// Clôture projet — F3.8
+interface ClosureCheck { code: string; label: string; passed: boolean; detail: string; severity?: string }
+const showCloseModal = ref(false)
+const closureChecks = ref<ClosureCheck[]>([])
+const canClose = ref(false)
+const closeLoading = ref(false)
+const closeError = ref('')
+
+async function openCloseModal() {
+  closeError.value = ''
+  closureChecks.value = []
+  canClose.value = false
+  showCloseModal.value = true
+  try {
+    const r = await apiClient.get(`projects/${projectId}/closure_checklist/`)
+    const d = r.data?.data || r.data
+    closureChecks.value = d?.checks || []
+    canClose.value = Boolean(d?.can_close)
+  } catch (e: unknown) {
+    closeError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur lors du chargement'
+  }
+}
+
+async function confirmClose() {
+  closeError.value = ''
+  closeLoading.value = true
+  try {
+    await projectApi.update(projectId, { status: 'COMPLETED' } as Record<string, unknown>)
+    showCloseModal.value = false
+    await reload()
+  } catch (e: unknown) {
+    closeError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur lors de la clôture'
+  } finally {
+    closeLoading.value = false
+  }
 }
 
 async function deleteProject() {
@@ -1932,6 +1976,17 @@ watch(activeTab, (tab) => {
         </tfoot>
       </table>
     </template>
+
+    <!-- ═══ Modal clôture projet (F3.8) ═══ -->
+    <ProjectCloseModal
+      :open="showCloseModal"
+      :can-close="canClose"
+      :checks="closureChecks"
+      :loading="closeLoading"
+      :error-message="closeError"
+      @close="showCloseModal = false"
+      @confirm="confirmClose"
+    />
 
   </div>
 </template>

@@ -729,3 +729,167 @@ class TestCreateProjectWithConsortium:
         project = Project.objects.get(code="PRJ-CONS")
         assert project.is_consortium is True
         assert project.consortium_id == consortium.pk
+
+
+# --------------------------------------------------------------------------- #
+# Closure checklist (F3.8)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.django_db
+class TestProjectClosureChecklist:
+    """Endpoint GET /projects/{id}/closure_checklist/ — prérequis de clôture."""
+
+    URL = "/api/v1/projects/{pk}/closure_checklist/"
+
+    def test_anonymous_returns_401(self, anonymous_client, project):
+        resp = anonymous_client.get(self.URL.format(pk=project.pk))
+        assert resp.status_code in (401, 403)
+
+    def test_empty_project_can_close(self, admin_client, project):
+        resp = admin_client.get(self.URL.format(pk=project.pk))
+        assert resp.status_code == 200, resp.content
+        data = resp.json().get("data", resp.json())
+        assert data["can_close"] is True
+        codes = {c["code"]: c for c in data["checks"]}
+        for code in ("TIME_ENTRIES", "INVOICES", "EXPENSES",
+                     "VIRTUAL_RESOURCES", "FUTURE_ALLOCATIONS"):
+            assert code in codes, f"check {code} missing"
+            assert codes[code]["passed"] is True
+
+    def test_unvalidated_time_entries_block_closure(self, admin_client, project, tenant):
+        from datetime import date
+        from django.contrib.auth import get_user_model
+
+        from apps.time_entries.models import TimeEntry, TimeEntryStatus
+
+        user = get_user_model().objects.create_user(username="emp_c", password="p")
+        TimeEntry.objects.create(
+            tenant=tenant, employee=user, project=project,
+            date=date(2026, 3, 1), hours=8, status=TimeEntryStatus.SUBMITTED,
+        )
+        resp = admin_client.get(self.URL.format(pk=project.pk))
+        data = resp.json().get("data", resp.json())
+        time_check = next(c for c in data["checks"] if c["code"] == "TIME_ENTRIES")
+        assert time_check["passed"] is False
+        assert data["can_close"] is False
+
+    def test_draft_invoice_blocks_closure(self, admin_client, project, tenant):
+        from apps.billing.models import Invoice, InvoiceStatus
+        from apps.clients.models import Client
+
+        client = Client.objects.create(tenant=tenant, name="Client Close")
+        Invoice.objects.create(
+            tenant=tenant, project=project, client=client, invoice_number="INV-CL-001",
+            status=InvoiceStatus.DRAFT, total_amount=1000,
+        )
+        resp = admin_client.get(self.URL.format(pk=project.pk))
+        data = resp.json().get("data", resp.json())
+        inv_check = next(c for c in data["checks"] if c["code"] == "INVOICES")
+        assert inv_check["passed"] is False
+        assert data["can_close"] is False
+
+    def test_pending_expense_blocks_closure(self, admin_client, project, tenant):
+        from django.contrib.auth import get_user_model
+
+        from apps.expenses.models import ExpenseReport, ExpenseStatus
+
+        user = get_user_model().objects.create_user(username="emp_x", password="p")
+        ExpenseReport.objects.create(
+            tenant=tenant, employee=user, project=project,
+            status=ExpenseStatus.SUBMITTED, total_amount=100,
+        )
+        resp = admin_client.get(self.URL.format(pk=project.pk))
+        data = resp.json().get("data", resp.json())
+        exp_check = next(c for c in data["checks"] if c["code"] == "EXPENSES")
+        assert exp_check["passed"] is False
+        assert data["can_close"] is False
+
+    def test_active_virtual_resource_is_warning_not_blocker(
+        self, admin_client, project, tenant,
+    ):
+        from apps.planning.models import VirtualResource
+
+        VirtualResource.objects.create(
+            tenant=tenant, project=project, name="Archi senior", is_active=True,
+        )
+        resp = admin_client.get(self.URL.format(pk=project.pk))
+        data = resp.json().get("data", resp.json())
+        vr_check = next(c for c in data["checks"] if c["code"] == "VIRTUAL_RESOURCES")
+        assert vr_check["passed"] is False
+        assert vr_check.get("severity") == "warning"
+        assert data["can_close"] is True, "warnings ne doivent pas bloquer"
+
+    def test_future_allocation_is_warning_not_blocker(
+        self, admin_client, project, tenant, phase,
+    ):
+        from datetime import date, timedelta
+        from django.contrib.auth import get_user_model
+
+        from apps.planning.models import ResourceAllocation
+
+        user = get_user_model().objects.create_user(username="emp_a", password="p")
+        future = date.today() + timedelta(days=30)
+        ResourceAllocation.objects.create(
+            tenant=tenant, employee=user, project=project, phase=phase,
+            start_date=date.today(), end_date=future, hours_per_week=20,
+            created_by=user,
+        )
+        resp = admin_client.get(self.URL.format(pk=project.pk))
+        data = resp.json().get("data", resp.json())
+        fa = next(c for c in data["checks"] if c["code"] == "FUTURE_ALLOCATIONS")
+        assert fa["passed"] is False
+        assert fa.get("severity") == "warning"
+        assert data["can_close"] is True
+
+
+@pytest.mark.django_db
+class TestProjectClosureEnforcement:
+    """PATCH /projects/{id}/ status=COMPLETED bloqué si checklist échoue."""
+
+    def test_completion_blocked_when_unvalidated_time_entries(
+        self, admin_client, project, tenant,
+    ):
+        from datetime import date
+        from django.contrib.auth import get_user_model
+
+        from apps.time_entries.models import TimeEntry, TimeEntryStatus
+
+        user = get_user_model().objects.create_user(username="emp_b", password="p")
+        TimeEntry.objects.create(
+            tenant=tenant, employee=user, project=project,
+            date=date(2026, 3, 1), hours=8, status=TimeEntryStatus.SUBMITTED,
+        )
+        resp = admin_client.patch(
+            f"/api/v1/projects/{project.pk}/",
+            {"status": "COMPLETED"}, format="json",
+        )
+        assert resp.status_code == 400
+        err = resp.json().get("error", {})
+        assert err.get("code") == "CLOSURE_CHECKLIST_FAILED"
+
+    def test_completion_allowed_when_all_checks_pass(self, admin_client, project):
+        resp = admin_client.patch(
+            f"/api/v1/projects/{project.pk}/",
+            {"status": "COMPLETED"}, format="json",
+        )
+        assert resp.status_code == 200, resp.content
+        project.refresh_from_db()
+        assert project.status == "COMPLETED"
+
+    def test_non_completion_transition_not_affected(self, admin_client, project, tenant):
+        from datetime import date
+        from django.contrib.auth import get_user_model
+
+        from apps.time_entries.models import TimeEntry, TimeEntryStatus
+
+        user = get_user_model().objects.create_user(username="emp_d", password="p")
+        TimeEntry.objects.create(
+            tenant=tenant, employee=user, project=project,
+            date=date(2026, 3, 1), hours=8, status=TimeEntryStatus.SUBMITTED,
+        )
+        resp = admin_client.patch(
+            f"/api/v1/projects/{project.pk}/",
+            {"status": "ON_HOLD"}, format="json",
+        )
+        assert resp.status_code == 200, resp.content

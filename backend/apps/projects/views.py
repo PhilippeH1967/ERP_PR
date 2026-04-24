@@ -27,6 +27,7 @@ from .serializers import (
 from .services import (
     AmendmentTransitionError,
     approve_amendment,
+    compute_closure_checklist,
     create_project_from_template,
     reject_amendment,
     submit_amendment,
@@ -145,7 +146,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             serializer.save(tenant=Tenant.objects.first())
 
     def partial_update(self, request, *args, **kwargs):
-        """Validate status transitions before updating."""
+        """Validate status transitions + closure checklist before updating."""
         new_status = request.data.get("status")
         if new_status:
             instance = self.get_object()
@@ -166,7 +167,33 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         },
                         status=400,
                     )
+                if new_status == "COMPLETED":
+                    checklist = compute_closure_checklist(instance)
+                    if not checklist["can_close"]:
+                        blockers = [
+                            c for c in checklist["checks"]
+                            if not c["passed"] and c.get("severity") != "warning"
+                        ]
+                        return Response(
+                            {
+                                "error": {
+                                    "code": "CLOSURE_CHECKLIST_FAILED",
+                                    "message": (
+                                        "Clôture impossible — vérifiez les prérequis "
+                                        "dans l'onglet Vue d'ensemble."
+                                    ),
+                                    "details": blockers,
+                                }
+                            },
+                            status=400,
+                        )
         return super().partial_update(request, *args, **kwargs)
+
+    @action(detail=True, methods=["get"], url_path="closure_checklist")
+    def closure_checklist(self, request, pk=None):
+        """Checklist des prérequis avant clôture (F3.8)."""
+        project = self.get_object()
+        return Response(compute_closure_checklist(project))
 
     @action(detail=False, methods=["post"])
     def create_from_template(self, request):
