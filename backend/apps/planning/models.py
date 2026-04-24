@@ -40,6 +40,14 @@ class VirtualResource(TenantScopedModel):
     )
     is_active = models.BooleanField(default=True)
     notes = models.TextField(blank=True, default="")
+    replaced_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="virtual_resources_taken_over",
+        help_text="Employé réel qui a remplacé ce profil virtuel.",
+    )
+    replaced_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "planning_virtual_resource"

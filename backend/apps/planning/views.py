@@ -427,6 +427,8 @@ class VirtualResourceViewSet(viewsets.ModelViewSet):
                 status=400,
             )
 
+        from django.utils import timezone
+
         with transaction.atomic():
             allocations = ResourceAllocation.objects.filter(virtual_resource=virtual)
             replaced = 0
@@ -436,6 +438,8 @@ class VirtualResourceViewSet(viewsets.ModelViewSet):
                 alloc.save()
                 replaced += 1
             virtual.is_active = False
+            virtual.replaced_by = employee
+            virtual.replaced_at = timezone.now()
             virtual.save()
 
         return Response({

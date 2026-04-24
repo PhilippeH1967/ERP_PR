@@ -164,15 +164,23 @@ class PhaseDependencySerializer(serializers.ModelSerializer):
 
 class VirtualResourceSerializer(serializers.ModelSerializer):
     project_code = serializers.CharField(source="project.code", read_only=True)
+    replaced_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = VirtualResource
         fields = [
             "id", "project", "project_code",
             "name", "default_hourly_rate", "is_active", "notes",
+            "replaced_by", "replaced_by_name", "replaced_at",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "replaced_by", "replaced_at"]
+
+    def get_replaced_by_name(self, obj):
+        if not obj.replaced_by_id:
+            return ""
+        name = obj.replaced_by.get_full_name()
+        return name if name.strip() else obj.replaced_by.username
 
 
 class AvailabilitySerializer(serializers.ModelSerializer):

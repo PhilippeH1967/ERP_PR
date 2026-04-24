@@ -178,16 +178,27 @@ const businessUnits = ref<Array<{ id: number; name: string }>>([])
 const allUsers = ref<Array<{ id: number; username: string; email: string }>>([])
 
 // Virtual resources (profils virtuels) — onglet Équipe
-interface VirtualResource { id: number; name: string; default_hourly_rate: string; is_active: boolean }
+interface VirtualResource {
+  id: number
+  name: string
+  default_hourly_rate: string
+  is_active: boolean
+  replaced_by: number | null
+  replaced_by_name: string
+  replaced_at: string | null
+}
 const projectVirtuals = ref<VirtualResource[]>([])
 const replacingVirtualId = ref<number | null>(null)
 const replaceEmployeeId = ref<number | null>(null)
 const replaceError = ref('')
 const replacing = ref(false)
 
+const activeVirtuals = computed(() => projectVirtuals.value.filter(v => v.is_active))
+const replacedVirtuals = computed(() => projectVirtuals.value.filter(v => !v.is_active))
+
 async function loadProjectVirtuals() {
   try {
-    const r = await planningApi.listVirtualResources({ project: String(projectId), is_active: 'true' })
+    const r = await planningApi.listVirtualResources({ project: String(projectId) })
     const d: unknown = (r.data as { data?: unknown })?.data ?? r.data
     const list = Array.isArray(d) ? d : ((d as { results?: unknown })?.results ?? [])
     projectVirtuals.value = Array.isArray(list) ? (list as VirtualResource[]) : []
@@ -891,7 +902,7 @@ async function loadBudgetSummary() {
 
 onMounted(reload)
 
-// Lazy load tab data
+// Lazy load tab data (immediate: true → également au mount si URL pointe déjà sur l'onglet)
 watch(activeTab, (tab) => {
   if (tab === 'tasks' && !tasks.value.length) loadTasks()
   if (tab === 'budget') { initHonoraires(); loadBudgetSummary() }
@@ -899,7 +910,7 @@ watch(activeTab, (tab) => {
   if (tab === 'time') loadProjectTime()
   if (tab === 'st') loadSTInvoices()
   if (tab === 'invoices') loadProjectInvoices()
-})
+}, { immediate: true })
 </script>
 
 <template>
@@ -1352,46 +1363,74 @@ watch(activeTab, (tab) => {
         </div>
       </div>
 
-      <!-- Profils virtuels actifs (à remplacer par de vrais employés) -->
-      <div v-if="projectVirtuals.length" class="virtuals-panel" data-virtuals-panel>
+      <!-- Profils virtuels (actifs + historique remplacements) -->
+      <div class="virtuals-panel" data-virtuals-panel>
         <div class="virtuals-header">
-          <span class="virtuals-title">Profils virtuels actifs</span>
-          <span class="virtuals-count">{{ projectVirtuals.length }}</span>
+          <span class="virtuals-title">Profils virtuels</span>
+          <span v-if="activeVirtuals.length" class="virtuals-count">{{ activeVirtuals.length }} actif{{ activeVirtuals.length > 1 ? 's' : '' }}</span>
+          <span v-if="replacedVirtuals.length" class="virtuals-count virtuals-count-muted">{{ replacedVirtuals.length }} remplacé{{ replacedVirtuals.length > 1 ? 's' : '' }}</span>
         </div>
-        <p class="virtuals-hint">Remplacez chaque profil virtuel par un employé réel une fois l'équipe connue — toutes les allocations liées basculent automatiquement.</p>
-        <div v-for="v in projectVirtuals" :key="v.id" class="virtual-row" data-virtual-row>
-          <div class="virtual-info">
-            <span class="virtual-avatar">V</span>
-            <div>
-              <div class="virtual-name">{{ v.name }}</div>
-              <div class="virtual-sub">Taux: {{ formatAmount(v.default_hourly_rate) }} $/h</div>
+
+        <!-- Empty state -->
+        <div v-if="!projectVirtuals.length" class="virtuals-empty" data-virtuals-empty>
+          Aucun profil virtuel pour ce projet.<br>
+          <span class="virtuals-empty-hint">Créez-en un via un avenant (section « Répartition par personne » → <em>+ Nouveau profil virtuel</em>).</span>
+        </div>
+
+        <!-- Actifs -->
+        <template v-if="activeVirtuals.length">
+          <p class="virtuals-hint">Remplacez chaque profil virtuel par un employé réel une fois l'équipe connue — toutes les allocations liées basculent automatiquement.</p>
+          <div v-for="v in activeVirtuals" :key="v.id" class="virtual-row" data-virtual-row>
+            <div class="virtual-info">
+              <span class="virtual-avatar">V</span>
+              <div>
+                <div class="virtual-name">{{ v.name }}</div>
+                <div class="virtual-sub">Taux: {{ formatAmount(v.default_hourly_rate) }} $/h</div>
+              </div>
+            </div>
+            <div v-if="replacingVirtualId === v.id" class="virtual-replace-form">
+              <select v-model="replaceEmployeeId" class="select-sm" data-replace-select>
+                <option :value="null">— Choisir un employé —</option>
+                <option v-for="u in allUsers" :key="u.id" :value="u.id">{{ u.username }}</option>
+              </select>
+              <button
+                class="btn-action primary"
+                :disabled="!replaceEmployeeId || replacing"
+                data-replace-confirm
+                @click="confirmReplaceVirtual(v.id)"
+              >
+                {{ replacing ? '…' : 'Confirmer' }}
+              </button>
+              <button class="btn-action" :disabled="replacing" @click="cancelReplaceVirtual">Annuler</button>
+              <div v-if="replaceError" class="virtual-error" data-replace-error>{{ replaceError }}</div>
+            </div>
+            <button
+              v-else
+              class="btn-action"
+              data-replace-start
+              @click="startReplaceVirtual(v.id)"
+            >
+              Remplacer…
+            </button>
+          </div>
+        </template>
+
+        <!-- Historique (remplacés) -->
+        <template v-if="replacedVirtuals.length">
+          <div class="virtuals-history-sep">Historique des remplacements</div>
+          <div v-for="v in replacedVirtuals" :key="`h-${v.id}`" class="virtual-row virtual-row-replaced" data-virtual-row-replaced>
+            <div class="virtual-info">
+              <span class="virtual-avatar virtual-avatar-muted">V</span>
+              <div>
+                <div class="virtual-name virtual-name-muted">{{ v.name }}</div>
+                <div class="virtual-sub">
+                  <span v-if="v.replaced_by_name">→ Remplacé par <strong>{{ v.replaced_by_name }}</strong></span>
+                  <span v-if="v.replaced_at"> · {{ v.replaced_at.substring(0, 10) }}</span>
+                </div>
+              </div>
             </div>
           </div>
-          <div v-if="replacingVirtualId === v.id" class="virtual-replace-form">
-            <select v-model="replaceEmployeeId" class="select-sm" data-replace-select>
-              <option :value="null">— Choisir un employé —</option>
-              <option v-for="u in allUsers" :key="u.id" :value="u.id">{{ u.username }}</option>
-            </select>
-            <button
-              class="btn-action primary"
-              :disabled="!replaceEmployeeId || replacing"
-              data-replace-confirm
-              @click="confirmReplaceVirtual(v.id)"
-            >
-              {{ replacing ? '…' : 'Confirmer' }}
-            </button>
-            <button class="btn-action" :disabled="replacing" @click="cancelReplaceVirtual">Annuler</button>
-            <div v-if="replaceError" class="virtual-error" data-replace-error>{{ replaceError }}</div>
-          </div>
-          <button
-            v-else
-            class="btn-action"
-            data-replace-start
-            @click="startReplaceVirtual(v.id)"
-          >
-            Remplacer…
-          </button>
-        </div>
+        </template>
       </div>
 
       <!-- Team list by employee (accordion) -->
@@ -2131,7 +2170,14 @@ watch(activeTab, (tab) => {
 .virtuals-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .virtuals-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--color-gray-700); }
 .virtuals-count { background: var(--color-primary-light); color: var(--color-primary); font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 10px; }
+.virtuals-count-muted { background: var(--color-gray-200); color: var(--color-gray-600); }
 .virtuals-hint { font-size: 11px; color: var(--color-gray-500); margin: 0 0 10px; }
+.virtuals-empty { font-size: 12px; color: var(--color-gray-500); font-style: italic; padding: 10px 6px; line-height: 1.5; }
+.virtuals-empty-hint { font-size: 11px; color: var(--color-gray-400); }
+.virtuals-history-sep { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--color-gray-500); margin: 12px 0 6px; padding-top: 8px; border-top: 1px dashed var(--color-gray-200); }
+.virtual-row-replaced { opacity: 0.75; background: var(--color-gray-50); }
+.virtual-avatar-muted { background: var(--color-gray-400); }
+.virtual-name-muted { color: var(--color-gray-600); text-decoration: line-through; text-decoration-color: var(--color-gray-400); }
 .virtual-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: white; border: 1px solid var(--color-gray-200); border-radius: 4px; margin-bottom: 6px; flex-wrap: wrap; }
 .virtual-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px; }
 .virtual-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--color-gray-300); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }

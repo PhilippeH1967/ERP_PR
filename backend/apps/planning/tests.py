@@ -648,3 +648,47 @@ class TestVirtualResourceReplaceWithEmployee:
             {"employee": self.emp.pk}, format="json",
         )
         assert resp.status_code in (401, 403)
+
+    def test_replacement_tracks_who_and_when(self):
+        """Après remplacement, le virtuel mémorise l'employé remplaçant et la date."""
+        self._make_alloc()
+        resp = self.api.post(
+            f"/api/v1/virtual-resources/{self.virtual.pk}/replace_with_employee/",
+            {"employee": self.emp.pk}, format="json",
+        )
+        assert resp.status_code == 200, resp.content
+        self.virtual.refresh_from_db()
+        assert self.virtual.is_active is False
+        assert self.virtual.replaced_by_id == self.emp.pk
+        assert self.virtual.replaced_at is not None
+
+    def test_inactive_virtual_returned_by_list_endpoint(self):
+        """L'endpoint liste retourne aussi les virtuels inactifs pour historique."""
+        self._make_alloc()
+        self.api.post(
+            f"/api/v1/virtual-resources/{self.virtual.pk}/replace_with_employee/",
+            {"employee": self.emp.pk}, format="json",
+        )
+        resp = self.api.get(
+            f"/api/v1/virtual-resources/?project={self.project.pk}",
+        )
+        assert resp.status_code == 200
+        payload = resp.json().get("data", resp.json())
+        results = payload.get("results", payload) if isinstance(payload, dict) else payload
+        ids = [v["id"] for v in results]
+        assert self.virtual.pk in ids, "Le virtuel inactif doit être listé"
+
+    def test_serializer_exposes_replaced_by_name(self):
+        """Le serializer expose replaced_by_name pour affichage UI."""
+        self._make_alloc()
+        self.emp.first_name = "Alice"
+        self.emp.last_name = "Martin"
+        self.emp.save()
+        self.api.post(
+            f"/api/v1/virtual-resources/{self.virtual.pk}/replace_with_employee/",
+            {"employee": self.emp.pk}, format="json",
+        )
+        resp = self.api.get(f"/api/v1/virtual-resources/{self.virtual.pk}/")
+        assert resp.status_code == 200
+        data = resp.json().get("data", resp.json())
+        assert data.get("replaced_by_name") in ("Alice Martin", self.emp.username)
