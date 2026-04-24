@@ -509,6 +509,59 @@ class TestTaskViewSet:
         assert response.status_code == 204
         assert not Task.objects.filter(pk=task.pk).exists()
 
+    def test_update_task_wbs_code(self, admin_client, project, phase):
+        """F3.7 : le code WBS peut être modifié après création."""
+        task = TaskFactory(project=project, phase=phase, tenant=project.tenant, wbs_code="11.3")
+        response = admin_client.patch(
+            f"/api/v1/projects/{project.pk}/tasks/{task.pk}/",
+            {"wbs_code": "3.1.5"}, format="json",
+        )
+        assert response.status_code == 200, response.content
+        task.refresh_from_db()
+        assert task.wbs_code == "3.1.5"
+
+    def test_update_task_client_facing_label(self, admin_client, project, phase):
+        """F3.7 : le libellé client (WBS client) peut être modifié."""
+        task = TaskFactory(project=project, phase=phase, tenant=project.tenant)
+        response = admin_client.patch(
+            f"/api/v1/projects/{project.pk}/tasks/{task.pk}/",
+            {"client_facing_label": "Étude faisabilité — Phase 1"},
+            format="json",
+        )
+        assert response.status_code == 200, response.content
+        task.refresh_from_db()
+        assert task.client_facing_label == "Étude faisabilité — Phase 1"
+
+    def test_update_task_budgets(self, admin_client, project, phase):
+        """F3.7 : les budgets heures + coût peuvent être modifiés."""
+        task = TaskFactory(project=project, phase=phase, tenant=project.tenant)
+        response = admin_client.patch(
+            f"/api/v1/projects/{project.pk}/tasks/{task.pk}/",
+            {"budgeted_hours": "120.0", "budgeted_cost": "9500.00"},
+            format="json",
+        )
+        assert response.status_code == 200, response.content
+        task.refresh_from_db()
+        assert float(task.budgeted_hours) == 120.0
+        assert float(task.budgeted_cost) == 9500.0
+
+    def test_employee_cannot_update_task_budgets(
+        self, api_client_as, project, phase,
+    ):
+        """F3.7 : un employé ne peut pas modifier les champs de coût."""
+        task = TaskFactory(project=project, phase=phase, tenant=project.tenant)
+        emp_client = api_client_as(role=Role.EMPLOYEE)
+        response = emp_client.patch(
+            f"/api/v1/projects/{project.pk}/tasks/{task.pk}/",
+            {"budgeted_cost": "50000"}, format="json",
+        )
+        # soit 403 (interdit), soit 200 mais le champ est ignoré par le mixin
+        if response.status_code == 200:
+            task.refresh_from_db()
+            assert float(task.budgeted_cost) != 50000
+        else:
+            assert response.status_code in (403,)
+
 
 # --------------------------------------------------------------------------- #
 # AmendmentViewSet (nested)

@@ -11,6 +11,7 @@ import { useProjectStore } from '../stores/useProjectStore'
 import GanttChart from '@/features/planning/components/GanttChart.vue'
 import AmendmentSlideOver from '../components/AmendmentSlideOver.vue'
 import ProjectCloseModal from '../components/ProjectCloseModal.vue'
+import TaskEditModal from '../components/TaskEditModal.vue'
 import TabGroup from '@/shared/components/TabGroup.vue'
 import { planningApi } from '@/features/planning/api/planningApi'
 
@@ -346,10 +347,6 @@ const newSubtaskName = ref('')
 const editingTaskNameId = ref<number | null>(null)
 const editTaskNameValue = ref('')
 
-function startEditTaskName(task: TaskItem) {
-  editingTaskNameId.value = task.id
-  editTaskNameValue.value = task.name
-}
 function commitEditTaskName(taskId: number) {
   const name = editTaskNameValue.value.trim()
   const original = tasks.value.find(t => t.id === taskId)?.name ?? ''
@@ -360,6 +357,46 @@ function commitEditTaskName(taskId: number) {
 }
 function cancelEditTaskName() {
   editingTaskNameId.value = null
+}
+function enterInlineNameEdit(task: TaskItem) {
+  editingTaskNameId.value = task.id
+  editTaskNameValue.value = task.name
+}
+
+// Task edit modal (F3.7 — édition WBS / libellé client / budgets)
+const showTaskEditModal = ref(false)
+const taskBeingEdited = ref<TaskItem | null>(null)
+const taskEditLoading = ref(false)
+const taskEditError = ref('')
+
+function openTaskEditModal(task: TaskItem) {
+  taskBeingEdited.value = task
+  taskEditError.value = ''
+  showTaskEditModal.value = true
+}
+
+async function saveTaskEdit(payload: {
+  name: string
+  wbs_code: string
+  client_facing_label: string
+  budgeted_hours: string
+  budgeted_cost?: string
+  billing_mode: string
+  is_billable: boolean
+}) {
+  if (!taskBeingEdited.value) return
+  taskEditLoading.value = true
+  taskEditError.value = ''
+  try {
+    await projectApi.updateTask(projectId, taskBeingEdited.value.id, payload as unknown as Record<string, unknown>)
+    showTaskEditModal.value = false
+    taskBeingEdited.value = null
+    await loadTasks()
+  } catch (e: unknown) {
+    taskEditError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
+  } finally {
+    taskEditLoading.value = false
+  }
 }
 
 const tasksByPhase = computed(() => {
@@ -1296,7 +1333,11 @@ watch(activeTab, (tab) => {
               <template v-for="task in group.tasks" :key="task.id">
               <tr :class="{ 'subtask-row': task.task_type === 'SUBTASK' }">
                 <td style="font-size:11px; color:var(--color-gray-500);">{{ task.wbs_code || '—' }}</td>
-                <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="task.display_label || task.name">
+                <td
+                  style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+                  :title="isEditing ? 'Double-clic pour renommer rapidement' : (task.display_label || task.name)"
+                  @dblclick="isEditing && enterInlineNameEdit(task)"
+                >
                   <span v-if="task.task_type === 'SUBTASK'" class="subtask-indent"></span>
                   <template v-if="editingTaskNameId === task.id">
                     <input
@@ -1341,7 +1382,7 @@ watch(activeTab, (tab) => {
                   <span v-else class="badge badge-gray" style="font-size:9px;">Non</span>
                 </td>
                 <td v-if="isEditing" class="actions-cell">
-                  <button class="btn-action" @click="startEditTaskName(task)">Modifier</button>
+                  <button class="btn-action" @click="openTaskEditModal(task)">Modifier</button>
                   <button v-if="task.task_type !== 'SUBTASK'" class="btn-action" @click="showAddSubtask = task.id; newSubtaskName = ''">+ Sous-tache</button>
                   <template v-if="confirmDeleteTask === task.id">
                     <button class="btn-action danger" @click="removeTask(task.id)">Confirmer</button>
@@ -1986,6 +2027,17 @@ watch(activeTab, (tab) => {
       :error-message="closeError"
       @close="showCloseModal = false"
       @confirm="confirmClose"
+    />
+
+    <!-- ═══ Modal édition tâche (F3.7 — WBS / libellé client / budgets) ═══ -->
+    <TaskEditModal
+      :open="showTaskEditModal"
+      :task="taskBeingEdited"
+      :can-see-costs="canEditBudget"
+      :loading="taskEditLoading"
+      :error-message="taskEditError"
+      @close="showTaskEditModal = false; taskBeingEdited = null"
+      @save="saveTaskEdit"
     />
 
   </div>

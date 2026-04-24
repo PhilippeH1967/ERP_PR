@@ -57,7 +57,7 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
         return float(total) if total else 0
 
 
-class TaskSerializer(serializers.ModelSerializer):
+class TaskSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
     phase_name = serializers.CharField(source="phase.name", read_only=True)
     display_label = serializers.SerializerMethodField()
     planned_hours = serializers.SerializerMethodField()
