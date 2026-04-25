@@ -32,6 +32,9 @@ frontend/dist-ssr/
 # Playwright
 frontend/test-results/
 frontend/playwright-report/
+
+# Celery
+backend/celerybeat-schedule
 frontend/coverage/
 *.local
 
