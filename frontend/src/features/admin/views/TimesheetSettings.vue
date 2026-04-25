@@ -82,6 +82,23 @@ async function toggleAlwaysDisplay(projectId: number, task: ProjectTask) {
   }
 }
 
+function extractErrorMessage(e: unknown): string {
+  const resp = (e as { response?: { data?: unknown } }).response
+  const data = resp?.data
+  if (!data || typeof data !== 'object') return 'Erreur de création'
+  // DRF format 1 : { error: { message: "..." } }
+  const dataObj = data as Record<string, unknown>
+  const errorObj = dataObj.error as { message?: string } | undefined
+  if (errorObj?.message) return errorObj.message
+  // DRF format 2 : { field_a: ["msg"], field_b: ["msg"] }
+  const parts: string[] = []
+  for (const [field, val] of Object.entries(dataObj)) {
+    if (Array.isArray(val)) parts.push(`${field}: ${val.join(', ')}`)
+    else if (typeof val === 'string') parts.push(`${field}: ${val}`)
+  }
+  return parts.length ? parts.join(' · ') : 'Erreur de création'
+}
+
 async function createInternalProject() {
   actionError.value = ''
   actionSuccess.value = ''
@@ -94,7 +111,7 @@ async function createInternalProject() {
     const resp = await apiClient.post('projects/', {
       code: newProject.value.code.trim(),
       name: newProject.value.name.trim(),
-      contract_type: 'INTERNE',
+      contract_type: 'FORFAITAIRE',
       is_internal: true,
       status: 'ACTIVE',
     })
@@ -104,7 +121,7 @@ async function createInternalProject() {
     newProject.value = { code: '', name: '' }
     await loadProjects()
   } catch (e: unknown) {
-    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de création'
+    actionError.value = extractErrorMessage(e)
   } finally {
     creatingProject.value = false
   }
