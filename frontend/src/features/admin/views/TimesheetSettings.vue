@@ -180,6 +180,7 @@ async function createMandatoryTask(projectId: number) {
     }
 
     await apiClient.post(`projects/${projectId}/tasks/`, {
+      project: projectId,
       phase: phaseId,
       name: taskName,
       task_type: 'TASK',
