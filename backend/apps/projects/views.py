@@ -574,6 +574,8 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ["phase", "is_active", "always_display_in_timesheet"]
 
     def get_queryset(self):
         return Task.objects.filter(project_id=self.kwargs["project_pk"]).select_related(

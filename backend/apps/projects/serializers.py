@@ -75,7 +75,8 @@ class TaskSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
             "task_type", "billing_mode", "order",
             "start_date", "end_date",
             "budgeted_hours", "budgeted_cost", "hourly_rate",
-            "is_billable", "is_active", "progress_pct",
+            "is_billable", "is_active", "always_display_in_timesheet",
+            "progress_pct",
             "planned_hours", "actual_hours",
             "amendment", "amendment_number",
         ]

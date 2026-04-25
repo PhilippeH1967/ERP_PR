@@ -46,9 +46,24 @@ export interface TimesheetGridRow {
   client_label: string
   entries: Record<string, TimeEntry | null>
   is_locked: boolean
+  is_mandatory: boolean
   row_total: number
   is_favorite: boolean
   category: 'project' | 'non-project' | 'absence'
+}
+
+export interface MandatoryTask {
+  id: number
+  project: number
+  project_code: string
+  project_name: string
+  phase: number | null
+  phase_name: string
+  wbs_code: string
+  name: string
+  display_label: string
+  is_billable: boolean
+  always_display_in_timesheet: boolean
 }
 
 /** Rows grouped under a project header */

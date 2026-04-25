@@ -354,6 +354,13 @@ class Task(TenantScopedModel):
     )
     is_billable = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
+    always_display_in_timesheet = models.BooleanField(
+        default=False,
+        help_text=(
+            "Si True, cette tâche apparaît dans la grille hebdomadaire de chaque "
+            "employé même sans heures saisies (ex: Congés, Administration)."
+        ),
+    )
     progress_pct = models.DecimalField(
         max_digits=5,
         decimal_places=2,

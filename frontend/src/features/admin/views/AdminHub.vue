@@ -37,6 +37,14 @@ const sections = [
     ready: true,
   },
   {
+    key: 'timesheet',
+    title: 'Feuilles de temps',
+    desc: 'Tâches obligatoires, projets internes (congés, administration…)',
+    icon: '⏰',
+    route: '/admin/timesheet',
+    ready: true,
+  },
+  {
     key: 'migration',
     title: 'Import / Migration',
     desc: 'ChangePoint import, Excel, réconciliation',

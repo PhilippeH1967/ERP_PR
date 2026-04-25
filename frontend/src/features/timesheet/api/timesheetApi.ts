@@ -14,6 +14,7 @@ export const timesheetApi = {
     apiClient.get('time_entries/weekly_stats/', { params: weekStart ? { week_start: weekStart } : {} }),
   copyPreviousWeek: (weekStart: string) =>
     apiClient.post('time_entries/copy_previous_week/', { week_start: weekStart }),
+  mandatoryTasks: () => apiClient.get('time_entries/mandatory_tasks/'),
 
   // Approvals
   listApprovals: (params?: Record<string, string>) =>

@@ -269,6 +269,35 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
         return Response({"submitted_count": count})
 
+    @action(detail=False, methods=["get"], url_path="mandatory_tasks")
+    def mandatory_tasks(self, request):
+        """Liste des tâches qui doivent toujours apparaître dans la grille de saisie.
+
+        Filtre :
+        - always_display_in_timesheet=True
+        - is_active=True
+        - project.status='ACTIVE'
+        - tenant courant
+        """
+        from apps.projects.models import Task
+        from apps.projects.serializers import TaskSerializer
+
+        qs = Task.objects.filter(
+            always_display_in_timesheet=True,
+            is_active=True,
+            project__status="ACTIVE",
+        ).select_related("project", "phase")
+        if hasattr(request, "tenant_id") and request.tenant_id:
+            qs = qs.filter(tenant_id=request.tenant_id)
+        # Annoter chaque tâche avec project_code/name pour le frontend
+        data = []
+        for t in qs:
+            payload = TaskSerializer(t, context={"request": request}).data
+            payload["project_code"] = t.project.code
+            payload["project_name"] = t.project.name
+            data.append(payload)
+        return Response(data)
+
     @action(detail=False, methods=["get"])
     def weekly_stats(self, request):
         """Employee timesheet stats relative to displayed week."""

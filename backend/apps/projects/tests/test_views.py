@@ -562,6 +562,45 @@ class TestTaskViewSet:
         else:
             assert response.status_code in (403,)
 
+    def test_task_always_display_default_false(self, project, phase, tenant):
+        """Le flag d'affichage obligatoire par défaut = False."""
+        task = TaskFactory(project=project, phase=phase, tenant=tenant)
+        assert task.always_display_in_timesheet is False
+
+    def test_filter_tasks_by_always_display(self, admin_client, project, phase, tenant):
+        """L'API permet de filtrer les tâches obligatoires (?always_display_in_timesheet=true)."""
+        from apps.projects.models import Task
+        TaskFactory(
+            project=project, phase=phase, tenant=tenant,
+            wbs_code="C-1", name="Congés", always_display_in_timesheet=True,
+        )
+        TaskFactory(
+            project=project, phase=phase, tenant=tenant,
+            wbs_code="N-1", name="Tâche normale",
+        )
+        resp = admin_client.get(
+            f"/api/v1/projects/{project.pk}/tasks/?always_display_in_timesheet=true",
+        )
+        assert resp.status_code == 200
+        data = resp.json().get("data", resp.json())
+        results = data.get("results", data) if isinstance(data, dict) else data
+        names = [t["name"] for t in results]
+        assert "Congés" in names
+        assert "Tâche normale" not in names
+        # Vérifie le total côté DB
+        assert Task.objects.filter(always_display_in_timesheet=True).count() == 1
+
+    def test_patch_task_always_display(self, admin_client, project, phase, tenant):
+        """Toggle du flag d'affichage obligatoire via PATCH."""
+        task = TaskFactory(project=project, phase=phase, tenant=tenant, wbs_code="A-1")
+        resp = admin_client.patch(
+            f"/api/v1/projects/{project.pk}/tasks/{task.pk}/",
+            {"always_display_in_timesheet": True}, format="json",
+        )
+        assert resp.status_code == 200
+        task.refresh_from_db()
+        assert task.always_display_in_timesheet is True
+
 
 # --------------------------------------------------------------------------- #
 # AmendmentViewSet (nested)

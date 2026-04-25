@@ -153,13 +153,40 @@ const rejectionReasons = computed<RejectionInfo[]>(() => {
 })
 
 // Row deletion — only if all entries on this row are DRAFT or empty
-function canDeleteRow(row: { entries: Record<string, { status: string } | null>; is_locked: boolean }): boolean {
+// Pas de suppression sur les lignes "obligatoires" (paramètre admin)
+function canDeleteRow(row: {
+  entries: Record<string, { status: string } | null>
+  is_locked: boolean
+  is_mandatory?: boolean
+}): boolean {
+  if (row.is_mandatory) return false
   if (row.is_locked || store.periodLocked) return false
   for (const date of store.weekDates) {
     const e = row.entries[date]
     if (e && e.status !== 'DRAFT') return false
   }
   return true
+}
+
+// Copier la valeur du lundi sur mardi-vendredi
+async function copyMondayRow(row: {
+  project_id: number; phase_id: number | null; task_id: number | null
+  entries: Record<string, { hours: string } | null>
+}) {
+  const monday = store.weekDates[0]
+  if (!monday) return
+  const e = row.entries[monday]
+  const hours = e?.hours || '0'
+  await store.copyMondayToWeek(row.project_id, row.phase_id, hours, row.task_id)
+}
+
+function hasMondayHours(row: {
+  entries: Record<string, { hours: string } | null>
+}): boolean {
+  const monday = store.weekDates[0]
+  if (!monday) return false
+  const v = parseFloat(row.entries[monday]?.hours || '0')
+  return Number.isFinite(v) && v > 0
 }
 
 const deletingRow = ref(false)
@@ -496,6 +523,13 @@ function normClass(total: number, norm: number): string {
                       : 'Cette phase a été verrouillée par un PM/Admin'"
                     data-row-lock-icon
                   >🔒</span>
+                  <span
+                    v-if="row.is_mandatory"
+                    class="px-1 rounded text-[9px] font-semibold uppercase tracking-wider"
+                    style="background:#FEF3C7; color:#92400E;"
+                    title="Tâche obligatoirement présente dans la grille (paramétrage admin)"
+                    data-row-mandatory
+                  >Oblig.</span>
                   <span v-if="row.task_wbs_code" class="font-mono text-text-muted" style="font-size: 9px; margin-right: 4px;">{{ row.task_wbs_code }}</span>
                   <span class="text-text" style="font-size: 11px;">{{ row.task_name || row.client_label || row.phase_name }}</span>
                   <template v-if="canDeleteRow(row)">
@@ -530,7 +564,18 @@ function normClass(total: number, norm: number): string {
                 @save="onCellSave"
               />
               <td class="px-1 py-1 text-center font-mono font-semibold text-text" style="font-size: 11px;">
-                {{ row.row_total || '' }}
+                <div class="flex items-center justify-center gap-1">
+                  <span>{{ row.row_total || '' }}</span>
+                  <button
+                    v-if="hasMondayHours(row) && !row.is_locked && !store.periodLocked"
+                    type="button"
+                    class="text-primary hover:bg-primary/10 rounded px-1"
+                    style="font-size: 11px; line-height: 1;"
+                    title="Copier la valeur du lundi sur mardi → vendredi"
+                    data-copy-monday
+                    @click="copyMondayRow(row)"
+                  >→</button>
+                </div>
               </td>
             </tr>
           </template>

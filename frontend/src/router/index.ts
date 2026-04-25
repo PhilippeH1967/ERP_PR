@@ -239,6 +239,11 @@ const router = createRouter({
           component: () => import('@/features/admin/views/CategoryList.vue'),
         },
         {
+          path: 'admin/timesheet',
+          name: 'admin-timesheet',
+          component: () => import('@/features/admin/views/TimesheetSettings.vue'),
+        },
+        {
           path: 'admin/roadmap',
           name: 'admin-roadmap',
           component: () => import('@/features/admin/views/RoadmapView.vue'),

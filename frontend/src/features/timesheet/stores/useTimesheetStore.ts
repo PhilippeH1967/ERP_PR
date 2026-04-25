@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import apiClient from '@/plugins/axios'
 import { timesheetApi } from '../api/timesheetApi'
 import type {
+  MandatoryTask,
   TimeEntry,
   TimesheetGridRow,
   TimesheetProjectGroup,
@@ -61,6 +62,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
   const saveError = ref<{ type: string; entryId?: number } | null>(null)
   const weeklyStats = ref({ contract_hours: 40, average_4_weeks: 0, billable_rate_percent: 0, week_totals: [0, 0, 0, 0] as number[] })
   const favorites = ref<Set<number>>(loadFavoritesFromStorage())
+  const mandatoryTasks = ref<MandatoryTask[]>([])
 
   function persistFavorites() {
     localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites.value]))
@@ -102,6 +104,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
           client_label: entry.client_label || entry.task_name || entry.phase_name || '',
           entries: {},
           is_locked: false,
+          is_mandatory: false,
           row_total: 0,
           is_favorite: entry.is_favorite,
           category: 'project',
@@ -109,6 +112,32 @@ export const useTimesheetStore = defineStore('timesheet', () => {
       }
       const row = rowMap.get(key)
       if (row) row.entries[entry.date] = entry
+    }
+    // Inject mandatory tasks even if no entry exists yet
+    for (const t of mandatoryTasks.value) {
+      const key = `${t.project}-T${t.id}`
+      if (!rowMap.has(key)) {
+        rowMap.set(key, {
+          project_id: t.project,
+          project_code: t.project_code,
+          project_name: t.project_name,
+          phase_id: t.phase,
+          phase_name: t.phase_name || '',
+          task_id: t.id,
+          task_name: t.name,
+          task_wbs_code: t.wbs_code,
+          client_label: t.display_label || t.name,
+          entries: {},
+          is_locked: false,
+          is_mandatory: true,
+          row_total: 0,
+          is_favorite: false,
+          category: 'project',
+        })
+      } else {
+        const row = rowMap.get(key)!
+        row.is_mandatory = true
+      }
     }
     for (const row of rowMap.values()) {
       row.row_total = roundTotal(
@@ -261,6 +290,13 @@ export const useTimesheetStore = defineStore('timesheet', () => {
       } catch {
         // Stats are optional
       }
+      try {
+        const mtResp = await timesheetApi.mandatoryTasks()
+        const mt = mtResp.data?.data || mtResp.data || []
+        mandatoryTasks.value = Array.isArray(mt) ? mt : []
+      } catch {
+        mandatoryTasks.value = []
+      }
     } finally {
       isLoading.value = false
     }
@@ -326,12 +362,36 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     await fetchWeek()
   }
 
+  /**
+   * Copie la valeur du lundi sur les 4 jours ouvrables suivants (mar-ven).
+   * Ignore si la valeur est 0 ou vide.
+   */
+  async function copyMondayToWeek(
+    projectId: number,
+    phaseId: number | null,
+    mondayHours: string,
+    taskId?: number | null,
+  ) {
+    const value = parseFloat(mondayHours || '0')
+    if (!Number.isFinite(value) || value <= 0) return
+    // weekDates[0] = lundi, [1..4] = mar..ven
+    const targetDates = weekDates.value.slice(1, 5)
+    for (const date of targetDates) {
+      try {
+        await saveCell(projectId, phaseId, date, mondayHours, taskId)
+      } catch {
+        // Une erreur sur une cellule (ex: cellule verrouillée) ne doit pas
+        // bloquer les suivantes — on continue silencieusement.
+      }
+    }
+  }
+
   return {
     entries, isLoading, saveError, currentWeekStart, currentWeek,
     gridRows, projectGroups, dailyTotals, weeklyTotal, weekDates,
     weeklyStats, statusMessage, hasModificationRequested, allSubmitted, periodLocked,
-    favorites, isFavorite, toggleFavorite,
-    fetchWeek, navigateWeek, saveCell,
+    favorites, isFavorite, toggleFavorite, mandatoryTasks,
+    fetchWeek, navigateWeek, saveCell, copyMondayToWeek,
     submitWeek, copyPreviousWeek, canSaveHours,
     DAILY_NORM, WEEKLY_NORM, CONTRACT_HOURS, MAX_DAILY_HOURS,
   }
