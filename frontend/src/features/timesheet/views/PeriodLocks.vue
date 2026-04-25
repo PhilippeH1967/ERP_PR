@@ -154,6 +154,11 @@ async function createTaskLock() {
 async function deleteTaskLock(id: number) {
   actionError.value = ''
   actionSuccess.value = ''
+  if (confirmDeleteTaskLockId.value !== id) {
+    confirmDeleteTaskLockId.value = id
+    return
+  }
+  confirmDeleteTaskLockId.value = null
   try {
     await apiClient.delete(`timesheet_locks/${id}/`)
     actionSuccess.value = 'Verrouillage supprime'
@@ -166,6 +171,11 @@ async function deleteTaskLock(id: number) {
 async function lockWeek(week: WeekSummary) {
   actionError.value = ''
   actionSuccess.value = ''
+  if (confirmLockWeekStart.value !== week.week_start) {
+    confirmLockWeekStart.value = week.week_start
+    return
+  }
+  confirmLockWeekStart.value = null
   try {
     await apiClient.post('time_entries/lock_period/', {
       period_start: week.week_start,
@@ -229,14 +239,29 @@ async function unlockWeekDirect(week: WeekSummary) {
   showLockBefore.value = false
 }
 
+// Inline confirmation state (UX rule: jamais de delete direct)
+const confirmRevokeUnlockId = ref<number | null>(null)
+const confirmDeleteTaskLockId = ref<number | null>(null)
+const confirmLockWeekStart = ref<string | null>(null)
+
 async function deleteUnlock(id: number) {
+  if (confirmRevokeUnlockId.value !== id) {
+    confirmRevokeUnlockId.value = id
+    return
+  }
+  confirmRevokeUnlockId.value = null
   try {
     await apiClient.delete(`period_unlocks/${id}/`)
+    actionSuccess.value = 'Déverrouillage révoqué'
     await fetchData()
   } catch {
     actionError.value = 'Erreur lors de la suppression'
   }
 }
+
+function cancelRevokeUnlock() { confirmRevokeUnlockId.value = null }
+function cancelDeleteTaskLock() { confirmDeleteTaskLockId.value = null }
+function cancelLockWeek() { confirmLockWeekStart.value = null }
 
 function formatDate(d: string) {
   if (!d) return ''
@@ -353,7 +378,13 @@ onMounted(fetchData)
               <span v-else class="status-badge open">Ouverte</span>
             </td>
             <td v-if="canManage" class="text-center">
-              <button v-if="week.status !== 'locked'" class="btn-sm-lock" @click="lockWeek(week)">Verrouiller</button>
+              <template v-if="week.status !== 'locked'">
+                <template v-if="confirmLockWeekStart === week.week_start">
+                  <button class="btn-sm-lock" data-lock-week-confirm @click="lockWeek(week)">Confirmer</button>
+                  <button class="btn-sm-unlock" data-lock-week-cancel @click="cancelLockWeek">Annuler</button>
+                </template>
+                <button v-else class="btn-sm-lock" data-lock-week @click="lockWeek(week)">Verrouiller…</button>
+              </template>
               <button v-else class="btn-sm-unlock" @click="unlockWeekDirect(week)">Deverrouiller</button>
             </td>
           </tr>
@@ -386,7 +417,11 @@ onMounted(fetchData)
             <td class="text-muted">{{ u.justification || '—' }}</td>
             <td class="text-muted font-mono">{{ formatDateTime(u.unlocked_at) }}</td>
             <td v-if="canManage">
-              <button class="btn-sm-revoke" @click="deleteUnlock(u.id)">Revoquer</button>
+              <template v-if="confirmRevokeUnlockId === u.id">
+                <button class="btn-sm-lock" data-revoke-unlock-confirm @click="deleteUnlock(u.id)">Confirmer</button>
+                <button class="btn-sm-unlock" data-revoke-unlock-cancel @click="cancelRevokeUnlock">Annuler</button>
+              </template>
+              <button v-else class="btn-sm-revoke" data-revoke-unlock @click="deleteUnlock(u.id)">Révoquer…</button>
             </td>
           </tr>
         </tbody>
@@ -463,7 +498,11 @@ onMounted(fetchData)
             <td class="text-muted">{{ lock.locked_by_name }}</td>
             <td class="text-muted font-mono">{{ formatDateTime(lock.locked_at) }}</td>
             <td v-if="canManage">
-              <button class="btn-sm-revoke" @click="deleteTaskLock(lock.id)">Supprimer</button>
+              <template v-if="confirmDeleteTaskLockId === lock.id">
+                <button class="btn-sm-lock" data-delete-task-lock-confirm @click="deleteTaskLock(lock.id)">Confirmer</button>
+                <button class="btn-sm-unlock" data-delete-task-lock-cancel @click="cancelDeleteTaskLock">Annuler</button>
+              </template>
+              <button v-else class="btn-sm-revoke" data-delete-task-lock @click="deleteTaskLock(lock.id)">Supprimer…</button>
             </td>
           </tr>
         </tbody>

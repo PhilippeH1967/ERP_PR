@@ -10,6 +10,7 @@ import apiClient from '@/plugins/axios'
 const store = useTimesheetStore()
 const showSubmitModal = ref(false)
 const showAddTask = ref(false)
+const showLockHelp = ref(false)
 
 // Add task with dropdowns
 interface ProjectOption { id: number; code: string; name: string }
@@ -50,22 +51,6 @@ const tasksByPhase = computed(() => {
 })
 
 const dayLabels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
-
-// Favorites stored in localStorage
-const favorites = ref<Set<number>>(new Set(JSON.parse(localStorage.getItem('ts_favorites') || '[]')))
-
-function toggleFavorite(projectId: number) {
-  if (favorites.value.has(projectId)) {
-    favorites.value.delete(projectId)
-  } else {
-    favorites.value.add(projectId)
-  }
-  localStorage.setItem('ts_favorites', JSON.stringify([...favorites.value]))
-}
-
-function isFavorite(projectId: number) {
-  return favorites.value.has(projectId)
-}
 
 onMounted(() => store.fetchWeek())
 
@@ -268,6 +253,30 @@ function normClass(total: number, norm: number): string {
       <span class="text-sm text-danger font-medium">
         Cette periode est verrouillee. Aucune modification n'est possible.
       </span>
+      <button
+        type="button"
+        class="ml-auto text-xs text-danger underline"
+        data-lock-help-toggle
+        title="Voir les niveaux de verrouillage"
+        @click="showLockHelp = !showLockHelp"
+      >
+        Pourquoi ?
+      </button>
+    </div>
+
+    <!-- Lock legend (3 levels) -->
+    <div
+      v-if="showLockHelp"
+      data-lock-help
+      class="mb-4 rounded-lg border border-border bg-surface-alt p-3 text-xs text-text"
+    >
+      <div class="font-semibold mb-2">Trois niveaux de verrouillage peuvent s'appliquer :</div>
+      <ul class="space-y-1 ml-4">
+        <li><span class="font-mono">🔒 Période</span> — la semaine entière a été verrouillée par la Paie/Finance après validation. Plus aucune saisie possible (ni admin, ni délégué).</li>
+        <li><span class="font-mono">🔒 Phase</span> — un projet ou une phase a été verrouillé(e) par un PM/Admin. Les autres projets restent saisissables sur cette semaine.</li>
+        <li><span class="font-mono">🔒 Cellule</span> — l'heure a déjà été soumise (statut ≠ Brouillon). Pour la modifier, demande un retour au PM ou un déverrouillage de la semaine.</li>
+      </ul>
+      <div class="mt-2 text-text-muted">Consulte la page <strong>Verrouillages</strong> (admin) pour voir et gérer les blocages actifs.</div>
     </div>
 
     <!-- Modification requested banner -->
@@ -363,7 +372,7 @@ function normClass(total: number, norm: number): string {
     </div>
 
     <!-- Action buttons -->
-    <div class="mb-4 flex gap-3">
+    <div class="mb-4 flex gap-3 items-center">
       <button
         class="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10"
         @click="store.copyPreviousWeek()"
@@ -377,6 +386,15 @@ function normClass(total: number, norm: number): string {
         @click="openAddTask"
       >
         + Ajouter une tâche
+      </button>
+      <button
+        type="button"
+        class="ml-auto text-xs text-text-muted hover:text-text underline"
+        data-lock-help-toggle-secondary
+        title="Comprendre les verrouillages"
+        @click="showLockHelp = !showLockHelp"
+      >
+        🔒 Que veulent dire les verrouillages ?
       </button>
     </div>
 
@@ -449,10 +467,11 @@ function normClass(total: number, norm: number): string {
                 <span class="flex items-center gap-1">
                   <button
                     style="font-size: 12px;"
-                    :class="isFavorite(group.project_id) ? 'text-warning' : 'text-text-muted/30 hover:text-warning/60'"
-                    @click.stop="toggleFavorite(group.project_id)"
+                    :class="store.isFavorite(group.project_id) ? 'text-warning' : 'text-text-muted/30 hover:text-warning/60'"
+                    :title="store.isFavorite(group.project_id) ? 'Retirer des favoris' : 'Ajouter aux favoris (apparaîtra en haut)'"
+                    @click.stop="store.toggleFavorite(group.project_id)"
                   >
-                    {{ isFavorite(group.project_id) ? '★' : '☆' }}
+                    {{ store.isFavorite(group.project_id) ? '★' : '☆' }}
                   </button>
                   {{ group.project_code }} — {{ group.project_name }}
                 </span>
@@ -470,8 +489,12 @@ function normClass(total: number, norm: number): string {
                 <div class="flex items-center gap-1">
                   <span
                     v-if="row.is_locked"
-                    class="text-text-muted"
+                    class="text-text-muted cursor-help"
                     style="font-size: 10px;"
+                    :title="store.periodLocked
+                      ? 'Période verrouillée par la Paie — aucune saisie possible'
+                      : 'Cette phase a été verrouillée par un PM/Admin'"
+                    data-row-lock-icon
                   >🔒</span>
                   <span v-if="row.task_wbs_code" class="font-mono text-text-muted" style="font-size: 9px; margin-right: 4px;">{{ row.task_wbs_code }}</span>
                   <span class="text-text" style="font-size: 11px;">{{ row.task_name || row.client_label || row.phase_name }}</span>

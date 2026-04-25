@@ -41,6 +41,18 @@ function roundTotal(n: number): number {
   return Math.round(n * 100) / 100
 }
 
+const FAVORITES_KEY = 'ts_favorites'
+
+function loadFavoritesFromStorage(): Set<number> {
+  try {
+    const raw = localStorage.getItem(FAVORITES_KEY)
+    const arr = raw ? JSON.parse(raw) : []
+    return new Set(Array.isArray(arr) ? arr.map(Number).filter(Number.isFinite) : [])
+  } catch {
+    return new Set()
+  }
+}
+
 export const useTimesheetStore = defineStore('timesheet', () => {
   const entries = ref<TimeEntry[]>([])
   const locks = ref<Array<{ phase: number | null; person: number | null }>>([])
@@ -48,6 +60,23 @@ export const useTimesheetStore = defineStore('timesheet', () => {
   const currentWeekStart = ref(getMondayOfWeek(new Date()))
   const saveError = ref<{ type: string; entryId?: number } | null>(null)
   const weeklyStats = ref({ contract_hours: 40, average_4_weeks: 0, billable_rate_percent: 0, week_totals: [0, 0, 0, 0] as number[] })
+  const favorites = ref<Set<number>>(loadFavoritesFromStorage())
+
+  function persistFavorites() {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites.value]))
+  }
+
+  function isFavorite(projectId: number): boolean {
+    return favorites.value.has(projectId)
+  }
+
+  function toggleFavorite(projectId: number) {
+    const next = new Set(favorites.value)
+    if (next.has(projectId)) next.delete(projectId)
+    else next.add(projectId)
+    favorites.value = next
+    persistFavorites()
+  }
 
   const weekDates = computed(() => getDatesForWeek(currentWeekStart.value))
   const weekEnd = computed(() => weekDates.value[6] || '')
@@ -112,10 +141,13 @@ export const useTimesheetStore = defineStore('timesheet', () => {
         group.group_total = roundTotal(group.group_total + row.row_total)
       }
     }
-    // Sort: favorites first, then by project code
+    // Sort: favoris (localStorage par utilisateur) en premier, puis is_favorite
+    // côté serveur, puis ordre alpha sur le code projet.
     return Array.from(groupMap.values()).sort((a, b) => {
-      if (a.is_favorite && !b.is_favorite) return -1
-      if (!a.is_favorite && b.is_favorite) return 1
+      const aFav = favorites.value.has(a.project_id) || a.is_favorite
+      const bFav = favorites.value.has(b.project_id) || b.is_favorite
+      if (aFav && !bFav) return -1
+      if (!aFav && bFav) return 1
       return a.project_code.localeCompare(b.project_code)
     })
   })
@@ -298,6 +330,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     entries, isLoading, saveError, currentWeekStart, currentWeek,
     gridRows, projectGroups, dailyTotals, weeklyTotal, weekDates,
     weeklyStats, statusMessage, hasModificationRequested, allSubmitted, periodLocked,
+    favorites, isFavorite, toggleFavorite,
     fetchWeek, navigateWeek, saveCell,
     submitWeek, copyPreviousWeek, canSaveHours,
     DAILY_NORM, WEEKLY_NORM, CONTRACT_HOURS, MAX_DAILY_HOURS,
