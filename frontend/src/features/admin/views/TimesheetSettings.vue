@@ -116,14 +116,123 @@ async function createInternalProject() {
       status: 'ACTIVE',
     })
     const created = resp.data?.data || resp.data
+    // Auto-créer une phase par défaut "Tâches obligatoires" pour pouvoir
+    // ensuite ajouter des tâches sans passer par la fiche projet
+    try {
+      await apiClient.post(`projects/${created.id}/phases/`, {
+        code: 'OBL',
+        name: 'Tâches obligatoires',
+        billing_mode: 'FORFAIT',
+        phase_type: 'SUPPORT',
+        is_mandatory: false,
+      })
+    } catch {
+      /* La phase est optionnelle ici — si la création échoue on continuera */
+    }
     actionSuccess.value = `Projet interne « ${created.name} » créé`
     showAddProject.value = false
     newProject.value = { code: '', name: '' }
     await loadProjects()
+    // Étendre automatiquement le projet créé pour que l'utilisateur voie le formulaire de tâche
+    expandedProjects.value.add(created.id)
+    await loadTasks(created.id)
   } catch (e: unknown) {
     actionError.value = extractErrorMessage(e)
   } finally {
     creatingProject.value = false
+  }
+}
+
+// ─── Création / suppression inline de tâches obligatoires ─────────────────
+const newTaskNameByProject = ref<Record<number, string>>({})
+const creatingTaskByProject = ref<Record<number, boolean>>({})
+const confirmDeleteTaskId = ref<number | null>(null)
+
+async function createMandatoryTask(projectId: number) {
+  actionError.value = ''
+  actionSuccess.value = ''
+  const taskName = (newTaskNameByProject.value[projectId] || '').trim()
+  if (!taskName) {
+    actionError.value = 'Le nom de la tâche est obligatoire.'
+    return
+  }
+  creatingTaskByProject.value[projectId] = true
+  try {
+    // Récupérer la première phase du projet (auto-créée à la création du projet)
+    let phaseId: number | null = null
+    try {
+      const phResp = await apiClient.get(`projects/${projectId}/phases/`)
+      const phData = phResp.data?.data || phResp.data
+      const phases = Array.isArray(phData) ? phData : phData?.results || []
+      phaseId = phases[0]?.id || null
+    } catch { /* ignore */ }
+
+    // Si aucune phase, en créer une à la volée
+    if (!phaseId) {
+      const phResp = await apiClient.post(`projects/${projectId}/phases/`, {
+        code: 'OBL',
+        name: 'Tâches obligatoires',
+        billing_mode: 'FORFAIT',
+        phase_type: 'SUPPORT',
+        is_mandatory: false,
+      })
+      phaseId = (phResp.data?.data || phResp.data)?.id
+    }
+
+    await apiClient.post(`projects/${projectId}/tasks/`, {
+      phase: phaseId,
+      name: taskName,
+      task_type: 'TASK',
+      billing_mode: 'FORFAIT',
+      always_display_in_timesheet: true, // ← auto-marquée obligatoire
+    })
+    actionSuccess.value = `« ${taskName} » créée et marquée obligatoire`
+    newTaskNameByProject.value[projectId] = ''
+    // Reload des tâches pour voir la nouvelle
+    delete tasksByProject.value[projectId]
+    await loadTasks(projectId)
+  } catch (e: unknown) {
+    actionError.value = extractErrorMessage(e)
+  } finally {
+    creatingTaskByProject.value[projectId] = false
+  }
+}
+
+async function deleteTask(projectId: number, task: ProjectTask) {
+  if (confirmDeleteTaskId.value !== task.id) {
+    confirmDeleteTaskId.value = task.id
+    return
+  }
+  confirmDeleteTaskId.value = null
+  actionError.value = ''
+  actionSuccess.value = ''
+  try {
+    await apiClient.delete(`projects/${projectId}/tasks/${task.id}/`)
+    actionSuccess.value = `« ${task.name} » supprimée`
+    delete tasksByProject.value[projectId]
+    await loadTasks(projectId)
+  } catch (e: unknown) {
+    actionError.value = extractErrorMessage(e)
+  }
+}
+
+async function toggleAllMandatory(projectId: number, makeAllOn: boolean) {
+  actionError.value = ''
+  actionSuccess.value = ''
+  const tasks = tasksByProject.value[projectId] || []
+  if (!tasks.length) return
+  try {
+    await Promise.all(tasks.map(t =>
+      apiClient.patch(`projects/${projectId}/tasks/${t.id}/`, {
+        always_display_in_timesheet: makeAllOn,
+      }),
+    ))
+    tasks.forEach(t => { t.always_display_in_timesheet = makeAllOn })
+    actionSuccess.value = makeAllOn
+      ? `${tasks.length} tâche(s) marquée(s) obligatoire(s)`
+      : `${tasks.length} tâche(s) retirée(s) des obligatoires`
+  } catch (e: unknown) {
+    actionError.value = extractErrorMessage(e)
   }
 }
 
@@ -148,9 +257,10 @@ onMounted(loadProjects)
     </div>
 
     <p class="page-intro">
-      Les tâches marquées comme <strong>« Affichage obligatoire »</strong> apparaissent dans la grille
-      hebdomadaire de chaque employé même sans heures saisies. Idéal pour <em>Congés</em>,
-      <em>Administration</em>, <em>Formation</em>, etc.
+      Crée des projets internes et leurs tâches obligatoires <strong>directement ici</strong>.
+      Les tâches obligatoires apparaîtront dans la grille hebdomadaire de chaque employé même sans
+      heures saisies. Idéal pour <em>Congés</em>, <em>Maladie</em>, <em>Administration</em>,
+      <em>Formation</em>, etc.
     </p>
 
     <div v-if="actionError" class="alert-error">{{ actionError }}</div>
@@ -198,37 +308,90 @@ onMounted(loadProjects)
         </div>
 
         <div v-if="expandedProjects.has(p.id)" class="project-tasks">
-          <div v-if="!(tasksByProject[p.id]?.length)" class="empty-tasks">
-            Aucune tâche dans ce projet — créez-en depuis la fiche projet.
+          <!-- Add task inline -->
+          <div class="add-task-row">
+            <input
+              v-model="newTaskNameByProject[p.id]"
+              type="text"
+              placeholder="ex. Congés, Maladie, Administration, Formation…"
+              class="task-input"
+              data-new-task-name
+              @keydown.enter="createMandatoryTask(p.id)"
+            />
+            <button
+              class="btn-primary btn-sm"
+              :disabled="creatingTaskByProject[p.id] || !newTaskNameByProject[p.id]?.trim()"
+              data-create-task
+              @click="createMandatoryTask(p.id)"
+            >
+              {{ creatingTaskByProject[p.id] ? '…' : '+ Tâche obligatoire' }}
+            </button>
           </div>
-          <table v-else>
-            <thead>
-              <tr>
-                <th>WBS</th>
-                <th>Tâche</th>
-                <th>Phase</th>
-                <th class="text-center">Affichage obligatoire</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="t in tasksByProject[p.id]" :key="t.id" data-task-row>
-                <td class="font-mono">{{ t.wbs_code }}</td>
-                <td>{{ t.display_label || t.name }}</td>
-                <td class="text-muted">{{ t.phase_name }}</td>
-                <td class="text-center">
-                  <button
-                    type="button"
-                    class="toggle-btn"
-                    :class="t.always_display_in_timesheet ? 'on' : 'off'"
-                    data-toggle-mandatory
-                    @click="toggleAlwaysDisplay(p.id, t)"
-                  >
-                    {{ t.always_display_in_timesheet ? '✓ Activé' : '— Désactivé' }}
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <p class="add-task-hint">
+            Les tâches créées ici sont automatiquement marquées <strong>obligatoires</strong> —
+            elles apparaîtront dans la grille hebdomadaire de chaque employé.
+          </p>
+
+          <!-- Tasks table -->
+          <div v-if="!(tasksByProject[p.id]?.length)" class="empty-tasks">
+            Aucune tâche pour l'instant. Ajoute la première ci-dessus.
+          </div>
+          <template v-else>
+            <div class="task-actions-bar">
+              <span class="text-muted" style="font-size: 11px;">{{ tasksByProject[p.id]!.length }} tâche(s)</span>
+              <div class="flex gap-2">
+                <button
+                  class="btn-sm-secondary"
+                  data-toggle-all-on
+                  @click="toggleAllMandatory(p.id, true)"
+                >Tout marquer obligatoire</button>
+                <button
+                  class="btn-sm-secondary"
+                  data-toggle-all-off
+                  @click="toggleAllMandatory(p.id, false)"
+                >Tout retirer</button>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>WBS</th>
+                  <th>Tâche</th>
+                  <th class="text-center">Affichage obligatoire</th>
+                  <th class="text-right" style="width: 120px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="t in tasksByProject[p.id]" :key="t.id" data-task-row>
+                  <td class="font-mono">{{ t.wbs_code }}</td>
+                  <td>{{ t.display_label || t.name }}</td>
+                  <td class="text-center">
+                    <button
+                      type="button"
+                      class="toggle-btn"
+                      :class="t.always_display_in_timesheet ? 'on' : 'off'"
+                      data-toggle-mandatory
+                      @click="toggleAlwaysDisplay(p.id, t)"
+                    >
+                      {{ t.always_display_in_timesheet ? '✓ Activé' : '— Désactivé' }}
+                    </button>
+                  </td>
+                  <td class="text-right">
+                    <template v-if="confirmDeleteTaskId === t.id">
+                      <button class="btn-sm-danger" data-delete-task-confirm @click="deleteTask(p.id, t)">Confirmer</button>
+                      <button class="btn-sm-secondary" @click="confirmDeleteTaskId = null">Annuler</button>
+                    </template>
+                    <button
+                      v-else
+                      class="btn-sm-link"
+                      data-delete-task
+                      @click="deleteTask(p.id, t)"
+                    >Supprimer…</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </template>
         </div>
       </div>
     </div>
@@ -283,4 +446,20 @@ tbody td { padding: 6px 10px; color: var(--color-gray-700); }
 .toggle-btn.on:hover { background: #BBF7D0; }
 .toggle-btn.off { background: white; color: var(--color-gray-500); border-color: var(--color-gray-300); }
 .toggle-btn.off:hover { background: var(--color-gray-50); }
+
+.add-task-row { display: flex; gap: 8px; align-items: center; padding: 8px 0; }
+.task-input { flex: 1; padding: 6px 10px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 13px; }
+.task-input:focus { border-color: var(--color-primary); outline: none; }
+.add-task-hint { font-size: 11px; color: var(--color-gray-500); margin: 0 0 12px; font-style: italic; }
+.btn-sm { padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; }
+
+.task-actions-bar { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-top: 1px dashed var(--color-gray-200); border-bottom: 1px dashed var(--color-gray-200); margin: 8px 0; }
+.btn-sm-secondary { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; background: white; border: 1px solid var(--color-gray-300); color: var(--color-gray-700); cursor: pointer; }
+.btn-sm-secondary:hover { background: var(--color-gray-50); }
+.btn-sm-danger { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; background: #DC2626; color: white; border: none; cursor: pointer; }
+.btn-sm-link { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; background: none; border: none; color: var(--color-danger); cursor: pointer; }
+.btn-sm-link:hover { background: #FEE2E2; }
+.text-right { text-align: right; }
+.flex { display: flex; }
+.gap-2 { gap: 8px; }
 </style>
