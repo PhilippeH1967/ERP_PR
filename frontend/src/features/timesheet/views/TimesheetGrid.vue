@@ -532,17 +532,27 @@ function normClass(total: number, norm: number): string {
                   >Oblig.</span>
                   <span v-if="row.task_wbs_code" class="font-mono text-text-muted" style="font-size: 9px; margin-right: 4px;">{{ row.task_wbs_code }}</span>
                   <span class="text-text" style="font-size: 11px;">{{ row.task_name || row.client_label || row.phase_name }}</span>
+                  <!-- Right-aligned: copier lundi + supprimer ligne -->
+                  <button
+                    v-if="hasMondayHours(row) && !row.is_locked && !store.periodLocked"
+                    type="button"
+                    class="ml-auto text-primary hover:bg-primary/10 rounded"
+                    style="font-size: 12px; line-height: 1; padding: 2px 5px; font-weight: 600;"
+                    title="Copier la valeur du lundi sur mardi → vendredi"
+                    data-copy-monday
+                    @click="copyMondayRow(row)"
+                  >→</button>
                   <template v-if="canDeleteRow(row)">
                     <button
                       v-if="confirmDeleteRow === `${row.project_id}-${row.task_id || row.phase_id}`"
-                      class="ml-auto"
+                      :class="hasMondayHours(row) && !row.is_locked && !store.periodLocked ? '' : 'ml-auto'"
                       style="color: white; background: #DC2626; font-size: 9px; font-weight: 600; cursor: pointer; padding: 2px 8px; border-radius: 3px; border: none;"
                       title="Confirmer la suppression"
                       @click="handleRemoveRow(row)"
                     >Confirmer</button>
                     <button
                       v-else
-                      class="ml-auto"
+                      :class="hasMondayHours(row) && !row.is_locked && !store.periodLocked ? '' : 'ml-auto'"
                       style="color: #DC2626; font-size: 13px; font-weight: bold; cursor: pointer; padding: 2px 6px; line-height: 1;"
                       title="Retirer cette ligne"
                       @click="handleRemoveRow(row)"
@@ -564,18 +574,7 @@ function normClass(total: number, norm: number): string {
                 @save="onCellSave"
               />
               <td class="px-1 py-1 text-center font-mono font-semibold text-text" style="font-size: 11px;">
-                <div class="flex items-center justify-center gap-1">
-                  <span>{{ row.row_total || '' }}</span>
-                  <button
-                    v-if="hasMondayHours(row) && !row.is_locked && !store.periodLocked"
-                    type="button"
-                    class="text-primary hover:bg-primary/10 rounded px-1"
-                    style="font-size: 11px; line-height: 1;"
-                    title="Copier la valeur du lundi sur mardi → vendredi"
-                    data-copy-monday
-                    @click="copyMondayRow(row)"
-                  >→</button>
-                </div>
+                {{ row.row_total || '' }}
               </td>
             </tr>
           </template>
