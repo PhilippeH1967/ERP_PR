@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import apiClient from '@/plugins/axios'
+import TaxSchemeManager from '../components/TaxSchemeManager.vue'
 
 const router = useRouter()
 const activeTab = ref('bu')
@@ -21,26 +22,9 @@ const showPosForm = ref(false)
 const editPosId = ref<number | null>(null)
 const posForm = ref({ name: '', code: '', category: '', hourly_cost_rate: '' })
 
-// Tax Schemes
-interface TaxRateItem { id: number; tax_type: string; label: string; rate: string; is_active: boolean }
-interface TaxScheme { id: number; name: string; province: string; description: string; is_default: boolean; is_active: boolean; rates: TaxRateItem[] }
-const schemes = ref<TaxScheme[]>([])
-const showSchemeForm = ref(false)
-const editSchemeId = ref<number | null>(null)
-const schemeForm = ref({ name: '', province: '', description: '' })
-// Rate form
-const showRateForm = ref<number | null>(null) // scheme id
-const rateForm = ref({ tax_type: 'TPS', rate: '5.000', label: '' })
-const editingRate = ref<{ id: number; rate: string } | null>(null)
-const taxTypes = [
-  { value: 'TPS', label: 'TPS (Taxe fédérale)' },
-  { value: 'TVQ', label: 'TVQ (Taxe Québec)' },
-  { value: 'TVH', label: 'TVH (Taxe harmonisée)' },
-  { value: 'GST', label: 'GST (Federal)' },
-  { value: 'PST', label: 'PST (Provincial)' },
-  { value: 'HST', label: 'HST (Harmonized)' },
-  { value: 'OTHER', label: 'Autre' },
-]
+// Tax Schemes — gérés par TaxSchemeManager (composant partagé)
+// On garde juste un counter pour le badge de l'onglet
+const schemes = ref<Array<{ id: number }>>([])
 
 // Labor Rules
 interface LaborRule { id: number; name: string; weekly_hours: string; daily_hours: string; overtime_threshold_weekly: string; statutory_holidays: string[]; rest_days: number[]; is_active: boolean }
@@ -98,38 +82,7 @@ async function savePos() {
 async function deletePos(id: number) { confirmDelete.value = null; positions.value = positions.value.filter(p => p.id !== id); try { await apiClient.delete(`position_profiles/${id}/`) } catch { /* ok */ } }
 function editPos(p: Position) { editPosId.value = p.id; posForm.value = { name: p.name, code: p.code, category: p.category, hourly_cost_rate: p.hourly_cost_rate || '' }; showPosForm.value = true }
 
-async function saveScheme() {
-  error.value = ''
-  try {
-    if (editSchemeId.value) await apiClient.patch(`tax_schemes/${editSchemeId.value}/`, schemeForm.value)
-    else await apiClient.post('tax_schemes/', schemeForm.value)
-    showSchemeForm.value = false; editSchemeId.value = null; await fetchAll()
-  } catch { error.value = 'Erreur' }
-}
-async function deleteScheme(id: number) { confirmDelete.value = null; schemes.value = schemes.value.filter(s => s.id !== id); try { await apiClient.delete(`tax_schemes/${id}/`) } catch { /* ok */ } }
-function editScheme(s: TaxScheme) { editSchemeId.value = s.id; schemeForm.value = { name: s.name, province: s.province, description: s.description }; showSchemeForm.value = true }
-
-async function addRate(schemeId: number) {
-  error.value = ''
-  try {
-    await apiClient.post(`tax_schemes/${schemeId}/rates/`, rateForm.value)
-    showRateForm.value = null; rateForm.value = { tax_type: 'TPS', rate: '5.000', label: '' }; await fetchAll()
-  } catch { error.value = 'Erreur lors de l\'ajout du taux' }
-}
-async function saveRate(schemeId: number, rateId: number) {
-  if (!editingRate.value) return
-  try {
-    await apiClient.patch(`tax_schemes/${schemeId}/rates/${rateId}/`, { rate: editingRate.value.rate })
-    editingRate.value = null
-    await fetchAll()
-  } catch { error.value = 'Erreur lors de la modification du taux' }
-}
-
-async function deleteRate(schemeId: number, rateId: number) {
-  const scheme = schemes.value.find(s => s.id === schemeId)
-  if (scheme) scheme.rates = scheme.rates.filter(r => r.id !== rateId)
-  try { await apiClient.delete(`tax_schemes/${schemeId}/rates/${rateId}/`) } catch { /* ok */ }
-}
+// Tax scheme CRUD délégué à TaxSchemeManager — pas de fonctions locales nécessaires.
 
 async function saveRule() {
   error.value = ''
@@ -250,69 +203,7 @@ onMounted(fetchAll)
     <!-- ═══ Tax Schemes ═══ -->
     <template v-if="activeTab === 'taxes' && !isLoading">
       <p class="info-text">Chaque schéma fiscal regroupe les taxes applicables (TPS+TVQ, TVH, etc.) et peut être assigné à un client.</p>
-      <div class="section-actions"><button class="btn-primary" @click="showSchemeForm = true; editSchemeId = null; schemeForm = { name: '', province: '', description: '' }">+ Nouveau schéma</button></div>
-      <div v-if="showSchemeForm" class="card form-card">
-        <div class="form-row-3">
-          <div class="form-group"><label>Nom *</label><input v-model="schemeForm.name" required placeholder="Québec TPS+TVQ" /></div>
-          <div class="form-group"><label>Province</label><input v-model="schemeForm.province" placeholder="Québec, Ontario..." /></div>
-          <div class="form-group"><label>Description</label><input v-model="schemeForm.description" placeholder="Applicable aux clients QC" /></div>
-        </div>
-        <div class="form-actions"><button class="btn-ghost" @click="showSchemeForm = false">Annuler</button><button class="btn-primary" @click="saveScheme">{{ editSchemeId ? 'Enregistrer' : 'Créer' }}</button></div>
-      </div>
-
-      <div v-for="s in schemes" :key="s.id" class="card scheme-card">
-        <div class="scheme-header">
-          <div>
-            <span class="font-semibold">{{ s.name }}</span>
-            <span v-if="s.province" class="text-muted ml-2">({{ s.province }})</span>
-            <span v-if="s.is_default" class="badge-default">Par défaut</span>
-          </div>
-        </div>
-
-        <!-- Rates list -->
-        <div v-if="s.rates?.length" class="rates-list">
-          <div v-for="r in s.rates" :key="r.id" class="rate-row">
-            <span class="rate-type">{{ r.tax_type }}</span>
-            <template v-if="editingRate?.id === r.id">
-              <input v-model="editingRate.rate" type="number" step="0.001" class="rate-input-edit" />
-              <span>%</span>
-              <button class="btn-action" @click="saveRate(s.id, r.id)">OK</button>
-              <button class="btn-action" @click="editingRate = null">×</button>
-            </template>
-            <template v-else>
-              <span class="rate-value">{{ r.rate }}%</span>
-              <span v-if="r.label" class="rate-label">{{ r.label }}</span>
-              <button class="btn-action" @click="editingRate = { id: r.id, rate: r.rate }">Modifier</button>
-              <button class="btn-action danger" @click="deleteRate(s.id, r.id)">×</button>
-            </template>
-          </div>
-        </div>
-        <p v-else class="empty-small">Aucune taxe — cliquez "+ Taxe" pour ajouter</p>
-
-        <!-- Add rate form -->
-        <div v-if="showRateForm === s.id" class="rate-form">
-          <select v-model="rateForm.tax_type" class="rate-select">
-            <option v-for="tt in taxTypes" :key="tt.value" :value="tt.value">{{ tt.label }}</option>
-          </select>
-          <input v-model="rateForm.rate" type="number" step="0.001" placeholder="Taux %" class="rate-input" />
-          <input v-model="rateForm.label" placeholder="Libellé (optionnel)" class="rate-input" />
-          <button class="btn-primary" @click="addRate(s.id)">Ajouter</button>
-          <button class="btn-ghost" @click="showRateForm = null">Annuler</button>
-        </div>
-
-        <!-- Scheme actions -->
-        <div class="scheme-actions">
-          <button class="btn-action" @click="editScheme(s)">Modifier le schéma</button>
-          <button class="btn-action" @click="showRateForm = showRateForm === s.id ? null : s.id">+ Ajouter une taxe</button>
-          <template v-if="confirmDelete?.type === 'tax' && confirmDelete?.id === s.id">
-            <button class="btn-action danger" @click="deleteScheme(s.id)">Confirmer suppression</button>
-            <button class="btn-action" @click="confirmDelete = null">Annuler</button>
-          </template>
-          <button v-else class="btn-action danger" @click="confirmDelete = { type: 'tax', id: s.id }">Supprimer le schéma</button>
-        </div>
-      </div>
-
-      <div v-if="!schemes.length" class="card empty">Aucun schéma fiscal configuré</div>
+      <TaxSchemeManager />
     </template>
 
     <!-- ═══ Labor Rules ═══ -->

@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import apiClient from '@/plugins/axios'
+import TaxSchemeManager from '../components/TaxSchemeManager.vue'
 
 const router = useRouter()
 
@@ -138,10 +139,9 @@ onMounted(fetchData)
         <div v-else class="empty">Aucun niveau de relance</div>
       </div>
 
-      <!-- Taxes link -->
-      <div class="card" style="margin-top: 16px;">
-        <div class="card-title">Taxes</div>
-        <p class="info-note">Les schémas fiscaux (TPS+TVQ, TVH, etc.) sont configurables dans <a href="/admin/org" style="color:var(--color-primary);">Organisation → Schémas fiscaux</a>.</p>
+      <!-- Tax schemes (CRUD direct) -->
+      <div style="margin-top: 16px;">
+        <TaxSchemeManager />
       </div>
     </template>
   </div>
