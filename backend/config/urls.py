@@ -9,7 +9,9 @@ from drf_spectacular.views import (
 )
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    # Django admin natif déplacé sur /django-admin/ pour libérer /admin/*
+    # qui est utilisé par l'AdminHub Vue (frontend SPA).
+    path("django-admin/", admin.site.urls),
     # API v1
     path("api/v1/", include("apps.core.urls")),
     path("api/v1/", include("apps.clients.urls")),
