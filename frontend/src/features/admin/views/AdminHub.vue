@@ -45,6 +45,14 @@ const sections = [
     ready: true,
   },
   {
+    key: 'leave-types',
+    title: 'Types de congés',
+    desc: 'Vacances, maladie, personnel, parental — quotas et règles d\'accumulation',
+    icon: '🏖️',
+    route: '/admin/leave-types',
+    ready: true,
+  },
+  {
     key: 'migration',
     title: 'Import / Migration',
     desc: 'ChangePoint import, Excel, réconciliation',

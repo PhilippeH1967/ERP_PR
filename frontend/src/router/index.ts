@@ -244,6 +244,11 @@ const router = createRouter({
           component: () => import('@/features/admin/views/TimesheetSettings.vue'),
         },
         {
+          path: 'admin/leave-types',
+          name: 'admin-leave-types',
+          component: () => import('@/features/admin/views/LeaveTypesList.vue'),
+        },
+        {
           path: 'admin/roadmap',
           name: 'admin-roadmap',
           component: () => import('@/features/admin/views/RoadmapView.vue'),
