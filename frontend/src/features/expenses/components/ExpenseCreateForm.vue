@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import SlideOver from '@/shared/components/SlideOver.vue'
+import apiClient from '@/plugins/axios'
 import { expenseApi } from '../api/expenseApi'
 
-defineProps<{ open: boolean }>()
+const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: []; created: [] }>()
 
 const isSubmitting = ref(false)
@@ -11,14 +12,44 @@ const error = ref('')
 const receiptFile = ref<File | null>(null)
 const receiptPreview = ref('')
 
+interface CategoryOption { id: number; name: string; gl_account: string; is_active: boolean }
+interface ProjectOption { id: number; code: string; name: string }
+const categories = ref<CategoryOption[]>([])
+const projects = ref<ProjectOption[]>([])
+
 const form = ref({
   expense_date: '',
   amount: '',
   description: '',
   category: '',
+  project: '',
   is_refacturable: false,
   tax_type: 'HT',
 })
+
+async function loadOptions() {
+  try {
+    const cResp = await apiClient.get('expense_categories/')
+    const cData = cResp.data?.data || cResp.data
+    categories.value = (Array.isArray(cData) ? cData : cData?.results || [])
+      .filter((c: CategoryOption) => c.is_active !== false)
+  } catch {
+    categories.value = []
+  }
+  try {
+    const pResp = await apiClient.get('projects/', { params: { status: 'ACTIVE' } })
+    const pData = pResp.data?.data || pResp.data
+    projects.value = Array.isArray(pData) ? pData : pData?.results || []
+  } catch {
+    projects.value = []
+  }
+}
+
+watch(() => props.open, (isOpen) => {
+  if (isOpen && (!categories.value.length || !projects.value.length)) loadOptions()
+})
+
+onMounted(() => { if (props.open) loadOptions() })
 
 function onFileChange(e: Event) {
   const input = e.target as HTMLInputElement
@@ -45,7 +76,9 @@ async function onSubmit() {
   error.value = ''
   isSubmitting.value = true
   try {
-    const reportResp = await expenseApi.createReport({ total_amount: form.value.amount })
+    const reportPayload: Record<string, unknown> = { total_amount: form.value.amount }
+    if (form.value.project) reportPayload.project = Number(form.value.project)
+    const reportResp = await expenseApi.createReport(reportPayload)
     const report = reportResp.data?.data || reportResp.data
     if (report?.id) {
       const lineData: Record<string, unknown> = {
@@ -64,13 +97,18 @@ async function onSubmit() {
       }
     }
     // Reset
-    form.value = { expense_date: '', amount: '', description: '', category: '', is_refacturable: false, tax_type: 'HT' }
+    form.value = {
+      expense_date: '', amount: '', description: '',
+      category: '', project: '',
+      is_refacturable: false, tax_type: 'HT',
+    }
     receiptFile.value = null
     receiptPreview.value = ''
     emit('created')
     emit('close')
-  } catch {
-    error.value = 'Erreur lors de la création'
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+    error.value = msg || 'Erreur lors de la création'
   } finally {
     isSubmitting.value = false
   }
@@ -90,6 +128,38 @@ async function onSubmit() {
         <div>
           <label class="text-xs font-medium text-text-muted">Montant *</label>
           <input v-model="form.amount" type="number" step="0.01" class="mt-1 w-full rounded border border-border px-3 py-1.5 text-sm font-mono" placeholder="75.50" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="text-xs font-medium text-text-muted">Catégorie</label>
+          <select
+            v-model="form.category"
+            data-expense-category
+            class="mt-1 w-full rounded border border-border px-3 py-1.5 text-sm"
+          >
+            <option value="">— Choisir —</option>
+            <option v-for="c in categories" :key="c.id" :value="c.id">
+              {{ c.name }}
+            </option>
+          </select>
+          <p v-if="!categories.length" class="mt-1 text-xs text-text-muted italic">
+            Aucune catégorie configurée — voir /admin/categories
+          </p>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-text-muted">Projet</label>
+          <select
+            v-model="form.project"
+            data-expense-project
+            class="mt-1 w-full rounded border border-border px-3 py-1.5 text-sm"
+          >
+            <option value="">— Aucun (frais généraux) —</option>
+            <option v-for="p in projects" :key="p.id" :value="p.id">
+              {{ p.code }} — {{ p.name }}
+            </option>
+          </select>
         </div>
       </div>
 
