@@ -146,7 +146,12 @@ const isEditing = canEdit
 
 const canEditBudget = computed(() => {
   const roles = currentUser.value?.roles || []
-  return roles.includes('ADMIN') || roles.includes('FINANCE')
+  // PM et Associé en charge négocient les honoraires : ils peuvent modifier.
+  // Le backend (CostFieldFilterMixin) reste la source de vérité de sécurité.
+  return roles.includes('ADMIN')
+    || roles.includes('FINANCE')
+    || roles.includes('PM')
+    || roles.includes('PROJECT_DIRECTOR')
 })
 
 const canApproveAmendment = computed(() => {
