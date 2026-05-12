@@ -276,17 +276,18 @@ async function deleteClient() {
 
       <!-- Contacts -->
       <div v-if="activeTab === 'contacts'">
-        <div v-if="isEditing" class="mb-4 flex justify-end">
+        <div class="mb-4 flex justify-end">
           <button
             class="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white"
+            data-add-contact
             @click="showContactForm = !showContactForm"
           >
-            + Ajouter un contact
+            {{ showContactForm ? '× Annuler' : '+ Ajouter un contact' }}
           </button>
         </div>
 
         <ContactForm
-          v-if="showContactForm && isEditing"
+          v-if="showContactForm"
           class="mb-4"
           @submit="onAddContact"
           @cancel="showContactForm = false"

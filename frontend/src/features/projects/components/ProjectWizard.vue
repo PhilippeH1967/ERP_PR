@@ -118,22 +118,36 @@ interface BUOption { id: number; name: string; code: string }
 const businessUnits = ref<BUOption[]>([])
 
 // Users dropdown for PM, Associate, Approver
-interface UserOption { id: number; username: string; email: string }
+interface UserOption { id: number; username: string; email: string; first_name?: string; last_name?: string }
 const allUsers = ref<UserOption[]>([])
+const pmUsers = ref<UserOption[]>([])
+const associateUsers = ref<UserOption[]>([])
+
+function fullName(u: UserOption): string {
+  const fn = `${u.first_name || ''} ${u.last_name || ''}`.trim()
+  return fn || u.username
+}
 
 async function loadLookups() {
   try {
-    const [cResp, buResp, uResp] = await Promise.all([
+    const [cResp, buResp, pmResp, assocResp] = await Promise.all([
       apiClient.get('clients/', { params: { status: 'active' } }),
       apiClient.get('business_units/'),
-      apiClient.get('users/search/'),
+      // PM dropdown : rôles PM + PROJECT_DIRECTOR (les associés peuvent aussi être PM)
+      apiClient.get('users/search/', { params: { role: 'PM,PROJECT_DIRECTOR' } }),
+      // Associé en charge : strictement PROJECT_DIRECTOR
+      apiClient.get('users/search/', { params: { role: 'PROJECT_DIRECTOR' } }),
     ])
     const cData = cResp.data?.data || cResp.data
     allClients.value = Array.isArray(cData) ? cData : cData?.results || []
     const buData = buResp.data?.data || buResp.data
     businessUnits.value = Array.isArray(buData) ? buData : buData?.results || []
-    const uData = uResp.data?.data || uResp.data
-    allUsers.value = Array.isArray(uData) ? uData : []
+    const pmData = pmResp.data?.data || pmResp.data
+    pmUsers.value = Array.isArray(pmData) ? pmData : []
+    const aData = assocResp.data?.data || assocResp.data
+    associateUsers.value = Array.isArray(aData) ? aData : []
+    // allUsers reste utile pour le récap (lookup id → name)
+    allUsers.value = [...new Map([...pmUsers.value, ...associateUsers.value].map(u => [u.id, u])).values()]
   } catch { /* silent */ }
 }
 
@@ -517,14 +531,15 @@ onMounted(() => {
             </select>
           </div>
           <div>
-            <label class="text-xs font-medium text-text-muted">Chef de projet</label>
+            <label class="text-xs font-medium text-text-muted">PM (Project Manager)</label>
             <select
               v-model="form.pm"
               class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
             >
               <option :value="null">— Aucun —</option>
-              <option v-for="u in allUsers" :key="u.id" :value="u.id">{{ u.username }} ({{ u.email }})</option>
+              <option v-for="u in pmUsers" :key="u.id" :value="u.id">{{ fullName(u) }} ({{ u.username }})</option>
             </select>
+            <p v-if="!pmUsers.length" class="mt-1 text-xs text-warning">Aucun utilisateur avec rôle PM ou Associé en charge.</p>
           </div>
           <div>
             <label class="text-xs font-medium text-text-muted">Associé en charge</label>
@@ -533,8 +548,9 @@ onMounted(() => {
               class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
             >
               <option :value="null">— Aucun —</option>
-              <option v-for="u in allUsers" :key="u.id" :value="u.id">{{ u.username }} ({{ u.email }})</option>
+              <option v-for="u in associateUsers" :key="u.id" :value="u.id">{{ fullName(u) }} ({{ u.username }})</option>
             </select>
+            <p v-if="!associateUsers.length" class="mt-1 text-xs text-warning">Aucun utilisateur avec rôle Associé en charge.</p>
           </div>
           <div>
             <label class="text-xs font-medium text-text-muted">Approbateur factures</label>
@@ -543,7 +559,7 @@ onMounted(() => {
               class="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
             >
               <option :value="null">— Aucun —</option>
-              <option v-for="u in allUsers" :key="u.id" :value="u.id">{{ u.username }} ({{ u.email }})</option>
+              <option v-for="u in associateUsers" :key="u.id" :value="u.id">{{ fullName(u) }} ({{ u.username }})</option>
             </select>
           </div>
           <div>
@@ -736,29 +752,34 @@ onMounted(() => {
               </button>
             </div>
             <div class="grid grid-cols-3 gap-3">
-              <input
-                v-model="phase.name"
-                type="text"
-                placeholder="Nom interne"
-                class="rounded border border-border px-2 py-1.5 text-sm"
-              >
-              <input
-                v-model="phase.client_facing_label"
-                type="text"
-                placeholder="Libellé client"
-                class="rounded border border-border px-2 py-1.5 text-sm"
-              >
-              <select
-                v-model="phase.billing_mode"
-                class="rounded border border-border px-2 py-1.5 text-sm"
-              >
-                <option value="FORFAIT">
-                  Forfait
-                </option>
-                <option value="HORAIRE">
-                  Horaire
-                </option>
-              </select>
+              <div>
+                <label class="text-[10px] font-medium text-text-muted">Nom interne (Provencher Roy)</label>
+                <input
+                  v-model="phase.name"
+                  type="text"
+                  placeholder="ex. Concept"
+                  class="mt-0.5 w-full rounded border border-border px-2 py-1.5 text-sm"
+                >
+              </div>
+              <div>
+                <label class="text-[10px] font-medium text-text-muted">Libellé client (affiché sur factures/rapports)</label>
+                <input
+                  v-model="phase.client_facing_label"
+                  type="text"
+                  placeholder="ex. Phase 1 — Étude de faisabilité"
+                  class="mt-0.5 w-full rounded border border-border px-2 py-1.5 text-sm"
+                >
+              </div>
+              <div>
+                <label class="text-[10px] font-medium text-text-muted">Mode de facturation</label>
+                <select
+                  v-model="phase.billing_mode"
+                  class="mt-0.5 w-full rounded border border-border px-2 py-1.5 text-sm"
+                >
+                  <option value="FORFAIT">Forfait</option>
+                  <option value="HORAIRE">Horaire</option>
+                </select>
+              </div>
             </div>
             <div class="mt-2 grid grid-cols-2 gap-3">
               <div>

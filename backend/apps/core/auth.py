@@ -353,19 +353,60 @@ def delegation_delete(request, pk):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def user_search(request):
-    """Search users by username or email. Any authenticated user can access this."""
+    """Search users by username or email.
+
+    Params:
+      q : texte libre (filtre sur username + email + first/last name)
+      role : ProjectRole.role (PM, PROJECT_DIRECTOR, FINANCE, etc.) ; on peut
+             passer plusieurs rôles séparés par virgule (ex: PM,PROJECT_DIRECTOR)
+             → retourne uniquement les users ayant au moins un de ces rôles
+             dans le tenant courant.
+      limit : nombre max de résultats (défaut 10 sans role, 200 avec role).
+    """
     from django.contrib.auth import get_user_model
     from django.db.models import Q
 
+    from apps.core.models import ProjectRole
+
     User = get_user_model()
     q = request.query_params.get("q", "").strip()
+    roles_param = request.query_params.get("role", "").strip()
+    roles = [r.strip() for r in roles_param.split(",") if r.strip()] if roles_param else []
 
     qs = User.objects.filter(is_active=True)
     if q:
-        qs = qs.filter(Q(username__icontains=q) | Q(email__icontains=q))
-    qs = qs.order_by("username")[:10]
+        qs = qs.filter(
+            Q(username__icontains=q)
+            | Q(email__icontains=q)
+            | Q(first_name__icontains=q)
+            | Q(last_name__icontains=q),
+        )
 
-    result = [{"id": u.id, "username": u.username, "email": u.email} for u in qs]
+    if roles:
+        tenant_id = getattr(request, "tenant_id", None)
+        role_qs = ProjectRole.objects.filter(role__in=roles)
+        if tenant_id:
+            role_qs = role_qs.filter(tenant_id=tenant_id)
+        user_ids = role_qs.values_list("user_id", flat=True).distinct()
+        qs = qs.filter(id__in=user_ids)
+
+    try:
+        limit = int(request.query_params.get("limit", "200" if roles else "10"))
+    except ValueError:
+        limit = 200 if roles else 10
+    limit = max(1, min(limit, 500))
+
+    qs = qs.order_by("username")[:limit]
+    result = [
+        {
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "first_name": u.first_name,
+            "last_name": u.last_name,
+        }
+        for u in qs
+    ]
     return Response({"data": result})
 
 
