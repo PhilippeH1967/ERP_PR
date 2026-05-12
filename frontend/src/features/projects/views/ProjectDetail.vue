@@ -401,13 +401,24 @@ async function saveTaskEdit(payload: {
 
 const tasksByPhase = computed(() => {
   const grouped: Record<string, { phase_name: string; phase_id: number | null; tasks: TaskItem[] }> = {}
+
+  // 1. Initialiser une entrée pour CHAQUE phase du projet (même sans tâche).
+  //    Permet d'afficher le bouton '+ Tâche' sur chaque phase, y compris vide.
+  const projectPhases = (store.currentProject?.phases || []) as Array<{ id: number; name: string }>
+  for (const p of projectPhases) {
+    if (!p?.id) continue
+    grouped[p.name] = { phase_name: p.name, phase_id: p.id, tasks: [] }
+  }
+
+  // 2. Distribuer les tâches existantes dans leurs phases
   for (const t of tasks.value) {
-    if (!t || !t.id) continue // Skip undefined/null tasks
+    if (!t || !t.id) continue
     const key = t.phase_name || 'Sans phase'
     if (!grouped[key]) grouped[key] = { phase_name: key, phase_id: t.phase, tasks: [] }
     grouped[key].tasks.push(t)
   }
-  // Sort tasks by order within each group
+
+  // 3. Trier les tâches par ordre dans chaque phase
   for (const g of Object.values(grouped)) {
     g.tasks.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   }
@@ -1405,11 +1416,23 @@ watch(activeTab, (tab) => {
                 <td v-if="isEditing"></td>
               </tr>
               </template>
+              <!-- Phase sans tâche : invitation à en créer -->
+              <tr v-if="!group.tasks.length" class="empty-phase-row">
+                <td :colspan="isEditing ? 10 : 9" class="empty-phase-cell">
+                  Aucune tâche dans cette phase — cliquer
+                  <strong>+ Tâche</strong>
+                  en haut de la section pour en ajouter une.
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
       </div>
-      <div v-else class="card empty-card">Aucune tâche — ajoutez des tâches via les phases</div>
+      <div v-else class="card empty-card">
+        Ce projet n'a pas encore de phase. Ajoute une phase dans
+        <a href="#" class="link" @click.prevent="activeTab = 'phases'">l'onglet Phases</a>
+        pour pouvoir y créer des tâches.
+      </div>
     </template>
 
     <!-- ═══ Team ═══ -->
@@ -2096,7 +2119,10 @@ watch(activeTab, (tab) => {
 .card-table { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
 .amendment-row-clickable { cursor: pointer; transition: background 0.12s; }
 .amendment-row-clickable:hover { background: var(--color-gray-50); }
-.empty { text-align: center; padding: 24px; color: var(--color-gray-400); } .empty-card { text-align: center; color: var(--color-gray-400); font-size: 13px; }
+.empty { text-align: center; padding: 24px; color: var(--color-gray-400); } .empty-card { text-align: center; color: var(--color-gray-400); font-size: 13px; padding: 24px; }
+.empty-phase-row td { background: var(--color-gray-50); }
+.empty-phase-cell { padding: 12px 16px; text-align: center; color: var(--color-gray-500); font-size: 12px; font-style: italic; }
+.empty-card .link { color: var(--color-primary); text-decoration: underline; cursor: pointer; }
 
 .text-right { text-align: right !important; } .text-muted { color: var(--color-gray-500); font-size: 12px; }
 .font-mono { font-family: var(--font-mono); font-size: 12px; } .font-semibold { font-weight: 600; }
