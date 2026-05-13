@@ -300,16 +300,22 @@ async function onSubmit() {
           } catch { /* continue with other phases */ }
         }
       }
-      router.push(`/projects/${project.id}`)
+      // Redirection garantie même si la création des phases manuelles a partiellement échoué
+      await router.push(`/projects/${project.id}`)
+      return
     }
+    // Cas inattendu : pas d'id dans la réponse
+    error.value = 'Projet créé mais identifiant manquant dans la réponse — rechargez la page.'
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: { message?: string; details?: Array<{ field?: string; message?: string }> } } } }
     const details = err.response?.data?.error?.details
     if (details?.length) {
-      error.value = details.map(d => `${d.field}: ${d.message}`).join(', ')
+      error.value = details.map(d => `${d.field ?? ''}: ${d.message ?? ''}`.trim()).join(' · ')
     } else {
-      error.value = err.response?.data?.error?.message || 'Erreur lors de la création du projet'
+      error.value = err.response?.data?.error?.message || 'Erreur lors de la création du projet — voir DevTools Network'
     }
+    // Scroll en haut pour que l'utilisateur voie l'erreur
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
   } finally {
     isSubmitting.value = false
   }

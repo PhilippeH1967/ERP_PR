@@ -1076,9 +1076,10 @@ watch(activeTab, (tab) => {
     <template v-if="activeTab === 'overview'">
       <!-- View mode -->
       <template v-if="!editingProject">
-        <!-- KPIs unifiés (finance + heures) — 6 cards -->
-        <div class="kpi-grid-6">
-          <div class="kpi-card"><div class="kpi-value mono">{{ formatAmount(taskBudgetTotal) }}&nbsp;$</div><div class="kpi-label">Budget total</div></div>
+        <!-- KPIs unifiés (finance + heures) — 7 cards -->
+        <div class="kpi-grid-7">
+          <div class="kpi-card" title="Honoraires totaux contractuels (saisis dans Finances → Budget)"><div class="kpi-value mono">{{ formatAmount(Number(store.currentProject?.total_fees) || 0) }}&nbsp;$</div><div class="kpi-label">Honoraires</div></div>
+          <div class="kpi-card" title="Somme des budgets des tâches (Heures × Taux)"><div class="kpi-value mono">{{ formatAmount(taskBudgetTotal) }}&nbsp;$</div><div class="kpi-label">Budget tâches</div></div>
           <div class="kpi-card"><div class="kpi-value mono">{{ formatAmount(budgetInvoiced) }}&nbsp;$</div><div class="kpi-label">Facturé</div></div>
           <div class="kpi-card"><div class="kpi-value" :class="{ success: budgetConsumedPercent < 75, warning: budgetConsumedPercent >= 75, danger: budgetConsumedPercent >= 90 }">{{ budgetConsumedPercent }}&nbsp;%</div><div class="kpi-label">Consommé</div></div>
           <div class="kpi-card"><div class="kpi-value mono" :class="{ danger: budgetRemaining < 0 }">{{ formatAmount(budgetRemaining) }}&nbsp;$</div><div class="kpi-label">Solde restant</div></div>
@@ -2105,6 +2106,8 @@ watch(activeTab, (tab) => {
 
 
 .kpi-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+.kpi-grid-7 { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+@media (max-width: 1100px) { .kpi-grid-7 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .kpi-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 14px; text-align: center; }
 .kpi-value { font-size: 24px; font-weight: 700; color: var(--color-gray-900); }
 .kpi-value.mono { font-family: var(--font-mono); font-size: 20px; }
