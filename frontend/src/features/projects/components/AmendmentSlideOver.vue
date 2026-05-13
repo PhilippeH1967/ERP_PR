@@ -179,7 +179,9 @@ function extractError(e: unknown, fallback: string): string {
 
 async function loadMembersAndVirtuals() {
   try {
-    const ur = await apiClient.get('users/search/')
+    // Limite augmentée à 200 pour avoir tous les employés du tenant
+    // (l'API limite à 10 par défaut sans param 'role', ce qui tronque la liste)
+    const ur = await apiClient.get('users/search/', { params: { limit: '200' } })
     const data = ur.data?.data ?? ur.data ?? []
     const list = Array.isArray(data) ? data : []
     members.value = list.map((u: Record<string, unknown>) => {
@@ -229,12 +231,14 @@ async function createAllocationsFor(
   const start = projectStart.value
   const end = projectEnd.value
   if (!start || !end) {
-    errorMsg.value = 'Dates projet manquantes — impossible de créer les allocations'
+    errorMsg.value = 'Dates projet manquantes — impossible de créer les allocations. Saisir les dates dans la fiche projet d\'abord.'
     return
   }
   const msStart = new Date(start).getTime()
   const msEnd = new Date(end).getTime()
   const weeks = Math.max(1, Math.round((msEnd - msStart) / (7 * 24 * 3600 * 1000)))
+  const errors: string[] = []
+  let created = 0
   for (const row of rows) {
     if (!row.hours || row.hours <= 0) continue
     const payload: Record<string, unknown> = {
@@ -248,7 +252,15 @@ async function createAllocationsFor(
     else payload.virtual_resource = row.id
     if (target.phase) payload.phase = target.phase
     if (target.task) payload.task = target.task
-    await planningApi.createAllocation(payload)
+    try {
+      await planningApi.createAllocation(payload)
+      created += 1
+    } catch (e) {
+      errors.push(`${row.kind === 'employee' ? 'Employé' : 'Virtuel'} #${row.id}: ${extractError(e, 'erreur création')}`)
+    }
+  }
+  if (errors.length) {
+    errorMsg.value = `${created} allocation(s) créée(s), ${errors.length} échec(s) : ${errors.join(' · ')}`
   }
 }
 

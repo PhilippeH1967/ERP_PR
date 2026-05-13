@@ -783,10 +783,10 @@ const rootTabs = computed(() => [
   },
   {
     key: 'execution',
-    label: 'Exécution',
+    label: 'Équipe',
     subTabs: [
-      { key: 'team', label: 'Équipe' },
-      { key: 'time', label: 'Temps' },
+      { key: 'team', label: 'Affectations' },
+      { key: 'time', label: 'Temps saisi' },
     ],
   },
   {
@@ -1455,8 +1455,8 @@ watch(activeTab, (tab) => {
         <button class="btn-action" style="margin-left:auto; font-size:10px; color:inherit;" @click="activeTab = 'phases'">Voir phases &#8594;</button>
       </div>
 
-      <!-- Team summary KPIs -->
-      <div v-if="teamByEmployee.length" class="kpi-grid-4" style="margin-bottom:16px;">
+      <!-- Team summary KPIs — toujours visibles (même si équipe vide pour orienter l'utilisateur) -->
+      <div class="kpi-grid-4" style="margin-bottom:16px;">
         <div class="kpi-card">
           <div class="kpi-value">{{ teamByEmployee.length }}</div>
           <div class="kpi-label">Membres</div>
@@ -1466,14 +1466,14 @@ watch(activeTab, (tab) => {
           <div class="kpi-label">Affectations</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-value mono" :class="{ 'text-primary': teamByEmployee.some(m => m.hasPlanning), 'text-danger': !teamByEmployee.some(m => m.hasPlanning) }">
+          <div class="kpi-value mono" :class="{ 'text-primary': teamByEmployee.length && teamByEmployee.some(m => m.hasPlanning), 'text-danger': teamByEmployee.length && !teamByEmployee.some(m => m.hasPlanning) }">
             {{ teamByEmployee.filter(m => m.hasPlanning).length }} / {{ teamByEmployee.length }}
           </div>
-          <div class="kpi-label">Planifies</div>
+          <div class="kpi-label">Planifiés</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-value mono">{{ projectTotalHours.toFixed(1) }}h</div>
-          <div class="kpi-label">H. reelles totales</div>
+          <div class="kpi-label">H. réelles totales</div>
         </div>
       </div>
 
@@ -1719,7 +1719,7 @@ watch(activeTab, (tab) => {
         <table>
           <thead>
             <tr>
-              <th>No</th>
+              <th>Avenant</th>
               <th>Description</th>
               <th class="text-right">Impact ($)</th>
               <th>Statut</th>
@@ -1733,7 +1733,7 @@ watch(activeTab, (tab) => {
               class="amendment-row-clickable"
               @click="openAmendmentSlideOver(am.id)"
             >
-              <td class="font-mono font-semibold">#{{ am.amendment_number }}</td>
+              <td><span class="badge badge-purple" style="font-size:11px;font-weight:700;">AV-{{ am.amendment_number }}</span></td>
               <td>{{ am.description }}</td>
               <td class="text-right font-mono">{{ fmt.currency(am.budget_impact) }}</td>
               <td><span class="badge" :class="am.status === 'APPROVED' ? 'badge-green' : am.status === 'SUBMITTED' ? 'badge-amber' : am.status === 'REJECTED' ? 'badge-red' : 'badge-gray'">{{ amendmentStatusLabels[am.status] || am.status }}</span></td>

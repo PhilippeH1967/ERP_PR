@@ -32,6 +32,12 @@ const hasOverrun = computed(() =>
     && sumHours.value > props.budgetedHours,
 )
 
+const isExactlyBudget = computed(() =>
+  typeof props.budgetedHours === 'number'
+    && props.budgetedHours > 0
+    && sumHours.value === props.budgetedHours,
+)
+
 function pickDefaultMember(): Allocation | null {
   const used = new Set(
     props.modelValue.filter(a => a.kind === 'employee').map(a => a.id),
@@ -84,7 +90,7 @@ function submitVirtual() {
   <div class="hd-wrapper">
     <div class="hd-header">
       <span class="hd-title">Répartition par personne</span>
-      <span v-if="budgetedHours" class="hd-sum" :class="{ 'hd-sum-warn': hasOverrun }">
+      <span v-if="budgetedHours" class="hd-sum" :class="{ 'hd-sum-warn': hasOverrun, 'hd-sum-ok': isExactlyBudget }">
         {{ sumHours }}h / {{ budgetedHours }}h
       </span>
       <span v-else class="hd-sum">{{ sumHours }}h</span>
@@ -200,6 +206,7 @@ function submitVirtual() {
 .hd-title { font-size: 10px; font-weight: 700; color: var(--color-gray-600); text-transform: uppercase; letter-spacing: 0.3px; }
 .hd-sum { font-size: 11px; font-family: var(--font-mono); color: var(--color-gray-700); }
 .hd-sum-warn { color: var(--color-danger); font-weight: 700; }
+.hd-sum-ok { color: var(--color-success); font-weight: 700; }
 .hd-empty { font-size: 11px; color: var(--color-gray-400); font-style: italic; }
 .hd-row { display: flex; align-items: center; gap: 6px; }
 .hd-select { flex: 1; padding: 4px 6px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; background: white; }
