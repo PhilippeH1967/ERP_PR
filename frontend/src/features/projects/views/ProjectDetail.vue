@@ -895,6 +895,63 @@ async function changeStatus(newStatus: string) {
 
 // Clôture projet — F3.8
 interface ClosureCheck { code: string; label: string; passed: boolean; detail: string; severity?: string }
+// Milestone creation (Gantt tab) — S-053
+const showMilestoneForm = ref(false)
+const ganttRefresh = ref(0)
+const creatingMilestone = ref(false)
+const milestoneError = ref('')
+const milestoneForm = ref({
+  name: '',
+  date: '',
+  color: '#2563EB',
+  description: '',
+})
+
+function openCreateMilestone() {
+  milestoneForm.value = {
+    name: '',
+    date: new Date().toISOString().slice(0, 10),
+    color: '#2563EB',
+    description: '',
+  }
+  milestoneError.value = ''
+  showMilestoneForm.value = true
+}
+
+async function createMilestone() {
+  milestoneError.value = ''
+  if (!milestoneForm.value.name.trim() || !milestoneForm.value.date) {
+    milestoneError.value = 'Nom et date sont obligatoires.'
+    return
+  }
+  creatingMilestone.value = true
+  try {
+    await planningApi.createMilestone({
+      project: projectId,
+      name: milestoneForm.value.name.trim(),
+      date: milestoneForm.value.date,
+      color: milestoneForm.value.color,
+      description: milestoneForm.value.description,
+    })
+    showMilestoneForm.value = false
+    ganttRefresh.value++
+  } catch (e: unknown) {
+    const data = (e as { response?: { data?: unknown } }).response?.data
+    const obj = (data as Record<string, unknown>) || {}
+    const errObj = obj.error as { message?: string } | undefined
+    if (errObj?.message) milestoneError.value = errObj.message
+    else {
+      const parts: string[] = []
+      for (const [field, val] of Object.entries(obj)) {
+        if (Array.isArray(val)) parts.push(`${field}: ${val.join(', ')}`)
+      }
+      milestoneError.value = parts.length ? parts.join(' · ') : 'Erreur lors de la création'
+    }
+  } finally {
+    creatingMilestone.value = false
+  }
+}
+
 const showCloseModal = ref(false)
 const closureChecks = ref<ClosureCheck[]>([])
 const canClose = ref(false)
@@ -1961,7 +2018,49 @@ watch(activeTab, (tab) => {
 
     <!-- ═══ Gantt (US-PL06) ═══ -->
     <template v-if="activeTab === 'gantt'">
-      <GanttChart :project-id="projectId" />
+      <div class="section-actions" style="display:flex; justify-content:flex-end; margin-bottom: 12px;">
+        <button class="btn-primary" data-add-milestone-gantt @click="openCreateMilestone">
+          + Jalon
+        </button>
+      </div>
+      <GanttChart :key="ganttRefresh" :project-id="projectId" />
+
+      <!-- Milestone creation modal (inline) -->
+      <div v-if="showMilestoneForm" class="modal-overlay" @click.self="showMilestoneForm = false">
+        <div class="modal-panel" role="dialog" aria-modal="true">
+          <header class="modal-header">
+            <h3 class="modal-title">Nouveau jalon</h3>
+            <button class="modal-close" aria-label="Fermer" @click="showMilestoneForm = false">×</button>
+          </header>
+          <div class="modal-body">
+            <div class="milestone-grid">
+              <div class="form-group">
+                <label>Nom *</label>
+                <input v-model="milestoneForm.name" data-milestone-name placeholder="ex. Livraison concept" />
+              </div>
+              <div class="form-group">
+                <label>Date *</label>
+                <input v-model="milestoneForm.date" type="date" data-milestone-date />
+              </div>
+              <div class="form-group">
+                <label>Couleur</label>
+                <input v-model="milestoneForm.color" type="color" style="height: 36px; width: 100%;" />
+              </div>
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <label>Description (optionnelle)</label>
+                <textarea v-model="milestoneForm.description" rows="2" placeholder="Notes complémentaires…" />
+              </div>
+            </div>
+            <div v-if="milestoneError" class="form-error">{{ milestoneError }}</div>
+          </div>
+          <footer class="modal-footer">
+            <button class="btn-ghost" :disabled="creatingMilestone" @click="showMilestoneForm = false">Annuler</button>
+            <button class="btn-primary" data-create-milestone :disabled="creatingMilestone" @click="createMilestone">
+              {{ creatingMilestone ? 'Création…' : 'Créer le jalon' }}
+            </button>
+          </footer>
+        </div>
+      </div>
     </template>
 
     <!-- ===== SOUS-TRAITANTS TAB ===== -->
@@ -2327,4 +2426,18 @@ watch(activeTab, (tab) => {
 .virtual-replace-form { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .virtual-replace-form .select-sm { padding: 4px 8px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; min-width: 180px; }
 .virtual-error { flex-basis: 100%; font-size: 11px; color: var(--color-danger); }
+
+/* Milestone modal (Gantt tab) */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+.modal-panel { background: white; border-radius: 8px; max-width: 520px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+.modal-header { display: flex; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--color-gray-200); }
+.modal-title { font-size: 16px; font-weight: 700; color: var(--color-gray-800); margin: 0; }
+.modal-close { background: none; border: none; font-size: 22px; color: var(--color-gray-500); cursor: pointer; line-height: 1; }
+.modal-body { padding: 18px; overflow-y: auto; }
+.milestone-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.milestone-grid .form-group { display: flex; flex-direction: column; gap: 4px; }
+.milestone-grid .form-group label { font-size: 11px; font-weight: 600; color: var(--color-gray-600); text-transform: uppercase; letter-spacing: 0.3px; }
+.milestone-grid .form-group input, .milestone-grid .form-group textarea { padding: 6px 10px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 13px; }
+.form-error { margin-top: 12px; padding: 8px 12px; background: #FEE2E2; color: #B91C1C; border-radius: 4px; font-size: 12px; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--color-gray-200); background: var(--color-gray-50); border-radius: 0 0 8px 8px; }
 </style>

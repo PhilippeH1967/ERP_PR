@@ -251,7 +251,9 @@ function resetPeriod() { startOffset.value = 0; load() }
 .rg-grid th, .rg-grid td { border: 1px solid #E5E7EB; }
 .rg-emp-header { position: sticky; left: 0; background: #F9FAFB; z-index: 2; padding: 6px 10px; font-size: 10px; font-weight: 600; color: #6B7280; text-transform: uppercase; text-align: left; white-space: nowrap; }
 .rg-week-header { padding: 6px 4px; text-align: center; font-size: 9px; font-weight: 600; color: #6B7280; min-width: 50px; background: #F9FAFB; }
-.rg-current-week { background: #EFF6FF !important; border-bottom-color: #3B82F6; }
+.rg-current-week { background: #EFF6FF !important; border-bottom-color: #3B82F6; border-left: 2px solid #3B82F6; box-shadow: inset 0 0 0 1px #DBEAFE; }
+.rg-current-week::after { content: 'AUJ'; position: absolute; top: 2px; left: 50%; transform: translateX(-50%); font-size: 7px; font-weight: 700; color: #1D4ED8; pointer-events: none; }
+.rg-week-header.rg-current-week::after { display: none; }
 
 .rg-emp-cell { position: sticky; left: 0; background: white; z-index: 1; padding: 6px 10px; white-space: nowrap; }
 .rg-emp-name { font-weight: 600; font-size: 12px; color: #111827; }
