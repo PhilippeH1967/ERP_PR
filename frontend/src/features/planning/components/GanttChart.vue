@@ -92,24 +92,45 @@ onMounted(load)
 
 const today = new Date()
 
-// Timeline range
+// Timeline range — fallback sur les dates du projet si aucune phase n'a de dates
 const timelineStart = computed(() => {
   const dates = phases.value.filter(p => p.start_date).map(p => new Date(p.start_date!))
-  if (!dates.length) return new Date()
-  const min = new Date(Math.min(...dates.map(d => d.getTime())))
-  min.setDate(1)
-  return min
+  if (dates.length) {
+    const min = new Date(Math.min(...dates.map(d => d.getTime())))
+    min.setDate(1)
+    return min
+  }
+  // Fallback : date début du projet
+  if (projectInfo.value.start_date) {
+    const d = new Date(projectInfo.value.start_date)
+    d.setDate(1)
+    return d
+  }
+  return new Date()
 })
 
 const timelineEnd = computed(() => {
   const dates = phases.value.filter(p => p.end_date).map(p => new Date(p.end_date!))
-  if (!dates.length) {
-    const d = new Date(); d.setFullYear(d.getFullYear() + 2); return d
+  if (dates.length) {
+    const max = new Date(Math.max(...dates.map(d => d.getTime())))
+    max.setMonth(max.getMonth() + 3)
+    return max
   }
-  const max = new Date(Math.max(...dates.map(d => d.getTime())))
-  max.setMonth(max.getMonth() + 3)
-  return max
+  // Fallback : date fin du projet
+  if (projectInfo.value.end_date) {
+    const d = new Date(projectInfo.value.end_date)
+    d.setMonth(d.getMonth() + 3)
+    return d
+  }
+  const d = new Date()
+  d.setFullYear(d.getFullYear() + 2)
+  return d
 })
+
+// Phases sans dates : on les affiche couvrant toute la timeline (style "ghost")
+const phasesWithoutDates = computed(() =>
+  phases.value.filter(p => !p.start_date || !p.end_date).length,
+)
 
 const totalDays = computed(() => Math.max(1, Math.round((timelineEnd.value.getTime() - timelineStart.value.getTime()) / 86400000)))
 
@@ -157,8 +178,11 @@ const periods = computed(() => {
 })
 
 function barStyle(startDate: string | null, endDate: string | null) {
-  if (!startDate || !endDate) return { display: 'none' }
-  const s = new Date(startDate); const e = new Date(endDate)
+  // Si les dates manquent, fallback sur les dates du projet pour qu'une barre soit affichée
+  const sDate = startDate || projectInfo.value.start_date
+  const eDate = endDate || projectInfo.value.end_date
+  if (!sDate || !eDate) return { display: 'none' }
+  const s = new Date(sDate); const e = new Date(eDate)
   const left = ((s.getTime() - timelineStart.value.getTime()) / 86400000) / totalDays.value * 100
   const width = ((e.getTime() - s.getTime()) / 86400000) / totalDays.value * 100
   return { left: `${Math.max(0, left)}%`, width: `${Math.max(0.5, width)}%` }
@@ -263,6 +287,14 @@ const tooltipData = computed(() => {
     </div>
 
     <div v-if="isLoading" class="gantt-loading">Chargement...</div>
+    <div v-else-if="!phases.length" class="gantt-empty">
+      Aucune phase à afficher. Crée des phases dans l'onglet <strong>Structure → Phases</strong>.
+    </div>
+    <div v-else-if="phasesWithoutDates > 0" class="gantt-warning">
+      ⚠ {{ phasesWithoutDates }} phase(s) sans date de début/fin —
+      les barres apparaîtront sur toute la période du projet.
+      Renseigne les dates dans l'onglet <strong>Phases</strong> pour un Gantt précis.
+    </div>
     <div v-else-if="!phases.length" class="gantt-empty">Aucune phase avec dates — configurez les dates dans l'onglet Phases</div>
 
     <div v-else class="gantt-body">
@@ -420,6 +452,8 @@ const tooltipData = computed(() => {
 .zoom-btn { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; border: 1px solid var(--color-gray-300); background: white; cursor: pointer; color: var(--color-gray-600); }
 .zoom-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
 .gantt-loading, .gantt-empty { padding: 40px; text-align: center; color: var(--color-gray-400); font-size: 13px; }
+.gantt-warning { margin: 12px 0; padding: 10px 14px; background: #FEF3C7; color: #92400E; border-left: 3px solid #F59E0B; border-radius: 4px; font-size: 12px; }
+.gantt-warning strong { font-weight: 700; }
 
 .gantt-body { overflow-x: auto; }
 .gantt-timeline-header { display: flex; border-bottom: 2px solid var(--color-gray-200); position: sticky; top: 0; background: white; z-index: 3; }

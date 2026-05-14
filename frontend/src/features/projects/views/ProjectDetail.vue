@@ -928,7 +928,7 @@ async function createMilestone() {
   try {
     await planningApi.createMilestone({
       project: projectId,
-      name: milestoneForm.value.name.trim(),
+      title: milestoneForm.value.name.trim(),  // ← le modèle utilise 'title', pas 'name'
       date: milestoneForm.value.date,
       color: milestoneForm.value.color,
       description: milestoneForm.value.description,
