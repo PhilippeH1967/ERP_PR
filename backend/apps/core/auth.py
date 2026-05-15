@@ -9,7 +9,11 @@ import contextlib
 
 from django.conf import settings
 from rest_framework import serializers, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
@@ -411,6 +415,7 @@ def user_search(request):
 
 
 @api_view(["GET"])
+@authentication_classes([])  # endpoint 100% public : ignorer tout token (même expiré)
 @permission_classes([AllowAny])
 def auth_config(request):
     """Return auth configuration for the login page."""

@@ -235,6 +235,17 @@ class TestFR76_Bilingual(TestCase):
         resp = client.get("/api/v1/auth/config/")
         self.assertEqual(resp.status_code, 200)
 
+    def test_auth_config_ignores_expired_token(self):
+        """Un token invalide/expiré ne doit PAS provoquer un 401 sur /auth/config/.
+
+        L'intercepteur axios attache le Bearer token même sur la page login ;
+        un token périmé ne doit pas bloquer cet endpoint public.
+        """
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer not-a-valid-token")
+        resp = client.get("/api/v1/auth/config/")
+        self.assertEqual(resp.status_code, 200)
+
     def test_api_root_accessible(self):
         """API root returns version info."""
         client = APIClient()
