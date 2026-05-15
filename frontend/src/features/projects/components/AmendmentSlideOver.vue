@@ -173,8 +173,27 @@ async function loadScope() {
 }
 
 function extractError(e: unknown, fallback: string): string {
-  const err = e as { response?: { data?: { error?: { message?: string }; detail?: string } }; message?: string }
-  return err.response?.data?.error?.message || err.response?.data?.detail || err.message || fallback
+  const err = e as {
+    response?: { data?: unknown }
+    message?: string
+  }
+  const data = err.response?.data
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>
+    // Format 1 : { error: { message } }
+    const errObj = obj.error as { message?: string } | undefined
+    if (errObj?.message) return errObj.message
+    // Format 2 : { detail: "..." }
+    if (typeof obj.detail === 'string') return obj.detail
+    // Format 3 : DRF field errors { field: ["msg"], ... }
+    const parts: string[] = []
+    for (const [field, val] of Object.entries(obj)) {
+      if (Array.isArray(val)) parts.push(`${field}: ${val.join(', ')}`)
+      else if (typeof val === 'string') parts.push(`${field}: ${val}`)
+    }
+    if (parts.length) return parts.join(' · ')
+  }
+  return err.message || fallback
 }
 
 async function loadMembersAndVirtuals() {
@@ -245,7 +264,9 @@ async function createAllocationsFor(
       project: props.projectId,
       start_date: start,
       end_date: end,
-      hours_per_week: Number((row.hours / weeks).toFixed(2)),
+      // hours_per_week est un DecimalField(decimal_places=1) côté backend
+      // → arrondir à 1 décimale (sinon 400 'no more than 1 decimal place')
+      hours_per_week: Number((row.hours / weeks).toFixed(1)),
       distribution_mode: 'uniform',
     }
     if (row.kind === 'employee') payload.employee = row.id
