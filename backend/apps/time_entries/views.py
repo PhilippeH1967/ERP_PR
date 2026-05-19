@@ -1060,14 +1060,29 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
         if not my_projects.exists():
             return Response({"projects": [], "employees": [], "kpis": {}})
 
-        # Determine week — use ?week_start param or current week Monday
+        # Determine week — use ?week_start param sinon :
+        #  1) semaine de la plus ancienne feuille SUBMITTED en attente sur mes
+        #     projets (pour que le CP voie directement ce qu'il a à traiter)
+        #  2) à défaut, la semaine courante
         week_start_str = request.query_params.get("week_start")
         if week_start_str:
             from datetime import date as date_type
             week_start = date_type.fromisoformat(week_start_str)
         else:
-            today = timezone.now().date()
-            week_start = today - timedelta(days=today.weekday())
+            oldest_pending = (
+                TimeEntry.objects.filter(
+                    project__in=my_projects,
+                    status="SUBMITTED",
+                )
+                .order_by("date")
+                .values_list("date", flat=True)
+                .first()
+            )
+            if oldest_pending:
+                week_start = oldest_pending - timedelta(days=oldest_pending.weekday())
+            else:
+                today = timezone.now().date()
+                week_start = today - timedelta(days=today.weekday())
         week_end = week_start + timedelta(days=6)
 
         # Get all submitted/approved entries on my projects for this week
@@ -1206,14 +1221,25 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
 
         User = get_user_model()
 
-        # Determine week
+        # Determine week — défaut : plus ancienne semaine en attente Finance
         week_start_str = request.query_params.get("week_start")
         if week_start_str:
             from datetime import date as date_type
             week_start = date_type.fromisoformat(week_start_str)
         else:
-            today = timezone.now().date()
-            week_start = today - timedelta(days=today.weekday())
+            oldest = (
+                WeeklyApproval.objects.filter(
+                    pm_status="APPROVED", finance_status="PENDING",
+                )
+                .order_by("week_start")
+                .values_list("week_start", flat=True)
+                .first()
+            )
+            if oldest:
+                week_start = oldest
+            else:
+                today = timezone.now().date()
+                week_start = today - timedelta(days=today.weekday())
         week_end = week_start + timedelta(days=6)
 
         # All approvals for this week
@@ -1276,8 +1302,19 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
             from datetime import date as date_type
             week_start = date_type.fromisoformat(week_start_str)
         else:
-            today = timezone.now().date()
-            week_start = today - timedelta(days=today.weekday())
+            oldest = (
+                WeeklyApproval.objects.filter(
+                    finance_status="APPROVED", paie_status="PENDING",
+                )
+                .order_by("week_start")
+                .values_list("week_start", flat=True)
+                .first()
+            )
+            if oldest:
+                week_start = oldest
+            else:
+                today = timezone.now().date()
+                week_start = today - timedelta(days=today.weekday())
         week_end = week_start + timedelta(days=6)
 
         # All active employees in the tenant

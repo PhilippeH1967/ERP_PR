@@ -192,3 +192,34 @@ class TestApprovalAPI:
             f"/api/v1/weekly_approvals/{self.approval.pk}/approve_pm/"
         )
         assert response.status_code == 403
+
+
+@pytest.mark.django_db
+class TestPMDashboardWeekAutodetect:
+    """Sans ?week_start, pm_dashboard doit cibler la plus ancienne semaine
+    avec des feuilles SUBMITTED en attente (pas la semaine courante)."""
+
+    def setup_method(self):
+        self.tenant = Tenant.objects.create(name="DashAuto", slug="dash-auto")
+        self.pm = User.objects.create_user(username="pm_d", password="pass123!")
+        self.emp = User.objects.create_user(username="emp_d", password="pass123!")
+        from apps.core.models import ProjectRole, Role
+        ProjectRole.objects.create(user=self.pm, tenant=self.tenant, role=Role.PM)
+        self.project = Project.objects.create(
+            tenant=self.tenant, code="DASH-1", name="Dash", pm=self.pm, status="ACTIVE",
+        )
+        # Feuille soumise sur une semaine PASSÉE (loin de la semaine courante)
+        TimeEntry.objects.create(
+            tenant=self.tenant, employee=self.emp, project=self.project,
+            date=date(2026, 3, 4), hours=8, status="SUBMITTED",
+        )
+        self.api = APIClient()
+        self.api.force_authenticate(user=self.pm)
+
+    def test_pm_dashboard_finds_submitted_week_without_param(self):
+        resp = self.api.get("/api/v1/weekly_approvals/pm_dashboard/")
+        assert resp.status_code == 200
+        data = resp.json().get("data", resp.json())
+        # La semaine retournée doit être celle du 2026-03-04 (lundi 2026-03-02)
+        assert data["week_start"] == "2026-03-02"
+        assert len(data["employees"]) == 1
