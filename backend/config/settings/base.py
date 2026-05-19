@@ -383,6 +383,15 @@ SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
 LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGOUT_REDIRECT_URL = "/"
 
+# Audit F8: SSO auto-provisioning is single-tenant by design. The target
+# tenant slug is configurable; multi-org SSO must be explicitly enabled
+# (and requires a real tenant-resolution step — not yet implemented).
+SSO_DEFAULT_TENANT_SLUG = os.environ.get("SSO_DEFAULT_TENANT_SLUG", "default")
+SSO_ALLOW_MULTI_TENANT = (
+    os.environ.get("SSO_ALLOW_MULTI_TENANT", "false").lower()
+    in ("true", "1", "yes")
+)
+
 # Microsoft Entra ID OIDC provider
 _entra_client_id = os.environ.get("ENTRA_CLIENT_ID", "")
 _entra_tenant_id = os.environ.get("ENTRA_TENANT_ID", "")
