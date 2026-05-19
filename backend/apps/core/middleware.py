@@ -6,6 +6,7 @@ for RLS policy enforcement on every request.
 """
 
 import structlog
+from django.conf import settings
 from django.db import connection
 from django.http import JsonResponse
 
@@ -43,8 +44,13 @@ class TenantMiddleware:
         # Try to extract tenant_id from JWT token
         tenant_id = self._extract_tenant_from_jwt(request)
 
-        # Fallback to X-Tenant-Id header (development/testing)
-        if tenant_id is None:
+        # Fallback to X-Tenant-Id header — dev/testing convenience ONLY.
+        # In production this would let any caller without a verified tenant
+        # JWT claim pick a tenant, so it is gated by TENANT_HEADER_FALLBACK
+        # (default False = fail-closed; production must keep it False).
+        if tenant_id is None and getattr(
+            settings, "TENANT_HEADER_FALLBACK", False
+        ):
             tenant_id = request.headers.get("X-Tenant-Id")
 
         if not tenant_id:

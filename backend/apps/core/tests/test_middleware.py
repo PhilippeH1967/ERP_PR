@@ -1,9 +1,43 @@
 """Tests for TenantMiddleware."""
 
 import pytest
+from django.test import RequestFactory, override_settings
 from rest_framework.test import APIClient
 
+from apps.core.middleware import TenantMiddleware
 from apps.core.models import Tenant
+
+
+@pytest.mark.django_db
+class TestTenantHeaderFallbackGate:
+    """F3: the X-Tenant-Id header fallback must be disabled in production
+    (it lets any caller without a tenant JWT claim choose a tenant)."""
+
+    def _resolve(self, tenant_pk):
+        captured = {}
+
+        def get_response(request):
+            from django.http import HttpResponse
+
+            captured["tenant_id"] = request.tenant_id
+            return HttpResponse()
+
+        mw = TenantMiddleware(get_response)
+        request = RequestFactory().get(
+            "/api/v1/clients/", HTTP_X_TENANT_ID=str(tenant_pk)
+        )
+        mw(request)
+        return captured["tenant_id"]
+
+    @override_settings(TENANT_HEADER_FALLBACK=True)
+    def test_header_honored_when_enabled(self):
+        tenant = Tenant.objects.create(name="HF on", slug="hf-on")
+        assert self._resolve(tenant.pk) == tenant.pk
+
+    @override_settings(TENANT_HEADER_FALLBACK=False)
+    def test_header_ignored_when_disabled(self):
+        tenant = Tenant.objects.create(name="HF off", slug="hf-off")
+        assert self._resolve(tenant.pk) is None
 
 
 @pytest.mark.django_db

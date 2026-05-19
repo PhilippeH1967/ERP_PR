@@ -10,6 +10,10 @@ from .base import *  # noqa: F401, F403
 
 DEBUG = False
 
+# Audit F3: never trust a client header to choose the tenant in prod —
+# the tenant must come only from the verified JWT claim.
+TENANT_HEADER_FALLBACK = False
+
 # Validate required environment variables
 _hosts = os.environ.get("DJANGO_ALLOWED_HOSTS", "")
 if not _hosts:

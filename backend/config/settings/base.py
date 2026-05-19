@@ -417,3 +417,9 @@ SIMPLE_JWT = {
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
 }
+
+# Audit F3: honor the X-Tenant-Id header to resolve the tenant. This is a
+# dev/test convenience only — production MUST set this to False so the
+# tenant comes solely from the verified JWT claim. Overridden in
+# production.py.
+TENANT_HEADER_FALLBACK = True
