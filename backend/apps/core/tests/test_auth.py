@@ -131,6 +131,54 @@ class TestJWTAuthentication:
 
 
 @pytest.mark.django_db
+class TestTokenRevocation:
+    """F5: refresh-token revocation via blacklist + logout."""
+
+    def setup_method(self):
+        self.user = User.objects.create_user(username="revuser", password="revpass123!")
+        self.tenant = Tenant.objects.create(name="Rev", slug="rev")
+        UserTenantAssociation.objects.create(user=self.user, tenant=self.tenant)
+        self.client = APIClient()
+
+    def _login(self):
+        resp = self.client.post(
+            "/api/v1/auth/token/",
+            {"username": "revuser", "password": "revpass123!"},
+            format="json",
+        )
+        payload = resp.json().get("data", resp.json())
+        return payload["refresh"]
+
+    def test_logout_blacklists_refresh(self):
+        refresh = self._login()
+        logout = self.client.post("/api/v1/auth/logout/", {"refresh": refresh}, format="json")
+        assert logout.status_code == 200
+
+        reuse = self.client.post("/api/v1/auth/token/refresh/", {"refresh": refresh}, format="json")
+        assert reuse.status_code == 401
+
+    def test_logout_without_refresh_is_400(self):
+        assert self.client.post("/api/v1/auth/logout/", {}, format="json").status_code == 400
+
+    def test_rotation_blacklists_old_refresh(self):
+        old_refresh = self._login()
+        rotated = self.client.post(
+            "/api/v1/auth/token/refresh/",
+            {"refresh": old_refresh},
+            format="json",
+        )
+        assert rotated.status_code == 200
+
+        # Old refresh must no longer be replayable after rotation.
+        replay = self.client.post(
+            "/api/v1/auth/token/refresh/",
+            {"refresh": old_refresh},
+            format="json",
+        )
+        assert replay.status_code == 401
+
+
+@pytest.mark.django_db
 class TestUserTenantAssociation:
     """Tests for the UserTenantAssociation model."""
 

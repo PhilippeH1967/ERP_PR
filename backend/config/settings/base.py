@@ -138,6 +138,7 @@ THIRD_PARTY_APPS = [
     "allauth.socialaccount",
     "allauth.socialaccount.providers.openid_connect",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "rules",
 ]
 
@@ -411,7 +412,9 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": False,
+    # Audit F5: blacklist the previous refresh on rotation so a leaked /
+    # rotated-away refresh token cannot be replayed.
+    "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
     "TOKEN_OBTAIN_SERIALIZER": "apps.core.auth.CustomTokenObtainPairSerializer",
     "USER_ID_FIELD": "id",

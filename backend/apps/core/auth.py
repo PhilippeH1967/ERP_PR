@@ -123,6 +123,29 @@ class CustomTokenRefreshView(TokenRefreshView):
     pass
 
 
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def auth_logout(request):
+    """Blacklist a refresh token (logout / token revocation — audit F5).
+
+    The refresh token itself is the credential; idempotent so a missing
+    or already-blacklisted token still returns success.
+    """
+    from rest_framework_simplejwt.exceptions import TokenError
+    from rest_framework_simplejwt.tokens import RefreshToken
+
+    raw = request.data.get("refresh")
+    if not raw:
+        return Response(
+            {"error": {"code": "NO_REFRESH", "message": "Token refresh requis."}},
+            status=400,
+        )
+    with contextlib.suppress(TokenError):
+        RefreshToken(raw).blacklist()
+    return Response({"data": {"detail": "Déconnecté."}}, status=200)
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def auth_me(request):
