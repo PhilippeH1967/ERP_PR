@@ -22,6 +22,37 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 
+def _caller_tenant_id(request):
+    """Tenant of the authenticated caller, from the server-side OneToOne
+    association (never trust client-supplied tenant for admin scoping)."""
+    from django.core.exceptions import ObjectDoesNotExist
+
+    try:
+        return request.user.tenant_association.tenant_id
+    except (AttributeError, ObjectDoesNotExist):
+        return None
+
+
+def _tenant_user_ids(tenant_id):
+    """Ids of users belonging to the given tenant.
+
+    Membership = a UserTenantAssociation in the tenant OR a ProjectRole in
+    the tenant (both are server-side, tenant-scoped signals). Empty set
+    when tenant_id is None (fail-closed).
+    """
+    from apps.core.models import ProjectRole, UserTenantAssociation
+
+    if not tenant_id:
+        return set()
+    assoc_ids = UserTenantAssociation.objects.filter(
+        tenant_id=tenant_id
+    ).values_list("user_id", flat=True)
+    role_ids = ProjectRole.objects.filter(
+        tenant_id=tenant_id
+    ).values_list("user_id", flat=True)
+    return set(assoc_ids) | set(role_ids)
+
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """Add custom claims (tenant_id, email, roles) to JWT access token."""
 
@@ -133,7 +164,15 @@ def user_delete(request, pk):
             {"error": {"code": "SELF_DELETE", "message": "Impossible de supprimer votre propre compte."}},
             status=400,
         )
-    user = User.objects.get(pk=pk)
+    tenant_id = _caller_tenant_id(request)
+    user = User.objects.filter(
+        pk=pk, id__in=_tenant_user_ids(tenant_id)
+    ).first()
+    if user is None:
+        return Response(
+            {"error": {"code": "NOT_FOUND", "message": "Utilisateur introuvable."}},
+            status=404,
+        )
     user.delete()
     return Response(status=204)
 
@@ -147,7 +186,15 @@ def user_update(request, pk):
     from apps.core.models import ProjectRole, Tenant
 
     User = get_user_model()
-    user = User.objects.get(pk=pk)
+    tenant_id = _caller_tenant_id(request)
+    user = User.objects.filter(
+        pk=pk, id__in=_tenant_user_ids(tenant_id)
+    ).first()
+    if user is None:
+        return Response(
+            {"error": {"code": "NOT_FOUND", "message": "Utilisateur introuvable."}},
+            status=404,
+        )
     data = request.data
 
     if "is_active" in data:
@@ -159,9 +206,9 @@ def user_update(request, pk):
         user.save(update_fields=["password"])
 
     if "role" in data:
-        tenant = Tenant.objects.first()
+        tenant = Tenant.objects.filter(pk=tenant_id).first()
         ProjectRole.objects.filter(user=user).delete()
-        if data["role"]:
+        if data["role"] and tenant:
             ProjectRole.objects.create(
                 user=user, role=data["role"], tenant=tenant
             )
@@ -199,16 +246,22 @@ def user_create(request):
             status=400,
         )
 
+    tenant_id = _caller_tenant_id(request)
+    tenant = Tenant.objects.filter(pk=tenant_id).first()
+    if tenant is None:
+        return Response(
+            {"error": {"code": "NO_TENANT", "message": "Tenant appelant introuvable."}},
+            status=400,
+        )
+
     user = User.objects.create_user(
         username=data["username"],
         email=data.get("email", ""),
         password=data["password"],
     )
 
-    # Tenant association
-    tenant = Tenant.objects.first()
-    if tenant:
-        UserTenantAssociation.objects.get_or_create(user=user, defaults={"tenant": tenant})
+    # Tenant association — always the caller's tenant
+    UserTenantAssociation.objects.get_or_create(user=user, defaults={"tenant": tenant})
 
     # Role
     role = data.get("role")
@@ -231,7 +284,11 @@ def user_list(request):
     from apps.core.models import ProjectRole
 
     User = get_user_model()
-    users = User.objects.all().order_by("username")
+    tenant_id = _caller_tenant_id(request)
+    users = (
+        User.objects.filter(id__in=_tenant_user_ids(tenant_id))
+        .order_by("username")
+    )
 
     result = []
     for user in users:
@@ -377,7 +434,9 @@ def user_search(request):
     roles_param = request.query_params.get("role", "").strip()
     roles = [r.strip() for r in roles_param.split(",") if r.strip()] if roles_param else []
 
-    qs = User.objects.filter(is_active=True)
+    qs = User.objects.filter(
+        is_active=True, id__in=_tenant_user_ids(_caller_tenant_id(request))
+    )
     if q:
         qs = qs.filter(
             Q(username__icontains=q)

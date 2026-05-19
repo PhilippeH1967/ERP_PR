@@ -126,7 +126,10 @@ class TestWBSCrud(BaseV4Test):
 
 class TestUserSearch(BaseV4Test):
     def test_search_by_username(self):
-        User.objects.create_user(username="jean.dupont", email="jean@test.com", password="x")
+        jean = User.objects.create_user(
+            username="jean.dupont", email="jean@test.com", password="x"
+        )
+        UserTenantAssociation.objects.create(user=jean, tenant=self.tenant)
         resp = self.c.get("/api/v1/users/search/?q=jean")
         self.assertEqual(resp.status_code, 200)
         data = resp.json().get("data", resp.json())

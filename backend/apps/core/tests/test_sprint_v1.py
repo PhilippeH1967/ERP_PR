@@ -304,6 +304,7 @@ class TestUserManagement(TestCase):
     def test_deactivate_user(self):
         """PATCH /users/{id}/ deactivates user."""
         user = User.objects.create_user(username="deactuser", password="x")
+        UserTenantAssociation.objects.create(user=user, tenant=self.tenant)
         resp = self.client.patch(f"/api/v1/users/{user.id}/", {"is_active": False}, format="json")
         self.assertEqual(resp.status_code, 200)
         user.refresh_from_db()
@@ -312,6 +313,7 @@ class TestUserManagement(TestCase):
     def test_change_password(self):
         """PATCH /users/{id}/ changes password."""
         user = User.objects.create_user(username="pwduser", password="OldPass123!")
+        UserTenantAssociation.objects.create(user=user, tenant=self.tenant)
         resp = self.client.patch(f"/api/v1/users/{user.id}/", {"password": "NewPass456!"}, format="json")
         self.assertEqual(resp.status_code, 200)
         user.refresh_from_db()
@@ -320,6 +322,7 @@ class TestUserManagement(TestCase):
     def test_delete_user(self):
         """DELETE /users/{id}/delete/ removes user."""
         user = User.objects.create_user(username="deleteuser", password="x")
+        UserTenantAssociation.objects.create(user=user, tenant=self.tenant)
         resp = self.client.delete(f"/api/v1/users/{user.id}/delete/")
         self.assertEqual(resp.status_code, 204)
         self.assertFalse(User.objects.filter(username="deleteuser").exists())
