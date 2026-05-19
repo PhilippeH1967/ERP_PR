@@ -101,7 +101,13 @@ class TenantMiddleware:
         return self.get_response(request)
 
     def _extract_tenant_from_jwt(self, request):
-        """Decode JWT from Authorization header to extract tenant_id claim."""
+        """Extract tenant_id from a signature-verified access token.
+
+        The tenant claim drives the RLS `SET`, so it must come from a
+        token whose signature and expiry are verified (audit F4). An
+        invalid/expired/forged token yields no tenant → the request runs
+        with no tenant context and RLS fails closed (DRF also 401s it).
+        """
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
             return None
@@ -110,7 +116,7 @@ class TenantMiddleware:
         try:
             from rest_framework_simplejwt.tokens import AccessToken
 
-            token = AccessToken(token_str, verify=False)  # Verify happens in DRF
+            token = AccessToken(token_str)  # verifies signature + expiry
             return token.get("tenant_id")
         except Exception:
             return None

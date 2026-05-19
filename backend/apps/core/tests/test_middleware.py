@@ -23,9 +23,7 @@ class TestTenantHeaderFallbackGate:
             return HttpResponse()
 
         mw = TenantMiddleware(get_response)
-        request = RequestFactory().get(
-            "/api/v1/clients/", HTTP_X_TENANT_ID=str(tenant_pk)
-        )
+        request = RequestFactory().get("/api/v1/clients/", HTTP_X_TENANT_ID=str(tenant_pk))
         mw(request)
         return captured["tenant_id"]
 
@@ -38,6 +36,57 @@ class TestTenantHeaderFallbackGate:
     def test_header_ignored_when_disabled(self):
         tenant = Tenant.objects.create(name="HF off", slug="hf-off")
         assert self._resolve(tenant.pk) is None
+
+
+@pytest.mark.django_db
+class TestJwtSignatureVerifiedForTenant:
+    """F4: the tenant claim driving the RLS SET must come from a
+    signature-verified token, not a forged/expired one."""
+
+    def _resolve(self, bearer):
+        captured = {}
+
+        def get_response(request):
+            from django.http import HttpResponse
+
+            captured["tenant_id"] = request.tenant_id
+            return HttpResponse()
+
+        mw = TenantMiddleware(get_response)
+        request = RequestFactory().get("/api/v1/clients/", HTTP_AUTHORIZATION=f"Bearer {bearer}")
+        mw(request)
+        return captured["tenant_id"]
+
+    @override_settings(TENANT_HEADER_FALLBACK=False)
+    def test_valid_token_resolves_tenant(self):
+        from rest_framework_simplejwt.tokens import AccessToken
+
+        tenant = Tenant.objects.create(name="JWT ok", slug="jwt-ok")
+        token = AccessToken()
+        token["tenant_id"] = tenant.pk
+        assert self._resolve(str(token)) == tenant.pk
+
+    @override_settings(TENANT_HEADER_FALLBACK=False)
+    def test_tampered_signature_token_is_rejected(self):
+        from rest_framework_simplejwt.tokens import AccessToken
+
+        tenant = Tenant.objects.create(name="JWT bad", slug="jwt-bad")
+        token = AccessToken()
+        token["tenant_id"] = tenant.pk
+        forged = str(token)[:-3] + "AAA"  # corrupt the signature
+        assert self._resolve(forged) is None
+
+    @override_settings(TENANT_HEADER_FALLBACK=False)
+    def test_expired_token_is_rejected(self):
+        from datetime import timedelta
+
+        from rest_framework_simplejwt.tokens import AccessToken
+
+        tenant = Tenant.objects.create(name="JWT exp", slug="jwt-exp")
+        token = AccessToken()
+        token["tenant_id"] = tenant.pk
+        token.set_exp(lifetime=timedelta(seconds=-10))
+        assert self._resolve(str(token)) is None
 
 
 @pytest.mark.django_db
