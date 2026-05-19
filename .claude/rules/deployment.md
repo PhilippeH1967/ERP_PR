@@ -42,6 +42,29 @@ docker compose -f docker-compose.prod.yml --env-file .env.production exec -T dja
 
 **Note** : les scripts standalone avec `django.setup()` ne fonctionnent pas (module `config` introuvable). Utiliser `manage.py shell < script.py`.
 
+## Isolation RLS — rôle applicatif least-privilege (audit F1)
+
+PostgreSQL contourne RLS pour le **propriétaire des tables** et les
+**superusers** (même avec `FORCE ROW LEVEL SECURITY`). L'image `postgres`
+crée `POSTGRES_USER` en superuser ⇒ si Django se connecte avec, RLS est
+inerte. Procédure de durcissement (une fois par environnement) :
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production exec django python manage.py migrate
+docker compose -f docker-compose.prod.yml --env-file .env.production exec django python manage.py setup_rls
+docker compose -f docker-compose.prod.yml --env-file .env.production exec -e DB_APP_PASSWORD django python manage.py setup_db_roles --password "$DB_APP_PASSWORD"
+```
+
+Puis dans `.env.production` : définir `DB_APP_USER=erp_app` et
+`DB_APP_PASSWORD=<secret>` (jamais committé). Le **runtime** (gunicorn)
+utilise alors ce rôle non-superuser ; les commandes DDL (`migrate`,
+`setup_rls`, `setup_db_roles`) doivent être lancées avec
+`DJANGO_DB_PRIVILEGED=1` pour repasser sur `POSTGRES_USER` (propriétaire) :
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production exec -e DJANGO_DB_PRIVILEGED=1 django python manage.py migrate
+```
+
 ## Comptes de test (Hostinger uniquement)
 
 - `admin@provencher-roy.com` / `Test1234!` (ADMIN)

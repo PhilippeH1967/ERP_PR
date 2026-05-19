@@ -7,11 +7,10 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 
 import os
 from datetime import timedelta
-
-from celery.schedules import crontab
 from pathlib import Path
 
 import structlog
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -197,12 +196,31 @@ WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
 # Database
+#
+# Audit F1: the runtime process should connect with a least-privilege
+# NOSUPERUSER/NOBYPASSRLS role so PostgreSQL RLS actually applies (owners
+# and superusers bypass RLS, even with FORCE). DDL operations (migrate,
+# setup_rls, setup_db_roles) must keep using the privileged/owner role.
+#
+# Precedence for the connection user:
+#   - DB_APP_USER set AND DJANGO_DB_PRIVILEGED unset → app role (runtime)
+#   - otherwise                                      → POSTGRES_USER (owner)
+# Run privileged commands with DJANGO_DB_PRIVILEGED=1.
+_db_privileged = os.environ.get("DJANGO_DB_PRIVILEGED", "") not in ("", "0", "false")
+_app_user = os.environ.get("DB_APP_USER", "")
+if _app_user and not _db_privileged:
+    _db_user = _app_user
+    _db_password = os.environ.get("DB_APP_PASSWORD", "")
+else:
+    _db_user = os.environ.get("POSTGRES_USER", "erp_user")
+    _db_password = os.environ.get("POSTGRES_PASSWORD", "change-me")
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.environ.get("POSTGRES_DB", "erp_dev"),
-        "USER": os.environ.get("POSTGRES_USER", "erp_user"),
-        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "change-me"),
+        "USER": _db_user,
+        "PASSWORD": _db_password,
         "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
         "PORT": os.environ.get("POSTGRES_PORT", "5432"),
         "ATOMIC_REQUESTS": True,

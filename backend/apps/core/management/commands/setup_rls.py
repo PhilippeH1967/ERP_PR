@@ -49,6 +49,14 @@ class Command(BaseCommand):
                             cursor.execute(
                                 f"ALTER TABLE {quoted_table} ENABLE ROW LEVEL SECURITY;"
                             )
+                            # FORCE so the table-owner role (the Django
+                            # connection role in this deployment) is NOT
+                            # exempt from the policy. Without FORCE, RLS is
+                            # silently inert for the owner and tenant
+                            # isolation collapses to app-layer filters only.
+                            cursor.execute(
+                                f"ALTER TABLE {quoted_table} FORCE ROW LEVEL SECURITY;"
+                            )
                             cursor.execute(
                                 f"DROP POLICY IF EXISTS tenant_isolation ON {quoted_table};"
                             )
