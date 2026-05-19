@@ -31,7 +31,8 @@ def _find_missing_users(tenant, monday):
     ).values_list("employee_id", flat=True)
 
     return User.objects.filter(
-        id__in=user_ids, is_active=True,
+        id__in=user_ids,
+        is_active=True,
     ).exclude(id__in=submitted_user_ids)
 
 
@@ -44,6 +45,7 @@ def send_timesheet_reminders():
     Creates in-app notifications + email for missing submissions.
     """
     from apps.core.models import Tenant
+    from apps.core.tenant_context import tenant_context
     from apps.notifications.models import Notification
 
     monday = _get_current_monday()
@@ -52,37 +54,39 @@ def send_timesheet_reminders():
 
     count = 0
     for tenant in Tenant.objects.filter(is_active=True):
-        missing = _find_missing_users(tenant, monday)
+        with tenant_context(tenant.id):
+            missing = _find_missing_users(tenant, monday)
 
-        for user in missing:
-            urgency = "urgent" if is_friday else "reminder"
-            message = (
-                f"{'URGENT : ' if is_friday else ''}Rappel — votre feuille de temps "
-                f"pour la semaine du {monday.strftime('%d/%m/%Y')} n'est pas encore soumise."
-            )
-            Notification.objects.create(
-                tenant=tenant,
-                user=user,
-                notification_type="timesheet_reminder",
-                message=message,
-            )
-            # Email sending (Django's send_mail) — only if user has email
-            if user.email:
-                try:
-                    from django.core.mail import send_mail
+            for user in missing:
+                message = (
+                    f"{'URGENT : ' if is_friday else ''}Rappel — votre feuille de temps "
+                    f"pour la semaine du {monday.strftime('%d/%m/%Y')} n'est pas encore soumise."
+                )
+                Notification.objects.create(
+                    tenant=tenant,
+                    user=user,
+                    notification_type="timesheet_reminder",
+                    message=message,
+                )
+                # Email sending (Django's send_mail) — only if user has email
+                if user.email:
+                    try:
+                        from django.core.mail import send_mail
 
-                    send_mail(
-                        subject=f"{'[URGENT] ' if is_friday else ''}Rappel feuille de temps — semaine du {monday.strftime('%d/%m/%Y')}",
-                        message=message,
-                        from_email=None,  # Uses DEFAULT_FROM_EMAIL
-                        recipient_list=[user.email],
-                        fail_silently=True,
-                    )
-                except Exception:
-                    logger.warning("email_send_failed", user=user.email)
-            count += 1
+                        send_mail(
+                            subject=f"{'[URGENT] ' if is_friday else ''}Rappel feuille de temps — semaine du {monday.strftime('%d/%m/%Y')}",
+                            message=message,
+                            from_email=None,  # Uses DEFAULT_FROM_EMAIL
+                            recipient_list=[user.email],
+                            fail_silently=True,
+                        )
+                    except Exception:
+                        logger.warning("email_send_failed", user=user.email)
+                count += 1
 
-    logger.info("timesheet_reminders_sent", count=count, urgency="friday" if is_friday else "wednesday")
+    logger.info(
+        "timesheet_reminders_sent", count=count, urgency="friday" if is_friday else "wednesday"
+    )
     return {"reminders_sent": count}
 
 
@@ -93,9 +97,9 @@ def escalate_missing_timesheets():
 
     Runs Friday 17h. Alerts PM/managers about their team members who haven't submitted.
     """
-    from django.db.models import Q
 
     from apps.core.models import ProjectRole, Role, Tenant
+    from apps.core.tenant_context import tenant_context
     from apps.notifications.models import Notification
     from apps.planning.models import ResourceAllocation
 
@@ -103,43 +107,44 @@ def escalate_missing_timesheets():
 
     count = 0
     for tenant in Tenant.objects.filter(is_active=True):
-        missing_users = _find_missing_users(tenant, monday)
-        if not missing_users.exists():
-            continue
-
-        missing_ids = set(missing_users.values_list("id", flat=True))
-
-        # Find PMs who manage these employees (via project assignments)
-        pm_user_ids = set(
-            ProjectRole.objects.filter(
-                tenant=tenant,
-                role__in=[Role.PM, Role.PROJECT_DIRECTOR],
-            ).values_list("user_id", flat=True)
-        )
-
-        for pm_id in pm_user_ids:
-            # Find which missing employees are assigned to PM's projects
-            managed_projects = ResourceAllocation.objects.filter(
-                project__pm_id=pm_id,
-            ).values_list("employee_id", flat=True)
-            my_missing = missing_ids & set(managed_projects)
-            if not my_missing:
+        with tenant_context(tenant.id):
+            missing_users = _find_missing_users(tenant, monday)
+            if not missing_users.exists():
                 continue
 
-            missing_names = list(
-                missing_users.filter(id__in=my_missing).values_list("username", flat=True)
+            missing_ids = set(missing_users.values_list("id", flat=True))
+
+            # Find PMs who manage these employees (via project assignments)
+            pm_user_ids = set(
+                ProjectRole.objects.filter(
+                    tenant=tenant,
+                    role__in=[Role.PM, Role.PROJECT_DIRECTOR],
+                ).values_list("user_id", flat=True)
             )
-            Notification.objects.create(
-                tenant=tenant,
-                user_id=pm_id,
-                notification_type="timesheet_escalation",
-                message=(
-                    f"Escalade : {len(missing_names)} employé(s) n'ont pas soumis "
-                    f"leur feuille de temps (semaine du {monday.strftime('%d/%m/%Y')}) : "
-                    f"{', '.join(missing_names[:5])}{'...' if len(missing_names) > 5 else ''}"
-                ),
-            )
-            count += 1
+
+            for pm_id in pm_user_ids:
+                # Find which missing employees are assigned to PM's projects
+                managed_projects = ResourceAllocation.objects.filter(
+                    project__pm_id=pm_id,
+                ).values_list("employee_id", flat=True)
+                my_missing = missing_ids & set(managed_projects)
+                if not my_missing:
+                    continue
+
+                missing_names = list(
+                    missing_users.filter(id__in=my_missing).values_list("username", flat=True)
+                )
+                Notification.objects.create(
+                    tenant=tenant,
+                    user_id=pm_id,
+                    notification_type="timesheet_escalation",
+                    message=(
+                        f"Escalade : {len(missing_names)} employé(s) n'ont pas soumis "
+                        f"leur feuille de temps (semaine du {monday.strftime('%d/%m/%Y')}) : "
+                        f"{', '.join(missing_names[:5])}{'...' if len(missing_names) > 5 else ''}"
+                    ),
+                )
+                count += 1
 
     logger.info("timesheet_escalation_sent", count=count)
     return {"escalations_sent": count}

@@ -65,6 +65,13 @@ utilise alors ce rôle non-superuser ; les commandes DDL (`migrate`,
 docker compose -f docker-compose.prod.yml --env-file .env.production exec -e DJANGO_DB_PRIVILEGED=1 django python manage.py migrate
 ```
 
+**Commandes seed/import et RLS** : si `DB_APP_USER` est activé, les
+commandes qui insèrent des données tenant-scoped (`import_changepoint*`,
+`import_reference_data`, `seed_*`, `create_admin_account`) doivent être
+lancées avec `DJANGO_DB_PRIVILEGED=1` (rôle propriétaire, bypass RLS).
+Les tâches Celery, elles, posent `app.current_tenant` automatiquement
+via `tenant_context` (aucune action requise).
+
 **Django admin (`/django-admin/`) et RLS (audit F7)** : le Django admin
 natif est un outil superuser cross-tenant, exempté du `SET` tenant. Avec
 RLS forcée + rôle app non-superuser, les tables tenant-scoped ne sont
