@@ -179,6 +179,50 @@ class TestTokenRevocation:
 
 
 @pytest.mark.django_db
+class TestSsoOnlyFailClosed:
+    """F6: a non-ADMIN login must fail closed when the tenant association
+    is missing (cannot verify sso_only) or when sso_only is enabled."""
+
+    def setup_method(self):
+        from apps.core.models import ProjectRole, Role
+
+        self.Role = Role
+        self.ProjectRole = ProjectRole
+        self.client = APIClient()
+
+    def _login(self, username, password):
+        return self.client.post(
+            "/api/v1/auth/token/",
+            {"username": username, "password": password},
+            format="json",
+        )
+
+    def test_non_admin_without_association_is_rejected(self):
+        User.objects.create_user(username="orphan", password="pass123!")
+        assert self._login("orphan", "pass123!").status_code == 400
+
+    def test_non_admin_sso_only_tenant_is_rejected(self):
+        u = User.objects.create_user(username="ssouser", password="pass123!")
+        tenant = Tenant.objects.create(name="SSO", slug="sso-t", sso_only=True)
+        UserTenantAssociation.objects.create(user=u, tenant=tenant)
+        assert self._login("ssouser", "pass123!").status_code == 400
+
+    def test_non_admin_normal_tenant_succeeds(self):
+        u = User.objects.create_user(username="normal", password="pass123!")
+        tenant = Tenant.objects.create(name="Norm", slug="norm-t")
+        UserTenantAssociation.objects.create(user=u, tenant=tenant)
+        assert self._login("normal", "pass123!").status_code == 200
+
+    def test_admin_without_association_still_logs_in(self):
+        admin = User.objects.create_user(username="ssoadmin", password="pass123!")
+        tenant = Tenant.objects.create(name="AdmSSO", slug="adm-sso", sso_only=True)
+        self.ProjectRole.objects.create(
+            user=admin, tenant=tenant, role=self.Role.ADMIN
+        )
+        assert self._login("ssoadmin", "pass123!").status_code == 200
+
+
+@pytest.mark.django_db
 class TestUserTenantAssociation:
     """Tests for the UserTenantAssociation model."""
 

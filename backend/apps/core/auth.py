@@ -94,19 +94,25 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         ).exists()
 
         if not is_admin:
+            # Audit F6: fail closed. A non-ADMIN account must have a
+            # resolvable tenant association — without it sso_only cannot
+            # be verified, so login is denied (consistent with RLS, which
+            # would block a tenant-less user anyway).
+            from django.core.exceptions import ObjectDoesNotExist
+
             try:
-                if (
-                    hasattr(user, "tenant_association")
-                    and user.tenant_association.tenant.sso_only
-                ):
-                    raise serializers.ValidationError(
-                        "Connexion SSO obligatoire pour cette organisation.",
-                        code="sso_only",
-                    )
-            except serializers.ValidationError:
-                raise  # Re-raise validation errors
-            except Exception:
-                pass  # Suppress only unexpected errors (missing association, etc.)
+                association = user.tenant_association
+            except (AttributeError, ObjectDoesNotExist) as exc:
+                raise serializers.ValidationError(
+                    "Aucune organisation associée à ce compte.",
+                    code="no_tenant",
+                ) from exc
+
+            if association.tenant.sso_only:
+                raise serializers.ValidationError(
+                    "Connexion SSO obligatoire pour cette organisation.",
+                    code="sso_only",
+                )
 
         return data
 
