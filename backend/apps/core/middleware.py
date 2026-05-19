@@ -12,12 +12,19 @@ from django.http import JsonResponse
 
 logger = structlog.get_logger()
 
-# Paths exempt from tenant context requirement
+# Paths exempt from tenant context requirement.
+#
+# Audit F7: Django admin lives at /django-admin/ (commit e9432a5 freed
+# /admin/* for the Vue SPA, which is served client-side and never reaches
+# Django). The exempt list previously named the dead /admin/ path and
+# missed /django-admin/. Django admin is superuser cross-tenant tooling
+# and must run under the privileged/superuser DB connection (which
+# bypasses RLS); see .claude/rules/deployment.md.
 TENANT_EXEMPT_PATHS = (
     "/api/v1/health/",
     "/api/v1/auth/",
     "/api/schema/",
-    "/admin/",
+    "/django-admin/",
     "/accounts/",
 )
 

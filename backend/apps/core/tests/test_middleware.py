@@ -137,3 +137,22 @@ class TestTenantMiddleware:
         client = APIClient()
         response = client.get("/api/schema/", HTTP_ACCEPT="application/json")
         assert response.status_code == 200
+
+    def test_django_admin_path_is_tenant_exempt(self):
+        """F7: /django-admin/ (real Django admin) must be exempt — the
+        tenant middleware must not 400/404 it on a bogus tenant header."""
+        captured = {}
+
+        def get_response(request):
+            from django.http import HttpResponse
+
+            captured["tenant_id"] = request.tenant_id
+            return HttpResponse()
+
+        mw = TenantMiddleware(get_response)
+        request = RequestFactory().get(
+            "/django-admin/core/tenant/", HTTP_X_TENANT_ID="not-a-number"
+        )
+        resp = mw(request)
+        assert resp.status_code == 200
+        assert captured["tenant_id"] is None

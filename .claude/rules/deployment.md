@@ -65,6 +65,15 @@ utilise alors ce rôle non-superuser ; les commandes DDL (`migrate`,
 docker compose -f docker-compose.prod.yml --env-file .env.production exec -e DJANGO_DB_PRIVILEGED=1 django python manage.py migrate
 ```
 
+**Django admin (`/django-admin/`) et RLS (audit F7)** : le Django admin
+natif est un outil superuser cross-tenant, exempté du `SET` tenant. Avec
+RLS forcée + rôle app non-superuser, les tables tenant-scoped ne sont
+plus lisibles par ce rôle. Tant que le durcissement F1 n'est pas activé
+(`DB_APP_USER` non défini), Django se connecte en superuser et l'admin
+fonctionne. Si `DB_APP_USER` est activé, lancer une instance/commande
+admin avec `DJANGO_DB_PRIVILEGED=1` ou réserver l'admin à un accès
+opéré sous le rôle propriétaire.
+
 ## Comptes de test (Hostinger uniquement)
 
 - `admin@provencher-roy.com` / `Test1234!` (ADMIN)
