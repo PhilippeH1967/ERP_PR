@@ -28,3 +28,93 @@ class TestDashboardEndpoints:
     def test_system_health(self):
         response = self.api.get("/api/v1/dashboard/system-health/")
         assert response.status_code == 200
+
+
+@pytest.mark.django_db
+class TestSidebarBadgesApprovalsScoping:
+    """S-080/S-081 regression: the `approvals` badge must reflect what the
+    connected user can actually act on — for a PM, only WeeklyApprovals
+    whose employee has timesheet entries on the PM's projects. ADMIN /
+    PAIE / FINANCE keep tenant-wide visibility."""
+
+    def setup_method(self):
+        from datetime import date
+
+        from apps.core.models import ProjectRole, Role, Tenant, UserTenantAssociation
+        from apps.projects.models import Project
+        from apps.time_entries.models import TimeEntry, WeeklyApproval
+
+        self.Tenant = Tenant
+        self.tenant = Tenant.objects.create(name="SB", slug="sb-app")
+        self.pm = User.objects.create_user("sb_pm", password="x")
+        self.other_pm = User.objects.create_user("sb_other_pm", password="x")
+        self.emp_mine = User.objects.create_user("sb_emp_mine", password="x")
+        self.emp_other = User.objects.create_user("sb_emp_other", password="x")
+        for u in (self.pm, self.other_pm, self.emp_mine, self.emp_other):
+            UserTenantAssociation.objects.create(user=u, tenant=self.tenant)
+        ProjectRole.objects.create(user=self.pm, tenant=self.tenant, role=Role.PM)
+
+        mine = Project.objects.create(
+            tenant=self.tenant, code="SB-1", name="Mine", pm=self.pm, status="ACTIVE"
+        )
+        other = Project.objects.create(
+            tenant=self.tenant, code="SB-2", name="Other", pm=self.other_pm, status="ACTIVE"
+        )
+
+        week_start = date(2026, 3, 16)
+        week_end = date(2026, 3, 22)
+        TimeEntry.objects.create(
+            tenant=self.tenant,
+            employee=self.emp_mine,
+            project=mine,
+            date=week_start,
+            hours=8,
+            status="SUBMITTED",
+        )
+        TimeEntry.objects.create(
+            tenant=self.tenant,
+            employee=self.emp_other,
+            project=other,
+            date=week_start,
+            hours=8,
+            status="SUBMITTED",
+        )
+        WeeklyApproval.objects.create(
+            tenant=self.tenant,
+            employee=self.emp_mine,
+            week_start=week_start,
+            week_end=week_end,
+            pm_status="PENDING",
+        )
+        WeeklyApproval.objects.create(
+            tenant=self.tenant,
+            employee=self.emp_other,
+            week_start=week_start,
+            week_end=week_end,
+            pm_status="PENDING",
+        )
+
+        self.api = APIClient()
+
+    def _get(self, user):
+        self.api.force_authenticate(user=user)
+        resp = self.api.get(
+            "/api/v1/sidebar/badges/",
+            HTTP_X_TENANT_ID=str(self.tenant.pk),
+        )
+        assert resp.status_code == 200
+        return resp.json()["data"]["badges"]
+
+    def test_pm_badge_only_counts_own_projects(self):
+        badges = self._get(self.pm)
+        assert badges["approvals"] == 1, (
+            "PM badge must count only WeeklyApprovals on the PM's projects"
+        )
+
+    def test_admin_badge_counts_tenant_wide(self):
+        from apps.core.models import ProjectRole, Role
+
+        admin = User.objects.create_user("sb_admin", password="x")
+        ProjectRole.objects.create(user=admin, tenant=self.tenant, role=Role.ADMIN)
+        badges = self._get(admin)
+        assert badges["approvals"] == 2

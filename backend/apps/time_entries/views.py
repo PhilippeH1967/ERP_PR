@@ -1060,29 +1060,52 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
         if not my_projects.exists():
             return Response({"projects": [], "employees": [], "kpis": {}})
 
-        # Determine week — use ?week_start param sinon :
-        #  1) semaine de la plus ancienne feuille SUBMITTED en attente sur mes
-        #     projets (pour que le CP voie directement ce qu'il a à traiter)
-        #  2) à défaut, la semaine courante
+        # Determine week — use ?week_start param sinon (S-080/S-081) :
+        #  1) plus ancien WeeklyApproval(pm_status=PENDING) où l'employé a
+        #     des entrées sur mes projets (source de vérité, alignée avec
+        #     le badge "À approuver"). Indépendant du statut des TimeEntry,
+        #     qui peuvent avoir bougé vers PM_APPROVED sans clore le WA.
+        #  2) à défaut, plus ancienne entrée SUBMITTED sur mes projets
+        #     (rétro-compatibilité avec les feuilles soumises sans WA).
+        #  3) à défaut, semaine courante.
         week_start_str = request.query_params.get("week_start")
         if week_start_str:
             from datetime import date as date_type
             week_start = date_type.fromisoformat(week_start_str)
         else:
-            oldest_pending = (
-                TimeEntry.objects.filter(
-                    project__in=my_projects,
-                    status="SUBMITTED",
-                )
-                .order_by("date")
-                .values_list("date", flat=True)
+            from django.db.models import Exists, OuterRef
+
+            entry_on_my_project = TimeEntry.objects.filter(
+                employee_id=OuterRef("employee_id"),
+                project__in=my_projects,
+                date__gte=OuterRef("week_start"),
+                date__lte=OuterRef("week_end"),
+            )
+            oldest_wa = (
+                WeeklyApproval.objects.filter(pm_status="PENDING")
+                .annotate(_rel=Exists(entry_on_my_project))
+                .filter(_rel=True)
+                .order_by("week_start")
+                .values_list("week_start", flat=True)
                 .first()
             )
-            if oldest_pending:
-                week_start = oldest_pending - timedelta(days=oldest_pending.weekday())
+            if oldest_wa:
+                week_start = oldest_wa
             else:
-                today = timezone.now().date()
-                week_start = today - timedelta(days=today.weekday())
+                oldest_pending = (
+                    TimeEntry.objects.filter(
+                        project__in=my_projects,
+                        status="SUBMITTED",
+                    )
+                    .order_by("date")
+                    .values_list("date", flat=True)
+                    .first()
+                )
+                if oldest_pending:
+                    week_start = oldest_pending - timedelta(days=oldest_pending.weekday())
+                else:
+                    today = timezone.now().date()
+                    week_start = today - timedelta(days=today.weekday())
         week_end = week_start + timedelta(days=6)
 
         # Get all submitted/approved entries on my projects for this week
