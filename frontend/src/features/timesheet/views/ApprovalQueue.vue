@@ -588,9 +588,9 @@ onMounted(() => { initView(); fetchDashboard() })
             </td>
             <td v-if="activeView === 'pm'" class="text-center py-3">
               <div class="sparkline">
-                <div v-for="(val, i) in emp.trend_4w" :key="i" class="bar" :class="sparkColor(val)" :style="{ height: sparkHeight(val) }"></div>
+                <div v-for="(val, i) in (emp.trend_4w || [])" :key="i" class="bar" :class="sparkColor(val)" :style="{ height: sparkHeight(val) }"></div>
               </div>
-              <div class="trend-values">{{ emp.trend_4w.map(v => Math.round(v)).join(' → ') }}</div>
+              <div class="trend-values">{{ (emp.trend_4w || []).map(v => Math.round(v)).join(' → ') }}</div>
             </td>
             <td v-if="activeView === 'pm'" class="text-center py-3">
               <span class="font-medium text-primary">{{ emp.billable_rate }}%</span>
