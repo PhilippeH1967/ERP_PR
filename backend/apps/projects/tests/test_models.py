@@ -230,3 +230,44 @@ class TestTenantIsolation:
         assert p1.tasks.count() == 0
         assert list(p2.phases.all()) == [ph2]
         assert p2.tasks.count() == 1
+
+
+@pytest.mark.django_db
+class TestVersionedModelHistorySave:
+    """Régression : VersionedModel + django-simple-history.
+
+    save(update_fields=[...]) plantait avec
+    'F() expressions can only be used to update, not to insert'
+    car self.version restait une expression F() copiée dans l'INSERT
+    de l'enregistrement d'historique.
+    """
+
+    def test_save_update_fields_increments_version_and_creates_history(self):
+        tenant = Tenant.objects.create(name="VerHist", slug="ver-hist")
+        p = Project.objects.create(tenant=tenant, code="VH-1", name="x")
+        assert p.version == 1
+        before = p.history.count()
+
+        p.name = "y"
+        p.save(update_fields=["name"])  # ne doit plus lever ValueError
+
+        p.refresh_from_db()
+        assert p.name == "y"
+        assert p.version == 2
+        assert p.history.count() == before + 1
+
+    def test_plain_save_increments_version(self):
+        tenant = Tenant.objects.create(name="VerHist2", slug="ver-hist2")
+        p = Project.objects.create(tenant=tenant, code="VH-2", name="a")
+        p.name = "b"
+        p.save()
+        p.refresh_from_db()
+        assert p.version == 2
+
+    def test_skip_version_increment(self):
+        tenant = Tenant.objects.create(name="VerHist3", slug="ver-hist3")
+        p = Project.objects.create(tenant=tenant, code="VH-3", name="a")
+        p.name = "b"
+        p.save(skip_version_increment=True)
+        p.refresh_from_db()
+        assert p.version == 1

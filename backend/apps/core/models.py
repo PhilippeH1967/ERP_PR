@@ -75,12 +75,21 @@ class VersionedModel(models.Model):
         abstract = True
 
     def save(self, *args, **kwargs):
-        if self.pk and not kwargs.pop("skip_version_increment", False):
-            self.version = models.F("version") + 1
+        increment = self.pk and not kwargs.pop("skip_version_increment", False)
+        if increment:
+            # Concrete increment (read fresh), NOT an F() expression: an F()
+            # left on the instance breaks django-simple-history, which copies
+            # field values into the historical row via an INSERT — and F()
+            # cannot be used in an INSERT (fails on save(update_fields=...)).
+            current = (
+                type(self).objects.filter(pk=self.pk).values_list("version", flat=True).first()
+            )
+            self.version = (current or 0) + 1
+            # Persist the bump even when the caller passed update_fields.
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"version"}
         super().save(*args, **kwargs)
-        if self.pk:
-            # Refresh from DB to get actual version value after F() expression
-            self.refresh_from_db(fields=["version"])
 
 
 # AuditMixin pattern:
@@ -167,7 +176,10 @@ class UserTenantAssociation(models.Model):
         help_text="Labor rule defining contract hours, overtime thresholds",
     )
     contract_hours_override = models.DecimalField(
-        max_digits=4, decimal_places=1, null=True, blank=True,
+        max_digits=4,
+        decimal_places=1,
+        null=True,
+        blank=True,
         help_text="Override weekly contract hours (e.g., 37.5 for part-time)",
     )
     created_at = models.DateTimeField(auto_now_add=True)
@@ -234,8 +246,11 @@ class BusinessUnit(TenantScopedModel):
     name = models.CharField(max_length=255)
     code = models.CharField(max_length=50, blank=True, default="")
     director = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="directed_bus",
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="directed_bus",
     )
     is_active = models.BooleanField(default=True)
 
@@ -275,7 +290,9 @@ class TaxScheme(TenantScopedModel):
     name = models.CharField(max_length=255, help_text="Ex: Québec TPS+TVQ, Ontario TVH")
     province = models.CharField(max_length=100, blank=True, default="")
     description = models.TextField(blank=True, default="")
-    is_default = models.BooleanField(default=False, help_text="Schéma par défaut pour les nouveaux clients")
+    is_default = models.BooleanField(
+        default=False, help_text="Schéma par défaut pour les nouveaux clients"
+    )
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -301,8 +318,12 @@ class TaxRate(TenantScopedModel):
 
     scheme = models.ForeignKey(TaxScheme, on_delete=models.CASCADE, related_name="rates")
     tax_type = models.CharField(max_length=10, choices=TAX_TYPE_CHOICES)
-    label = models.CharField(max_length=100, blank=True, default="", help_text="Libellé personnalisé si nécessaire")
-    rate = models.DecimalField(max_digits=6, decimal_places=3, help_text="Taux en pourcentage (ex: 9.975)")
+    label = models.CharField(
+        max_length=100, blank=True, default="", help_text="Libellé personnalisé si nécessaire"
+    )
+    rate = models.DecimalField(
+        max_digits=6, decimal_places=3, help_text="Taux en pourcentage (ex: 9.975)"
+    )
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -344,7 +365,7 @@ class LaborRule(TenantScopedModel):
     )
     rest_days = models.JSONField(
         default=list,
-        help_text='Days of week that are rest days: [5, 6] for Sat/Sun',
+        help_text="Days of week that are rest days: [5, 6] for Sat/Sun",
     )
     is_active = models.BooleanField(default=True)
 
