@@ -32,6 +32,26 @@ def _has_lock_role(user, tenant_id=None):
     return qs.exists()
 
 
+def _is_internal_only_week(employee_id, week_start, week_end):
+    """True when every timesheet entry of the employee that week is on an
+    internal project with no PM (congés / admin).
+
+    Such weeks have no project manager to approve them, so they are
+    validated by Paie directly — skipping the PM and Finance steps
+    (business rule: congés/admin → responsable/paie).
+    """
+    entries = list(
+        TimeEntry.objects.filter(
+            employee_id=employee_id, date__gte=week_start, date__lte=week_end
+        ).select_related("project")
+    )
+    if not entries:
+        return False
+    return all(
+        e.project is not None and e.project.is_internal and e.project.pm_id is None for e in entries
+    )
+
+
 def _get_tenant(request):
     """Get tenant from request or user association. Never returns None."""
     from apps.core.models import Tenant, UserTenantAssociation
@@ -1473,17 +1493,28 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
 
             week_start = date_type.fromisoformat(week_start_str)
         else:
-            oldest = (
-                WeeklyApproval.objects.filter(
-                    finance_status="APPROVED",
-                    paie_status="PENDING",
-                )
+            # Oldest week needing Paie: finance-approved OR congés/admin
+            # (internal project, no PM — validated by Paie directly).
+            pending = WeeklyApproval.objects.filter(paie_status="PENDING")
+            tid = getattr(request, "tenant_id", None)
+            if tid:
+                pending = pending.filter(tenant_id=tid)
+            fa_week = (
+                pending.filter(finance_status="APPROVED")
                 .order_by("week_start")
                 .values_list("week_start", flat=True)
                 .first()
             )
-            if oldest:
-                week_start = oldest
+            internal_week = None
+            for wa in pending.order_by("week_start"):
+                if _is_internal_only_week(
+                    wa.employee_id, wa.week_start, wa.week_start + timedelta(days=6)
+                ):
+                    internal_week = wa.week_start
+                    break
+            candidates = [w for w in (fa_week, internal_week) if w]
+            if candidates:
+                week_start = min(candidates)
             else:
                 today = timezone.now().date()
                 week_start = today - timedelta(days=today.weekday())
@@ -1574,6 +1605,13 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
             for a in alerts:
                 total_alerts[a["severity"]] = total_alerts.get(a["severity"], 0) + 1
 
+            # Congés/admin week (internal project, no PM) → Paie validates
+            # directly, even without PM approval.
+            paie_direct = entry_count > 0 and all(
+                e.project is not None and e.project.is_internal and e.project.pm_id is None
+                for e in week_entries
+            )
+
             employees_data.append(
                 {
                     "employee_id": emp_id,
@@ -1585,6 +1623,8 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
                     "entry_count": entry_count,
                     "has_submitted": has_submitted,
                     "all_pm_approved": all_pm_approved,
+                    "paie_direct": paie_direct,
+                    "paie_eligible": all_pm_approved or paie_direct,
                     "approval_id": approval.id if approval else None,
                     "pm_status": approval.pm_status if approval else None,
                     "paie_status": approval.paie_status if approval else "PENDING",
@@ -1636,30 +1676,35 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Check all entries are PM_APPROVED
         week_end = approval.week_start + timedelta(days=6)
         entries = TimeEntry.objects.filter(
             employee=approval.employee,
             date__gte=approval.week_start,
             date__lte=week_end,
         )
-        non_approved = entries.exclude(status__in=["PM_APPROVED", "PAIE_VALIDATED", "LOCKED"])
-        if non_approved.exists():
-            return Response(
-                {
-                    "error": {
-                        "code": "NOT_ALL_PM_APPROVED",
-                        "message": "Toutes les heures doivent etre approuvees par les CP avant la validation paie.",
-                    }
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
-        # Validate (atomic)
+        # Congés/admin (internal project, no PM) → Paie validates directly,
+        # skipping the PM step. Otherwise require all entries PM-approved.
+        internal_only = _is_internal_only_week(approval.employee_id, approval.week_start, week_end)
+        if not internal_only:
+            non_approved = entries.exclude(status__in=["PM_APPROVED", "PAIE_VALIDATED", "LOCKED"])
+            if non_approved.exists():
+                return Response(
+                    {
+                        "error": {
+                            "code": "NOT_ALL_PM_APPROVED",
+                            "message": "Toutes les heures doivent etre approuvees par les CP avant la validation paie.",
+                        }
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # Validate (atomic). For congés weeks, SUBMITTED entries are
+        # validated directly; for normal weeks only PM_APPROVED remain.
         from django.db import transaction
 
         with transaction.atomic():
-            entries.filter(status="PM_APPROVED").update(status="PAIE_VALIDATED")
+            entries.filter(status__in=["SUBMITTED", "PM_APPROVED"]).update(status="PAIE_VALIDATED")
             approval.paie_status = "APPROVED"
             approval.paie_validated_by = request.user
             approval.paie_validated_at = timezone.now()
@@ -1697,13 +1742,21 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
                 date__gte=approval.week_start,
                 date__lte=week_end,
             )
-            non_approved = entries.exclude(status__in=["PM_APPROVED", "PAIE_VALIDATED", "LOCKED"])
-            if non_approved.exists():
-                skipped.append({"id": aid, "reason": "Not all PM approved"})
-                continue
+            internal_only = _is_internal_only_week(
+                approval.employee_id, approval.week_start, week_end
+            )
+            if not internal_only:
+                non_approved = entries.exclude(
+                    status__in=["PM_APPROVED", "PAIE_VALIDATED", "LOCKED"]
+                )
+                if non_approved.exists():
+                    skipped.append({"id": aid, "reason": "Not all PM approved"})
+                    continue
 
             with transaction.atomic():
-                entries.filter(status="PM_APPROVED").update(status="PAIE_VALIDATED")
+                entries.filter(status__in=["SUBMITTED", "PM_APPROVED"]).update(
+                    status="PAIE_VALIDATED"
+                )
                 approval.paie_status = "APPROVED"
                 approval.paie_validated_by = request.user
                 approval.paie_validated_at = timezone.now()

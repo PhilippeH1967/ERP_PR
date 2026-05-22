@@ -37,6 +37,8 @@ interface EmployeeRow {
   approved_by_other: string
   has_submitted: boolean
   all_pm_approved: boolean
+  paie_direct?: boolean
+  paie_eligible?: boolean
   alerts?: Array<{ code: string; severity: string; message: string }>
   severity?: string
 }
@@ -111,6 +113,10 @@ function sparkColor(val: number): string {
   if (val > 45) return 'high'
   if (val > 40) return 'warn'
   return 'ok'
+}
+function paieEligible(emp: EmployeeRow): boolean {
+  // Congés/admin (internal, no PM) are validated by Paie directly.
+  return emp.paie_eligible ?? (emp.all_pm_approved || !!emp.paie_direct)
 }
 function formatWeek(d?: string): string {
   if (!d) return ''
@@ -388,7 +394,7 @@ async function validatePaie(approvalId: number) {
 async function bulkValidatePaie() {
   actionError.value = ''
   const ids = employees.value
-    .filter(e => e.all_pm_approved && e.paie_status !== 'APPROVED' && e.approval_id)
+    .filter(e => paieEligible(e) && e.paie_status !== 'APPROVED' && e.approval_id)
     .map(e => e.approval_id!)
   if (!ids.length) return
   try {
@@ -532,7 +538,7 @@ onMounted(() => { initView(); fetchDashboard() })
           <template v-if="activeView === 'pm'"> — toutes les semaines en attente</template>
           <template v-else> — Semaine du {{ weekStart }}</template>
         </h3>
-        <button v-if="activeView === 'paie'" class="btn-batch" @click="bulkValidatePaie" :disabled="!employees.some(e => e.all_pm_approved && e.paie_status !== 'APPROVED')">
+        <button v-if="activeView === 'paie'" class="btn-batch" @click="bulkValidatePaie" :disabled="!employees.some(e => paieEligible(e) && e.paie_status !== 'APPROVED')">
           Valider toutes les paies eligibles
         </button>
         <button v-else-if="pendingEmployees.length > 1" class="btn-batch" @click="approveAll">
@@ -600,7 +606,8 @@ onMounted(() => { initView(); fetchDashboard() })
               </span>
             </td>
             <td v-if="activeView === 'paie'" class="text-center py-3">
-              <span v-if="emp.all_pm_approved" class="badge badge-green">Oui</span>
+              <span v-if="emp.paie_direct" class="badge badge-green" title="Congés / admin — validation paie directe">Congés</span>
+              <span v-else-if="emp.all_pm_approved" class="badge badge-green">Oui</span>
               <span v-else-if="emp.has_submitted" class="badge badge-amber">Partiel</span>
               <span v-else class="badge badge-red">Non soumis</span>
             </td>
@@ -657,7 +664,7 @@ onMounted(() => { initView(); fetchDashboard() })
                 <!-- Paie actions -->
                 <template v-if="activeView === 'paie'">
                   <!-- Valider -->
-                  <button v-if="emp.all_pm_approved && emp.paie_status !== 'APPROVED' && emp.approval_id" class="icon-btn approve" title="Valider paie" @click="validatePaie(emp.approval_id!)">
+                  <button v-if="paieEligible(emp) && emp.paie_status !== 'APPROVED' && emp.approval_id" class="icon-btn approve" title="Valider paie" @click="validatePaie(emp.approval_id!)">
                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                   </button>
                   <!-- Demander modification (renvoyer au PM) -->
@@ -674,7 +681,7 @@ onMounted(() => { initView(); fetchDashboard() })
                   </button>
                   <!-- Status labels -->
                   <span v-if="emp.paie_status === 'APPROVED'" class="status-done">Validee</span>
-                  <span v-if="!emp.all_pm_approved && emp.has_submitted && emp.paie_status !== 'APPROVED'" class="status-pending">En attente CP</span>
+                  <span v-if="!paieEligible(emp) && emp.has_submitted && emp.paie_status !== 'APPROVED'" class="status-pending">En attente CP</span>
                   <span v-if="!emp.has_submitted" class="status-rejected">Non soumis</span>
                 </template>
               </div>

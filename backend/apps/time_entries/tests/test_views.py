@@ -315,6 +315,87 @@ class TestPMDashboardAnchorsOnWeeklyApproval:
 
 
 @pytest.mark.django_db
+class TestPaieValidatesCongesDirectly:
+    """Règle métier : une semaine congés/admin (projet interne sans PM) est
+    validée par la Paie directement, sans étape PM ni Finance."""
+
+    def setup_method(self):
+        from apps.core.models import ProjectRole, Role, UserTenantAssociation
+
+        self.tenant = Tenant.objects.create(name="Conge", slug="conge-paie")
+        self.paie = User.objects.create_user("paie_u", password="x")
+        self.emp = User.objects.create_user("emp_cg", password="x")
+        UserTenantAssociation.objects.create(user=self.paie, tenant=self.tenant)
+        UserTenantAssociation.objects.create(user=self.emp, tenant=self.tenant)
+        ProjectRole.objects.create(user=self.paie, tenant=self.tenant, role=Role.PAIE)
+        self.internal = Project.objects.create(
+            tenant=self.tenant,
+            code="INT-CG",
+            name="Congés",
+            is_internal=True,
+            pm=None,
+            status="ACTIVE",
+        )
+        self.entry = TimeEntry.objects.create(
+            tenant=self.tenant,
+            employee=self.emp,
+            project=self.internal,
+            date=date(2026, 5, 11),
+            hours=8,
+            status="SUBMITTED",
+        )
+        self.wa = WeeklyApproval.objects.create(
+            tenant=self.tenant,
+            employee=self.emp,
+            week_start=date(2026, 5, 11),
+            week_end=date(2026, 5, 17),
+            pm_status="PENDING",
+            finance_status="PENDING",
+            paie_status="PENDING",
+        )
+        self.api = APIClient()
+        self.api.force_authenticate(user=self.paie)
+
+    def test_paie_can_validate_conges_without_pm_approval(self):
+        resp = self.api.post(f"/api/v1/weekly_approvals/{self.wa.pk}/validate_paie/")
+        assert resp.status_code == 200
+        self.wa.refresh_from_db()
+        self.entry.refresh_from_db()
+        assert self.wa.paie_status == "APPROVED"
+        assert self.entry.status == "PAIE_VALIDATED"
+
+    def test_normal_week_still_requires_pm_approval(self):
+        pm_user = User.objects.create_user("pm_cg", password="x")
+        proj = Project.objects.create(
+            tenant=self.tenant,
+            code="P-CG",
+            name="Real",
+            pm=pm_user,
+            status="ACTIVE",
+        )
+        emp2 = User.objects.create_user("emp2_cg", password="x")
+        TimeEntry.objects.create(
+            tenant=self.tenant,
+            employee=emp2,
+            project=proj,
+            date=date(2026, 5, 11),
+            hours=8,
+            status="SUBMITTED",
+        )
+        wa2 = WeeklyApproval.objects.create(
+            tenant=self.tenant,
+            employee=emp2,
+            week_start=date(2026, 5, 11),
+            week_end=date(2026, 5, 17),
+            pm_status="PENDING",
+            finance_status="PENDING",
+            paie_status="PENDING",
+        )
+        resp = self.api.post(f"/api/v1/weekly_approvals/{wa2.pk}/validate_paie/")
+        assert resp.status_code == 400
+
+
+@pytest.mark.django_db
 class TestPMDashboardMultiWeek:
     """S-080/S-081: la vue CP doit lister TOUTES les feuilles en attente du
     PM, toutes semaines confondues (pas seulement une semaine), une ligne
