@@ -240,6 +240,13 @@ class TestPMDashboardWeekAutodetect:
             hours=8,
             status="SUBMITTED",
         )
+        WeeklyApproval.objects.create(
+            tenant=self.tenant,
+            employee=self.emp,
+            week_start=date(2026, 3, 2),
+            week_end=date(2026, 3, 8),
+            pm_status="PENDING",
+        )
         self.api = APIClient()
         self.api.force_authenticate(user=self.pm)
 
@@ -250,6 +257,7 @@ class TestPMDashboardWeekAutodetect:
         # La semaine retournée doit être celle du 2026-03-04 (lundi 2026-03-02)
         assert data["week_start"] == "2026-03-02"
         assert len(data["employees"]) == 1
+        assert data["employees"][0]["week_start"] == "2026-03-02"
 
 
 @pytest.mark.django_db
@@ -304,3 +312,65 @@ class TestPMDashboardAnchorsOnWeeklyApproval:
         )
         assert len(data["employees"]) == 1
         assert data["employees"][0]["employee_id"] == self.emp.id
+
+
+@pytest.mark.django_db
+class TestPMDashboardMultiWeek:
+    """S-080/S-081: la vue CP doit lister TOUTES les feuilles en attente du
+    PM, toutes semaines confondues (pas seulement une semaine), une ligne
+    par (employé, semaine), triées de la plus ancienne à la plus récente."""
+
+    def setup_method(self):
+        from apps.core.models import ProjectRole, Role, UserTenantAssociation
+
+        self.tenant = Tenant.objects.create(name="MW", slug="dash-mw")
+        self.pm = User.objects.create_user(username="pm_mw", password="x")
+        self.emp = User.objects.create_user(username="emp_mw", password="x")
+        UserTenantAssociation.objects.create(user=self.pm, tenant=self.tenant)
+        UserTenantAssociation.objects.create(user=self.emp, tenant=self.tenant)
+        ProjectRole.objects.create(user=self.pm, tenant=self.tenant, role=Role.PM)
+        self.project = Project.objects.create(
+            tenant=self.tenant,
+            code="MW-1",
+            name="Multi",
+            pm=self.pm,
+            status="ACTIVE",
+        )
+        # Deux semaines en attente pour le même employé
+        for ws, we in [
+            (date(2026, 3, 2), date(2026, 3, 8)),
+            (date(2026, 3, 9), date(2026, 3, 15)),
+        ]:
+            TimeEntry.objects.create(
+                tenant=self.tenant,
+                employee=self.emp,
+                project=self.project,
+                date=ws,
+                hours=8,
+                status="SUBMITTED",
+            )
+            WeeklyApproval.objects.create(
+                tenant=self.tenant,
+                employee=self.emp,
+                week_start=ws,
+                week_end=we,
+                pm_status="PENDING",
+            )
+        self.api = APIClient()
+        self.api.force_authenticate(user=self.pm)
+
+    def test_lists_all_pending_weeks(self):
+        resp = self.api.get("/api/v1/weekly_approvals/pm_dashboard/")
+        assert resp.status_code == 200
+        data = resp.json().get("data", resp.json())
+        weeks = [e["week_start"] for e in data["employees"]]
+        assert weeks == ["2026-03-02", "2026-03-09"], (
+            "Les deux semaines en attente doivent apparaître, triées"
+        )
+        assert data["kpis"]["pending_count"] == 2
+
+    def test_week_start_param_still_scopes_to_one_week(self):
+        resp = self.api.get("/api/v1/weekly_approvals/pm_dashboard/?week_start=2026-03-09")
+        data = resp.json().get("data", resp.json())
+        weeks = [e["week_start"] for e in data["employees"]]
+        assert weeks == ["2026-03-09"]

@@ -28,6 +28,8 @@ interface EmployeeRow {
   trend_4w: number[]
   billable_rate: number
   projects: { project_id: number; hours: number; project_code: string; project_name: string }[]
+  week_start?: string
+  week_end?: string
   approval_id: number | null
   pm_status: string | null
   finance_status: string | null
@@ -109,6 +111,11 @@ function sparkColor(val: number): string {
   if (val > 45) return 'high'
   if (val > 40) return 'warn'
   return 'ok'
+}
+function formatWeek(d?: string): string {
+  if (!d) return ''
+  const [y, m, day] = d.split('-')
+  return `${day}/${m}/${y}`
 }
 
 const pendingEmployees = computed(() => employees.value.filter(e => e.pm_status === 'PENDING'))
@@ -520,7 +527,11 @@ onMounted(() => { initView(); fetchDashboard() })
     <!-- Employee table -->
     <div class="card-table">
       <div class="table-header">
-        <h3>{{ activeView === 'paie' ? 'Validation paie' : 'Heures a valider' }} — Semaine du {{ weekStart }}</h3>
+        <h3>
+          {{ activeView === 'paie' ? 'Validation paie' : 'Heures a valider' }}
+          <template v-if="activeView === 'pm'"> — toutes les semaines en attente</template>
+          <template v-else> — Semaine du {{ weekStart }}</template>
+        </h3>
         <button v-if="activeView === 'paie'" class="btn-batch" @click="bulkValidatePaie" :disabled="!employees.some(e => e.all_pm_approved && e.paie_status !== 'APPROVED')">
           Valider toutes les paies eligibles
         </button>
@@ -533,6 +544,7 @@ onMounted(() => { initView(); fetchDashboard() })
         <thead>
           <tr>
             <th class="text-left px-4">Employe</th>
+            <th v-if="activeView === 'pm'" class="text-center">Semaine</th>
             <th v-if="activeView === 'pm'" class="text-center">Heures projet</th>
             <th class="text-center">Heures totales sem.</th>
             <th v-if="activeView === 'pm'" class="text-center">Tendance 4 sem.</th>
@@ -546,7 +558,7 @@ onMounted(() => { initView(); fetchDashboard() })
           </tr>
         </thead>
         <tbody>
-          <template v-for="emp in employees" :key="emp.employee_id">
+          <template v-for="emp in employees" :key="emp.approval_id ?? `${emp.employee_id}-${emp.week_start}`">
           <tr class="emp-row" :class="{ 'anomaly-row': emp.total_week_hours > 45, 'row-error': activeView === 'paie' && emp.severity === 'error', 'row-warning': activeView === 'paie' && emp.severity === 'warning' }">
             <td class="px-4 py-3">
               <div class="emp-cell">
@@ -561,6 +573,7 @@ onMounted(() => { initView(); fetchDashboard() })
                 </div>
               </div>
             </td>
+            <td v-if="activeView === 'pm'" class="text-center py-3">{{ formatWeek(emp.week_start) }}</td>
             <td v-if="activeView === 'pm'" class="text-center py-3 font-semibold">{{ emp.project_hours }}h</td>
             <td class="text-center py-3">
               <span class="total-badge" :class="{ 'total-danger': emp.total_week_hours > 45, 'total-ok': emp.total_week_hours <= 45 }">
@@ -679,7 +692,9 @@ onMounted(() => { initView(); fetchDashboard() })
           </tr>
           </template>
           <tr v-if="!employees.length && !isLoading">
-            <td colspan="8" class="empty-state">Aucune feuille soumise cette semaine</td>
+            <td colspan="9" class="empty-state">
+              {{ activeView === 'pm' ? 'Aucune feuille en attente de validation' : 'Aucune feuille soumise cette semaine' }}
+            </td>
           </tr>
         </tbody>
       </table>

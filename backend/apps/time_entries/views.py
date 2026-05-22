@@ -24,7 +24,8 @@ def _has_lock_role(user, tenant_id=None):
     from apps.core.models import ProjectRole, Role
 
     qs = ProjectRole.objects.filter(
-        user=user, role__in=[Role.ADMIN, Role.FINANCE, Role.PAIE],
+        user=user,
+        role__in=[Role.ADMIN, Role.FINANCE, Role.PAIE],
     )
     if tenant_id:
         qs = qs.filter(tenant_id=tenant_id)
@@ -69,10 +70,18 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         project_filter = self.request.query_params.get("project")
         if project_filter:
             from apps.core.models import ProjectRole, Role
+
             user_roles = set(
                 ProjectRole.objects.filter(user=self.request.user).values_list("role", flat=True)
             )
-            privileged = {Role.ADMIN, Role.FINANCE, Role.PM, Role.PROJECT_DIRECTOR, Role.BU_DIRECTOR, Role.PAIE}
+            privileged = {
+                Role.ADMIN,
+                Role.FINANCE,
+                Role.PM,
+                Role.PROJECT_DIRECTOR,
+                Role.BU_DIRECTOR,
+                Role.PAIE,
+            }
             if user_roles & privileged:
                 qs = TimeEntry.objects.all()
             else:
@@ -90,6 +99,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
     class PeriodLockError(Exception):
         """Raised when an operation is blocked by period lock/freeze."""
+
         def __init__(self, code, message):
             self.code = code
             self.message = message
@@ -107,12 +117,16 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         latest_freeze = freeze_qs.order_by("-freeze_before").first()
         if latest_freeze and date_val < latest_freeze.freeze_before:
             unlock_exception = PeriodUnlock.objects.filter(
-                period_start__lte=date_val, period_end__gte=date_val,
+                period_start__lte=date_val,
+                period_end__gte=date_val,
             )
             if tenant_id:
                 unlock_exception = unlock_exception.filter(tenant_id=tenant_id)
             if not unlock_exception.exists():
-                raise self.PeriodLockError("PERIOD_FROZEN", f"Les périodes avant le {latest_freeze.freeze_before} sont gelées.")
+                raise self.PeriodLockError(
+                    "PERIOD_FROZEN",
+                    f"Les périodes avant le {latest_freeze.freeze_before} sont gelées.",
+                )
 
         # Check 2: exact date has LOCKED entries (unless unlocked)
         qs = TimeEntry.objects.filter(date=date_val, status="LOCKED")
@@ -120,22 +134,29 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             qs = qs.filter(tenant_id=tenant_id)
         if qs.exists():
             unlock_exception = PeriodUnlock.objects.filter(
-                period_start__lte=date_val, period_end__gte=date_val,
+                period_start__lte=date_val,
+                period_end__gte=date_val,
             )
             if tenant_id:
                 unlock_exception = unlock_exception.filter(tenant_id=tenant_id)
             if not unlock_exception.exists():
-                raise self.PeriodLockError("PERIOD_LOCKED", f"La période du {date_val} est verrouillée.")
+                raise self.PeriodLockError(
+                    "PERIOD_LOCKED", f"La période du {date_val} est verrouillée."
+                )
 
     def _check_phase_locked(self, project_id, phase_id):
         """Check if a phase is locked via TimesheetLock."""
         from .models import TimesheetLock
+
         tenant_id = getattr(self.request, "tenant_id", None)
         lock_qs = TimesheetLock.objects.filter(project_id=project_id, lock_type="PHASE")
         if tenant_id:
             lock_qs = lock_qs.filter(tenant_id=tenant_id)
         # Check specific phase lock or project-wide lock (phase=None)
-        if lock_qs.filter(phase_id=phase_id).exists() or lock_qs.filter(phase__isnull=True).exists():
+        if (
+            lock_qs.filter(phase_id=phase_id).exists()
+            or lock_qs.filter(phase__isnull=True).exists()
+        ):
             raise self.PeriodLockError("PHASE_LOCKED", "Cette phase/tâche est verrouillée.")
 
     def _require_lock_role(self):
@@ -143,7 +164,12 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         tenant_id = getattr(self.request, "tenant_id", None)
         if not _has_lock_role(self.request.user, tenant_id):
             return Response(
-                {"error": {"code": "FORBIDDEN", "message": "Seuls les rôles ADMIN, FINANCE ou PAIE peuvent verrouiller/déverrouiller."}},
+                {
+                    "error": {
+                        "code": "FORBIDDEN",
+                        "message": "Seuls les rôles ADMIN, FINANCE ou PAIE peuvent verrouiller/déverrouiller.",
+                    }
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
         return None
@@ -199,7 +225,9 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         blocked = self._handle_lock_check(instance.date, instance.project_id, instance.phase_id)
         if blocked:
             return blocked
-        serializer = self.get_serializer(instance, data=request.data, partial=kwargs.get("partial", False))
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=kwargs.get("partial", False)
+        )
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
@@ -238,12 +266,20 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
                 self._check_period_locked(week_start_date + timedelta(days=day_offset))
             except Exception:
                 return Response(
-                    {"error": {"code": "PERIOD_LOCKED", "message": f"La période est verrouillée. Impossible de soumettre."}},
+                    {
+                        "error": {
+                            "code": "PERIOD_LOCKED",
+                            "message": f"La période est verrouillée. Impossible de soumettre.",
+                        }
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
         entries = TimeEntry.objects.filter(
-            employee=request.user, date__gte=week_start_date, date__lte=week_end, status="DRAFT",
+            employee=request.user,
+            date__gte=week_start_date,
+            date__lte=week_end,
+            status="DRAFT",
         )
         count = entries.update(status="SUBMITTED", rejection_reason="")
 
@@ -252,10 +288,12 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             tenant_id = getattr(request, "tenant_id", None)
             if not tenant_id:
                 from apps.core.models import Tenant
+
                 tenant = _get_tenant(self.request)
                 tenant_id = tenant.id if tenant else None
             if tenant_id:
                 from apps.core.models import Tenant
+
                 WeeklyApproval.objects.get_or_create(
                     employee=request.user,
                     week_start=week_start_date,
@@ -323,13 +361,17 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             ws = week_start - timedelta(weeks=w)
             we = ws + timedelta(days=6)
             wt = TimeEntry.objects.filter(
-                employee=user, date__gte=ws, date__lte=we,
+                employee=user,
+                date__gte=ws,
+                date__lte=we,
             ).aggregate(t=Sum("hours"))["t"] or Decimal("0")
             week_totals.append(round(float(wt), 1))
 
         # Current week total
         current_total = TimeEntry.objects.filter(
-            employee=user, date__gte=week_start, date__lte=week_end,
+            employee=user,
+            date__gte=week_start,
+            date__lte=week_end,
         ).aggregate(t=Sum("hours"))["t"] or Decimal("0")
         week_totals.append(round(float(current_total), 1))
 
@@ -338,15 +380,13 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
         # Billable rate for displayed week
         billable = TimeEntry.objects.filter(
-            employee=user, date__gte=week_start, date__lte=week_end,
+            employee=user,
+            date__gte=week_start,
+            date__lte=week_end,
             project__is_internal=False,
         ).aggregate(t=Sum("hours"))["t"] or Decimal("0")
         total_hours = float(current_total)
-        billable_rate = (
-            round(float(billable) / total_hours * 100)
-            if total_hours > 0
-            else 0
-        )
+        billable_rate = round(float(billable) / total_hours * 100) if total_hours > 0 else 0
 
         # Get contract hours from employee profile
         try:
@@ -355,12 +395,14 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         except Exception:
             ch = 40
 
-        return Response({
-            "contract_hours": ch,
-            "average_4_weeks": avg_4_weeks,
-            "billable_rate_percent": billable_rate,
-            "week_totals": week_totals,
-        })
+        return Response(
+            {
+                "contract_hours": ch,
+                "average_4_weeks": avg_4_weeks,
+                "billable_rate_percent": billable_rate,
+                "week_totals": week_totals,
+            }
+        )
 
     @action(detail=False, methods=["post"])
     def copy_previous_week(self, request):
@@ -394,7 +436,12 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
                 self._check_period_locked(current_start + timedelta(days=day_offset))
             except Exception:
                 return Response(
-                    {"error": {"code": "PERIOD_LOCKED", "message": "La semaine cible est verrouillée. Impossible de copier."}},
+                    {
+                        "error": {
+                            "code": "PERIOD_LOCKED",
+                            "message": "La semaine cible est verrouillée. Impossible de copier.",
+                        }
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -440,7 +487,8 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
         # Check for unlock exception on this week
         unlock_qs = PeriodUnlock.objects.filter(
-            period_start__lte=ws, period_end__gte=we,
+            period_start__lte=ws,
+            period_end__gte=we,
         )
         if tenant_id:
             unlock_qs = unlock_qs.filter(tenant_id=tenant_id)
@@ -455,7 +503,9 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             freeze_qs = freeze_qs.filter(tenant_id=tenant_id)
         latest_freeze = freeze_qs.order_by("-freeze_before").first()
         if latest_freeze and we < latest_freeze.freeze_before:
-            return Response({"locked": True, "reason": f"Gelé avant le {latest_freeze.freeze_before}"})
+            return Response(
+                {"locked": True, "reason": f"Gelé avant le {latest_freeze.freeze_before}"}
+            )
 
         # Check 2: direct locked entries in this week
         locked_qs = TimeEntry.objects.filter(status="LOCKED")
@@ -479,14 +529,23 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         period_end = request.data.get("period_end")
         if not period_start or not period_end:
             return Response(
-                {"error": {"code": "MISSING_DATES", "message": "period_start and period_end required"}},
+                {
+                    "error": {
+                        "code": "MISSING_DATES",
+                        "message": "period_start and period_end required",
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        ps = date_type.fromisoformat(period_start) if isinstance(period_start, str) else period_start
+        ps = (
+            date_type.fromisoformat(period_start) if isinstance(period_start, str) else period_start
+        )
         pe = date_type.fromisoformat(period_end) if isinstance(period_end, str) else period_end
 
         qs = TimeEntry.objects.filter(
-            date__gte=ps, date__lte=pe, status="LOCKED",
+            date__gte=ps,
+            date__lte=pe,
+            status="LOCKED",
         )
         tenant_id = getattr(request, "tenant_id", None)
         if tenant_id:
@@ -495,7 +554,9 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         # Employee must re-submit, PM must re-approve if changes needed
         count = qs.update(status="SUBMITTED")
 
-        return Response({"unlocked_count": count, "period_start": ps.isoformat(), "period_end": pe.isoformat()})
+        return Response(
+            {"unlocked_count": count, "period_start": ps.isoformat(), "period_end": pe.isoformat()}
+        )
 
     @action(detail=False, methods=["get"])
     def period_summary(self, request):
@@ -540,15 +601,17 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
                 all_locked = all(s == "LOCKED" for s in statuses)
                 has_locked = "LOCKED" in statuses
 
-                weeks.append({
-                    "week_start": current.isoformat(),
-                    "week_end": week_end.isoformat(),
-                    "entry_count": count,
-                    "total_hours": round(total_hours, 1),
-                    "employee_count": employee_count,
-                    "statuses": statuses,
-                    "status": "locked" if all_locked else "partial" if has_locked else "open",
-                })
+                weeks.append(
+                    {
+                        "week_start": current.isoformat(),
+                        "week_end": week_end.isoformat(),
+                        "entry_count": count,
+                        "total_hours": round(total_hours, 1),
+                        "employee_count": employee_count,
+                        "statuses": statuses,
+                        "status": "locked" if all_locked else "partial" if has_locked else "open",
+                    }
+                )
             current += timedelta(days=7)
 
         weeks.reverse()  # Most recent first
@@ -587,13 +650,15 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
             # Create or update freeze date (prevents new entries on empty dates)
             tenant = Tenant.objects.get(pk=tenant_id) if tenant_id else _get_tenant(self.request)
-            existing_freeze = PeriodFreeze.objects.filter(tenant=tenant).order_by("-freeze_before").first()
+            existing_freeze = (
+                PeriodFreeze.objects.filter(tenant=tenant).order_by("-freeze_before").first()
+            )
             if not existing_freeze or bd > existing_freeze.freeze_before:
                 PeriodFreeze.objects.create(
                     tenant=tenant,
                     freeze_before=bd,
                     frozen_by=request.user,
-            )
+                )
 
         return Response({"locked_count": count, "before_date": bd.isoformat()})
 
@@ -610,35 +675,56 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         period_end = request.data.get("period_end")
         if not period_start or not period_end:
             return Response(
-                {"error": {"code": "MISSING_DATES", "message": "period_start and period_end required"}},
+                {
+                    "error": {
+                        "code": "MISSING_DATES",
+                        "message": "period_start and period_end required",
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        ps = date_type.fromisoformat(period_start) if isinstance(period_start, str) else period_start
+        ps = (
+            date_type.fromisoformat(period_start) if isinstance(period_start, str) else period_start
+        )
         pe = date_type.fromisoformat(period_end) if isinstance(period_end, str) else period_end
 
         # Validate: must be Sunday to Saturday (full week)
         if ps.weekday() != 6:  # 6 = Sunday
             return Response(
-                {"error": {"code": "INVALID_PERIOD", "message": "La date de debut doit etre un dimanche"}},
+                {
+                    "error": {
+                        "code": "INVALID_PERIOD",
+                        "message": "La date de debut doit etre un dimanche",
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         from datetime import timedelta
+
         expected_end = ps + timedelta(days=6)
         if pe != expected_end:
             return Response(
-                {"error": {"code": "INVALID_PERIOD", "message": f"La date de fin doit etre le samedi ({expected_end.isoformat()})"}},
+                {
+                    "error": {
+                        "code": "INVALID_PERIOD",
+                        "message": f"La date de fin doit etre le samedi ({expected_end.isoformat()})",
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         qs = TimeEntry.objects.filter(
-            date__gte=ps, date__lte=pe,
+            date__gte=ps,
+            date__lte=pe,
         ).exclude(status="LOCKED")
         tenant_id = getattr(request, "tenant_id", None)
         if tenant_id:
             qs = qs.filter(tenant_id=tenant_id)
         count = qs.update(status="LOCKED")
 
-        return Response({"locked_count": count, "period_start": ps.isoformat(), "period_end": pe.isoformat()})
+        return Response(
+            {"locked_count": count, "period_start": ps.isoformat(), "period_end": pe.isoformat()}
+        )
 
     @action(detail=False, methods=["post"])
     def approve_entries(self, request):
@@ -652,11 +738,11 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        my_project_ids = set(
-            Project.objects.filter(pm=request.user).values_list("id", flat=True)
-        )
+        my_project_ids = set(Project.objects.filter(pm=request.user).values_list("id", flat=True))
         entries = TimeEntry.objects.filter(
-            id__in=entry_ids, status="SUBMITTED", project_id__in=my_project_ids,
+            id__in=entry_ids,
+            status="SUBMITTED",
+            project_id__in=my_project_ids,
         )
         # Anti-self-approval
         own = entries.filter(employee=request.user)
@@ -670,6 +756,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         # Auto-update WeeklyApproval if ALL entries for each affected employee are now PM_APPROVED
         if count > 0:
             from datetime import timedelta
+
             affected_employees = set(
                 TimeEntry.objects.filter(id__in=entry_ids).values_list("employee_id", flat=True)
             )
@@ -680,12 +767,16 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
                 if dates:
                     ws = min(dates) - timedelta(days=min(dates).weekday())
                     we = ws + timedelta(days=6)
-                    all_week = TimeEntry.objects.filter(employee_id=emp_id, date__gte=ws, date__lte=we)
+                    all_week = TimeEntry.objects.filter(
+                        employee_id=emp_id, date__gte=ws, date__lte=we
+                    )
                     still_pending = all_week.exclude(
                         status__in=["PM_APPROVED", "PAIE_VALIDATED", "FINANCE_APPROVED", "LOCKED"]
                     ).exists()
                     if not still_pending:
-                        approval = WeeklyApproval.objects.filter(employee_id=emp_id, week_start=ws).first()
+                        approval = WeeklyApproval.objects.filter(
+                            employee_id=emp_id, week_start=ws
+                        ).first()
                         if approval and approval.pm_status != "APPROVED":
                             approval.pm_status = "APPROVED"
                             approval.pm_approved_by = request.user
@@ -703,21 +794,26 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         week_start = request.data.get("week_start")
         if not employee_id or not week_start:
             return Response(
-                {"error": {"code": "MISSING_PARAMS", "message": "employee_id and week_start required"}},
+                {
+                    "error": {
+                        "code": "MISSING_PARAMS",
+                        "message": "employee_id and week_start required",
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         from datetime import date as date_type, timedelta
+
         ws = date_type.fromisoformat(week_start) if isinstance(week_start, str) else week_start
         we = ws + timedelta(days=6)
 
-        my_project_ids = set(
-            Project.objects.filter(pm=request.user).values_list("id", flat=True)
-        )
+        my_project_ids = set(Project.objects.filter(pm=request.user).values_list("id", flat=True))
 
         entries = TimeEntry.objects.filter(
             employee_id=employee_id,
-            date__gte=ws, date__lte=we,
+            date__gte=ws,
+            date__lte=we,
             status="SUBMITTED",
             project_id__in=my_project_ids,
         )
@@ -733,14 +829,17 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
         # Auto-update WeeklyApproval if ALL entries for this employee/week are now PM_APPROVED
         all_entries = TimeEntry.objects.filter(
-            employee_id=employee_id, date__gte=ws, date__lte=we,
+            employee_id=employee_id,
+            date__gte=ws,
+            date__lte=we,
         )
         still_pending = all_entries.exclude(
             status__in=["PM_APPROVED", "PAIE_VALIDATED", "FINANCE_APPROVED", "LOCKED"]
         ).exists()
         if not still_pending:
             approval = WeeklyApproval.objects.filter(
-                employee_id=employee_id, week_start=ws,
+                employee_id=employee_id,
+                week_start=ws,
             ).first()
             if approval and approval.pm_status != "APPROVED":
                 approval.pm_status = "APPROVED"
@@ -763,11 +862,11 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        my_project_ids = set(
-            Project.objects.filter(pm=request.user).values_list("id", flat=True)
-        )
+        my_project_ids = set(Project.objects.filter(pm=request.user).values_list("id", flat=True))
         entries = TimeEntry.objects.filter(
-            id__in=entry_ids, status="SUBMITTED", project_id__in=my_project_ids,
+            id__in=entry_ids,
+            status="SUBMITTED",
+            project_id__in=my_project_ids,
         )
         count = entries.update(status="DRAFT", rejection_reason=reason)
         return Response({"rejected_count": count, "reason": reason})
@@ -814,10 +913,12 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             except TimeEntry.DoesNotExist:
                 errors.append({"entry_id": entry_id, "message": "Entry not found"})
 
-        return Response({
-            "corrected_count": corrected,
-            "errors": errors,
-        })
+        return Response(
+            {
+                "corrected_count": corrected,
+                "errors": errors,
+            }
+        )
 
     @action(detail=False, methods=["post"])
     def transfer_hours(self, request):
@@ -839,7 +940,12 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
         if not entry_ids or not target_project:
             return Response(
-                {"error": {"code": "MISSING_FIELDS", "message": "entry_ids and target_project required"}},
+                {
+                    "error": {
+                        "code": "MISSING_FIELDS",
+                        "message": "entry_ids and target_project required",
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -875,11 +981,13 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             entry.save()  # HistoricalRecords audit
             transferred += 1
 
-        return Response({
-            "transferred_count": transferred,
-            "target_project": project.code,
-            "target_task": task.wbs_code if task else None,
-        })
+        return Response(
+            {
+                "transferred_count": transferred,
+                "target_project": project.code,
+                "target_task": task.wbs_code if task else None,
+            }
+        )
 
 
 class WeeklyApprovalViewSet(viewsets.ModelViewSet):
@@ -895,6 +1003,7 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
             qs = qs.filter(tenant_id=self.request.tenant_id)
         # Restrict visibility: employees see only their own, PM/Finance/Paie/Admin see all
         from apps.core.models import ProjectRole, Role
+
         user_roles = set(
             ProjectRole.objects.filter(user=self.request.user).values_list("role", flat=True)
         )
@@ -926,7 +1035,13 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
         approval = self.get_object()
         if approval.pm_status != "APPROVED":
             return Response(
-                {"error": {"code": "PM_NOT_APPROVED", "message": "L'approbation PM est requise avant l'approbation Finance", "details": []}},
+                {
+                    "error": {
+                        "code": "PM_NOT_APPROVED",
+                        "message": "L'approbation PM est requise avant l'approbation Finance",
+                        "details": [],
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if not cannot_approve_own(request.user, approval.employee_id):
@@ -948,7 +1063,12 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
         approval = self.get_object()
         if approval.pm_status != "PENDING":
             return Response(
-                {"error": {"code": "INVALID_STATUS", "message": "Seules les feuilles en attente peuvent être rejetées."}},
+                {
+                    "error": {
+                        "code": "INVALID_STATUS",
+                        "message": "Seules les feuilles en attente peuvent être rejetées.",
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         from datetime import timedelta
@@ -975,7 +1095,12 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
         approval = self.get_object()
         if approval.finance_status != "PENDING":
             return Response(
-                {"error": {"code": "INVALID_STATUS", "message": "Seules les feuilles en attente Finance peuvent être rejetées."}},
+                {
+                    "error": {
+                        "code": "INVALID_STATUS",
+                        "message": "Seules les feuilles en attente Finance peuvent être rejetées.",
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         approval.finance_status = "REJECTED"
@@ -989,11 +1114,15 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
 
         approval = self.get_object()
         week_end = approval.week_start + timedelta(days=6)
-        entries = TimeEntry.objects.filter(
-            employee=approval.employee,
-            date__gte=approval.week_start,
-            date__lte=week_end,
-        ).select_related("project", "phase", "project__pm").order_by("project__code", "phase__name", "date")
+        entries = (
+            TimeEntry.objects.filter(
+                employee=approval.employee,
+                date__gte=approval.week_start,
+                date__lte=week_end,
+            )
+            .select_related("project", "phase", "project__pm")
+            .order_by("project__code", "phase__name", "date")
+        )
 
         # Build per-project PM info
         project_pm_map = {}
@@ -1034,22 +1163,117 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
 
         return Response(data)
 
-    @action(detail=False, methods=["get"])
-    def pm_dashboard(self, request):
-        """CP dashboard: employees with hours on PM's projects, enriched data."""
+    def _pm_employee_row(self, request, approval, my_projects):
+        """Build one (employee, week) row for the PM validation list."""
         from collections import defaultdict
         from datetime import timedelta
         from decimal import Decimal
 
-        from django.contrib.auth import get_user_model
         from django.db.models import Sum
 
+        emp = approval.employee
+        week_start = approval.week_start
+        week_end = approval.week_end or (week_start + timedelta(days=6))
+        emp_name = f"{emp.first_name} {emp.last_name}".strip() or emp.email
+
+        emp_project_entries = list(
+            TimeEntry.objects.filter(
+                employee_id=emp.id,
+                project__in=my_projects,
+                date__gte=week_start,
+                date__lte=week_end,
+                status__in=["SUBMITTED", "PM_APPROVED"],
+            ).select_related("project")
+        )
+        project_hours = sum(float(e.hours) for e in emp_project_entries)
+
+        total_week = float(
+            TimeEntry.objects.filter(
+                employee_id=emp.id, date__gte=week_start, date__lte=week_end
+            ).aggregate(t=Sum("hours"))["t"]
+            or Decimal("0")
+        )
+
+        # 4-week trend (3 previous weeks + this week)
+        trend = []
+        for w in range(3, 0, -1):
+            ws = week_start - timedelta(weeks=w)
+            we = ws + timedelta(days=6)
+            wt = TimeEntry.objects.filter(employee_id=emp.id, date__gte=ws, date__lte=we).aggregate(
+                t=Sum("hours")
+            )["t"] or Decimal("0")
+            trend.append(float(wt))
+        trend.append(total_week)
+
+        billable_hours = sum(
+            float(e.hours)
+            for e in emp_project_entries
+            if not getattr(e.project, "is_internal", False)
+        )
+        billable_rate = round(billable_hours / project_hours * 100) if project_hours > 0 else 0
+
+        projects_breakdown = defaultdict(
+            lambda: {"hours": 0, "project_code": "", "project_name": ""}
+        )
+        for e in emp_project_entries:
+            pb = projects_breakdown[e.project_id]
+            pb["hours"] += float(e.hours)
+            pb["project_code"] = e.project.code
+            pb["project_name"] = e.project.name
+
+        # Per-PM status: approved by another PM still counts as PENDING for me
+        if approval.pm_status == "APPROVED" and approval.pm_approved_by_id != request.user.id:
+            effective_pm_status = "PENDING"
+            approved_by_other = (
+                f"{approval.pm_approved_by.first_name} {approval.pm_approved_by.last_name}".strip()
+                if approval.pm_approved_by
+                else ""
+            )
+        else:
+            effective_pm_status = approval.pm_status
+            approved_by_other = ""
+
+        initials = (
+            (emp.first_name[:1] + emp.last_name[:1]).upper()
+            if emp.first_name and emp.last_name
+            else emp_name[:2].upper()
+        )
+        return {
+            "employee_id": emp.id,
+            "employee_name": emp_name,
+            "employee_initials": initials,
+            "week_start": week_start.isoformat(),
+            "week_end": week_end.isoformat(),
+            "project_hours": round(project_hours, 1),
+            "total_week_hours": round(total_week, 1),
+            "trend_4w": trend,
+            "billable_rate": billable_rate,
+            "projects": [{"project_id": pid, **pdata} for pid, pdata in projects_breakdown.items()],
+            "approval_id": approval.id,
+            "pm_status": effective_pm_status,
+            "finance_status": approval.finance_status,
+            "approved_by_other": approved_by_other,
+            "_billable_hours": billable_hours,
+        }
+
+    @action(detail=False, methods=["get"])
+    def pm_dashboard(self, request):
+        """CP validation list — ALL pending weeks (S-080/S-081).
+
+        Lists every (employee, week) with a PENDING WeeklyApproval whose
+        employee has entries on the PM's projects, across all weeks (one
+        row per week). ADMIN/PAIE see all projects. An optional
+        ?week_start=YYYY-MM-DD scopes the list to a single week.
+        """
+        from datetime import date as date_type
+
+        from django.db.models import Exists, OuterRef
+
+        from apps.core.models import ProjectRole, Role
         from apps.projects.models import Project
 
-        User = get_user_model()
+        tenant_id = getattr(request, "tenant_id", None)
 
-        # Find projects — PM sees their own, ADMIN/PAIE see all
-        from apps.core.models import ProjectRole, Role
         user_roles = set(
             ProjectRole.objects.filter(user=request.user).values_list("role", flat=True)
         )
@@ -1057,181 +1281,85 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
             my_projects = Project.objects.all()
         else:
             my_projects = Project.objects.filter(pm=request.user)
+        if tenant_id:
+            my_projects = my_projects.filter(tenant_id=tenant_id)
         if not my_projects.exists():
-            return Response({"projects": [], "employees": [], "kpis": {}})
+            return Response(
+                {"projects": [], "employees": [], "kpis": {}, "week_start": None, "week_end": None}
+            )
 
-        # Determine week — use ?week_start param sinon (S-080/S-081) :
-        #  1) plus ancien WeeklyApproval(pm_status=PENDING) où l'employé a
-        #     des entrées sur mes projets (source de vérité, alignée avec
-        #     le badge "À approuver"). Indépendant du statut des TimeEntry,
-        #     qui peuvent avoir bougé vers PM_APPROVED sans clore le WA.
-        #  2) à défaut, plus ancienne entrée SUBMITTED sur mes projets
-        #     (rétro-compatibilité avec les feuilles soumises sans WA).
-        #  3) à défaut, semaine courante.
+        # All pending (employee, week) with entries on my projects that week.
+        entry_on_my_project = TimeEntry.objects.filter(
+            employee_id=OuterRef("employee_id"),
+            project__in=my_projects,
+            date__gte=OuterRef("week_start"),
+            date__lte=OuterRef("week_end"),
+        )
+        pending_qs = (
+            WeeklyApproval.objects.filter(pm_status="PENDING")
+            .annotate(_rel=Exists(entry_on_my_project))
+            .filter(_rel=True)
+        )
+        if tenant_id:
+            pending_qs = pending_qs.filter(tenant_id=tenant_id)
         week_start_str = request.query_params.get("week_start")
         if week_start_str:
-            from datetime import date as date_type
-            week_start = date_type.fromisoformat(week_start_str)
-        else:
-            from django.db.models import Exists, OuterRef
-
-            entry_on_my_project = TimeEntry.objects.filter(
-                employee_id=OuterRef("employee_id"),
-                project__in=my_projects,
-                date__gte=OuterRef("week_start"),
-                date__lte=OuterRef("week_end"),
-            )
-            oldest_wa = (
-                WeeklyApproval.objects.filter(pm_status="PENDING")
-                .annotate(_rel=Exists(entry_on_my_project))
-                .filter(_rel=True)
-                .order_by("week_start")
-                .values_list("week_start", flat=True)
-                .first()
-            )
-            if oldest_wa:
-                week_start = oldest_wa
-            else:
-                oldest_pending = (
-                    TimeEntry.objects.filter(
-                        project__in=my_projects,
-                        status="SUBMITTED",
-                    )
-                    .order_by("date")
-                    .values_list("date", flat=True)
-                    .first()
-                )
-                if oldest_pending:
-                    week_start = oldest_pending - timedelta(days=oldest_pending.weekday())
-                else:
-                    today = timezone.now().date()
-                    week_start = today - timedelta(days=today.weekday())
-        week_end = week_start + timedelta(days=6)
-
-        # Get all submitted/approved entries on my projects for this week
-        project_entries = TimeEntry.objects.filter(
-            project__in=my_projects,
-            date__gte=week_start,
-            date__lte=week_end,
-            status__in=["SUBMITTED", "PM_APPROVED"],
-        ).select_related("project", "phase", "employee")
-
-        # Build employee data
-        employee_ids = set(e.employee_id for e in project_entries)
-        employees_data = []
-
-        for emp_id in employee_ids:
-            emp = User.objects.get(pk=emp_id)
-            emp_name = f"{emp.first_name} {emp.last_name}".strip() or emp.email
-
-            # Hours on PM's projects this week
-            emp_project_entries = [e for e in project_entries if e.employee_id == emp_id]
-            project_hours = sum(float(e.hours) for e in emp_project_entries)
-
-            # Total hours this week (all projects)
-            all_week_entries = TimeEntry.objects.filter(
-                employee_id=emp_id,
-                date__gte=week_start,
-                date__lte=week_end,
-            )
-            total_week = float(all_week_entries.aggregate(t=Sum("hours"))["t"] or Decimal("0"))
-
-            # 4-week trend (3 previous weeks + current week)
-            trend = []
-            for w in range(3, 0, -1):
-                ws = week_start - timedelta(weeks=w)
-                we = ws + timedelta(days=6)
-                wt = TimeEntry.objects.filter(
-                    employee_id=emp_id, date__gte=ws, date__lte=we,
-                ).aggregate(t=Sum("hours"))["t"] or Decimal("0")
-                trend.append(float(wt))
-            trend.append(total_week)  # current week as last bar
-
-            # Billable rate (on PM's projects)
-            billable_entries = [e for e in emp_project_entries if not getattr(e.project, "is_internal", False)]
-            billable_hours = sum(float(e.hours) for e in billable_entries)
-            billable_rate = round(billable_hours / project_hours * 100) if project_hours > 0 else 0
-
-            # Per-project breakdown
-            projects_breakdown = defaultdict(lambda: {"hours": 0, "project_code": "", "project_name": ""})
-            for e in emp_project_entries:
-                pb = projects_breakdown[e.project_id]
-                pb["hours"] += float(e.hours)
-                pb["project_code"] = e.project.code
-                pb["project_name"] = e.project.name
-
-            # Find WeeklyApproval for this employee
-            approval = WeeklyApproval.objects.filter(
-                employee_id=emp_id, week_start=week_start,
-            ).first()
-
-            # Per-PM status: if approved by another PM, still PENDING for me
-            if approval:
-                if approval.pm_status == "APPROVED" and approval.pm_approved_by_id != request.user.id:
-                    effective_pm_status = "PENDING"
-                    approved_by_other = f"{approval.pm_approved_by.first_name} {approval.pm_approved_by.last_name}".strip() if approval.pm_approved_by else ""
-                else:
-                    effective_pm_status = approval.pm_status
-                    approved_by_other = ""
-            else:
-                effective_pm_status = None
-                approved_by_other = ""
-
-            employees_data.append({
-                "employee_id": emp_id,
-                "employee_name": emp_name,
-                "employee_initials": (emp.first_name[:1] + emp.last_name[:1]).upper() if emp.first_name and emp.last_name else emp_name[:2].upper(),
-                "project_hours": round(project_hours, 1),
-                "total_week_hours": round(total_week, 1),
-                "trend_4w": trend,
-                "billable_rate": billable_rate,
-                "projects": [
-                    {"project_id": pid, **pdata}
-                    for pid, pdata in projects_breakdown.items()
-                ],
-                "approval_id": approval.id if approval else None,
-                "pm_status": effective_pm_status,
-                "finance_status": approval.finance_status if approval else None,
-                "approved_by_other": approved_by_other,
-            })
-
-        # KPIs
-        total_project_hours = sum(e["project_hours"] for e in employees_data)
-        total_billable = sum(
-            float(e.hours) for e in project_entries
-            if not getattr(e.project, "is_internal", False)
+            pending_qs = pending_qs.filter(week_start=date_type.fromisoformat(week_start_str))
+        pending_qs = pending_qs.select_related("employee", "pm_approved_by").order_by(
+            "week_start", "employee__username"
         )
+
+        employees_data = [self._pm_employee_row(request, wa, my_projects) for wa in pending_qs]
+
+        total_project_hours = sum(e["project_hours"] for e in employees_data)
+        total_billable = sum(e.pop("_billable_hours", 0) for e in employees_data)
         pending_count = sum(1 for e in employees_data if e["pm_status"] == "PENDING")
 
-        # Project info for KPI cards
+        # Project info for KPI cards (hours across the shown pending weeks)
         projects_info = []
         for p in my_projects:
-            week_hours = sum(
-                float(e.hours) for e in project_entries if e.project_id == p.id
+            p_hours = sum(
+                e["project_hours"]
+                for e in employees_data
+                if any(pb["project_id"] == p.id for pb in e["projects"])
             )
-            emp_count = len(set(e.employee_id for e in project_entries if e.project_id == p.id))
-            projects_info.append({
-                "id": p.id,
-                "code": p.code,
-                "name": p.name,
-                "week_hours": round(week_hours, 1),
-                "employee_count": emp_count,
-            })
+            emp_count = len(
+                {
+                    e["employee_id"]
+                    for e in employees_data
+                    if any(pb["project_id"] == p.id for pb in e["projects"])
+                }
+            )
+            if emp_count:
+                projects_info.append(
+                    {
+                        "id": p.id,
+                        "code": p.code,
+                        "name": p.name,
+                        "week_hours": round(p_hours, 1),
+                        "employee_count": emp_count,
+                    }
+                )
 
-        return Response({
-            "week_start": week_start.isoformat(),
-            "week_end": week_end.isoformat(),
-            "kpis": {
-                "total_hours": round(total_project_hours, 1),
-                "billable_rate": round(total_billable / total_project_hours * 100) if total_project_hours > 0 else 0,
-                "billable_hours": round(total_billable, 1),
-                "pending_count": pending_count,
-                "employee_count": len(employees_data),
-            },
-            "projects": projects_info,
-            "employees": employees_data,
-        })
-
+        weeks = sorted({e["week_start"] for e in employees_data})
+        return Response(
+            {
+                "week_start": weeks[0] if weeks else None,
+                "week_end": employees_data[0]["week_end"] if employees_data else None,
+                "multi_week": True,
+                "kpis": {
+                    "total_hours": round(total_project_hours, 1),
+                    "billable_rate": round(total_billable / total_project_hours * 100)
+                    if total_project_hours > 0
+                    else 0,
+                    "billable_hours": round(total_billable, 1),
+                    "pending_count": pending_count,
+                    "employee_count": len({e["employee_id"] for e in employees_data}),
+                },
+                "projects": projects_info,
+                "employees": employees_data,
+            }
+        )
 
     @action(detail=False, methods=["get"])
     def finance_dashboard(self, request):
@@ -1248,11 +1376,13 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
         week_start_str = request.query_params.get("week_start")
         if week_start_str:
             from datetime import date as date_type
+
             week_start = date_type.fromisoformat(week_start_str)
         else:
             oldest = (
                 WeeklyApproval.objects.filter(
-                    pm_status="APPROVED", finance_status="PENDING",
+                    pm_status="APPROVED",
+                    finance_status="PENDING",
                 )
                 .order_by("week_start")
                 .values_list("week_start", flat=True)
@@ -1275,39 +1405,56 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
 
             # Total hours this week
             all_entries = TimeEntry.objects.filter(
-                employee=emp, date__gte=week_start, date__lte=week_end,
+                employee=emp,
+                date__gte=week_start,
+                date__lte=week_end,
             )
             total_week = float(all_entries.aggregate(t=Sum("hours"))["t"] or Decimal("0"))
 
             # PM approved hours
-            pm_approved = float(all_entries.filter(status="PM_APPROVED").aggregate(
-                t=Sum("hours"))["t"] or Decimal("0"))
+            pm_approved = float(
+                all_entries.filter(status="PM_APPROVED").aggregate(t=Sum("hours"))["t"]
+                or Decimal("0")
+            )
 
-            employees_data.append({
-                "employee_id": emp.id,
-                "employee_name": emp_name,
-                "employee_initials": (emp.first_name[:1] + emp.last_name[:1]).upper() if emp.first_name and emp.last_name else emp_name[:2].upper(),
-                "total_week_hours": round(total_week, 1),
-                "pm_approved_hours": round(pm_approved, 1),
-                "approval_id": approval.id,
-                "pm_status": approval.pm_status,
-                "finance_status": approval.finance_status,
-            })
+            employees_data.append(
+                {
+                    "employee_id": emp.id,
+                    "employee_name": emp_name,
+                    "employee_initials": (emp.first_name[:1] + emp.last_name[:1]).upper()
+                    if emp.first_name and emp.last_name
+                    else emp_name[:2].upper(),
+                    "total_week_hours": round(total_week, 1),
+                    "pm_approved_hours": round(pm_approved, 1),
+                    "approval_id": approval.id,
+                    "pm_status": approval.pm_status,
+                    "finance_status": approval.finance_status,
+                }
+            )
 
-        pending_count = sum(1 for e in employees_data if e["pm_status"] == "APPROVED" and e["finance_status"] == "PENDING")
+        pending_count = sum(
+            1
+            for e in employees_data
+            if e["pm_status"] == "APPROVED" and e["finance_status"] == "PENDING"
+        )
 
-        return Response({
-            "week_start": week_start.isoformat(),
-            "week_end": week_end.isoformat(),
-            "kpis": {
-                "total_approvals": len(employees_data),
-                "pending_finance": pending_count,
-                "approved_finance": sum(1 for e in employees_data if e["finance_status"] == "APPROVED"),
-                "rejected_finance": sum(1 for e in employees_data if e["finance_status"] == "REJECTED"),
-            },
-            "employees": employees_data,
-        })
-
+        return Response(
+            {
+                "week_start": week_start.isoformat(),
+                "week_end": week_end.isoformat(),
+                "kpis": {
+                    "total_approvals": len(employees_data),
+                    "pending_finance": pending_count,
+                    "approved_finance": sum(
+                        1 for e in employees_data if e["finance_status"] == "APPROVED"
+                    ),
+                    "rejected_finance": sum(
+                        1 for e in employees_data if e["finance_status"] == "REJECTED"
+                    ),
+                },
+                "employees": employees_data,
+            }
+        )
 
     @action(detail=False, methods=["get"])
     def paie_dashboard(self, request):
@@ -1323,11 +1470,13 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
         week_start_str = request.query_params.get("week_start")
         if week_start_str:
             from datetime import date as date_type
+
             week_start = date_type.fromisoformat(week_start_str)
         else:
             oldest = (
                 WeeklyApproval.objects.filter(
-                    finance_status="APPROVED", paie_status="PENDING",
+                    finance_status="APPROVED",
+                    paie_status="PENDING",
                 )
                 .order_by("week_start")
                 .values_list("week_start", flat=True)
@@ -1342,18 +1491,21 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
 
         # All active employees in the tenant
         from apps.core.models import UserTenantAssociation
+
         tenant_id = getattr(request, "tenant_id", None)
         if tenant_id:
             active_employee_ids = set(
-                UserTenantAssociation.objects.filter(tenant_id=tenant_id)
-                .values_list("user_id", flat=True)
+                UserTenantAssociation.objects.filter(tenant_id=tenant_id).values_list(
+                    "user_id", flat=True
+                )
             )
         else:
             # Fallback: all users who have entries in the past 4 weeks + all with tenant association
             four_weeks_ago = week_start - timedelta(weeks=4)
             active_employee_ids = set(
                 TimeEntry.objects.filter(date__gte=four_weeks_ago)
-                .values_list("employee_id", flat=True).distinct()
+                .values_list("employee_id", flat=True)
+                .distinct()
             )
             # Also include all users with any tenant association
             active_employee_ids |= set(
@@ -1372,7 +1524,9 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
             emp_name = f"{emp.first_name} {emp.last_name}".strip() or emp.email
 
             week_entries_qs = TimeEntry.objects.filter(
-                employee_id=emp_id, date__gte=week_start, date__lte=week_end,
+                employee_id=emp_id,
+                date__gte=week_start,
+                date__lte=week_end,
             ).select_related("project")
             week_entries = list(week_entries_qs)
             total_hours = sum(float(e.hours) for e in week_entries)
@@ -1380,23 +1534,28 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
 
             # Status breakdown
             statuses = [e.status for e in week_entries]
-            all_pm_approved = entry_count > 0 and all(s in ("PM_APPROVED", "PAIE_VALIDATED", "LOCKED") for s in statuses)
+            all_pm_approved = entry_count > 0 and all(
+                s in ("PM_APPROVED", "PAIE_VALIDATED", "LOCKED") for s in statuses
+            )
             has_submitted = any(s != "DRAFT" for s in statuses)
 
             # WeeklyApproval
             approval = WeeklyApproval.objects.filter(
-                employee_id=emp_id, week_start=week_start,
+                employee_id=emp_id,
+                week_start=week_start,
             ).first()
 
             # Run payroll controls
             all_entries_qs = TimeEntry.objects.filter(employee_id=emp_id)
             if entry_count == 0:
                 # No entries at all — missing timesheet
-                alerts = [{
-                    "code": "MISSING_TIMESHEET",
-                    "severity": "error",
-                    "message": "Aucune feuille de temps soumise pour cette semaine",
-                }]
+                alerts = [
+                    {
+                        "code": "MISSING_TIMESHEET",
+                        "severity": "error",
+                        "message": "Aucune feuille de temps soumise pour cette semaine",
+                    }
+                ]
             else:
                 alerts = run_controls(emp, week_start, week_end, week_entries, all_entries_qs)
 
@@ -1415,20 +1574,24 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
             for a in alerts:
                 total_alerts[a["severity"]] = total_alerts.get(a["severity"], 0) + 1
 
-            employees_data.append({
-                "employee_id": emp_id,
-                "employee_name": emp_name,
-                "employee_initials": (emp.first_name[:1] + emp.last_name[:1]).upper() if emp.first_name and emp.last_name else emp_name[:2].upper(),
-                "total_week_hours": round(total_hours, 1),
-                "entry_count": entry_count,
-                "has_submitted": has_submitted,
-                "all_pm_approved": all_pm_approved,
-                "approval_id": approval.id if approval else None,
-                "pm_status": approval.pm_status if approval else None,
-                "paie_status": approval.paie_status if approval else "PENDING",
-                "alerts": alerts,
-                "severity": severity,
-            })
+            employees_data.append(
+                {
+                    "employee_id": emp_id,
+                    "employee_name": emp_name,
+                    "employee_initials": (emp.first_name[:1] + emp.last_name[:1]).upper()
+                    if emp.first_name and emp.last_name
+                    else emp_name[:2].upper(),
+                    "total_week_hours": round(total_hours, 1),
+                    "entry_count": entry_count,
+                    "has_submitted": has_submitted,
+                    "all_pm_approved": all_pm_approved,
+                    "approval_id": approval.id if approval else None,
+                    "pm_status": approval.pm_status if approval else None,
+                    "paie_status": approval.paie_status if approval else "PENDING",
+                    "alerts": alerts,
+                    "severity": severity,
+                }
+            )
 
         # Sort: errors first, then warnings, then ok
         severity_order = {"error": 0, "warning": 1, "info": 2, "ok": 3}
@@ -1441,21 +1604,23 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
         missing = sum(1 for e in employees_data if not e["has_submitted"])
         clean = sum(1 for e in employees_data if e["severity"] == "ok")
 
-        return Response({
-            "week_start": week_start.isoformat(),
-            "week_end": week_end.isoformat(),
-            "kpis": {
-                "total_employees": len(employees_data),
-                "submitted": submitted,
-                "pm_approved": pm_approved,
-                "validated": validated,
-                "missing": missing,
-                "alerts_error": sum(1 for e in employees_data if e["severity"] == "error"),
-                "alerts_warning": sum(1 for e in employees_data if e["severity"] == "warning"),
-                "clean": clean,
-            },
-            "employees": employees_data,
-        })
+        return Response(
+            {
+                "week_start": week_start.isoformat(),
+                "week_end": week_end.isoformat(),
+                "kpis": {
+                    "total_employees": len(employees_data),
+                    "submitted": submitted,
+                    "pm_approved": pm_approved,
+                    "validated": validated,
+                    "missing": missing,
+                    "alerts_error": sum(1 for e in employees_data if e["severity"] == "error"),
+                    "alerts_warning": sum(1 for e in employees_data if e["severity"] == "warning"),
+                    "clean": clean,
+                },
+                "employees": employees_data,
+            }
+        )
 
     @action(detail=True, methods=["post"])
     def validate_paie(self, request, pk=None):
@@ -1481,12 +1646,18 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
         non_approved = entries.exclude(status__in=["PM_APPROVED", "PAIE_VALIDATED", "LOCKED"])
         if non_approved.exists():
             return Response(
-                {"error": {"code": "NOT_ALL_PM_APPROVED", "message": "Toutes les heures doivent etre approuvees par les CP avant la validation paie."}},
+                {
+                    "error": {
+                        "code": "NOT_ALL_PM_APPROVED",
+                        "message": "Toutes les heures doivent etre approuvees par les CP avant la validation paie.",
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Validate (atomic)
         from django.db import transaction
+
         with transaction.atomic():
             entries.filter(status="PM_APPROVED").update(status="PAIE_VALIDATED")
             approval.paie_status = "APPROVED"
@@ -1539,11 +1710,13 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
                 approval.save()
             validated += 1
 
-        return Response({
-            "validated_count": validated,
-            "skipped_count": len(skipped),
-            "skipped": skipped,
-        })
+        return Response(
+            {
+                "validated_count": validated,
+                "skipped_count": len(skipped),
+                "skipped": skipped,
+            }
+        )
 
     @action(detail=True, methods=["post"])
     def reject_paie(self, request, pk=None):
@@ -1553,7 +1726,12 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
         approval = self.get_object()
         if approval.paie_status != "APPROVED":
             return Response(
-                {"error": {"code": "INVALID_STATUS", "message": "Seules les feuilles validees paie peuvent etre rejetees."}},
+                {
+                    "error": {
+                        "code": "INVALID_STATUS",
+                        "message": "Seules les feuilles validees paie peuvent etre rejetees.",
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1588,7 +1766,10 @@ class TimesheetLockViewSet(viewsets.ModelViewSet):
         tenant_id = getattr(self.request, "tenant_id", None)
         if not _has_lock_role(self.request.user, tenant_id):
             from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Seuls les rôles ADMIN, FINANCE ou PAIE peuvent gérer les verrouillages.")
+
+            raise PermissionDenied(
+                "Seuls les rôles ADMIN, FINANCE ou PAIE peuvent gérer les verrouillages."
+            )
 
     def perform_create(self, serializer):
         self._require_lock_permission()
@@ -1602,6 +1783,7 @@ class TimesheetLockViewSet(viewsets.ModelViewSet):
             )
         else:
             from apps.core.models import Tenant
+
             serializer.save(locked_by=self.request.user, tenant=_get_tenant(self.request))
 
     def destroy(self, request, *args, **kwargs):
@@ -1627,7 +1809,10 @@ class PeriodUnlockViewSet(viewsets.ModelViewSet):
         tenant_id = getattr(self.request, "tenant_id", None)
         if not _has_lock_role(self.request.user, tenant_id):
             from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Seuls les rôles ADMIN, FINANCE ou PAIE peuvent gérer les déverrouillages.")
+
+            raise PermissionDenied(
+                "Seuls les rôles ADMIN, FINANCE ou PAIE peuvent gérer les déverrouillages."
+            )
 
     def perform_create(self, serializer):
         self._require_lock_permission()
