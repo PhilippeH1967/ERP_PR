@@ -12,6 +12,36 @@ const showSubmitModal = ref(false)
 const showAddTask = ref(false)
 const showLockHelp = ref(false)
 
+// Live (typed but not yet saved) hours by `${project}|${phase}|${task}|${date}`.
+// Used so daily totals and the copy-Monday arrow reflect what the user is
+// typing in real time — not only what the server has committed.
+const liveHours = ref<Record<string, string>>({})
+
+function cellKey(projectId: number, phaseId: number | null, taskId: number | null | undefined, date: string): string {
+  return `${projectId}|${phaseId ?? 'null'}|${taskId ?? 'null'}|${date}`
+}
+
+function onCellLiveUpdate(projectId: number, phaseId: number | null, date: string, hours: string, taskId?: number | null) {
+  liveHours.value[cellKey(projectId, phaseId, taskId, date)] = hours
+}
+
+function currentHours(row: { project_id: number; phase_id: number | null; task_id: number | null; entries: Record<string, { hours: string } | null> }, date: string): number {
+  const k = cellKey(row.project_id, row.phase_id, row.task_id, date)
+  const live = liveHours.value[k]
+  const v = live !== undefined ? live : (row.entries[date]?.hours ?? '0')
+  const n = parseFloat(v || '0')
+  return Number.isFinite(n) ? n : 0
+}
+
+const liveDailyTotals = computed(() =>
+  store.weekDates.map((date) =>
+    Math.round(
+      store.gridRows.reduce((sum: number, row: { project_id: number; phase_id: number | null; task_id: number | null; entries: Record<string, { hours: string } | null> }) =>
+        sum + currentHours(row, date), 0) * 100
+    ) / 100,
+  ),
+)
+
 // Add task with dropdowns
 interface ProjectOption { id: number; code: string; name: string }
 interface TaskOption { id: number; wbs_code: string; name: string; display_label: string; phase_name: string; phase: number | null }
@@ -60,8 +90,10 @@ watch(() => store.currentWeekStart, () => {
   addTaskError.value = ''
 })
 
-function onCellSave(projectId: number, phaseId: number | null, date: string, hours: string, taskId?: number | null) {
-  store.saveCell(projectId, phaseId, date, hours, taskId)
+async function onCellSave(projectId: number, phaseId: number | null, date: string, hours: string, taskId?: number | null) {
+  await store.saveCell(projectId, phaseId, date, hours, taskId)
+  // Clear the live override now that the server is the source of truth.
+  delete liveHours.value[cellKey(projectId, phaseId, taskId, date)]
 }
 
 async function onSubmitConfirm() {
@@ -181,12 +213,13 @@ async function copyMondayRow(row: {
 }
 
 function hasMondayHours(row: {
+  project_id: number; phase_id: number | null; task_id: number | null
   entries: Record<string, { hours: string } | null>
 }): boolean {
   const monday = store.weekDates[0]
   if (!monday) return false
-  const v = parseFloat(row.entries[monday]?.hours || '0')
-  return Number.isFinite(v) && v > 0
+  // Live value first (typed-but-not-saved), fallback to saved entry.
+  return currentHours(row, monday) > 0
 }
 
 const deletingRow = ref(false)
@@ -576,6 +609,7 @@ function normClass(total: number, norm: number): string {
                 :is-invoiced="!!row.entries[date]?.is_invoiced"
                 :aria-label="`${row.project_code} ${row.task_wbs_code || row.phase_name} ${date}`"
                 @save="onCellSave"
+                @update:live-hours="onCellLiveUpdate"
               />
               <td class="px-1 py-1 text-center font-mono font-semibold text-text" style="font-size: 11px;">
                 {{ row.row_total || '' }}
@@ -602,7 +636,7 @@ function normClass(total: number, norm: number): string {
               Total journalier
             </td>
             <td
-              v-for="(total, i) in store.dailyTotals"
+              v-for="(total, i) in liveDailyTotals"
               :key="i"
               class="px-3 py-3 text-center font-mono text-sm"
               :class="normClass(total, store.DAILY_NORM)"

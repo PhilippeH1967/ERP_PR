@@ -19,7 +19,12 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   save: [projectId: number, phaseId: number | null, date: string, hours: string, taskId?: number | null]
+  'update:liveHours': [projectId: number, phaseId: number | null, date: string, hours: string, taskId?: number | null]
 }>()
+
+function emitLive(val: string) {
+  emit('update:liveHours', props.projectId, props.phaseId, props.date, val, props.taskId)
+}
 
 const localValue = ref(props.entry ? props.entry.hours : '')
 const showFeedback = ref(false)
@@ -42,12 +47,14 @@ async function onBlur() {
   const numVal = parseFloat(val || '0')
   if (numVal < 0) {
     localValue.value = original
+    emitLive(original)
     showError.value = true
     setTimeout(() => { showError.value = false }, 1500)
     return
   }
   if (numVal > 15) {
     localValue.value = original
+    emitLive(original)
     showError.value = true
     errorMessage.value = 'Maximum 15h par cellule'
     setTimeout(() => { showError.value = false; errorMessage.value = '' }, 4000)
@@ -58,9 +65,10 @@ async function onBlur() {
   const check = store.canSaveHours(props.projectId, props.phaseId, props.date, val || '0', props.taskId)
   if (!check.ok) {
     localValue.value = original
+    emitLive(original)
     showError.value = true
     errorMessage.value = check.message
-    setTimeout(() => { showError.value = false; errorMessage.value = '' }, 3000)
+    setTimeout(() => { showError.value = false; errorMessage.value = '' }, 6000)
     return
   }
 
@@ -114,6 +122,7 @@ function onKeydown(event: KeyboardEvent) {
       }"
       :disabled="isLocked"
       :data-col="date"
+      @input="emitLive(($event.target as HTMLInputElement).value)"
       @blur="onBlur"
       @keydown="onKeydown"
     >
