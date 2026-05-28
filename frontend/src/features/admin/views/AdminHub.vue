@@ -1,9 +1,23 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import apiClient from '@/plugins/axios'
 
 const router = useRouter()
+const downloadingDump = ref(false)
+const dumpError = ref<string | null>(null)
 
-const sections = [
+interface AdminSection {
+  key: string
+  title: string
+  desc: string
+  icon: string
+  route?: string
+  action?: string
+  ready: boolean
+}
+
+const sections: AdminSection[] = [
   {
     key: 'org',
     title: 'Organisation',
@@ -84,12 +98,48 @@ const sections = [
     route: '/admin/docs',
     ready: true,
   },
+  {
+    key: 'db-dump',
+    title: 'Sauvegarde / Dump',
+    desc: 'Télécharger un dump pg_dump de la base courante (support, mirroring local)',
+    icon: '💾',
+    action: 'download-dump',
+    ready: true,
+  },
 ]
 
-function navigate(section: typeof sections[0]) {
-  if (section.ready) {
-    router.push(section.route)
+async function downloadDump() {
+  if (downloadingDump.value) return
+  downloadingDump.value = true
+  dumpError.value = null
+  try {
+    const resp = await apiClient.get('admin/db-dump/', { responseType: 'blob' })
+    const cd = (resp.headers['content-disposition'] || '') as string
+    const match = cd.match(/filename="?([^";]+)"?/i)
+    const filename = (match && match[1]) || 'erp-dump.dump'
+    const url = window.URL.createObjectURL(resp.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(url)
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: { message?: string } } } }
+    dumpError.value = err?.response?.data?.error?.message ?? 'Erreur lors du téléchargement du dump.'
+  } finally {
+    downloadingDump.value = false
   }
+}
+
+function navigate(section: AdminSection) {
+  if (!section.ready) return
+  if (section.action === 'download-dump') {
+    downloadDump()
+    return
+  }
+  if (section.route) router.push(section.route)
 }
 </script>
 
@@ -98,6 +148,8 @@ function navigate(section: typeof sections[0]) {
     <div class="page-header">
       <h1>Administration</h1>
     </div>
+
+    <div v-if="dumpError" class="dump-error">{{ dumpError }}</div>
 
     <div class="admin-grid">
       <div
@@ -108,7 +160,10 @@ function navigate(section: typeof sections[0]) {
         @click="navigate(section)"
       >
         <div class="admin-card-icon">{{ section.icon }}</div>
-        <h3 class="admin-card-title">{{ section.title }}</h3>
+        <h3 class="admin-card-title">
+          {{ section.title }}
+          <span v-if="section.action === 'download-dump' && downloadingDump" class="dump-loading">…</span>
+        </h3>
         <p class="admin-card-desc">{{ section.desc }}</p>
         <span v-if="!section.ready" class="admin-card-badge">À venir</span>
       </div>
