@@ -113,15 +113,19 @@ class ProjectViewSet(viewsets.ModelViewSet):
             Role.PAIE,
         }
         if not user_roles & privileged:
+            from django.db.models import Q
+
             from apps.planning.models import ResourceAllocation
 
-            assigned_project_ids = ResourceAllocation.objects.filter(
+            # Un employé voit un projet s'il y est planifié (allocation) OU
+            # s'il a été ajouté à l'équipe projet (team_members).
+            allocated_ids = ResourceAllocation.objects.filter(
                 employee=self.request.user
             ).values_list("project_id", flat=True)
-            qs = qs.filter(id__in=assigned_project_ids)
+            qs = qs.filter(Q(id__in=allocated_ids) | Q(team_members=self.request.user)).distinct()
 
         return qs.select_related("client", "pm", "consortium").prefetch_related(
-            "phases", "tasks", "support_services"
+            "phases", "tasks", "support_services", "team_members"
         )
 
     def get_serializer_class(self):
@@ -406,6 +410,94 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 }
             }
         )
+
+    # ------------------------------------------------------------------ #
+    # Team membership management
+    # ------------------------------------------------------------------ #
+
+    MEMBER_MANAGER_ROLES = frozenset({"ADMIN", "PM", "PROJECT_DIRECTOR", "DEPT_ASSISTANT"})
+
+    def _can_manage_members(self) -> bool:
+        """True if the current user holds a project-management role."""
+        from apps.core.models import ProjectRole
+
+        roles = set(
+            ProjectRole.objects.filter(user=self.request.user).values_list("role", flat=True)
+        )
+        return bool(roles & self.MEMBER_MANAGER_ROLES)
+
+    @staticmethod
+    def _member_detail(project) -> list[dict]:
+        """Serialize team members as ``[{id, name}]`` for the frontend."""
+        members = []
+        for user in project.team_members.all():
+            name = user.get_full_name().strip() or user.username
+            members.append({"id": user.pk, "name": name})
+        return members
+
+    def _forbidden(self):
+        return Response(
+            {
+                "error": {
+                    "code": "FORBIDDEN",
+                    "message": "Seuls les gestionnaires du projet peuvent gérer l'équipe.",
+                    "details": [],
+                }
+            },
+            status=403,
+        )
+
+    @action(detail=True, methods=["get", "post"], url_path="members")
+    def members(self, request, pk=None):
+        """List (GET) or add (POST ``{user_id}``) a project team member.
+
+        Membership lets an employee log time on the project even without a
+        ResourceAllocation (planification). Restricted to project managers.
+        """
+        if request.method == "POST" and not self._can_manage_members():
+            return self._forbidden()
+
+        project = self.get_object()
+
+        if request.method == "GET":
+            return Response({"data": {"team_members": self._member_detail(project)}})
+
+        user_id = request.data.get("user_id")
+        if not user_id:
+            return Response(
+                {"error": {"code": "MISSING_USER_ID", "message": "user_id requis", "details": []}},
+                status=400,
+            )
+
+        from django.contrib.auth import get_user_model
+
+        user_model = get_user_model()
+        try:
+            member = user_model.objects.get(pk=user_id)
+        except (user_model.DoesNotExist, ValueError, TypeError):
+            return Response(
+                {
+                    "error": {
+                        "code": "USER_NOT_FOUND",
+                        "message": "Utilisateur introuvable.",
+                        "details": [],
+                    }
+                },
+                status=404,
+            )
+
+        project.team_members.add(member)
+        return Response({"data": {"team_members": self._member_detail(project)}})
+
+    @action(detail=True, methods=["delete"], url_path="members/(?P<user_id>[^/.]+)")
+    def remove_member(self, request, pk=None, user_id=None):
+        """Remove a user from the project team. Restricted to project managers."""
+        if not self._can_manage_members():
+            return self._forbidden()
+
+        project = self.get_object()
+        project.team_members.remove(user_id)
+        return Response({"data": {"team_members": self._member_detail(project)}})
 
 
 class PhaseViewSet(viewsets.ModelViewSet):

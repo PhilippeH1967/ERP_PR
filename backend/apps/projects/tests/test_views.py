@@ -21,6 +21,7 @@ from .conftest import (
     ProjectFactory,
     ProjectTemplateFactory,
     TaskFactory,
+    UserFactory,
 )
 
 PRIVILEGED_ROLES = [
@@ -103,6 +104,153 @@ class TestProjectList:
         response = admin_client.get("/api/v1/projects/")
         assert response.status_code == 200
         assert response.json()["meta"]["count"] >= 15
+
+
+@pytest.mark.django_db
+class TestProjectTeamMembers:
+    """Team membership (M2M) — lets an employee log time on a project even
+    without a ResourceAllocation (planification), as long as they were
+    explicitly added to the project team.
+    """
+
+    def _employee(self):
+        from apps.core.models import ProjectRole
+
+        return ProjectRole.objects.filter(role=Role.EMPLOYEE).first().user
+
+    def test_member_without_allocation_sees_project(self, api_client_as, tenant):
+        client = api_client_as(role=Role.EMPLOYEE)
+        employee = self._employee()
+        proj = ProjectFactory(tenant=tenant, code="MEMBER-PRJ")
+        proj.team_members.add(employee)
+
+        response = client.get("/api/v1/projects/")
+
+        assert response.status_code == 200
+        codes = [row["code"] for row in response.json()["data"]]
+        assert "MEMBER-PRJ" in codes
+
+    def test_non_member_without_allocation_does_not_see_project(self, api_client_as, tenant):
+        client = api_client_as(role=Role.EMPLOYEE)
+        ProjectFactory(tenant=tenant, code="HIDDEN-PRJ")
+
+        response = client.get("/api/v1/projects/")
+
+        assert response.status_code == 200
+        codes = [row["code"] for row in response.json()["data"]]
+        assert "HIDDEN-PRJ" not in codes
+
+    def test_member_and_allocation_not_duplicated(self, api_client_as, tenant, phase):
+        from datetime import date
+
+        from apps.planning.models import ResourceAllocation
+
+        client = api_client_as(role=Role.EMPLOYEE)
+        employee = self._employee()
+        proj = phase.project
+        proj.team_members.add(employee)
+        ResourceAllocation.objects.create(
+            tenant=tenant,
+            project=proj,
+            phase=phase,
+            employee=employee,
+            created_by=employee,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+
+        response = client.get("/api/v1/projects/")
+
+        codes = [row["code"] for row in response.json()["data"]]
+        assert codes.count(proj.code) == 1
+
+    def test_serializer_exposes_team_members(self, admin_client, project):
+        employee = UserFactory(username="member_detail_user")
+        project.team_members.add(employee)
+
+        response = admin_client.get(f"/api/v1/projects/{project.pk}/")
+
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert employee.pk in data["team_members"]
+        detail_ids = [m["id"] for m in data["team_members_detail"]]
+        assert employee.pk in detail_ids
+
+    # --- membership management action --------------------------------------
+
+    def test_anonymous_cannot_add_member(self, anonymous_client, project):
+        member = UserFactory(username="to_add_anon")
+        response = anonymous_client.post(
+            f"/api/v1/projects/{project.pk}/members/",
+            {"user_id": member.pk},
+            format="json",
+        )
+        assert response.status_code == 401
+
+    def test_employee_cannot_add_member(self, api_client_as, tenant, project):
+        client = api_client_as(role=Role.EMPLOYEE)
+        member = UserFactory(username="to_add_emp")
+        response = client.post(
+            f"/api/v1/projects/{project.pk}/members/",
+            {"user_id": member.pk},
+            format="json",
+        )
+        assert response.status_code == 403
+        assert not project.team_members.filter(pk=member.pk).exists()
+
+    @pytest.mark.parametrize(
+        "role", [Role.ADMIN, Role.PM, Role.PROJECT_DIRECTOR, Role.DEPT_ASSISTANT]
+    )
+    def test_privileged_can_add_member(self, api_client_as, tenant, project, role):
+        client = api_client_as(role=role)
+        member = UserFactory(username=f"to_add_{role}")
+        response = client.post(
+            f"/api/v1/projects/{project.pk}/members/",
+            {"user_id": member.pk},
+            format="json",
+        )
+        assert response.status_code == 200, response.content
+        assert project.team_members.filter(pk=member.pk).exists()
+
+    def test_add_member_missing_user_id_returns_400(self, pm_client, project):
+        response = pm_client.post(f"/api/v1/projects/{project.pk}/members/", {}, format="json")
+        assert response.status_code == 400
+        assert response.json()["error"]["code"] == "MISSING_USER_ID"
+
+    def test_add_member_unknown_user_returns_404(self, pm_client, project):
+        response = pm_client.post(
+            f"/api/v1/projects/{project.pk}/members/",
+            {"user_id": 9_999_999},
+            format="json",
+        )
+        assert response.status_code == 404
+        assert response.json()["error"]["code"] == "USER_NOT_FOUND"
+
+    def test_add_member_is_idempotent(self, pm_client, project):
+        member = UserFactory(username="idempotent_member")
+        for _ in range(2):
+            response = pm_client.post(
+                f"/api/v1/projects/{project.pk}/members/",
+                {"user_id": member.pk},
+                format="json",
+            )
+            assert response.status_code == 200
+        assert project.team_members.filter(pk=member.pk).count() == 1
+
+    def test_privileged_can_remove_member(self, pm_client, project):
+        member = UserFactory(username="to_remove")
+        project.team_members.add(member)
+        response = pm_client.delete(f"/api/v1/projects/{project.pk}/members/{member.pk}/")
+        assert response.status_code in (200, 204)
+        assert not project.team_members.filter(pk=member.pk).exists()
+
+    def test_employee_cannot_remove_member(self, api_client_as, project):
+        client = api_client_as(role=Role.EMPLOYEE)
+        member = UserFactory(username="protected_member")
+        project.team_members.add(member)
+        response = client.delete(f"/api/v1/projects/{project.pk}/members/{member.pk}/")
+        assert response.status_code == 403
+        assert project.team_members.filter(pk=member.pk).exists()
 
 
 @pytest.mark.django_db

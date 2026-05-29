@@ -20,6 +20,13 @@ export const projectApi = {
   dashboard: (id: number) => apiClient.get(`${BASE}/${id}/dashboard/`),
   teamStats: (id: number) => apiClient.get(`${BASE}/${id}/team_stats/`),
 
+  // Team membership (allows time entry without a planning allocation)
+  listMembers: (id: number) => apiClient.get(`${BASE}/${id}/members/`),
+  addMember: (id: number, userId: number) =>
+    apiClient.post(`${BASE}/${id}/members/`, { user_id: userId }),
+  removeMember: (id: number, userId: number) =>
+    apiClient.delete(`${BASE}/${id}/members/${userId}/`),
+
   // Templates
   listTemplates: () => apiClient.get('project_templates/'),
 

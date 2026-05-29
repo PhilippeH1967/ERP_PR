@@ -12,6 +12,7 @@ import GanttChart from '@/features/planning/components/GanttChart.vue'
 import AmendmentSlideOver from '../components/AmendmentSlideOver.vue'
 import ProjectCloseModal from '../components/ProjectCloseModal.vue'
 import TaskEditModal from '../components/TaskEditModal.vue'
+import TeamMembersPanel from '../components/TeamMembersPanel.vue'
 import TabGroup from '@/shared/components/TabGroup.vue'
 import { planningApi } from '@/features/planning/api/planningApi'
 
@@ -202,6 +203,53 @@ const replacing = ref(false)
 
 const activeVirtuals = computed(() => projectVirtuals.value.filter(v => v.is_active))
 const replacedVirtuals = computed(() => projectVirtuals.value.filter(v => !v.is_active))
+
+// Membres de l'équipe — l'appartenance autorise la saisie de temps même sans
+// planification (allocation). Gérée via l'endpoint dédié `members`.
+const teamMembers = ref<Array<{ id: number; name: string }>>([])
+const memberError = ref('')
+const memberSaving = ref(false)
+
+const canManageMembers = computed(() => {
+  const roles = currentUser.value?.roles || []
+  return roles.includes('ADMIN') || roles.includes('PM')
+    || roles.includes('PROJECT_DIRECTOR') || roles.includes('DEPT_ASSISTANT')
+})
+
+const memberIds = computed(() => new Set(teamMembers.value.map(m => m.id)))
+const addableUsers = computed(() => allUsers.value.filter(u => !memberIds.value.has(u.id)))
+
+function syncTeamMembers() {
+  teamMembers.value = store.currentProject?.team_members_detail || []
+}
+
+async function addTeamMember(userId: number) {
+  memberError.value = ''
+  memberSaving.value = true
+  try {
+    const r = await projectApi.addMember(projectId, userId)
+    const list = (r.data as { data?: { team_members?: Array<{ id: number; name: string }> } })?.data?.team_members
+    if (list) teamMembers.value = list
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+    memberError.value = msg || "Impossible d'ajouter ce membre."
+  } finally {
+    memberSaving.value = false
+  }
+}
+
+async function removeTeamMember(userId: number) {
+  memberError.value = ''
+  const prev = teamMembers.value
+  teamMembers.value = teamMembers.value.filter(m => m.id !== userId) // optimiste
+  try {
+    await projectApi.removeMember(projectId, userId)
+  } catch (e: unknown) {
+    teamMembers.value = prev // rollback
+    const msg = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+    memberError.value = msg || 'Impossible de retirer ce membre.'
+  }
+}
 
 async function loadProjectVirtuals() {
   try {
@@ -1060,7 +1108,7 @@ onMounted(reload)
 watch(activeTab, (tab) => {
   if (tab === 'tasks' && !tasks.value.length) loadTasks()
   if (tab === 'budget') { initHonoraires(); loadBudgetSummary() }
-  if (tab === 'team') { if (!projectTimeEntries.value.length) loadProjectTime(); loadTeamStats(); loadProjectVirtuals() }
+  if (tab === 'team') { if (!projectTimeEntries.value.length) loadProjectTime(); loadTeamStats(); loadProjectVirtuals(); syncTeamMembers() }
   if (tab === 'time') loadProjectTime()
   if (tab === 'st') loadSTInvoices()
   if (tab === 'invoices') loadProjectInvoices()
@@ -1533,6 +1581,17 @@ watch(activeTab, (tab) => {
           <div class="kpi-label">H. réelles totales</div>
         </div>
       </div>
+
+      <!-- Membres de l'équipe — autorise la saisie de temps sans planification -->
+      <TeamMembersPanel
+        :members="teamMembers"
+        :addable-users="addableUsers"
+        :can-manage="canManageMembers"
+        :saving="memberSaving"
+        :error="memberError"
+        @add="addTeamMember"
+        @remove="removeTeamMember"
+      />
 
       <!-- Profils virtuels (actifs + historique remplacements) -->
       <div class="virtuals-panel" data-virtuals-panel>
