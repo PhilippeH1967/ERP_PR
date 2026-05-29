@@ -149,6 +149,33 @@ class TestUserSearch(BaseV4Test):
         resp = c2.get("/api/v1/users/search/?q=admin")
         self.assertEqual(resp.status_code, 200)
 
+    def test_search_no_query_returns_full_list(self):
+        """Sans q ni role (chargement de dropdown), tous les users du tenant
+        doivent revenir — pas seulement les 10 premiers (régression: les
+        membres après le 10e alphabétiquement n'apparaissaient pas)."""
+        for i in range(20):
+            u = User.objects.create_user(username=f"member{i:02d}", password="x")
+            UserTenantAssociation.objects.create(user=u, tenant=self.tenant)
+        resp = self.c.get("/api/v1/users/search/")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json().get("data", [])
+        usernames = {r["username"] for r in data}
+        # Les 20 créés + l'admin du setUp doivent tous être présents
+        self.assertGreaterEqual(len(data), 21)
+        for i in range(20):
+            self.assertIn(f"member{i:02d}", usernames)
+
+    def test_search_with_query_keeps_autocomplete_limit(self):
+        """Avec q (autocomplétion au fil de la frappe), la limite par défaut
+        reste basse (10) pour ne pas renvoyer des centaines de résultats."""
+        for i in range(15):
+            u = User.objects.create_user(username=f"zorro{i:02d}", password="x")
+            UserTenantAssociation.objects.create(user=u, tenant=self.tenant)
+        resp = self.c.get("/api/v1/users/search/?q=zorro")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json().get("data", [])
+        self.assertLessEqual(len(data), 10)
+
 
 class TestBusinessUnitDropdown(BaseV4Test):
     def test_list_business_units(self):

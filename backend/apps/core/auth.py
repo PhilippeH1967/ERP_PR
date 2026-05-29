@@ -451,7 +451,8 @@ def user_search(request):
              passer plusieurs rôles séparés par virgule (ex: PM,PROJECT_DIRECTOR)
              → retourne uniquement les users ayant au moins un de ces rôles
              dans le tenant courant.
-      limit : nombre max de résultats (défaut 10 sans role, 200 avec role).
+      limit : nombre max de résultats. Défaut : 10 en autocomplétion (q seul,
+              sans role), 200 sinon (chargement de liste / filtre par rôle).
     """
     from django.contrib.auth import get_user_model
     from django.db.models import Q
@@ -482,10 +483,14 @@ def user_search(request):
         user_ids = role_qs.values_list("user_id", flat=True).distinct()
         qs = qs.filter(id__in=user_ids)
 
+    # Limite basse (10) uniquement pour l'autocomplétion au fil de la frappe
+    # (q présent, sans role). Les dropdowns chargent la liste sans q ni role
+    # et doivent recevoir tout le tenant, pas seulement les 10 premiers.
+    default_limit = "10" if (q and not roles) else "200"
     try:
-        limit = int(request.query_params.get("limit", "200" if roles else "10"))
+        limit = int(request.query_params.get("limit", default_limit))
     except ValueError:
-        limit = 200 if roles else 10
+        limit = int(default_limit)
     limit = max(1, min(limit, 500))
 
     qs = qs.order_by("username")[:limit]
