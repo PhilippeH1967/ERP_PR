@@ -87,9 +87,21 @@ def action_center(request):
         if exp_validate:
             actions.append({"key": "expenses_to_validate", "label": "Notes de frais a valider", "count": exp_validate, "icon": "receipt", "color": "warning", "url": "/expenses"})
 
-    # PAIE
+    # PAIE — count only what Paie can actually act on: finance-approved
+    # OR congés/admin (internal project, no PM — validated by Paie directly).
+    # Stays aligned with the multi-week paie_dashboard list.
     if roles & {"PAIE", "ADMIN"}:
-        ts_paie = WeeklyApproval.objects.filter(**tf, paie_status="PENDING").count()
+        from datetime import timedelta
+
+        from apps.time_entries.views import _is_internal_only_week
+
+        ts_paie = 0
+        for wa in WeeklyApproval.objects.filter(**tf, paie_status="PENDING"):
+            we = wa.week_end or (wa.week_start + timedelta(days=6))
+            if wa.finance_status == "APPROVED" or _is_internal_only_week(
+                wa.employee_id, wa.week_start, we
+            ):
+                ts_paie += 1
         if ts_paie:
             actions.append({"key": "timesheets_paie", "label": "Feuilles a valider (paie)", "count": ts_paie, "icon": "shield", "color": "danger", "url": "/approvals"})
 
