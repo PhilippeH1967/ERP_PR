@@ -32,9 +32,33 @@ def action_center(request):
     if pending_exp:
         actions.append({"key": "pending_expenses", "label": "Depenses en attente", "count": pending_exp, "icon": "receipt", "color": "warning", "url": "/expenses"})
 
-    # PM
+    # PM — same scoping as sidebar_badges / pm_dashboard (S-080/S-081):
+    # PM only counts WeeklyApprovals whose employee has entries on the
+    # PM's projects. ADMIN keeps tenant-wide visibility.
     if roles & {"PM", "ADMIN"}:
-        ts_approve = WeeklyApproval.objects.filter(**tf, pm_status="PENDING").count()
+        ts_qs = WeeklyApproval.objects.filter(**tf, pm_status="PENDING")
+        if "ADMIN" not in roles:
+            from django.db.models import Exists, OuterRef
+
+            from apps.projects.models import Project
+            from apps.time_entries.models import TimeEntry
+
+            my_project_ids = list(
+                Project.objects.filter(**tf, pm=request.user).values_list(
+                    "id", flat=True
+                )
+            )
+            if my_project_ids:
+                entry_on_mine = TimeEntry.objects.filter(
+                    employee_id=OuterRef("employee_id"),
+                    project_id__in=my_project_ids,
+                    date__gte=OuterRef("week_start"),
+                    date__lte=OuterRef("week_end"),
+                )
+                ts_qs = ts_qs.annotate(_rel=Exists(entry_on_mine)).filter(_rel=True)
+            else:
+                ts_qs = ts_qs.none()
+        ts_approve = ts_qs.count()
         if ts_approve:
             actions.append({"key": "timesheets_to_approve", "label": "Feuilles a approuver", "count": ts_approve, "icon": "check", "color": "warning", "url": "/approvals"})
 

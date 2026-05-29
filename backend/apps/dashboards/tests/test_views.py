@@ -118,3 +118,71 @@ class TestSidebarBadgesApprovalsScoping:
         ProjectRole.objects.create(user=admin, tenant=self.tenant, role=Role.ADMIN)
         badges = self._get(admin)
         assert badges["approvals"] == 2
+
+
+@pytest.mark.django_db
+class TestActionCenterPMScoping:
+    """S-080/S-081 (suite): le compteur 'Feuilles a approuver' de la
+    section 'A faire' (/action_center/) doit suivre la même règle que
+    le badge sidebar — PM-scopé pour un PM, tenant-wide pour ADMIN."""
+
+    def setup_method(self):
+        from datetime import date
+
+        from apps.core.models import ProjectRole, Role, Tenant, UserTenantAssociation
+        from apps.projects.models import Project
+        from apps.time_entries.models import TimeEntry, WeeklyApproval
+
+        self.tenant = Tenant.objects.create(name="AC", slug="ac-scope")
+        self.pm = User.objects.create_user("ac_pm", password="x")
+        self.other_pm = User.objects.create_user("ac_other", password="x")
+        self.emp_mine = User.objects.create_user("ac_emp_mine", password="x")
+        self.emp_other = User.objects.create_user("ac_emp_other", password="x")
+        for u in (self.pm, self.other_pm, self.emp_mine, self.emp_other):
+            UserTenantAssociation.objects.create(user=u, tenant=self.tenant)
+        ProjectRole.objects.create(user=self.pm, tenant=self.tenant, role=Role.PM)
+
+        mine = Project.objects.create(
+            tenant=self.tenant, code="AC-1", name="Mine", pm=self.pm, status="ACTIVE"
+        )
+        other = Project.objects.create(
+            tenant=self.tenant, code="AC-2", name="Other", pm=self.other_pm, status="ACTIVE"
+        )
+        ws, we = date(2026, 5, 4), date(2026, 5, 10)
+        TimeEntry.objects.create(
+            tenant=self.tenant, employee=self.emp_mine, project=mine,
+            date=ws, hours=8, status="SUBMITTED",
+        )
+        TimeEntry.objects.create(
+            tenant=self.tenant, employee=self.emp_other, project=other,
+            date=ws, hours=8, status="SUBMITTED",
+        )
+        WeeklyApproval.objects.create(
+            tenant=self.tenant, employee=self.emp_mine,
+            week_start=ws, week_end=we, pm_status="PENDING",
+        )
+        WeeklyApproval.objects.create(
+            tenant=self.tenant, employee=self.emp_other,
+            week_start=ws, week_end=we, pm_status="PENDING",
+        )
+        self.api = APIClient()
+
+    def _count(self, user, key):
+        self.api.force_authenticate(user=user)
+        resp = self.api.get(
+            "/api/v1/action_center/", HTTP_X_TENANT_ID=str(self.tenant.pk)
+        )
+        assert resp.status_code == 200
+        actions = resp.json()["data"]["actions"]
+        match = next((a for a in actions if a["key"] == key), None)
+        return match["count"] if match else 0
+
+    def test_pm_only_counts_own_projects(self):
+        assert self._count(self.pm, "timesheets_to_approve") == 1
+
+    def test_admin_counts_tenant_wide(self):
+        from apps.core.models import ProjectRole, Role
+
+        admin = User.objects.create_user("ac_admin", password="x")
+        ProjectRole.objects.create(user=admin, tenant=self.tenant, role=Role.ADMIN)
+        assert self._count(admin, "timesheets_to_approve") == 2
