@@ -72,6 +72,7 @@ const projects = ref<ProjectInfo[]>([])
 const kpis = ref<KPIs>({ total_hours: 0, billable_rate: 0, billable_hours: 0, pending_count: 0, employee_count: 0 })
 const weekStart = ref('')
 const weekEnd = ref('')
+const multiWeek = ref(false)
 const isLoading = ref(false)
 const actionError = ref('')
 
@@ -155,6 +156,7 @@ async function fetchDashboard() {
     kpis.value = data.kpis || {}
     weekStart.value = data.week_start || ''
     weekEnd.value = data.week_end || ''
+    multiWeek.value = !!data.multi_week
   } finally {
     isLoading.value = false
   }
@@ -535,7 +537,7 @@ onMounted(() => { initView(); fetchDashboard() })
       <div class="table-header">
         <h3>
           {{ activeView === 'paie' ? 'Validation paie' : 'Heures a valider' }}
-          <template v-if="activeView === 'pm'"> — toutes les semaines en attente</template>
+          <template v-if="multiWeek"> — toutes les semaines en attente</template>
           <template v-else> — Semaine du {{ weekStart }}</template>
         </h3>
         <button v-if="activeView === 'paie'" class="btn-batch" @click="bulkValidatePaie" :disabled="!employees.some(e => paieEligible(e) && e.paie_status !== 'APPROVED')">
@@ -550,7 +552,7 @@ onMounted(() => { initView(); fetchDashboard() })
         <thead>
           <tr>
             <th class="text-left px-4">Employe</th>
-            <th v-if="activeView === 'pm'" class="text-center">Semaine</th>
+            <th v-if="activeView === 'pm' || (activeView === 'paie' && multiWeek)" class="text-center">Semaine</th>
             <th v-if="activeView === 'pm'" class="text-center">Heures projet</th>
             <th class="text-center">Heures totales sem.</th>
             <th v-if="activeView === 'pm'" class="text-center">Tendance 4 sem.</th>
@@ -579,7 +581,7 @@ onMounted(() => { initView(); fetchDashboard() })
                 </div>
               </div>
             </td>
-            <td v-if="activeView === 'pm'" class="text-center py-3">{{ formatWeek(emp.week_start) }}</td>
+            <td v-if="activeView === 'pm' || (activeView === 'paie' && multiWeek)" class="text-center py-3">{{ formatWeek(emp.week_start) }}</td>
             <td v-if="activeView === 'pm'" class="text-center py-3 font-semibold">{{ emp.project_hours }}h</td>
             <td class="text-center py-3">
               <span class="total-badge" :class="{ 'total-danger': emp.total_week_hours > 45, 'total-ok': emp.total_week_hours <= 45 }">
@@ -700,7 +702,7 @@ onMounted(() => { initView(); fetchDashboard() })
           </template>
           <tr v-if="!employees.length && !isLoading">
             <td colspan="9" class="empty-state">
-              {{ activeView === 'pm' ? 'Aucune feuille en attente de validation' : 'Aucune feuille soumise cette semaine' }}
+              {{ multiWeek ? 'Aucune feuille en attente de validation' : 'Aucune feuille soumise cette semaine' }}
             </td>
           </tr>
         </tbody>

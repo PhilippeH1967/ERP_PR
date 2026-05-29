@@ -1487,99 +1487,103 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
 
         User = get_user_model()
 
-        week_start_str = request.query_params.get("week_start")
-        if week_start_str:
-            from datetime import date as date_type
-
-            week_start = date_type.fromisoformat(week_start_str)
-        else:
-            # Oldest week needing Paie: finance-approved OR congés/admin
-            # (internal project, no PM — validated by Paie directly).
-            pending = WeeklyApproval.objects.filter(paie_status="PENDING")
-            tid = getattr(request, "tenant_id", None)
-            if tid:
-                pending = pending.filter(tenant_id=tid)
-            fa_week = (
-                pending.filter(finance_status="APPROVED")
-                .order_by("week_start")
-                .values_list("week_start", flat=True)
-                .first()
-            )
-            internal_week = None
-            for wa in pending.order_by("week_start"):
-                if _is_internal_only_week(
-                    wa.employee_id, wa.week_start, wa.week_start + timedelta(days=6)
-                ):
-                    internal_week = wa.week_start
-                    break
-            candidates = [w for w in (fa_week, internal_week) if w]
-            if candidates:
-                week_start = min(candidates)
-            else:
-                today = timezone.now().date()
-                week_start = today - timedelta(days=today.weekday())
-        week_end = week_start + timedelta(days=6)
-
-        # All active employees in the tenant
         from apps.core.models import UserTenantAssociation
 
         tenant_id = getattr(request, "tenant_id", None)
-        if tenant_id:
-            active_employee_ids = set(
-                UserTenantAssociation.objects.filter(tenant_id=tenant_id).values_list(
-                    "user_id", flat=True
+        week_start_str = request.query_params.get("week_start")
+
+        # Build the list of (employee_id, week_start, week_end, approval)
+        # to render. Two modes:
+        #  - default → multi-week list of WeeklyApproval pending paie
+        #    actionnables (finance-approved OR congés/admin), aligné avec
+        #    le badge "Feuilles a valider (paie)".
+        #  - ?week_start=… → vue conformité hebdo : tous les employés
+        #    actifs pour cette semaine (avec alertes & contrôles).
+        targets: list = []
+        if week_start_str:
+            from datetime import date as date_type
+
+            ws = date_type.fromisoformat(week_start_str)
+            we = ws + timedelta(days=6)
+            if tenant_id:
+                active_ids = set(
+                    UserTenantAssociation.objects.filter(
+                        tenant_id=tenant_id
+                    ).values_list("user_id", flat=True)
                 )
-            )
+            else:
+                four_weeks_ago = ws - timedelta(weeks=4)
+                active_ids = set(
+                    TimeEntry.objects.filter(date__gte=four_weeks_ago)
+                    .values_list("employee_id", flat=True)
+                    .distinct()
+                )
+                active_ids |= set(
+                    UserTenantAssociation.objects.all().values_list(
+                        "user_id", flat=True
+                    )
+                )
+            active_ids.discard(request.user.id)
+            wa_by_emp = {
+                wa.employee_id: wa
+                for wa in WeeklyApproval.objects.filter(
+                    week_start=ws, employee_id__in=active_ids
+                )
+            }
+            targets = [(eid, ws, we, wa_by_emp.get(eid)) for eid in active_ids]
         else:
-            # Fallback: all users who have entries in the past 4 weeks + all with tenant association
-            four_weeks_ago = week_start - timedelta(weeks=4)
-            active_employee_ids = set(
-                TimeEntry.objects.filter(date__gte=four_weeks_ago)
-                .values_list("employee_id", flat=True)
-                .distinct()
-            )
-            # Also include all users with any tenant association
-            active_employee_ids |= set(
-                UserTenantAssociation.objects.all().values_list("user_id", flat=True)
-            )
-        # Exclude the paie user themselves from the list
-        active_employee_ids.discard(request.user.id)
+            pending = WeeklyApproval.objects.filter(paie_status="PENDING")
+            if tenant_id:
+                pending = pending.filter(tenant_id=tenant_id)
+            for wa in pending.select_related("employee").order_by(
+                "week_start", "employee__username"
+            ):
+                if wa.employee_id == request.user.id:
+                    continue
+                we = wa.week_end or (wa.week_start + timedelta(days=6))
+                actionnable = (
+                    wa.finance_status == "APPROVED"
+                    or _is_internal_only_week(wa.employee_id, wa.week_start, we)
+                )
+                if actionnable:
+                    targets.append((wa.employee_id, wa.week_start, we, wa))
+
+        multi_week = not week_start_str
+        # Top-level week (for header back-compat): the oldest target's week,
+        # or current week as fallback.
+        if targets:
+            top_ws = min(t[1] for t in targets)
+            top_we = top_ws + timedelta(days=6)
+        else:
+            today = timezone.now().date()
+            top_ws = today - timedelta(days=today.weekday())
+            top_we = top_ws + timedelta(days=6)
 
         from .payroll_controls import run_controls
 
         employees_data = []
         total_alerts = {"error": 0, "warning": 0, "info": 0}
 
-        for emp_id in active_employee_ids:
+        for emp_id, row_ws, row_we, approval in targets:
             emp = User.objects.get(pk=emp_id)
             emp_name = f"{emp.first_name} {emp.last_name}".strip() or emp.email
 
-            week_entries_qs = TimeEntry.objects.filter(
-                employee_id=emp_id,
-                date__gte=week_start,
-                date__lte=week_end,
-            ).select_related("project")
-            week_entries = list(week_entries_qs)
+            week_entries = list(
+                TimeEntry.objects.filter(
+                    employee_id=emp_id, date__gte=row_ws, date__lte=row_we
+                ).select_related("project")
+            )
             total_hours = sum(float(e.hours) for e in week_entries)
             entry_count = len(week_entries)
 
-            # Status breakdown
             statuses = [e.status for e in week_entries]
             all_pm_approved = entry_count > 0 and all(
                 s in ("PM_APPROVED", "PAIE_VALIDATED", "LOCKED") for s in statuses
             )
             has_submitted = any(s != "DRAFT" for s in statuses)
 
-            # WeeklyApproval
-            approval = WeeklyApproval.objects.filter(
-                employee_id=emp_id,
-                week_start=week_start,
-            ).first()
-
-            # Run payroll controls
             all_entries_qs = TimeEntry.objects.filter(employee_id=emp_id)
             if entry_count == 0:
-                # No entries at all — missing timesheet
                 alerts = [
                     {
                         "code": "MISSING_TIMESHEET",
@@ -1588,9 +1592,8 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
                     }
                 ]
             else:
-                alerts = run_controls(emp, week_start, week_end, week_entries, all_entries_qs)
+                alerts = run_controls(emp, row_ws, row_we, week_entries, all_entries_qs)
 
-            # Severity: error > warning > info
             has_errors = any(a["severity"] == "error" for a in alerts)
             has_warnings = any(a["severity"] == "warning" for a in alerts)
             if has_errors:
@@ -1605,8 +1608,6 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
             for a in alerts:
                 total_alerts[a["severity"]] = total_alerts.get(a["severity"], 0) + 1
 
-            # Congés/admin week (internal project, no PM) → Paie validates
-            # directly, even without PM approval.
             paie_direct = entry_count > 0 and all(
                 e.project is not None and e.project.is_internal and e.project.pm_id is None
                 for e in week_entries
@@ -1619,6 +1620,8 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
                     "employee_initials": (emp.first_name[:1] + emp.last_name[:1]).upper()
                     if emp.first_name and emp.last_name
                     else emp_name[:2].upper(),
+                    "week_start": row_ws.isoformat(),
+                    "week_end": row_we.isoformat(),
                     "total_week_hours": round(total_hours, 1),
                     "entry_count": entry_count,
                     "has_submitted": has_submitted,
@@ -1633,11 +1636,18 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
                 }
             )
 
-        # Sort: errors first, then warnings, then ok
+        # Multi-week mode: sort chronologically then by name; single-week
+        # mode: keep severity-first sort to surface anomalies.
         severity_order = {"error": 0, "warning": 1, "info": 2, "ok": 3}
-        employees_data.sort(key=lambda e: severity_order.get(e["severity"], 3))
+        if multi_week:
+            employees_data.sort(
+                key=lambda e: (e["week_start"], e["employee_name"])
+            )
+        else:
+            employees_data.sort(
+                key=lambda e: severity_order.get(e["severity"], 3)
+            )
 
-        # KPIs
         submitted = sum(1 for e in employees_data if e["has_submitted"])
         pm_approved = sum(1 for e in employees_data if e["all_pm_approved"])
         validated = sum(1 for e in employees_data if e["paie_status"] == "APPROVED")
@@ -1646,8 +1656,9 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
 
         return Response(
             {
-                "week_start": week_start.isoformat(),
-                "week_end": week_end.isoformat(),
+                "week_start": top_ws.isoformat(),
+                "week_end": top_we.isoformat(),
+                "multi_week": multi_week,
                 "kpis": {
                     "total_employees": len(employees_data),
                     "submitted": submitted,

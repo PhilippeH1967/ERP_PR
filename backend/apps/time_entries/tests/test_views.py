@@ -315,6 +315,74 @@ class TestPMDashboardAnchorsOnWeeklyApproval:
 
 
 @pytest.mark.django_db
+class TestPaieDashboardMultiWeek:
+    """Sans ?week_start, paie_dashboard doit lister une ligne par
+    WeeklyApproval paie_status=PENDING actionnable (finance-approved OU
+    interne sans PM), aligné avec le badge — pas tous les employés du
+    tenant pour une semaine unique."""
+
+    def setup_method(self):
+        from datetime import date
+
+        from apps.core.models import ProjectRole, Role, UserTenantAssociation
+
+        self.tenant = Tenant.objects.create(name="PM", slug="paie-mw")
+        self.paie = User.objects.create_user("paie_mw", password="x")
+        self.emp = User.objects.create_user("emp_mw", password="x")
+        # Plusieurs autres employés actifs (qui n'ont rien à valider)
+        self.extras = [
+            User.objects.create_user(f"e_mw_{i}", password="x") for i in range(5)
+        ]
+        UserTenantAssociation.objects.create(user=self.paie, tenant=self.tenant)
+        UserTenantAssociation.objects.create(user=self.emp, tenant=self.tenant)
+        for e in self.extras:
+            UserTenantAssociation.objects.create(user=e, tenant=self.tenant)
+        ProjectRole.objects.create(user=self.paie, tenant=self.tenant, role=Role.PAIE)
+        self.internal = Project.objects.create(
+            tenant=self.tenant, code="INT-CG", name="Congés",
+            is_internal=True, pm=None, status="ACTIVE",
+        )
+        # 2 semaines congés-only en attente paie
+        for ws, we in [
+            (date(2026, 4, 20), date(2026, 4, 26)),
+            (date(2026, 5, 11), date(2026, 5, 17)),
+        ]:
+            TimeEntry.objects.create(
+                tenant=self.tenant, employee=self.emp, project=self.internal,
+                date=ws, hours=8, status="SUBMITTED",
+            )
+            WeeklyApproval.objects.create(
+                tenant=self.tenant, employee=self.emp,
+                week_start=ws, week_end=we,
+                pm_status="PENDING", finance_status="PENDING", paie_status="PENDING",
+            )
+        self.api = APIClient()
+        self.api.force_authenticate(user=self.paie)
+
+    def test_default_lists_only_pending_paie_rows(self):
+        resp = self.api.get("/api/v1/weekly_approvals/paie_dashboard/")
+        assert resp.status_code == 200
+        data = resp.json().get("data", resp.json())
+        weeks = [e["week_start"] for e in data["employees"]]
+        assert weeks == ["2026-04-20", "2026-05-11"], (
+            "Doit lister une ligne par WA pending paie (multi-semaines), "
+            "pas tous les employés actifs"
+        )
+        assert all(e["employee_id"] == self.emp.id for e in data["employees"])
+
+    def test_explicit_week_start_keeps_compliance_view(self):
+        """Avec ?week_start=..., on garde l'ancien comportement
+        (tous les employés actifs pour cette semaine)."""
+        resp = self.api.get(
+            "/api/v1/weekly_approvals/paie_dashboard/?week_start=2026-04-20"
+        )
+        assert resp.status_code == 200
+        data = resp.json().get("data", resp.json())
+        # Tous les employés (sauf paie) doivent apparaître
+        assert len(data["employees"]) >= 1 + len(self.extras)
+
+
+@pytest.mark.django_db
 class TestPaieValidatesCongesDirectly:
     """Règle métier : une semaine congés/admin (projet interne sans PM) est
     validée par la Paie directement, sans étape PM ni Finance."""
