@@ -196,6 +196,15 @@ class Project(TenantScopedModel, VersionedModel):
         blank=True,
         related_name="bu_projects",
     )
+    team_members = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name="member_projects",
+        help_text=(
+            "Membres de l'équipe projet. Permet à un employé de saisir des "
+            "heures sur le projet même sans planification (allocation)."
+        ),
+    )
     # Fee / Honoraires
     total_fees = models.DecimalField(
         max_digits=12,

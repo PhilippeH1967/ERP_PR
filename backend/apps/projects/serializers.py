@@ -144,6 +144,17 @@ class ProjectSerializer(CostFieldFilterMixin, OptimisticLockMixin, serializers.M
     support_services = SupportServiceSerializer(many=True, read_only=True)
     client_name = serializers.CharField(source="client.name", read_only=True, default="")
     consortium_name = serializers.CharField(source="consortium.name", read_only=True, default="")
+    team_members = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    team_members_detail = serializers.SerializerMethodField()
+
+    def get_team_members_detail(self, obj):
+        """Team members as ``[{id, name}]`` — membership is managed via the
+        dedicated ``members`` action, not this serializer."""
+        members = []
+        for user in obj.team_members.all():
+            name = user.get_full_name().strip() or user.username
+            members.append({"id": user.pk, "name": name})
+        return members
 
     class Meta:
         model = Project
@@ -155,6 +166,7 @@ class ProjectSerializer(CostFieldFilterMixin, OptimisticLockMixin, serializers.M
             "address", "city", "postal_code", "country",
             "surface", "surface_unit", "currency", "tags", "title_on_invoice",
             "pm", "associate_in_charge", "invoice_approver", "bu_director",
+            "team_members", "team_members_detail",
             "total_fees", "fee_calculation_method", "fee_rate_pct",
             "version", "phases", "support_services",
             "created_at", "updated_at",

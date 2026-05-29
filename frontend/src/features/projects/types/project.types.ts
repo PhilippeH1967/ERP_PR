@@ -21,6 +21,8 @@ export interface Project {
   associate_in_charge: number | null
   invoice_approver: number | null
   bu_director: number | null
+  team_members?: number[]
+  team_members_detail?: Array<{ id: number; name: string }>
   version: number
   phases: Phase[]
   support_services: SupportService[]
