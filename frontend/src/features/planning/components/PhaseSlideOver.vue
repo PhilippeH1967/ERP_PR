@@ -18,6 +18,7 @@ const emit = defineEmits<{ close: []; updated: [] }>()
 interface PhaseData {
   id: number; name: string; code: string; phase_type: string; billing_mode: string
   start_date: string | null; end_date: string | null
+  tasks_start_date: string | null; tasks_end_date: string | null
   budgeted_hours: string; budgeted_cost: string
   tasks_budgeted_hours: number; planned_hours: number; actual_hours: number
   is_locked: boolean; is_mandatory: boolean
@@ -36,8 +37,6 @@ const phase = ref<PhaseData | null>(null)
 const allocations = ref<AllocationData[]>([])
 const monthlyChart = ref<MonthlyData[]>([])
 const isLoading = ref(false)
-const isSaving = ref(false)
-const editDates = ref({ start: '', end: '' })
 
 async function loadPhase() {
   if (!props.phaseId) return
@@ -46,10 +45,6 @@ async function loadPhase() {
     // Phase details
     const pr = await apiClient.get(`projects/${props.projectId}/phases/${props.phaseId}/`)
     phase.value = pr.data?.data || pr.data
-    editDates.value = {
-      start: phase.value?.start_date || '',
-      end: phase.value?.end_date || '',
-    }
 
     // Allocations for this phase
     const ar = await apiClient.get('allocations/', { params: { project: props.projectId, phase: props.phaseId } })
@@ -111,20 +106,9 @@ watch(() => [props.open, props.phaseId], () => {
   if (props.open && props.phaseId) loadPhase()
 }, { immediate: true })
 
-// Save dates
-async function saveDates() {
-  if (!phase.value) return
-  isSaving.value = true
-  try {
-    await apiClient.patch(`projects/${props.projectId}/phases/${phase.value.id}/`, {
-      start_date: editDates.value.start || null,
-      end_date: editDates.value.end || null,
-    })
-    emit('updated')
-    await loadPhase()
-  } catch { /* */ }
-  finally { isSaving.value = false }
-}
+// Dates de phase = min/max des tâches (lecture seule), affichées via le template.
+const phaseStart = computed(() => phase.value?.tasks_start_date || phase.value?.start_date || null)
+const phaseEnd = computed(() => phase.value?.tasks_end_date || phase.value?.end_date || null)
 
 // Computed
 const advancementPct = computed(() => {
@@ -158,16 +142,16 @@ const maxChartVal = computed(() => Math.max(1, ...monthlyChart.value.map(m => Ma
           <div class="pso-section">
             <h4 class="pso-section-title">
               Dates
-              <span v-if="isSaving" class="pso-section-badge">enregistrement…</span>
+              <span class="pso-section-badge">déduites des tâches</span>
             </h4>
             <div class="pso-dates">
               <div>
                 <label>Debut</label>
-                <input v-model="editDates.start" type="date" class="pso-input" @change="saveDates" />
+                <div class="pso-date-ro">{{ phaseStart || '—' }}</div>
               </div>
               <div>
                 <label>Fin</label>
-                <input v-model="editDates.end" type="date" class="pso-input" @change="saveDates" />
+                <div class="pso-date-ro">{{ phaseEnd || '—' }}</div>
               </div>
             </div>
           </div>
@@ -272,6 +256,7 @@ const maxChartVal = computed(() => Math.max(1, ...monthlyChart.value.map(m => Ma
 /* Dates */
 .pso-dates { display: flex; gap: 8px; align-items: flex-end; }
 .pso-dates label { display: block; font-size: 10px; color: #6B7280; margin-bottom: 3px; }
+.pso-date-ro { padding: 5px 8px; border: 1px solid #E5E7EB; border-radius: 4px; font-size: 12px; background: #F9FAFB; color: #374151; font-family: var(--font-mono, monospace); }
 .pso-input { padding: 5px 8px; border: 1px solid #D1D5DB; border-radius: 4px; font-size: 12px; width: 100%; }
 .pso-btn-save { padding: 5px 14px; background: #2563EB; color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .pso-btn-save:disabled { opacity: 0.5; }

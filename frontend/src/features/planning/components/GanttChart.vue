@@ -81,6 +81,9 @@ async function load() {
           p.tasks_budgeted_hours = Number(match.tasks_budgeted_hours || 0)
           p.planned_hours = Number(match.planned_hours || 0)
           p.actual_hours = Number(match.actual_hours || 0)
+          // La phase récupère ses dates des tâches/sous-tâches (min/max).
+          if (match.tasks_start_date) p.start_date = String(match.tasks_start_date)
+          if (match.tasks_end_date) p.end_date = String(match.tasks_end_date)
         }
       }
     } catch { /* */ }
@@ -290,14 +293,14 @@ const tooltipData = computed(() => {
     <div v-else-if="!phases.length" class="gantt-empty">
       Aucune phase à afficher. Crée des phases dans l'onglet <strong>Structure → Phases</strong>.
     </div>
-    <div v-else-if="phasesWithoutDates > 0" class="gantt-warning">
-      ⚠ {{ phasesWithoutDates }} phase(s) sans date de début/fin —
-      les barres apparaîtront sur toute la période du projet.
-      Renseigne les dates dans l'onglet <strong>Phases</strong> pour un Gantt précis.
-    </div>
-    <div v-else-if="!phases.length" class="gantt-empty">Aucune phase avec dates — configurez les dates dans l'onglet Phases</div>
+    <template v-else>
+      <div v-if="phasesWithoutDates > 0" class="gantt-warning">
+        ⚠ {{ phasesWithoutDates }} phase(s) sans dates —
+        leurs barres s'affichent sur toute la période du projet.
+        Renseigne les dates des <strong>tâches</strong> pour un Gantt précis.
+      </div>
 
-    <div v-else class="gantt-body">
+      <div class="gantt-body">
       <!-- Timeline header -->
       <div class="gantt-timeline-header">
         <div class="gantt-label-col gantt-label-header">Phase / Tache</div>
@@ -384,6 +387,7 @@ const tooltipData = computed(() => {
         </div>
       </div>
     </div>
+    </template>
 
     <!-- Tooltip -->
     <div v-if="tooltipData" class="gantt-tooltip" :style="{ left: tooltipPos.x + 'px', top: tooltipPos.y + 'px' }">
