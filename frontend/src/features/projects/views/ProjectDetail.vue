@@ -294,7 +294,8 @@ async function confirmReplaceVirtual(virtualId: number) {
 
 // Add phase form
 const showAddPhaseForm = ref(false)
-const newPhase = ref({ name: '', client_facing_label: '', billing_mode: 'FORFAIT', budgeted_hours: '0', phase_type: 'REALIZATION' })
+// La phase est un regroupement standard : ni budget, ni mode (ils vivent sur la tâche).
+const newPhase = ref({ name: '', client_facing_label: '', phase_type: 'REALIZATION', order: 0 })
 
 // Inline edit project
 const editingProject = ref(false)
@@ -321,7 +322,7 @@ async function addPhase() {
   try {
     await projectApi.createPhase(projectId, newPhase.value as Record<string, unknown>)
     showAddPhaseForm.value = false
-    newPhase.value = { name: '', client_facing_label: '', billing_mode: 'FORFAIT', budgeted_hours: '0', phase_type: 'REALIZATION' }
+    newPhase.value = { name: '', client_facing_label: '', phase_type: 'REALIZATION', order: 0 }
     await reload()
   } catch (e: unknown) {
     actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
@@ -356,15 +357,15 @@ async function saveProject() {
 
 // Inline edit phase
 const editingPhaseId = ref<number | null>(null)
-const phaseForm = ref({ name: '', client_facing_label: '', billing_mode: '', budgeted_hours: '' })
+const phaseForm = ref({ name: '', client_facing_label: '', phase_type: 'REALIZATION', order: 0 })
 
-function startEditPhase(phase: { id: number; name: string; client_facing_label?: string; billing_mode: string; budgeted_hours: string }) {
+function startEditPhase(phase: { id: number; name: string; client_facing_label?: string; phase_type?: string; order?: number }) {
   editingPhaseId.value = phase.id
   phaseForm.value = {
     name: phase.name,
     client_facing_label: phase.client_facing_label || '',
-    billing_mode: phase.billing_mode,
-    budgeted_hours: phase.budgeted_hours,
+    phase_type: phase.phase_type || 'REALIZATION',
+    order: phase.order ?? 0,
   }
 }
 
@@ -1318,41 +1319,38 @@ watch(activeTab, (tab) => {
         <button class="btn-primary" @click="showAddPhaseForm = !showAddPhaseForm">+ Ajouter une phase</button>
       </div>
       <div v-if="showAddPhaseForm && isEditing" class="card" style="margin-bottom:10px;">
-        <div class="form-row-3">
+        <p class="phase-form-hint">Une phase est un regroupement standard. Le budget, les heures et le mode de facturation se définissent sur ses <strong>tâches</strong>.</p>
+        <div class="form-row-2">
           <div class="form-group"><label>Nom interne *</label><input v-model="newPhase.name" placeholder="Concept" /></div>
           <div class="form-group"><label>Libellé client</label><input v-model="newPhase.client_facing_label" placeholder="Phase 1 — Concept" /></div>
-          <div class="form-group"><label>Mode</label>
-            <select v-model="newPhase.billing_mode"><option value="FORFAIT">Forfait</option><option value="HORAIRE">Horaire</option></select>
-          </div>
         </div>
         <div class="form-row-2">
-          <div class="form-group"><label>Heures budgetées</label><input v-model="newPhase.budgeted_hours" type="number" /></div>
           <div class="form-group"><label>Type</label>
             <select v-model="newPhase.phase_type"><option value="REALIZATION">Réalisation</option><option value="SUPPORT">Support</option></select>
           </div>
+          <div class="form-group"><label>Ordre</label><input v-model.number="newPhase.order" type="number" min="0" /></div>
         </div>
         <div class="form-actions"><button class="btn-ghost" @click="showAddPhaseForm = false">Annuler</button><button class="btn-primary" @click="addPhase">Ajouter</button></div>
       </div>
       <div class="card-table" style="overflow-x:auto;">
         <table style="table-layout:auto; width:100%; min-width:900px;">
           <thead><tr>
-            <th style="max-width:200px;">Phase</th><th style="width:75px;">Type</th><th style="width:60px;">Mode</th>
-            <th class="text-right" style="width:85px;">Budget ($)</th>
-            <th class="text-right" style="width:70px;">H. budget</th>
-            <th class="text-right" style="width:70px;">H. planif.</th>
-            <th class="text-right" style="width:70px;">H. réelles</th>
+            <th style="max-width:200px;">Phase</th><th style="width:75px;">Type</th>
+            <th class="text-right" style="width:85px;">Budget ($) <span class="agg-mark" title="Somme des tâches">Σ</span></th>
+            <th class="text-right" style="width:70px;">H. budget <span class="agg-mark" title="Somme des tâches">Σ</span></th>
+            <th class="text-right" style="width:70px;">H. planif. <span class="agg-mark" title="Somme des tâches">Σ</span></th>
+            <th class="text-right" style="width:70px;">H. réelles <span class="agg-mark" title="Somme des tâches">Σ</span></th>
             <th class="text-right" style="width:70px;">Écart</th>
             <th>Statut</th>
             <th v-if="isEditing" class="text-right">Actions</th>
           </tr></thead>
           <tbody>
-            <tr v-for="phase in (store.currentProject.phases || []).filter(Boolean)" :key="phase.id">
+            <tr v-for="phase in (store.currentProject.phases || []).filter(Boolean)" :key="phase.id" :class="{ 'phase-empty-row': !phase.has_tasks }">
               <template v-if="editingPhaseId === phase.id">
                 <td><input v-model="phaseForm.name" class="inline-input" /></td>
-                <td><span class="badge badge-gray">{{ phase.phase_type }}</span></td>
-                <td><select v-model="phaseForm.billing_mode" class="inline-select"><option value="FORFAIT">Forfait</option><option value="HORAIRE">Horaire</option></select></td>
+                <td><select v-model="phaseForm.phase_type" class="inline-select"><option value="REALIZATION">Réalisation</option><option value="SUPPORT">Support</option></select></td>
                 <td class="text-right">—</td>
-                <td class="text-right"><input v-model="phaseForm.budgeted_hours" type="number" class="inline-input-sm" /></td>
+                <td class="text-right">—</td>
                 <td class="text-right">—</td>
                 <td class="text-right">—</td>
                 <td class="text-right">—</td>
@@ -1365,18 +1363,18 @@ watch(activeTab, (tab) => {
               <template v-else>
                 <td class="font-semibold" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="(phase.client_facing_label ? phase.client_facing_label + ' — ' : '') + phase.name">
                   {{ phase.name }}
+                  <span v-if="!phase.has_tasks" class="badge badge-gray" style="margin-left:6px; font-size:9px;" title="Phase standard sans tâche — masquée dans les écrans de saisie">Sans tâche</span>
                   <span v-if="phase.amendment_number" class="badge badge-purple" style="margin-left:6px; font-size:9px;" :title="'Phase ajoutée via avenant #' + phase.amendment_number">AV-{{ phase.amendment_number }}</span>
                 </td>
                 <td><span class="badge badge-gray">{{ phase.phase_type === 'SUPPORT' ? 'Support' : 'Réalisation' }}</span></td>
-                <td><span class="badge" :class="phase.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ phase.billing_mode }}</span></td>
-                <td class="text-right font-mono" style="font-size:11px;">{{ formatAmount(phase.budgeted_cost || 0) }} $</td>
-                <td class="text-right font-mono" style="font-size:11px;">{{ (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0).toFixed(1) }}</td>
-                <td class="text-right font-mono" style="font-size:11px;" :class="{ 'text-primary': (phase.planned_hours || 0) > 0 }">{{ (phase.planned_hours || 0).toFixed(1) }}</td>
-                <td class="text-right font-mono" style="font-size:11px;" :class="{ 'font-semibold': (phase.actual_hours || 0) > 0 }">{{ (phase.actual_hours || 0).toFixed(1) }}</td>
+                <td class="text-right font-mono agg-cell" style="font-size:11px;">{{ phase.has_tasks ? formatAmount(phase.tasks_budgeted_cost || 0) + ' $' : '—' }}</td>
+                <td class="text-right font-mono agg-cell" style="font-size:11px;">{{ phase.has_tasks ? (phase.tasks_budgeted_hours || 0).toFixed(1) : '—' }}</td>
+                <td class="text-right font-mono agg-cell" style="font-size:11px;" :class="{ 'text-primary': (phase.planned_hours || 0) > 0 }">{{ phase.has_tasks ? (phase.planned_hours || 0).toFixed(1) : '—' }}</td>
+                <td class="text-right font-mono agg-cell" style="font-size:11px;" :class="{ 'font-semibold': (phase.actual_hours || 0) > 0 }">{{ phase.has_tasks ? (phase.actual_hours || 0).toFixed(1) : '—' }}</td>
                 <td class="text-right font-mono" style="font-size:11px;" :class="{
-                  'text-success': (phase.actual_hours || 0) <= (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0),
-                  'text-danger': (phase.actual_hours || 0) > (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0) && (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0) > 0,
-                }">{{ ((phase.actual_hours || 0) - (phase.tasks_budgeted_hours || Number(phase.budgeted_hours) || 0)).toFixed(1) }}</td>
+                  'text-success': (phase.actual_hours || 0) <= (phase.tasks_budgeted_hours || 0),
+                  'text-danger': (phase.actual_hours || 0) > (phase.tasks_budgeted_hours || 0) && (phase.tasks_budgeted_hours || 0) > 0,
+                }">{{ phase.has_tasks ? ((phase.actual_hours || 0) - (phase.tasks_budgeted_hours || 0)).toFixed(1) : '—' }}</td>
                 <td>
                   <span v-if="phase.is_locked" class="badge badge-gray">🔒 Verrouillée</span>
                   <span v-else class="badge badge-green">Active</span>
@@ -1397,7 +1395,7 @@ watch(activeTab, (tab) => {
                 </td>
               </template>
             </tr>
-            <tr v-if="!store.currentProject.phases?.length"><td colspan="6" class="empty">Aucune phase</td></tr>
+            <tr v-if="!store.currentProject.phases?.length"><td colspan="9" class="empty">Aucune phase</td></tr>
           </tbody>
         </table>
       </div>
@@ -2284,6 +2282,10 @@ watch(activeTab, (tab) => {
 .amendment-row-clickable:hover { background: var(--color-gray-50); }
 .empty { text-align: center; padding: 24px; color: var(--color-gray-400); } .empty-card { text-align: center; color: var(--color-gray-400); font-size: 13px; padding: 24px; }
 .empty-phase-row td { background: var(--color-gray-50); }
+.phase-form-hint { font-size: 12px; color: var(--color-gray-600); margin: 0 0 10px; }
+.agg-mark { font-size: 9px; color: var(--color-gray-400); font-weight: 600; }
+.agg-cell { color: var(--color-gray-700); background: var(--color-gray-50); }
+.phase-empty-row td { opacity: 0.62; }
 .empty-phase-cell { padding: 12px 16px; text-align: center; color: var(--color-gray-500); font-size: 12px; font-style: italic; }
 .empty-card .link { color: var(--color-primary); text-decoration: underline; cursor: pointer; }
 
