@@ -26,8 +26,13 @@ Ce qui est SUPPRIMÉ :
 - planning.ResourceAllocation + Milestone + VirtualResource + Availability + PlanningStandard
 """
 
-DRY_RUN = False  # ← passer à False pour exécuter
+import os  # noqa: E402
 
+# Sécurité : DRY-RUN par défaut (aucune suppression). Pour exécuter réellement,
+# lancer avec la variable d'environnement CLEANUP_EXECUTE=1.
+DRY_RUN = os.environ.get("CLEANUP_EXECUTE") != "1"
+
+from django.core.management import call_command  # noqa: E402
 from django.db import transaction  # noqa: E402
 
 from apps.billing.models import (  # noqa: E402
@@ -113,7 +118,7 @@ def main():
     # 2. Suppression
     if DRY_RUN:
         print("DRY_RUN actif — aucune suppression effectuée.")
-        print("Pour exécuter, modifier DRY_RUN=False et relancer.")
+        print("Pour exécuter réellement : relancer avec CLEANUP_EXECUTE=1.")
         return
 
     print("Suppression en cours…")
@@ -136,6 +141,11 @@ def main():
             print(f"  {label:45} : {c:>5}  ⚠ RESTE")
     print(f"  {'TOTAL':45} : {total_after:>5}")
 
+    # 4bis. Re-création du jeu de phases standard (paramétrage)
+    print()
+    print("Re-seed des phases standard (paramétrage)…")
+    call_command("seed_standard_phases")
+
     # 4. Récap des éléments PRÉSERVÉS
     from apps.billing.models import DunningLevel, InvoiceTemplate
     from apps.core.models import (
@@ -144,7 +154,7 @@ def main():
     )
     from apps.expenses.models import ExpenseCategory
     from apps.leaves.models import LeaveBank, LeaveType, PublicHoliday
-    from apps.projects.models import ProjectTemplate
+    from apps.projects.models import ProjectTemplate, StandardPhase
     from django.contrib.auth import get_user_model
 
     print()
@@ -160,6 +170,7 @@ def main():
         ("core.TaxConfiguration", TaxConfiguration),
         ("core.LaborRule", LaborRule),
         ("projects.ProjectTemplate", ProjectTemplate),
+        ("projects.StandardPhase", StandardPhase),
         ("expenses.ExpenseCategory", ExpenseCategory),
         ("leaves.LeaveType", LeaveType),
         ("leaves.LeaveBank", LeaveBank),
