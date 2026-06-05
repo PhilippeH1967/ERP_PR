@@ -211,6 +211,17 @@ async function assignEmployee(userId: number) {
 }
 
 const totalPlannedWeek = computed(() => allocations.value.reduce((s, a) => s + a.hours_per_week, 0))
+
+// Heures planifiées TOTALES = Σ (h/sem × nb de semaines) sur les allocations.
+const totalPlannedHours = computed(() =>
+  allocations.value.reduce(
+    (s, a) => s + a.hours_per_week * Math.max(1, isoWeeksBetween(a.start_date, a.end_date).length),
+    0,
+  ),
+)
+const budgetHours = computed(() => Number(task.value?.budgeted_hours || 0))
+// Contrôle non bloquant : on signale en rouge si le planifié dépasse le budget.
+const isOverBudget = computed(() => budgetHours.value > 0 && totalPlannedHours.value > budgetHours.value)
 </script>
 
 <template>
@@ -244,6 +255,28 @@ const totalPlannedWeek = computed(() => allocations.value.reduce((s, a) => s + a
                 <input v-model="editDates.end" type="date" class="pso-input" @change="saveDates" />
               </div>
             </div>
+          </div>
+
+          <!-- Budget vs planifié (contrôle non bloquant) -->
+          <div class="pso-section">
+            <h4 class="pso-section-title">Budget heures</h4>
+            <div class="pso-budget-row">
+              <div class="pso-budget-cell">
+                <span class="pso-budget-lbl">Budget</span>
+                <span class="pso-budget-val">{{ budgetHours.toFixed(1) }}h</span>
+              </div>
+              <div class="pso-budget-cell">
+                <span class="pso-budget-lbl">Planifié</span>
+                <span class="pso-budget-val" :class="{ 'pso-over': isOverBudget }">{{ totalPlannedHours.toFixed(1) }}h</span>
+              </div>
+              <div class="pso-budget-cell">
+                <span class="pso-budget-lbl">Restant</span>
+                <span class="pso-budget-val" :class="{ 'pso-over': isOverBudget }">{{ (budgetHours - totalPlannedHours).toFixed(1) }}h</span>
+              </div>
+            </div>
+            <p v-if="isOverBudget" class="pso-over-warn">
+              ⚠ Le planifié ({{ totalPlannedHours.toFixed(1) }}h) dépasse le budget ({{ budgetHours.toFixed(1) }}h).
+            </p>
           </div>
 
           <!-- Equipe -->
@@ -361,6 +394,12 @@ const totalPlannedWeek = computed(() => allocations.value.reduce((s, a) => s + a
 .pso-section-title { font-size: 11px; font-weight: 700; color: #6B7280; text-transform: uppercase; letter-spacing: 0.3px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
 .pso-section-badge { font-size: 10px; font-weight: 400; color: #9CA3AF; text-transform: none; }
 
+.pso-budget-row { display: flex; gap: 8px; }
+.pso-budget-cell { flex: 1; background: #F9FAFB; border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.pso-budget-lbl { font-size: 9px; color: #9CA3AF; text-transform: uppercase; font-weight: 600; }
+.pso-budget-val { font-size: 16px; font-weight: 700; font-family: var(--font-mono, monospace); color: #111827; }
+.pso-budget-val.pso-over { color: #DC2626; }
+.pso-over-warn { margin: 8px 0 0; font-size: 11px; color: #DC2626; font-weight: 600; }
 .pso-dates { display: flex; gap: 8px; align-items: flex-end; }
 .pso-dates label { display: block; font-size: 10px; color: #6B7280; margin-bottom: 3px; }
 .pso-input { padding: 5px 8px; border: 1px solid #D1D5DB; border-radius: 4px; font-size: 12px; width: 100%; }
