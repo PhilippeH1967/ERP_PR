@@ -7,10 +7,7 @@
  */
 import { ref, computed, watch, nextTick } from 'vue'
 import { projectApi } from '../api/projectApi'
-import { planningApi } from '@/features/planning/api/planningApi'
-import apiClient from '@/plugins/axios'
 import Stepper from '@/shared/components/Stepper.vue'
-import HourDistribution from '@/shared/components/HourDistribution.vue'
 
 const STEPPER_STEPS = [
   { key: 'DRAFT', label: 'Brouillon' },
@@ -62,17 +59,6 @@ const newTask = ref<{ phase: number | null; name: string; budgeted_hours: string
 const showPhaseForm = ref(false)
 const showTaskForm = ref(false)
 
-// Allocation distribution (employés + profils virtuels)
-interface AllocRow { kind: 'employee' | 'virtual'; id: number; hours: number }
-interface Member { id: number; name: string }
-interface Virtual { id: number; name: string; default_hourly_rate: string }
-const members = ref<Member[]>([])
-const virtuals = ref<Virtual[]>([])
-const projectStart = ref<string | null>(null)
-const projectEnd = ref<string | null>(null)
-const newPhaseAllocations = ref<AllocRow[]>([])
-const newTaskAllocations = ref<AllocRow[]>([])
-
 // Rejection
 const rejectMode = ref(false)
 const rejectReason = ref('')
@@ -119,8 +105,6 @@ function resetState() {
   scope.value = { phases: [], tasks: [] }
   newPhase.value = { name: '', client_facing_label: '', budgeted_hours: '0', budgeted_cost: '0' }
   newTask.value = { phase: null, name: '', budgeted_hours: '0' }
-  newPhaseAllocations.value = []
-  newTaskAllocations.value = []
   showPhaseForm.value = false
   showTaskForm.value = false
   rejectMode.value = false
@@ -196,141 +180,9 @@ function extractError(e: unknown, fallback: string): string {
   return err.message || fallback
 }
 
-async function loadMembersAndVirtuals() {
-  try {
-    // Limite augmentée à 200 pour avoir tous les employés du tenant
-    // (l'API limite à 10 par défaut sans param 'role', ce qui tronque la liste)
-    const ur = await apiClient.get('users/search/', { params: { limit: '200' } })
-    const data = ur.data?.data ?? ur.data ?? []
-    const list = Array.isArray(data) ? data : []
-    members.value = list.map((u: Record<string, unknown>) => {
-      const fn = String(u.first_name ?? '').trim()
-      const ln = String(u.last_name ?? '').trim()
-      const un = String(u.username ?? '')
-      const display = `${fn} ${ln}`.trim() || un
-      return { id: Number(u.id), name: display }
-    })
-  } catch {
-    members.value = []
-  }
-  try {
-    const vr = await planningApi.listVirtualResources({
-      project: String(props.projectId),
-      is_active: 'true',
-    })
-    const data = vr.data?.data ?? vr.data ?? []
-    const list = Array.isArray(data) ? data : (data.results ?? [])
-    virtuals.value = list.map((v: Record<string, unknown>) => ({
-      id: Number(v.id),
-      name: String(v.name),
-      default_hourly_rate: String(v.default_hourly_rate ?? '0'),
-    }))
-  } catch {
-    virtuals.value = []
-  }
-}
-
-async function loadProjectDates() {
-  try {
-    const r = await projectApi.get(props.projectId)
-    const p = r.data?.data || r.data
-    projectStart.value = p?.start_date ?? null
-    projectEnd.value = p?.end_date ?? null
-  } catch {
-    projectStart.value = null
-    projectEnd.value = null
-  }
-}
-
-async function createAllocationsFor(
-  rows: AllocRow[],
-  target: { phase?: number; task?: number },
-) {
-  if (!rows.length) return
-  const start = projectStart.value
-  const end = projectEnd.value
-  if (!start || !end) {
-    errorMsg.value = 'Dates projet manquantes — impossible de créer les allocations. Saisir les dates dans la fiche projet d\'abord.'
-    return
-  }
-  const msStart = new Date(start).getTime()
-  const msEnd = new Date(end).getTime()
-  const weeks = Math.max(1, Math.round((msEnd - msStart) / (7 * 24 * 3600 * 1000)))
-  const errors: string[] = []
-  let created = 0
-  for (const row of rows) {
-    if (!row.hours || row.hours <= 0) continue
-    const payload: Record<string, unknown> = {
-      project: props.projectId,
-      start_date: start,
-      end_date: end,
-      // hours_per_week est un DecimalField(decimal_places=1) côté backend
-      // → arrondir à 1 décimale (sinon 400 'no more than 1 decimal place')
-      hours_per_week: Number((row.hours / weeks).toFixed(1)),
-      distribution_mode: 'uniform',
-    }
-    if (row.kind === 'employee') payload.employee = row.id
-    else payload.virtual_resource = row.id
-    if (target.phase) payload.phase = target.phase
-    if (target.task) payload.task = target.task
-    try {
-      await planningApi.createAllocation(payload)
-      created += 1
-    } catch (e) {
-      errors.push(`${row.kind === 'employee' ? 'Employé' : 'Virtuel'} #${row.id}: ${extractError(e, 'erreur création')}`)
-    }
-  }
-  if (errors.length) {
-    errorMsg.value = `${created} allocation(s) créée(s), ${errors.length} échec(s) : ${errors.join(' · ')}`
-  }
-}
-
-async function onCreateVirtual(form: { name: string; rate: string }) {
-  errorMsg.value = ''
-  const name = (form.name || '').trim()
-  if (!name) {
-    errorMsg.value = 'Le libellé du profil virtuel est obligatoire.'
-    return
-  }
-  // Le nom d'un profil virtuel est unique par projet : si déjà présent, on le
-  // réutilise (message clair) plutôt que de subir un 400 silencieux.
-  const existing = virtuals.value.find(
-    v => v.name.trim().toLowerCase() === name.toLowerCase(),
-  )
-  if (existing) {
-    errorMsg.value = `Un profil virtuel « ${existing.name} » existe déjà sur ce projet — sélectionnez-le dans la liste.`
-    return
-  }
-  // Taux : tolérer la virgule décimale et les espaces ; défaut 0.
-  const normalized = String(form.rate ?? '').replace(/\s/g, '').replace(',', '.')
-  const rate = normalized && !Number.isNaN(Number(normalized)) ? normalized : '0'
-  try {
-    const r = await planningApi.createVirtualResource({
-      project: props.projectId,
-      name,
-      default_hourly_rate: rate,
-    })
-    const created = r.data?.data || r.data
-    if (created?.id) {
-      virtuals.value = [
-        ...virtuals.value,
-        {
-          id: Number(created.id),
-          name: String(created.name),
-          default_hourly_rate: String(created.default_hourly_rate ?? '0'),
-        },
-      ]
-    }
-  } catch (e) {
-    errorMsg.value = extractError(e, 'Erreur création profil virtuel')
-  }
-}
-
 watch(() => [props.open, props.amendmentId], async ([openNow, amId]) => {
   if (openNow) {
     resetState()
-    await loadMembersAndVirtuals()
-    await loadProjectDates()
     if (amId) {
       await loadAmendment()
       await loadScope()
@@ -451,7 +303,7 @@ async function addTask() {
   saving.value = true
   errorMsg.value = ''
   try {
-    const r = await projectApi.createTask(props.projectId, {
+    await projectApi.createTask(props.projectId, {
       phase: newTask.value.phase,
       name: newTask.value.name.trim(),
       budgeted_hours: Number(newTask.value.budgeted_hours || 0),
@@ -459,12 +311,7 @@ async function addTask() {
       task_type: 'TASK',
       billing_mode: 'FORFAIT',
     })
-    const createdTask = (r.data?.data || r.data) as { id?: number } | undefined
-    if (createdTask?.id && newTaskAllocations.value.length) {
-      await createAllocationsFor(newTaskAllocations.value, { task: createdTask.id })
-    }
     newTask.value = { phase: null, name: '', budgeted_hours: '0' }
-    newTaskAllocations.value = []
     showTaskForm.value = false
     await loadScope()
     emit('saved')
@@ -497,6 +344,37 @@ async function detachTask(taskId: number) {
   } catch (e) {
     errorMsg.value = extractError(e, 'Erreur détachement')
     await loadScope()
+  }
+}
+
+// Édition inline d'une tâche de l'avenant (nom + heures budgétées).
+const editingTaskId = ref<number | null>(null)
+const editTaskForm = ref({ name: '', budgeted_hours: '0' })
+
+function startEditTask(t: ScopeTask) {
+  editingTaskId.value = t.id
+  editTaskForm.value = { name: t.name, budgeted_hours: String(t.budgeted_hours ?? '0') }
+}
+
+async function saveTaskEdit(taskId: number) {
+  errorMsg.value = ''
+  if (!editTaskForm.value.name.trim()) {
+    errorMsg.value = 'Le nom de la tâche est obligatoire.'
+    return
+  }
+  saving.value = true
+  try {
+    await projectApi.updateTask(props.projectId, taskId, {
+      name: editTaskForm.value.name.trim(),
+      budgeted_hours: Number(editTaskForm.value.budgeted_hours || 0),
+    })
+    editingTaskId.value = null
+    await loadScope()
+    emit('saved')
+  } catch (e) {
+    errorMsg.value = extractError(e, 'Erreur modification tâche')
+  } finally {
+    saving.value = false
   }
 }
 
@@ -657,32 +535,45 @@ function formatAmount(n: number): string {
                       <input v-model="newTask.budgeted_hours" type="number" min="0" step="0.25" class="aso-input aso-input-sm" />
                     </div>
                   </div>
-                  <HourDistribution
-                    v-model="newTaskAllocations"
-                    :members="members"
-                    :virtuals="virtuals"
-                    :budgeted-hours="Number(newTask.budgeted_hours || 0)"
-                    :disabled="saving"
-                    @create-virtual="onCreateVirtual"
-                  />
+                  <p class="aso-empty" style="margin:4px 0 0;">
+                    L'affectation des ressources et la planification se font dans Planification, pas ici.
+                  </p>
                   <div class="aso-scope-form-row aso-scope-form-actions">
                     <button class="aso-btn-primary aso-btn-form" :disabled="saving" @click="addTask">Ajouter</button>
                   </div>
                 </div>
                 <div v-if="scope.tasks.length" class="aso-scope-list">
                   <div v-for="t in scope.tasks" :key="'t-' + t.id" class="aso-scope-item">
-                    <div class="aso-scope-info">
-                      <span class="aso-scope-name">{{ t.name }}</span>
-                      <span class="aso-scope-sub">{{ t.wbs_code }} · {{ t.phase_name || '—' }}</span>
-                    </div>
-                    <span class="aso-scope-hours">{{ Number(t.budgeted_hours || 0).toFixed(1) }}h</span>
-                    <button
-                      v-if="!isLocked"
-                      class="aso-btn-detach"
-                      :disabled="saving"
-                      title="Détacher de l'avenant"
-                      @click="detachTask(t.id)"
-                    >✕</button>
+                    <template v-if="editingTaskId === t.id">
+                      <div class="aso-scope-info">
+                        <input v-model="editTaskForm.name" class="aso-input aso-input-sm" style="width:100%;" />
+                        <span class="aso-scope-sub">{{ t.wbs_code }} · {{ t.phase_name || '—' }}</span>
+                      </div>
+                      <input v-model="editTaskForm.budgeted_hours" type="number" min="0" step="0.25" class="aso-input aso-input-sm" style="width:64px;" />
+                      <button class="aso-btn-inline" :disabled="saving" @click="saveTaskEdit(t.id)">OK</button>
+                      <button class="aso-btn-detach" :disabled="saving" @click="editingTaskId = null">✕</button>
+                    </template>
+                    <template v-else>
+                      <div class="aso-scope-info">
+                        <span class="aso-scope-name">{{ t.name }}</span>
+                        <span class="aso-scope-sub">{{ t.wbs_code }} · {{ t.phase_name || '—' }}</span>
+                      </div>
+                      <span class="aso-scope-hours">{{ Number(t.budgeted_hours || 0).toFixed(1) }}h</span>
+                      <button
+                        v-if="!isLocked"
+                        class="aso-btn-inline"
+                        :disabled="saving"
+                        title="Modifier la tâche"
+                        @click="startEditTask(t)"
+                      >Modifier</button>
+                      <button
+                        v-if="!isLocked"
+                        class="aso-btn-detach"
+                        :disabled="saving"
+                        title="Détacher de l'avenant"
+                        @click="detachTask(t.id)"
+                      >✕</button>
+                    </template>
                   </div>
                 </div>
                 <div v-else-if="!showTaskForm" class="aso-empty">Aucune tâche rattachée</div>
