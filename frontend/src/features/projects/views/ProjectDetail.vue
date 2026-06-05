@@ -15,6 +15,7 @@ import TaskEditModal from '../components/TaskEditModal.vue'
 import TeamMembersPanel from '../components/TeamMembersPanel.vue'
 import TabGroup from '@/shared/components/TabGroup.vue'
 import { planningApi } from '@/features/planning/api/planningApi'
+import { visibleTaskGroups, isTaskReadOnly } from '../utils/taskStructure'
 
 const route = useRoute()
 const router = useRouter()
@@ -387,6 +388,7 @@ interface TaskItem {
   budgeted_hours: string | number; budgeted_cost: string | number; hourly_rate: string | number;
   is_billable: boolean; is_active: boolean; progress_pct: number | string;
   planned_hours?: number; actual_hours?: number;
+  is_chargeable?: boolean; effective_budgeted_hours?: number; effective_budgeted_cost?: number;
   amendment?: number | null; amendment_number?: number | null;
 }
 const tasks = ref<TaskItem[]>([])
@@ -477,6 +479,41 @@ const tasksByPhase = computed(() => {
   return Object.values(grouped)
 })
 
+// Onglet Tâches : on n'affiche que les phases qui ont des tâches (les phases
+// standard vides sont masquées, mais restent ciblables via « + Tâche »).
+const visibleTaskPhaseGroups = computed(() => visibleTaskGroups(tasksByPhase.value))
+
+// Toutes les phases du projet, pour les sélecteurs « + Tâche » et « Déplacer ».
+const allProjectPhases = computed(
+  () => ((store.currentProject?.phases || []) as Array<{ id: number; name: string }>).filter(p => p?.id),
+)
+
+// Ajout global d'une tâche : choisir une phase cible (même vide)
+const showGlobalAddTask = ref(false)
+const newTaskPhaseId = ref<number | null>(null)
+
+// Déplacement d'une tâche vers une autre phase (ré-imputation)
+const movingTaskId = ref<number | null>(null)
+const moveTargetPhaseId = ref<number | null>(null)
+
+function startMoveTask(task: TaskItem) {
+  movingTaskId.value = task.id
+  moveTargetPhaseId.value = task.phase
+}
+
+async function moveTask(taskId: number) {
+  if (!moveTargetPhaseId.value) return
+  actionError.value = ''
+  try {
+    await projectApi.updateTask(projectId, taskId, { phase: moveTargetPhaseId.value })
+    movingTaskId.value = null
+    await loadTasks()
+    await store.fetchProject(projectId)
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
+  }
+}
+
 const taskBudgetTotal = computed(() => tasks.value.reduce((sum, t) => sum + Number(t.budgeted_cost || 0), 0))
 const taskHoursTotal = computed(() => tasks.value.reduce((sum, t) => sum + Number(t.budgeted_hours || 0), 0))
 const taskPlannedTotal = computed(() => tasks.value.reduce((sum, t) => sum + Number((t as Record<string, unknown>).planned_hours || 0), 0))
@@ -537,7 +574,10 @@ async function addTask(phaseId: number | null) {
     await projectApi.createTask(projectId, { phase: phaseId, name: newTaskName.value.trim(), task_type: 'TASK', billing_mode: 'FORFAIT', wbs_code })
     newTaskName.value = ''
     showAddTaskPhase.value = null
+    showGlobalAddTask.value = false
+    newTaskPhaseId.value = null
     await loadTasks()
+    await store.fetchProject(projectId)
   } catch (e: unknown) {
     actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
   }
@@ -1413,8 +1453,22 @@ watch(activeTab, (tab) => {
       <div v-if="taskPlannedTotal <= 0 && tasks.length > 0 && store.currentProject?.status === 'ACTIVE'" class="phase-alert alert-orange">
         &#128197; <strong>Aucune planification sur les taches</strong> — les ressources ne sont pas encore planifiees. <button class="btn-link-inline" @click="router.push('/planning')">Planifier &rarr;</button>
       </div>
-      <div v-if="tasksByPhase.length">
-        <div v-for="group in tasksByPhase" :key="group.phase_name" class="task-phase-group">
+      <!-- Ajout global d'une tâche : choisir n'importe quelle phase (même vide) -->
+      <div v-if="isEditing && allProjectPhases.length" class="tasks-toolbar">
+        <button v-if="!showGlobalAddTask" class="btn-primary btn-sm" @click="showGlobalAddTask = true; newTaskPhaseId = null; newTaskName = ''">+ Tâche</button>
+        <div v-else class="task-add-row">
+          <select v-model.number="newTaskPhaseId" class="inline-select" style="min-width:160px;">
+            <option :value="null">— Choisir une phase —</option>
+            <option v-for="p in allProjectPhases" :key="p.id" :value="p.id">{{ p.name }}</option>
+          </select>
+          <input v-model="newTaskName" class="inline-input" placeholder="Nom de la tâche" @keydown.enter="newTaskPhaseId && addTask(newTaskPhaseId)" />
+          <button class="btn-primary btn-sm" :disabled="!newTaskPhaseId || !newTaskName.trim()" @click="addTask(newTaskPhaseId)">Ajouter</button>
+          <button class="btn-ghost btn-sm" @click="showGlobalAddTask = false">Annuler</button>
+        </div>
+      </div>
+
+      <div v-if="visibleTaskPhaseGroups.length">
+        <div v-for="group in visibleTaskPhaseGroups" :key="group.phase_name" class="task-phase-group">
           <!-- Phase header -->
           <div class="task-phase-header" @click="togglePhaseCollapse(group.phase_name)">
             <span class="task-phase-toggle">{{ collapsedPhases.has(group.phase_name) ? '&#9654;' : '&#9660;' }}</span>
@@ -1473,39 +1527,54 @@ watch(activeTab, (tab) => {
                 </td>
                 <td><span class="badge" :class="task.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'" style="font-size:10px;">{{ task.billing_mode === 'HORAIRE' ? 'H' : 'F' }}</span></td>
                 <td class="text-right">
-                  <template v-if="canEditBudget">
+                  <template v-if="canEditBudget && !isTaskReadOnly(task)">
                     <input class="budget-input" :value="task.budgeted_cost" type="text" inputmode="decimal"
                       @blur="(e: Event) => { const v = parseFloat(((e.target as HTMLInputElement).value || '0').replace(/\\s/g, '').replace(',', '.')); if (!isNaN(v)) saveTaskField(task.id, 'budgeted_cost', v) }"
                       @keydown.enter="(e: Event) => (e.target as HTMLInputElement).blur()" />
                   </template>
-                  <template v-else><span class="font-mono" style="font-size:11px;">{{ formatAmount(task.budgeted_cost) }}</span></template>
+                  <template v-else><span class="font-mono" :class="{ 'agg-cell': isTaskReadOnly(task) }" style="font-size:11px;" :title="isTaskReadOnly(task) ? 'Somme des sous-tâches' : ''">{{ formatAmount(task.effective_budgeted_cost ?? task.budgeted_cost) }}</span></template>
                 </td>
                 <td class="text-right">
-                  <template v-if="canEditBudget">
+                  <template v-if="canEditBudget && !isTaskReadOnly(task)">
                     <input class="budget-input" :value="task.budgeted_hours" type="text" inputmode="decimal"
                       @blur="(e: Event) => { const v = parseFloat(((e.target as HTMLInputElement).value || '0').replace(/\\s/g, '').replace(',', '.')); if (!isNaN(v)) saveTaskField(task.id, 'budgeted_hours', v) }"
                       @keydown.enter="(e: Event) => (e.target as HTMLInputElement).blur()" />
                   </template>
-                  <template v-else><span class="font-mono" style="font-size:11px;">{{ Number(task.budgeted_hours || 0).toFixed(1) }}</span></template>
+                  <template v-else><span class="font-mono" :class="{ 'agg-cell': isTaskReadOnly(task) }" style="font-size:11px;" :title="isTaskReadOnly(task) ? 'Somme des sous-tâches' : ''">{{ Number(task.effective_budgeted_hours ?? task.budgeted_hours ?? 0).toFixed(1) }}</span></template>
                 </td>
                 <td class="text-right font-mono" style="font-size:11px;" :class="{ 'text-primary': (task.planned_hours || 0) > 0 }">{{ (task.planned_hours || 0).toFixed(1) }}</td>
                 <td class="text-right font-mono" style="font-size:11px;" :class="{ 'font-semibold': (task.actual_hours || 0) > 0 }">{{ (task.actual_hours || 0).toFixed(1) }}</td>
                 <td class="text-right font-mono" style="font-size:11px;" :class="{
-                  'text-success': (task.actual_hours || 0) <= Number(task.budgeted_hours || 0),
-                  'text-danger': (task.actual_hours || 0) > Number(task.budgeted_hours || 0) && Number(task.budgeted_hours || 0) > 0,
-                }">{{ ((task.actual_hours || 0) - Number(task.budgeted_hours || 0)).toFixed(1) }}</td>
+                  'text-success': (task.actual_hours || 0) <= Number(task.effective_budgeted_hours ?? task.budgeted_hours ?? 0),
+                  'text-danger': (task.actual_hours || 0) > Number(task.effective_budgeted_hours ?? task.budgeted_hours ?? 0) && Number(task.effective_budgeted_hours ?? task.budgeted_hours ?? 0) > 0,
+                }">{{ ((task.actual_hours || 0) - Number(task.effective_budgeted_hours ?? task.budgeted_hours ?? 0)).toFixed(1) }}</td>
                 <td>
                   <span v-if="task.is_billable" class="badge badge-green" style="font-size:9px;">Oui</span>
                   <span v-else class="badge badge-gray" style="font-size:9px;">Non</span>
                 </td>
                 <td v-if="isEditing" class="actions-cell">
-                  <button class="btn-action" @click="openTaskEditModal(task)">Modifier</button>
-                  <button v-if="task.task_type !== 'SUBTASK'" class="btn-action" @click="showAddSubtask = task.id; newSubtaskName = ''">+ Sous-tache</button>
-                  <template v-if="confirmDeleteTask === task.id">
-                    <button class="btn-action danger" @click="removeTask(task.id)">Confirmer</button>
-                    <button class="btn-action" @click="confirmDeleteTask = null">Annuler</button>
+                  <template v-if="isTaskReadOnly(task)">
+                    <span class="badge badge-amber" style="font-size:9px;" title="Tâche-mère : regroupement de sous-tâches, en lecture seule">Regroupement</span>
+                    <button class="btn-action" @click="enterInlineNameEdit(task)">Renommer</button>
+                    <button class="btn-action" @click="showAddSubtask = task.id; newSubtaskName = ''">+ Sous-tâche</button>
                   </template>
-                  <button v-else class="btn-action danger" @click="confirmDeleteTask = task.id">Supprimer</button>
+                  <template v-else>
+                    <button class="btn-action" @click="openTaskEditModal(task)">Modifier</button>
+                    <button v-if="task.task_type !== 'SUBTASK'" class="btn-action" @click="showAddSubtask = task.id; newSubtaskName = ''">+ Sous-tâche</button>
+                    <template v-if="movingTaskId === task.id">
+                      <select v-model.number="moveTargetPhaseId" class="inline-select">
+                        <option v-for="p in allProjectPhases" :key="p.id" :value="p.id">{{ p.name }}</option>
+                      </select>
+                      <button class="btn-action primary" @click="moveTask(task.id)">OK</button>
+                      <button class="btn-action" @click="movingTaskId = null">×</button>
+                    </template>
+                    <button v-else-if="task.task_type !== 'SUBTASK'" class="btn-action" @click="startMoveTask(task)" title="Ré-imputer cette tâche à une autre phase">Déplacer…</button>
+                    <template v-if="confirmDeleteTask === task.id">
+                      <button class="btn-action danger" @click="removeTask(task.id)">Confirmer</button>
+                      <button class="btn-action" @click="confirmDeleteTask = null">Annuler</button>
+                    </template>
+                    <button v-else class="btn-action danger" @click="confirmDeleteTask = task.id">Supprimer</button>
+                  </template>
                 </td>
               </tr>
               <!-- Inline subtask form (inside template v-for scope) -->
@@ -1522,22 +1591,17 @@ watch(activeTab, (tab) => {
                 <td v-if="isEditing"></td>
               </tr>
               </template>
-              <!-- Phase sans tâche : invitation à en créer -->
-              <tr v-if="!group.tasks.length" class="empty-phase-row">
-                <td :colspan="isEditing ? 10 : 9" class="empty-phase-cell">
-                  Aucune tâche dans cette phase — cliquer
-                  <strong>+ Tâche</strong>
-                  en haut de la section pour en ajouter une.
-                </td>
-              </tr>
             </tbody>
           </table>
         </div>
       </div>
-      <div v-else class="card empty-card">
+      <div v-else-if="!allProjectPhases.length" class="card empty-card">
         Ce projet n'a pas encore de phase. Ajoute une phase dans
         <a href="#" class="link" @click.prevent="activeTab = 'phases'">l'onglet Phases</a>
         pour pouvoir y créer des tâches.
+      </div>
+      <div v-else class="card empty-card">
+        Aucune tâche pour l'instant. Utilise <strong>+ Tâche</strong> ci-dessus pour en créer une dans une phase (même une phase encore vide).
       </div>
     </template>
 
@@ -2286,6 +2350,7 @@ watch(activeTab, (tab) => {
 .agg-mark { font-size: 9px; color: var(--color-gray-400); font-weight: 600; }
 .agg-cell { color: var(--color-gray-700); background: var(--color-gray-50); }
 .phase-empty-row td { opacity: 0.62; }
+.tasks-toolbar { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
 .empty-phase-cell { padding: 12px 16px; text-align: center; color: var(--color-gray-500); font-size: 12px; font-style: italic; }
 .empty-card .link { color: var(--color-primary); text-decoration: underline; cursor: pointer; }
 
