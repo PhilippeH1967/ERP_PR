@@ -16,10 +16,23 @@ from .models import (
 )
 
 
+def _chargeable_tasks(phase):
+    """Tâches *saisissables* d'une phase : celles sans sous-tâche (feuilles).
+
+    Le budget, les heures planifiées et réelles vivent uniquement sur ces
+    nœuds ; les tâches-mères ne font qu'agréger leurs sous-tâches. Filtrer
+    ici évite tout double-comptage Phase ⇇ mère ⇇ sous-tâche.
+    """
+    return phase.tasks.filter(subtasks__isnull=True)
+
+
 class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
     tasks_budgeted_hours = serializers.SerializerMethodField()
+    tasks_budgeted_cost = serializers.SerializerMethodField()
     planned_hours = serializers.SerializerMethodField()
     actual_hours = serializers.SerializerMethodField()
+    has_tasks = serializers.SerializerMethodField()
+    task_count = serializers.SerializerMethodField()
     amendment_number = serializers.IntegerField(
         source="amendment.amendment_number", read_only=True, default=None
     )
@@ -30,30 +43,46 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
             "id", "code", "name", "client_facing_label", "phase_type",
             "billing_mode", "order", "start_date", "end_date",
             "is_mandatory", "is_locked", "budgeted_hours", "budgeted_cost",
-            "tasks_budgeted_hours", "planned_hours", "actual_hours",
+            "tasks_budgeted_hours", "tasks_budgeted_cost",
+            "planned_hours", "actual_hours", "has_tasks", "task_count",
             "amendment", "amendment_number",
         ]
         read_only_fields = ["id", "amendment_number"]
 
     def get_tasks_budgeted_hours(self, obj):
-        """Sum of budgeted_hours from all tasks in this phase."""
+        """Σ des heures budgétées des tâches saisissables (feuilles)."""
         from django.db.models import Sum
-        total = obj.tasks.aggregate(s=Sum("budgeted_hours"))["s"]
+        total = _chargeable_tasks(obj).aggregate(s=Sum("budgeted_hours"))["s"]
+        return float(total) if total else 0
+
+    def get_tasks_budgeted_cost(self, obj):
+        """Σ des coûts budgétés des tâches saisissables (feuilles)."""
+        from django.db.models import Sum
+        total = _chargeable_tasks(obj).aggregate(s=Sum("budgeted_cost"))["s"]
         return float(total) if total else 0
 
     def get_planned_hours(self, obj):
-        """Sum of planned hours from ResourceAllocations for this phase."""
+        """Σ des heures planifiées des allocations posées sur les tâches."""
+        from apps.planning.models import ResourceAllocation
         total = 0
-        for alloc in obj.resource_allocations.filter(status="ACTIVE"):
+        for alloc in ResourceAllocation.objects.filter(
+            task__phase=obj, status="ACTIVE"
+        ):
             total += alloc.total_planned_hours
         return total
 
     def get_actual_hours(self, obj):
-        """Sum of actual hours from TimeEntries for this phase."""
+        """Σ des heures réelles saisies sur les tâches de la phase."""
         from django.db.models import Sum
         from apps.time_entries.models import TimeEntry
-        total = TimeEntry.objects.filter(phase=obj).aggregate(s=Sum("hours"))["s"]
+        total = TimeEntry.objects.filter(task__phase=obj).aggregate(s=Sum("hours"))["s"]
         return float(total) if total else 0
+
+    def get_has_tasks(self, obj):
+        return obj.tasks.exists()
+
+    def get_task_count(self, obj):
+        return obj.tasks.count()
 
 
 class TaskSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
@@ -61,6 +90,9 @@ class TaskSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
     display_label = serializers.SerializerMethodField()
     planned_hours = serializers.SerializerMethodField()
     actual_hours = serializers.SerializerMethodField()
+    is_chargeable = serializers.SerializerMethodField()
+    effective_budgeted_hours = serializers.SerializerMethodField()
+    effective_budgeted_cost = serializers.SerializerMethodField()
     wbs_code = serializers.CharField(max_length=20, required=False, allow_blank=True, default="")
     amendment_number = serializers.IntegerField(
         source="amendment.amendment_number", read_only=True, default=None
@@ -74,6 +106,7 @@ class TaskSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
             "task_type", "billing_mode", "order",
             "start_date", "end_date",
             "budgeted_hours", "budgeted_cost", "hourly_rate",
+            "effective_budgeted_hours", "effective_budgeted_cost", "is_chargeable",
             "is_billable", "is_active", "always_display_in_timesheet",
             "progress_pct",
             "planned_hours", "actual_hours",
@@ -81,11 +114,32 @@ class TaskSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id", "display_label", "phase_name", "planned_hours", "actual_hours",
+            "is_chargeable", "effective_budgeted_hours", "effective_budgeted_cost",
             "amendment_number",
         ]
 
     def get_display_label(self, obj):
         return obj.client_facing_label or obj.name
+
+    def get_is_chargeable(self, obj):
+        """True si la tâche est saisissable (aucune sous-tâche)."""
+        return not obj.subtasks.exists()
+
+    def get_effective_budgeted_hours(self, obj):
+        """Budget heures : propre si saisissable, sinon Σ des sous-tâches."""
+        from django.db.models import Sum
+        if self.get_is_chargeable(obj):
+            return float(obj.budgeted_hours or 0)
+        total = obj.subtasks.aggregate(s=Sum("budgeted_hours"))["s"]
+        return float(total) if total else 0
+
+    def get_effective_budgeted_cost(self, obj):
+        """Budget coût : propre si saisissable, sinon Σ des sous-tâches."""
+        from django.db.models import Sum
+        if self.get_is_chargeable(obj):
+            return float(obj.budgeted_cost or 0)
+        total = obj.subtasks.aggregate(s=Sum("budgeted_cost"))["s"]
+        return float(total) if total else 0
 
     def validate(self, attrs):
         start = attrs.get("start_date", getattr(self.instance, "start_date", None))
@@ -97,17 +151,23 @@ class TaskSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
         return attrs
 
     def get_planned_hours(self, obj):
-        """Sum of planned hours from ResourceAllocations for this task."""
-        total = 0
-        for alloc in obj.resource_allocations.filter(status="ACTIVE"):
-            total += alloc.total_planned_hours
-        return total
+        """Heures planifiées : propres si saisissable, sinon Σ des sous-tâches."""
+        from apps.planning.models import ResourceAllocation
+        if self.get_is_chargeable(obj):
+            qs = obj.resource_allocations.filter(status="ACTIVE")
+        else:
+            qs = ResourceAllocation.objects.filter(task__parent=obj, status="ACTIVE")
+        return sum(alloc.total_planned_hours for alloc in qs)
 
     def get_actual_hours(self, obj):
-        """Sum of actual hours from TimeEntries for this task."""
+        """Heures réelles : propres si saisissable, sinon Σ des sous-tâches."""
         from django.db.models import Sum
         from apps.time_entries.models import TimeEntry
-        total = TimeEntry.objects.filter(task=obj).aggregate(s=Sum("hours"))["s"]
+        if self.get_is_chargeable(obj):
+            qs = TimeEntry.objects.filter(task=obj)
+        else:
+            qs = TimeEntry.objects.filter(task__parent=obj)
+        total = qs.aggregate(s=Sum("hours"))["s"]
         return float(total) if total else 0
 
 
