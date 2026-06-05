@@ -1099,11 +1099,6 @@ function onAction(name: 'archive' | 'duplicate' | 'export' | 'delete') {
   setTimeout(() => { actionError.value = '' }, 3000)
 }
 
-function openAssignModal(phaseId: number | null, _phaseName: string) {
-  const query = phaseId ? { phase: String(phaseId) } : undefined
-  router.push({ name: 'gantt', params: { projectId: String(projectId) }, query })
-}
-
 async function deletePhase(phaseId: number) {
   confirmDeletePhase.value = null
   if (store.currentProject) {
@@ -1429,7 +1424,6 @@ watch(activeTab, (tab) => {
                 </td>
                 <td v-if="isEditing" class="text-right actions-cell">
                     <button v-if="isAdmin" class="btn-action" @click="startEditPhase(phase)">Modifier</button>
-                    <button class="btn-action" @click="openAssignModal(phase.id, phase.name)">Affecter</button>
                     <template v-if="isAdmin">
                       <span v-if="phase.is_mandatory" class="badge badge-amber" style="font-size:9px;cursor:default;">&#x1F512; Obligatoire</span>
                       <template v-else-if="confirmDeletePhase === phase.id">
@@ -1798,8 +1792,7 @@ watch(activeTab, (tab) => {
               </tbody>
             </table>
             <div style="padding:8px 12px; border-top:1px solid var(--color-gray-100); display:flex; gap:8px;">
-              <button class="btn-action" @click="openAssignModal(null, '')">+ Affecter a une phase</button>
-              <button class="btn-action" @click="router.push('/planning')">&#128197; Aller a la planification</button>
+              <button class="btn-action" @click="activeTab = 'gantt'">&#128197; Planifier (Gantt — au niveau des tâches)</button>
             </div>
           </div>
         </div>
