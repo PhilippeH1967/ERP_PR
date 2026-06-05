@@ -59,6 +59,14 @@ const sections: AdminSection[] = [
     ready: true,
   },
   {
+    key: 'standard-phases',
+    title: 'Phases standard',
+    desc: 'Jeu de phases du cabinet hérité par tout nouveau projet',
+    icon: '🧱',
+    route: '/admin/standard-phases',
+    ready: true,
+  },
+  {
     key: 'leave-types',
     title: 'Types de congés',
     desc: 'Vacances, maladie, personnel, parental — quotas et règles d\'accumulation',
