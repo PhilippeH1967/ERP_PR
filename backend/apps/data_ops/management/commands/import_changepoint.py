@@ -363,45 +363,6 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(f"  ✓ {ph_count} phases importées"))
 
-        # WBS
-        wbs_data = self._read_sheet(filepath, "WBS")
-        wbs_count = 0
-        for row in wbs_data:
-            project_code = row.get("project_code")
-            wbs_ref = row.get("wbs_ref")
-            if not project_code or not wbs_ref:
-                continue
-
-            from apps.projects.models import Project, WBSElement
-
-            try:
-                project = Project.objects.get(tenant=self.tenant, code=project_code)
-            except Project.DoesNotExist:
-                continue
-
-            phase_ref = row.get("phase_ref")
-            phase = self.refs["phases"].get(f"{project_code}:{phase_ref}")
-
-            is_billable = str(row.get("is_billable", "oui")).lower() in ("oui", "true", "1", "yes")
-
-            WBSElement.objects.get_or_create(
-                tenant=self.tenant,
-                project=project,
-                standard_label=row.get("standard_label", wbs_ref),
-                defaults={
-                    "phase": phase,
-                    "client_facing_label": row.get("client_facing_label", ""),
-                    "element_type": row.get("element_type", "TASK"),
-                    "order": int(row.get("order", 0) or 0),
-                    "budgeted_hours": float(row.get("budgeted_hours", 0) or 0),
-                    "budgeted_cost": float(row.get("budgeted_cost", 0) or 0),
-                    "is_billable": is_billable,
-                },
-            )
-            wbs_count += 1
-
-        self.stdout.write(self.style.SUCCESS(f"  ✓ {wbs_count} éléments WBS importés"))
-
     def _import_timesheets(self, folder):
         self.stdout.write("\n5. Import feuilles de temps...")
         data = self._read_sheet(

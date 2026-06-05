@@ -21,7 +21,6 @@ from apps.projects.serializers import (
     ProjectTemplateSerializer,
     SupportServiceSerializer,
     TaskSerializer,
-    WBSElementSerializer,
 )
 
 from .conftest import (
@@ -438,16 +437,6 @@ class TestAmendmentSerializer:
 
 @pytest.mark.django_db
 class TestLightweightSerializers:
-    def test_wbs_element_serializer_returns_empty_children(self, project):
-        from apps.projects.models import WBSElement
-
-        elem = WBSElement.objects.create(
-            tenant=project.tenant, project=project, standard_label="Root"
-        )
-        data = WBSElementSerializer(elem).data
-        assert data["children"] == []
-        assert data["standard_label"] == "Root"
-
     def test_support_service_serializer_fields(self, project):
         from apps.projects.models import SupportService
 

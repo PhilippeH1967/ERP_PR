@@ -9,7 +9,6 @@ from .views import (
     ProjectTemplateViewSet,
     ProjectViewSet,
     TaskViewSet,
-    WBSElementViewSet,
 )
 
 router = DefaultRouter()
@@ -20,9 +19,6 @@ router.register(r"project_templates", ProjectTemplateViewSet, basename="project-
 phase_router = DefaultRouter()
 phase_router.register(r"phases", PhaseViewSet, basename="project-phase")
 
-wbs_router = DefaultRouter()
-wbs_router.register(r"wbs", WBSElementViewSet, basename="project-wbs")
-
 amendment_router = DefaultRouter()
 amendment_router.register(r"amendments", AmendmentViewSet, basename="project-amendment")
 
@@ -32,7 +28,6 @@ task_router.register(r"tasks", TaskViewSet, basename="project-task")
 urlpatterns = [
     path("", include(router.urls)),
     path("projects/<int:project_pk>/", include(phase_router.urls)),
-    path("projects/<int:project_pk>/", include(wbs_router.urls)),
     path("projects/<int:project_pk>/", include(amendment_router.urls)),
     path("projects/<int:project_pk>/", include(task_router.urls)),
 ]

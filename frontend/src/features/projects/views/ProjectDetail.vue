@@ -31,12 +31,10 @@ const confirmDeletePhase = ref<number | null>(null)
 const confirmDeleteAssignment = ref<number | null>(null)
 
 interface DashboardData { hours_consumed: string; budget_hours: string; budget_utilization_percent: number; health: 'green' | 'yellow' | 'red' }
-interface WBSNode { id: number; standard_label: string; client_facing_label: string; element_type: string; budgeted_hours: string; children: WBSNode[] }
 interface Assignment { id: number; employee: number; employee_name: string; phase: number | null; phase_name: string; task: number | null; task_name: string; hours_per_week: string; start_date: string | null; end_date: string | null }
 interface Amendment { id: number; amendment_number: number; description: string; status: string; budget_impact: string; created_at: string }
 
 const dashboard = ref<DashboardData | null>(null)
-const wbsTree = ref<WBSNode[]>([])
 const assignments = ref<Assignment[]>([])
 const amendments = ref<Amendment[]>([])
 
@@ -914,7 +912,6 @@ async function reload() {
   try { const r = await apiClient.get('business_units/'); const d = r.data?.data || r.data; businessUnits.value = Array.isArray(d) ? d : d?.results || [] } catch { businessUnits.value = [] }
   try { const r = await apiClient.get('users/search/'); const d = r.data?.data || r.data; allUsers.value = Array.isArray(d) ? d : [] } catch { allUsers.value = [] }
   try { const r = await projectApi.dashboard(projectId); dashboard.value = r.data?.data || r.data } catch { dashboard.value = null }
-  try { const r = await projectApi.listWBS(projectId); wbsTree.value = r.data?.data || r.data || [] } catch { wbsTree.value = [] }
   try {
     const r = await apiClient.get('allocations/', { params: { project: String(projectId), page_size: '500' } })
     const d = r.data?.data || r.data
