@@ -451,6 +451,7 @@ async function saveTaskEdit(payload: {
     showTaskEditModal.value = false
     taskBeingEdited.value = null
     await loadTasks()
+    await store.fetchProject(projectId)
   } catch (e: unknown) {
     taskEditError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
   } finally {
@@ -562,6 +563,8 @@ async function saveTaskField(taskId: number, field: string, value: unknown) {
   try {
     await projectApi.updateTask(projectId, taskId, { [field]: value })
     await loadTasks()
+    // Rafraîchir les agrégats de phase (budget/heures/dates = Σ des tâches).
+    await store.fetchProject(projectId)
   } catch (e: unknown) {
     actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
   }
@@ -607,6 +610,7 @@ async function addSubtask(parentTaskId: number) {
     newSubtaskName.value = ''
     showAddSubtask.value = null
     await loadTasks()
+    await store.fetchProject(projectId)
   } catch (e: unknown) {
     actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
   }
@@ -619,7 +623,10 @@ async function removeTask(taskId: number) {
   budgetSaving.value = null
   // Optimistic removal from local state
   tasks.value = tasks.value.filter(t => t.id !== taskId)
-  try { await projectApi.deleteTask(projectId, taskId) } catch { /* ok */ }
+  try {
+    await projectApi.deleteTask(projectId, taskId)
+    await store.fetchProject(projectId)
+  } catch { /* ok */ }
 }
 
 function togglePhaseCollapse(phaseName: string) {

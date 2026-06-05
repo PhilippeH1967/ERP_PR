@@ -12,7 +12,7 @@ const isSubmitting = ref(false)
 const error = ref('')
 
 const totalSteps = 5
-const stepLabels = ['Identification', 'Budget & Phases', 'Ressources', 'Sous-traitants', 'Confirmation']
+const stepLabels = ['Identification', 'Phases', 'Ressources', 'Sous-traitants', 'Confirmation']
 
 // Step 1: Metadata
 const form = ref({
@@ -246,18 +246,6 @@ async function onSubmit() {
     if (form.value.pm) payload.pm = Number(form.value.pm)
     if (form.value.associate_in_charge) payload.associate_in_charge = Number(form.value.associate_in_charge)
     if (form.value.invoice_approver) payload.invoice_approver = Number(form.value.invoice_approver)
-    // Pass phase budgets directly with the template creation
-    if (form.value.template_id && phases.value.length) {
-      const phaseBudgets: Record<number, { budgeted_hours: number; budgeted_cost: number }> = {}
-      phases.value.forEach((p, idx) => {
-        const h = parseFloat(String(p.budgeted_hours || '0')) || 0
-        const c = parseFloat(String(p.budgeted_cost || '0')) || 0
-        if (h > 0 || c > 0) phaseBudgets[idx] = { budgeted_hours: h, budgeted_cost: c }
-      })
-      if (Object.keys(phaseBudgets).length) {
-        payload.phase_budgets = phaseBudgets
-      }
-    }
     let project
     if (form.value.template_id) {
       project = await store.createFromTemplate(form.value.template_id, payload)
@@ -266,41 +254,21 @@ async function onSubmit() {
       project = resp
     }
     if (project?.id) {
-      if (form.value.template_id) {
-        // Template creates phases — update budgets from wizard step 2
-        try {
-          const phResp = await apiClient.get(`projects/${project.id}/phases/`)
-          const createdPhases = phResp.data?.data || phResp.data || []
-          const phaseList = Array.isArray(createdPhases) ? createdPhases : createdPhases?.results || []
-          for (let i = 0; i < Math.min(phaseList.length, phases.value.length); i++) {
-            const wizardPhase = phases.value[i]
-            if (!wizardPhase) continue
-            const hours = parseFloat(String(wizardPhase.budgeted_hours || '0'))
-            const cost = parseFloat(String(wizardPhase.budgeted_cost || '0'))
-            if (hours > 0 || cost > 0) {
-              await apiClient.patch(`projects/${project.id}/phases/${phaseList[i].id}/`, {
-                budgeted_hours: hours,
-                budgeted_cost: cost,
-              })
-            }
-          }
-        } catch { /* non-blocking */ }
-      } else if (phases.value.length) {
-        // No template — create phases manually
+      // Avec template : les phases sont créées depuis le jeu standard du cabinet.
+      // Sans template : on crée les phases définies dans le wizard. Le budget
+      // (heures et $) ne se saisit pas ici — il se saisit sur les tâches.
+      if (!form.value.template_id && phases.value.length) {
         for (const phase of phases.value) {
           try {
             await apiClient.post(`projects/${project.id}/phases/`, {
               name: phase.name,
               client_facing_label: phase.client_facing_label,
               billing_mode: phase.billing_mode,
-              budgeted_hours: phase.budgeted_hours || 0,
-              budgeted_cost: phase.budgeted_cost || 0,
               phase_type: 'REALIZATION',
             })
           } catch { /* continue with other phases */ }
         }
       }
-      // Redirection garantie même si la création des phases manuelles a partiellement échoué
       await router.push(`/projects/${project.id}`)
       return
     }
@@ -730,9 +698,9 @@ onMounted(() => {
 
       <!-- Step 2: Budget & Phases -->
       <div v-if="currentStep === 2">
-        <div class="mb-4 flex items-center justify-between">
+        <div class="mb-2 flex items-center justify-between">
           <h2 class="text-lg font-medium text-text">
-            Phases et budget
+            Phases
           </h2>
           <button
             class="rounded bg-primary px-3 py-1.5 text-xs font-medium text-white"
@@ -741,6 +709,10 @@ onMounted(() => {
             + Ajouter une phase
           </button>
         </div>
+        <p class="mb-4 text-xs text-text-muted">
+          Les phases sont des regroupements. Le <strong>budget (heures et $) se saisit sur les tâches</strong>
+          après création, pas ici.
+        </p>
 
         <div class="space-y-3">
           <div
@@ -785,24 +757,6 @@ onMounted(() => {
                   <option value="FORFAIT">Forfait</option>
                   <option value="HORAIRE">Horaire</option>
                 </select>
-              </div>
-            </div>
-            <div class="mt-2 grid grid-cols-2 gap-3">
-              <div>
-                <label class="text-[10px] text-text-muted">Heures budgetées</label>
-                <input
-                  v-model="phase.budgeted_hours"
-                  type="number"
-                  class="w-full rounded border border-border px-2 py-1.5 text-sm font-mono"
-                >
-              </div>
-              <div>
-                <label class="text-[10px] text-text-muted">Coût budgeté ($)</label>
-                <input
-                  v-model="phase.budgeted_cost"
-                  type="number"
-                  class="w-full rounded border border-border px-2 py-1.5 text-sm font-mono"
-                >
               </div>
             </div>
           </div>
