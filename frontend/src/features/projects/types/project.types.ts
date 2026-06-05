@@ -49,8 +49,11 @@ export interface Phase {
   budgeted_hours: string
   budgeted_cost: string
   tasks_budgeted_hours?: number
+  tasks_budgeted_cost?: number
   planned_hours?: number
   actual_hours?: number
+  has_tasks?: boolean
+  task_count?: number
   amendment?: number | null
   amendment_number?: number | null
 }

@@ -424,39 +424,6 @@ async function confirmReject() {
 }
 
 // Scope actions
-async function addPhase() {
-  if (!props.amendmentId || !newPhase.value.name.trim()) {
-    errorMsg.value = 'Nom de phase obligatoire'
-    return
-  }
-  saving.value = true
-  errorMsg.value = ''
-  try {
-    const r = await projectApi.createPhase(props.projectId, {
-      name: newPhase.value.name.trim(),
-      client_facing_label: newPhase.value.client_facing_label.trim(),
-      budgeted_hours: newPhase.value.budgeted_hours || '0',
-      budgeted_cost: newPhase.value.budgeted_cost || '0',
-      amendment: props.amendmentId,
-      billing_mode: 'FORFAIT',
-      phase_type: 'REALIZATION',
-    })
-    const createdPhase = (r.data?.data || r.data) as { id?: number } | undefined
-    if (createdPhase?.id && newPhaseAllocations.value.length) {
-      await createAllocationsFor(newPhaseAllocations.value, { phase: createdPhase.id })
-    }
-    newPhase.value = { name: '', client_facing_label: '', budgeted_hours: '0', budgeted_cost: '0' }
-    newPhaseAllocations.value = []
-    showPhaseForm.value = false
-    await loadScope()
-    emit('saved')
-  } catch (e) {
-    errorMsg.value = extractError(e, 'Erreur création phase')
-  } finally {
-    saving.value = false
-  }
-}
-
 async function addTask() {
   if (!props.amendmentId || !newTask.value.phase || !newTask.value.name.trim()) {
     errorMsg.value = 'Phase et nom de tâche obligatoires'
@@ -616,57 +583,19 @@ function formatAmount(n: number): string {
             <div v-if="scopeLoading" class="aso-loading">Chargement…</div>
 
             <template v-else>
-              <!-- Phases -->
-              <div class="aso-scope-block">
+              <!-- Phases (lecture seule) — les phases sont un jeu standard du
+                   projet ; un avenant ajoute des TÂCHES, pas des phases. On
+                   affiche les phases déjà rattachées (legacy) sans édition. -->
+              <div v-if="scope.phases.length" class="aso-scope-block">
                 <div class="aso-scope-block-header">
-                  <span class="aso-scope-block-title">Phases</span>
-                  <button
-                    v-if="!isLocked"
-                    class="aso-btn-inline"
-                    :disabled="saving"
-                    @click="showPhaseForm = !showPhaseForm; showTaskForm = false"
-                  >
-                    {{ showPhaseForm ? '× Annuler' : '+ Ajouter phase' }}
-                  </button>
+                  <span class="aso-scope-block-title">Phases rattachées</span>
                 </div>
-                <div v-if="showPhaseForm" class="aso-scope-form">
-                  <div class="aso-field">
-                    <label class="aso-field-label">Nom phase <span class="aso-required">*</span></label>
-                    <input v-model="newPhase.name" class="aso-input" />
-                  </div>
-                  <div class="aso-field">
-                    <label class="aso-field-label">Libellé client</label>
-                    <input v-model="newPhase.client_facing_label" class="aso-input" />
-                  </div>
-                  <div class="aso-scope-form-row">
-                    <div class="aso-field">
-                      <label class="aso-field-label">Heures budgetées</label>
-                      <input v-model="newPhase.budgeted_hours" type="number" min="0" step="0.25" class="aso-input aso-input-sm" />
-                    </div>
-                    <div class="aso-field">
-                      <label class="aso-field-label">Coût budgeté ($)</label>
-                      <input v-model="newPhase.budgeted_cost" type="number" min="0" step="0.01" class="aso-input aso-input-sm" />
-                    </div>
-                  </div>
-                  <HourDistribution
-                    v-model="newPhaseAllocations"
-                    :members="members"
-                    :virtuals="virtuals"
-                    :budgeted-hours="Number(newPhase.budgeted_hours || 0)"
-                    :disabled="saving"
-                    @create-virtual="onCreateVirtual"
-                  />
-                  <div class="aso-scope-form-row aso-scope-form-actions">
-                    <button class="aso-btn-primary aso-btn-form" :disabled="saving" @click="addPhase">Ajouter</button>
-                  </div>
-                </div>
-                <div v-if="scope.phases.length" class="aso-scope-list">
+                <div class="aso-scope-list">
                   <div v-for="p in scope.phases" :key="'ph-' + p.id" class="aso-scope-item">
                     <div class="aso-scope-info">
                       <span class="aso-scope-name">{{ p.name }}</span>
                       <span v-if="p.client_facing_label" class="aso-scope-sub">{{ p.client_facing_label }}</span>
                     </div>
-                    <span class="aso-scope-hours">{{ Number(p.budgeted_hours || 0).toFixed(1) }}h</span>
                     <button
                       v-if="!isLocked"
                       class="aso-btn-detach"
@@ -676,7 +605,6 @@ function formatAmount(n: number): string {
                     >✕</button>
                   </div>
                 </div>
-                <div v-else-if="!showPhaseForm" class="aso-empty">Aucune phase rattachée</div>
               </div>
 
               <!-- Tasks -->
