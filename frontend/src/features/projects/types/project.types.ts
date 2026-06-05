@@ -64,20 +64,6 @@ export interface SupportService {
   budgeted_cost: string
 }
 
-export interface WBSElement {
-  id: number
-  parent: number | null
-  phase: number | null
-  standard_label: string
-  client_facing_label: string
-  element_type: 'PHASE' | 'TASK' | 'SUBTASK'
-  order: number
-  budgeted_hours: string
-  budgeted_cost: string
-  is_billable: boolean
-  children: WBSElement[]
-}
-
 export interface ProjectTemplate {
   id: number
   name: string

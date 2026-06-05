@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 
 from apps.clients.models import Client
 from apps.core.models import BusinessUnit, ProjectRole, Role, Tenant, UserTenantAssociation
-from apps.projects.models import Phase, Project, ProjectTemplate, WBSElement
+from apps.projects.models import Project, ProjectTemplate
 
 User = get_user_model()
 
@@ -77,47 +77,6 @@ class TestStatusTransitions(BaseV4Test):
         self.project.save(skip_version_increment=True)
         resp = self.c.patch(f"/api/v1/projects/{self.project.id}/", {"status": "ACTIVE"}, format="json")
         self.assertEqual(resp.status_code, 200)
-
-
-class TestWBSCrud(BaseV4Test):
-    def setUp(self):
-        super().setUp()
-        self.project = Project.objects.create(
-            tenant=self.tenant, code="PR-WBS", name="WBS Test",
-            client=self.client_obj, status="ACTIVE", contract_type="FORFAITAIRE",
-        )
-        self.phase = Phase.objects.create(
-            tenant=self.tenant, project=self.project, name="Concept",
-            phase_type="REALIZATION", billing_mode="FORFAIT",
-        )
-
-    def test_create_wbs_element(self):
-        resp = self.c.post(f"/api/v1/projects/{self.project.id}/wbs/", {
-            "standard_label": "Études préliminaires",
-            "client_facing_label": "Phase 1 — Études",
-            "element_type": "TASK",
-            "budgeted_hours": "100",
-            "phase": self.phase.id,
-        }, format="json")
-        self.assertEqual(resp.status_code, 201)
-
-    def test_update_wbs_element(self):
-        wbs = WBSElement.objects.create(
-            tenant=self.tenant, project=self.project,
-            standard_label="Old", element_type="TASK",
-        )
-        resp = self.c.patch(f"/api/v1/projects/{self.project.id}/wbs/{wbs.id}/", {
-            "standard_label": "New Label",
-        }, format="json")
-        self.assertEqual(resp.status_code, 200)
-
-    def test_delete_wbs_element(self):
-        wbs = WBSElement.objects.create(
-            tenant=self.tenant, project=self.project,
-            standard_label="Del", element_type="TASK",
-        )
-        resp = self.c.delete(f"/api/v1/projects/{self.project.id}/wbs/{wbs.id}/")
-        self.assertEqual(resp.status_code, 204)
 
 
 # TestAssignment supprimé: EmployeeAssignment déprécié au profit de ResourceAllocation.

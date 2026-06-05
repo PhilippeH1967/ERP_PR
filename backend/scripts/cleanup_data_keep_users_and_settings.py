@@ -17,7 +17,7 @@ Ce qui est SUPPRIMÉ :
 - Tous les Historical* (audit trail)
 - clients.Client + Contact + ClientAddress
 - suppliers.ExternalOrganization + ST*
-- projects.Project + Phase + Task + Amendment + WBSElement + SupportService
+- projects.Project + Phase + Task + Amendment + SupportService
 - time_entries.TimeEntry + WeeklyApproval + PeriodUnlock + PeriodFreeze + TimesheetLock
 - billing.Invoice + InvoiceLine + CreditNote + Payment + Holdback + WriteOff
 - expenses.ExpenseReport + ExpenseLine + ExpenseApproval
@@ -41,7 +41,7 @@ from apps.planning.models import (  # noqa: E402
     Availability, Milestone, PlanningStandard, ResourceAllocation, VirtualResource,
 )
 from apps.projects.models import (  # noqa: E402
-    Amendment, Phase, Project, SupportService, Task, WBSElement,
+    Amendment, Phase, Project, SupportService, Task,
 )
 from apps.suppliers.models import ExternalOrganization  # noqa: E402
 from apps.time_entries.models import (  # noqa: E402
@@ -79,7 +79,6 @@ DELETION_ORDER = [
     # Projects (children avant Project)
     ("projects.Amendment", Amendment),
     ("projects.SupportService", SupportService),
-    ("projects.WBSElement", WBSElement),
     ("projects.Task", Task),
     ("projects.Phase", Phase),
     ("projects.Project", Project),

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
-from .models import Amendment, FinancialPhase, Phase, Project, ProjectTemplate, SupportService, WBSElement
+from .models import Amendment, FinancialPhase, Phase, Project, ProjectTemplate, SupportService
 
 
 class PhaseInline(admin.TabularInline):
@@ -24,13 +24,6 @@ class PhaseAdmin(admin.ModelAdmin):
     list_display = ("name", "project", "phase_type", "billing_mode", "budgeted_hours", "is_locked")
     list_filter = ("phase_type", "billing_mode", "is_locked")
     search_fields = ("name", "project__code")
-
-
-@admin.register(WBSElement)
-class WBSElementAdmin(admin.ModelAdmin):
-    list_display = ("standard_label", "client_facing_label", "project", "element_type", "budgeted_hours")
-    list_filter = ("element_type",)
-    search_fields = ("standard_label", "client_facing_label")
 
 
 @admin.register(ProjectTemplate)

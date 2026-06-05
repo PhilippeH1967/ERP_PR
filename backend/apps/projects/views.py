@@ -13,7 +13,6 @@ from .models import (
     Project,
     ProjectTemplate,
     Task,
-    WBSElement,
 )
 from .serializers import (
     AmendmentSerializer,
@@ -22,7 +21,6 @@ from .serializers import (
     ProjectSerializer,
     ProjectTemplateSerializer,
     TaskSerializer,
-    WBSElementSerializer,
 )
 from .services import (
     AmendmentTransitionError,
@@ -527,20 +525,6 @@ class PhaseViewSet(viewsets.ModelViewSet):
                 }
             )
         instance.delete()
-
-
-class WBSElementViewSet(viewsets.ModelViewSet):
-    """CRUD for WBS elements with hierarchy."""
-
-    serializer_class = WBSElementSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return WBSElement.objects.filter(project_id=self.kwargs["project_pk"], parent__isnull=True)
-
-    def perform_create(self, serializer):
-        project = Project.objects.get(pk=self.kwargs["project_pk"])
-        serializer.save(project=project, tenant=project.tenant)
 
 
 class AmendmentViewSet(viewsets.ModelViewSet):

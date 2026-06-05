@@ -868,45 +868,6 @@ class TestAmendmentViewSet:
 
 
 # --------------------------------------------------------------------------- #
-# WBSElementViewSet (legacy — minimal smoke)
-# --------------------------------------------------------------------------- #
-
-
-@pytest.mark.django_db
-class TestWBSElementViewSet:
-    """Kept minimal — the whole ViewSet will be removed in story 12.4."""
-
-    def test_admin_lists_top_level_wbs_elements(self, admin_client, project):
-        from apps.projects.models import WBSElement
-
-        root = WBSElement.objects.create(
-            tenant=project.tenant,
-            project=project,
-            standard_label="Root",
-            element_type="TASK",
-        )
-        WBSElement.objects.create(
-            tenant=project.tenant,
-            project=project,
-            parent=root,
-            standard_label="Child",
-            element_type="SUBTASK",
-        )
-        response = admin_client.get(f"/api/v1/projects/{project.pk}/wbs/")
-        assert response.status_code == 200
-        # Only top-level elements are returned (parent__isnull=True)
-        assert response.json()["meta"]["count"] == 1
-
-    def test_admin_creates_wbs_element(self, admin_client, project):
-        response = admin_client.post(
-            f"/api/v1/projects/{project.pk}/wbs/",
-            {"standard_label": "New root", "element_type": "TASK", "order": 0},
-            format="json",
-        )
-        assert response.status_code == 201
-
-
-# --------------------------------------------------------------------------- #
 # Cross-tenant sanity on nested routers
 # --------------------------------------------------------------------------- #
 

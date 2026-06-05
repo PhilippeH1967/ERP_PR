@@ -13,7 +13,6 @@ from .models import (
     ProjectTemplate,
     SupportService,
     Task,
-    WBSElement,
 )
 
 
@@ -110,23 +109,6 @@ class TaskSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
         from apps.time_entries.models import TimeEntry
         total = TimeEntry.objects.filter(task=obj).aggregate(s=Sum("hours"))["s"]
         return float(total) if total else 0
-
-
-class WBSElementSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
-    children = serializers.SerializerMethodField()
-
-    class Meta:
-        model = WBSElement
-        fields = [
-            "id", "parent", "phase", "standard_label", "client_facing_label",
-            "element_type", "order", "budgeted_hours", "budgeted_cost",
-            "contract_value", "is_billable", "children",
-        ]
-        read_only_fields = ["id"]
-
-    def get_children(self, obj):
-        children = obj.children.all()
-        return WBSElementSerializer(children, many=True).data
 
 
 class SupportServiceSerializer(CostFieldFilterMixin, serializers.ModelSerializer):

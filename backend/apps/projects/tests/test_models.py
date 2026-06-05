@@ -1,4 +1,4 @@
-"""Tests for Project, Phase, Amendment, Template, WBSElement (legacy)
+"""Tests for Project, Phase, Amendment, Template
 and auxiliary models of the projects app.
 """
 
@@ -15,7 +15,6 @@ from apps.projects.models import (
     Project,
     ProjectTemplate,
     SupportService,
-    WBSElement,
 )
 
 from .conftest import (
@@ -92,50 +91,6 @@ class TestPhaseModel:
         project_pk = project.pk
         project.delete()
         assert Phase.objects.filter(project_id=project_pk).count() == 0
-
-
-@pytest.mark.django_db
-class TestWBSElementLegacy:
-    """
-    Legacy ``WBSElement`` model — retained while story 12.4 cleanup is pending.
-    These tests confirm parent/child hierarchy still works and will be
-    removed together with the model.
-    """
-
-    def test_create_hierarchy(self, project):
-        phase = PhaseFactory(project=project, tenant=project.tenant)
-        task = WBSElement.objects.create(
-            tenant=project.tenant,
-            project=project,
-            phase=phase,
-            standard_label="Task 1",
-            client_facing_label="Tâche 1",
-            element_type="TASK",
-        )
-        subtask = WBSElement.objects.create(
-            tenant=project.tenant,
-            project=project,
-            parent=task,
-            standard_label="Subtask 1.1",
-            element_type="SUBTASK",
-        )
-        assert subtask.parent_id == task.pk
-        assert task.children.count() == 1
-
-    def test_str_uses_client_label_when_present(self, project):
-        elem = WBSElement.objects.create(
-            tenant=project.tenant,
-            project=project,
-            standard_label="Std",
-            client_facing_label="Client label",
-        )
-        assert str(elem) == "Client label"
-
-    def test_str_falls_back_to_standard_label(self, project):
-        elem = WBSElement.objects.create(
-            tenant=project.tenant, project=project, standard_label="Std only"
-        )
-        assert str(elem) == "Std only"
 
 
 @pytest.mark.django_db

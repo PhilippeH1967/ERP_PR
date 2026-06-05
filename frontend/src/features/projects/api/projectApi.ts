@@ -1,5 +1,5 @@
 import apiClient from '@/plugins/axios'
-import type { Phase, Project, WBSElement } from '../types/project.types'
+import type { Phase, Project } from '../types/project.types'
 
 const BASE = 'projects'
 
@@ -38,15 +38,6 @@ export const projectApi = {
     apiClient.patch(`${BASE}/${projectId}/phases/${phaseId}/`, data),
   deletePhase: (projectId: number, phaseId: number) =>
     apiClient.delete(`${BASE}/${projectId}/phases/${phaseId}/`),
-
-  // WBS
-  listWBS: (projectId: number) => apiClient.get(`${BASE}/${projectId}/wbs/`),
-  createWBSElement: (projectId: number, data: Partial<WBSElement>) =>
-    apiClient.post(`${BASE}/${projectId}/wbs/`, data),
-  updateWBSElement: (projectId: number, wbsId: number, data: Partial<WBSElement>) =>
-    apiClient.patch(`${BASE}/${projectId}/wbs/${wbsId}/`, data),
-  deleteWBSElement: (projectId: number, wbsId: number) =>
-    apiClient.delete(`${BASE}/${projectId}/wbs/${wbsId}/`),
 
   // Tasks
   listTasks: (projectId: number) => apiClient.get(`${BASE}/${projectId}/tasks/`),

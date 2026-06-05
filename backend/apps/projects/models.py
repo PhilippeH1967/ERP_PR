@@ -391,41 +391,6 @@ class Task(TenantScopedModel):
         return f"{self.wbs_code} — {self.client_facing_label or self.name}"
 
 
-# Keep WBSElement for backward compatibility during migration
-class WBSElement(TenantScopedModel):
-    """DEPRECATED — Use Task model instead. Kept for migration compatibility."""
-
-    class ElementType(models.TextChoices):
-        PHASE = "PHASE", "Phase"
-        TASK = "TASK", "Tâche"
-        SUBTASK = "SUBTASK", "Sous-tâche"
-
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="wbs_elements")
-    parent = models.ForeignKey(
-        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children"
-    )
-    phase = models.ForeignKey(
-        Phase, on_delete=models.CASCADE, null=True, blank=True, related_name="wbs_elements"
-    )
-    standard_label = models.CharField(max_length=255)
-    client_facing_label = models.CharField(max_length=255, blank=True, default="")
-    element_type = models.CharField(
-        max_length=10, choices=ElementType.choices, default=ElementType.TASK
-    )
-    order = models.PositiveIntegerField(default=0)
-    budgeted_hours = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    budgeted_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    contract_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    is_billable = models.BooleanField(default=True)
-
-    class Meta:
-        db_table = "projects_wbs_element"
-        ordering = ["order"]
-
-    def __str__(self):
-        return self.client_facing_label or self.standard_label
-
-
 class SupportService(TenantScopedModel):
     """Transversal support service (BIM, Paysage, DD, etc.)."""
 
