@@ -503,10 +503,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
 
 class PhaseViewSet(viewsets.ModelViewSet):
-    """CRUD for project phases."""
+    """CRUD for project phases.
+
+    Les phases sont du **paramétrage** (jeu standard du cabinet) : sur un
+    projet, lecture pour tout authentifié, mais création / édition /
+    suppression réservées aux administrateurs. Les PM ne définissent pas
+    les phases.
+    """
 
     serializer_class = PhaseSerializer
-    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [IsAuthenticated()]
+        return [IsAdmin()]
 
     def get_queryset(self):
         return Phase.objects.filter(project_id=self.kwargs["project_pk"])
