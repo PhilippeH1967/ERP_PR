@@ -34,6 +34,8 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
     actual_hours = serializers.SerializerMethodField()
     has_tasks = serializers.SerializerMethodField()
     task_count = serializers.SerializerMethodField()
+    tasks_start_date = serializers.SerializerMethodField()
+    tasks_end_date = serializers.SerializerMethodField()
     amendment_number = serializers.IntegerField(
         source="amendment.amendment_number", read_only=True, default=None
     )
@@ -43,12 +45,25 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
         fields = [
             "id", "code", "name", "client_facing_label", "phase_type",
             "billing_mode", "order", "start_date", "end_date",
+            "tasks_start_date", "tasks_end_date",
             "is_mandatory", "is_locked", "budgeted_hours", "budgeted_cost",
             "tasks_budgeted_hours", "tasks_budgeted_cost",
             "planned_hours", "actual_hours", "has_tasks", "task_count",
             "amendment", "amendment_number",
         ]
         read_only_fields = ["id", "amendment_number"]
+
+    def get_tasks_start_date(self, obj):
+        """Date de début la plus tôt parmi les tâches/sous-tâches de la phase."""
+        from django.db.models import Min
+        d = obj.tasks.aggregate(d=Min("start_date"))["d"]
+        return d.isoformat() if d else None
+
+    def get_tasks_end_date(self, obj):
+        """Date de fin la plus tardive parmi les tâches/sous-tâches de la phase."""
+        from django.db.models import Max
+        d = obj.tasks.aggregate(d=Max("end_date"))["d"]
+        return d.isoformat() if d else None
 
     def get_tasks_budgeted_hours(self, obj):
         """Σ des heures budgétées des tâches saisissables (feuilles)."""

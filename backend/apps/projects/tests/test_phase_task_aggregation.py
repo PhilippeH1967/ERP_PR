@@ -119,6 +119,21 @@ class TestPhaseAggregation:
         data = PhaseSerializer(phase).data
         assert float(data["planned_hours"]) == 12
 
+    def test_dates_aggregate_min_max_from_tasks(self, project, phase):
+        from datetime import date as d
+        TaskFactory(project=project, phase=phase, start_date=d(2026, 3, 1), end_date=d(2026, 4, 30))
+        TaskFactory(project=project, phase=phase, start_date=d(2026, 2, 1), end_date=d(2026, 3, 15))
+        TaskFactory(project=project, phase=phase)  # sans dates : ignorée
+        data = PhaseSerializer(phase).data
+        assert data["tasks_start_date"] == "2026-02-01"  # min
+        assert data["tasks_end_date"] == "2026-04-30"    # max
+
+    def test_dates_null_when_no_task_dates(self, project, phase):
+        TaskFactory(project=project, phase=phase)  # sans dates
+        data = PhaseSerializer(phase).data
+        assert data["tasks_start_date"] is None
+        assert data["tasks_end_date"] is None
+
     def test_has_tasks_flag_and_count(self, project, phase):
         empty = PhaseFactory(project=project)
         TaskFactory(project=project, phase=phase)
