@@ -5,7 +5,15 @@ from django.utils import timezone
 
 from apps.core.models import ProjectRole, Role, Tenant
 
-from .models import Amendment, Phase, Project, ProjectTemplate, SupportService, Task
+from .models import (
+    Amendment,
+    Phase,
+    Project,
+    ProjectTemplate,
+    StandardPhase,
+    SupportService,
+    Task,
+)
 
 
 class AmendmentTransitionError(Exception):
@@ -179,46 +187,64 @@ def create_project_from_template(template_id, project_data, tenant_id=None):
         **cleaned,
     )
 
-    # Optional phase budgets override (passed by wizard step 2)
-    phase_budgets = project_data.get("phase_budgets") or {}
-
-    # Create phases and tasks from template
-    for i, phase_config in enumerate(template.phases_config or []):
-        budget_override = phase_budgets.get(str(i)) or phase_budgets.get(i) or {}
-        phase = Phase.objects.create(
-            tenant=tenant,
-            project=project,
-            code=phase_config.get("code", str(i + 1)),
-            name=phase_config.get("name", f"Phase {i + 1}"),
-            client_facing_label=phase_config.get("client_label", ""),
-            phase_type=phase_config.get("type", "REALIZATION"),
-            billing_mode=phase_config.get("billing_mode", "FORFAIT"),
-            order=i,
-            is_mandatory=phase_config.get("is_mandatory", False),
-            budgeted_hours=budget_override.get("budgeted_hours")
-            or phase_config.get("budgeted_hours", 0)
-            or 0,
-            budgeted_cost=budget_override.get("budgeted_cost")
-            or phase_config.get("budgeted_cost", 0)
-            or 0,
+    # Les phases proviennent du jeu **standard** du cabinet (paramétrage
+    # global), pas du template : tous les projets héritent du même jeu. Les
+    # phases sont des regroupements vides (les tâches sont ajoutées ensuite).
+    standard_phases = list(
+        StandardPhase.objects.filter(tenant=tenant, is_active=True).order_by(
+            "order", "name"
         )
-
-        # Create tasks under this phase
-        for j, task_config in enumerate(phase_config.get("tasks", [])):
-            Task.objects.create(
+    )
+    if standard_phases:
+        for sp in standard_phases:
+            Phase.objects.create(
                 tenant=tenant,
                 project=project,
-                phase=phase,
-                wbs_code=task_config.get("wbs_code", f"{phase.code}.{j + 1}"),
-                name=task_config.get("name", f"Tâche {j + 1}"),
-                client_facing_label=task_config.get("client_label", ""),
-                billing_mode=task_config.get("billing_mode", phase.billing_mode),
-                order=j,
-                budgeted_hours=task_config.get("budgeted_hours", 0),
-                budgeted_cost=task_config.get("budgeted_cost", 0),
-                hourly_rate=task_config.get("hourly_rate"),
-                is_billable=task_config.get("is_billable", True),
+                code=sp.code,
+                name=sp.name,
+                client_facing_label=sp.client_facing_label,
+                phase_type=sp.phase_type,
+                order=sp.order,
+                is_mandatory=sp.is_mandatory,
             )
+    else:
+        # Fallback hérité : tant que le jeu standard n'est pas paramétré, on
+        # retombe sur les phases (et tâches) du template.
+        phase_budgets = project_data.get("phase_budgets") or {}
+        for i, phase_config in enumerate(template.phases_config or []):
+            budget_override = phase_budgets.get(str(i)) or phase_budgets.get(i) or {}
+            phase = Phase.objects.create(
+                tenant=tenant,
+                project=project,
+                code=phase_config.get("code", str(i + 1)),
+                name=phase_config.get("name", f"Phase {i + 1}"),
+                client_facing_label=phase_config.get("client_label", ""),
+                phase_type=phase_config.get("type", "REALIZATION"),
+                billing_mode=phase_config.get("billing_mode", "FORFAIT"),
+                order=i,
+                is_mandatory=phase_config.get("is_mandatory", False),
+                budgeted_hours=budget_override.get("budgeted_hours")
+                or phase_config.get("budgeted_hours", 0)
+                or 0,
+                budgeted_cost=budget_override.get("budgeted_cost")
+                or phase_config.get("budgeted_cost", 0)
+                or 0,
+            )
+            for j, task_config in enumerate(phase_config.get("tasks", [])):
+                Task.objects.create(
+                    tenant=tenant,
+                    project=project,
+                    phase=phase,
+                    wbs_code=task_config.get("wbs_code", f"{phase.code}.{j + 1}"),
+                    name=task_config.get("name", f"Tâche {j + 1}"),
+                    client_facing_label=task_config.get("client_label", ""),
+                    billing_mode=task_config.get("billing_mode", phase.billing_mode),
+                    order=j,
+                    budgeted_hours=task_config.get("budgeted_hours", 0),
+                    budgeted_cost=task_config.get("budgeted_cost", 0),
+                    hourly_rate=task_config.get("hourly_rate"),
+                    is_billable=task_config.get("is_billable", True),
+                )
 
     # Create support services from template
     for svc_config in template.support_services_config or []:
