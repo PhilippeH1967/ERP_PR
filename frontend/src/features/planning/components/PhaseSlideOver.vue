@@ -6,7 +6,6 @@
  */
 import { ref, computed, watch } from 'vue'
 import apiClient from '@/plugins/axios'
-import { isoWeeksBetween, weekLabel } from '../utils/isoWeek'
 
 const props = defineProps<{
   open: boolean
@@ -24,16 +23,11 @@ interface PhaseData {
   is_locked: boolean; is_mandatory: boolean
 }
 
-type DistributionMode = 'uniform' | 'standard' | 'manual'
-type TimeUnit = 'week' | 'month'
-
+// Allocations affichées en LECTURE SEULE : la planification se fait au niveau
+// des tâches/sous-tâches (cliquer une tâche dans le Gantt), plus sur la phase.
 interface AllocationData {
   id: number; employee_id: number; employee_name: string
-  hours_per_week: number; start_date: string; end_date: string
-  status: string
-  distribution_mode: DistributionMode
-  time_unit: TimeUnit
-  time_breakdown: Record<string, number> | null
+  hours_per_week: number
 }
 
 interface MonthlyData { month: string; budget: number; planned: number; actual: number }
@@ -44,10 +38,6 @@ const monthlyChart = ref<MonthlyData[]>([])
 const isLoading = ref(false)
 const isSaving = ref(false)
 const editDates = ref({ start: '', end: '' })
-const showAssign = ref(false)
-const assignSearch = ref('')
-const assignUsers = ref<Array<{ id: number; username: string; email: string }>>([])
-const assignHours = ref(20)
 
 async function loadPhase() {
   if (!props.phaseId) return
@@ -70,12 +60,6 @@ async function loadPhase() {
       employee_id: Number(a.employee),
       employee_name: String(a.employee_name || a.employee || ''),
       hours_per_week: Number(a.hours_per_week || 0),
-      start_date: String(a.start_date || ''),
-      end_date: String(a.end_date || ''),
-      status: String(a.status || 'ACTIVE'),
-      distribution_mode: (a.distribution_mode as DistributionMode) || 'uniform',
-      time_unit: (a.time_unit as TimeUnit) || 'week',
-      time_breakdown: (a.time_breakdown as Record<string, number> | null) ?? null,
     }))
 
     // If no employee_name in allocation, try to resolve
@@ -140,118 +124,6 @@ async function saveDates() {
     await loadPhase()
   } catch { /* */ }
   finally { isSaving.value = false }
-}
-
-// Update allocation — optimistic local merge, no full reload (avoids vnode churn)
-async function updateAllocation(allocId: number, field: string, value: unknown) {
-  isSaving.value = true
-  try {
-    const resp = await apiClient.patch(`allocations/${allocId}/`, { [field]: value })
-    const updated = resp.data?.data || resp.data
-    const idx = allocations.value.findIndex(a => a.id === allocId)
-    const cur = idx >= 0 ? allocations.value[idx] : undefined
-    if (cur && updated) {
-      allocations.value[idx] = {
-        ...cur,
-        hours_per_week: Number(updated.hours_per_week ?? cur.hours_per_week),
-        start_date: updated.start_date ?? cur.start_date,
-        end_date: updated.end_date ?? cur.end_date,
-        status: updated.status ?? cur.status,
-        distribution_mode: (updated.distribution_mode as DistributionMode) || cur.distribution_mode,
-        time_unit: (updated.time_unit as TimeUnit) || cur.time_unit,
-        time_breakdown: (updated.time_breakdown ?? null) as Record<string, number> | null,
-      }
-    }
-    emit('updated')
-  } catch { /* */ }
-  finally { isSaving.value = false }
-}
-
-// Editable allocation dates — client-side guard: end >= start, else revert
-function onAllocDateChange(alloc: AllocationData, field: 'start_date' | 'end_date', ev: Event) {
-  const val = (ev.target as HTMLInputElement).value
-  const next = { start: alloc.start_date, end: alloc.end_date, [field === 'start_date' ? 'start' : 'end']: val }
-  if (next.start && next.end && next.end < next.start) {
-    ;(ev.target as HTMLInputElement).value = alloc[field]
-    return
-  }
-  updateAllocation(alloc.id, field, val)
-}
-
-function setAllocMode(alloc: AllocationData, mode: DistributionMode) {
-  if (mode === 'standard') return // disabled in Sprint 1
-  if (alloc.distribution_mode === mode) return
-  updateAllocation(alloc.id, 'distribution_mode', mode)
-}
-
-function allocWeeks(alloc: AllocationData): string[] {
-  return isoWeeksBetween(alloc.start_date, alloc.end_date)
-}
-
-function manualCellValue(alloc: AllocationData, weekKey: string): number {
-  const bd = alloc.time_breakdown || {}
-  const v = bd[weekKey]
-  return Number(v || 0)
-}
-
-function manualTotal(alloc: AllocationData): number {
-  const bd = alloc.time_breakdown || {}
-  return Object.values(bd).reduce((s, v) => s + Number(v || 0), 0)
-}
-
-async function onManualCellChange(alloc: AllocationData, weekKey: string, ev: Event) {
-  const raw = (ev.target as HTMLInputElement).value
-  const n = Number(raw)
-  const next: Record<string, number> = { ...(alloc.time_breakdown || {}) }
-  if (raw === '' || !Number.isFinite(n) || n <= 0) {
-    delete next[weekKey]
-  } else {
-    next[weekKey] = n
-  }
-  alloc.time_breakdown = next // optimistic for total display
-  await updateAllocation(alloc.id, 'time_breakdown', next)
-}
-
-// Delete allocation
-async function deleteAllocation(allocId: number) {
-  try {
-    await apiClient.delete(`allocations/${allocId}/`)
-    await loadPhase()
-    emit('updated')
-  } catch { /* */ }
-}
-
-// Assign new employee
-async function loadAssignUsers() {
-  try {
-    const r = await apiClient.get('users/search/')
-    assignUsers.value = Array.isArray(r.data?.data || r.data) ? (r.data?.data || r.data) : []
-  } catch { assignUsers.value = [] }
-}
-
-const filteredAssignUsers = computed(() => {
-  const q = assignSearch.value.toLowerCase()
-  return assignUsers.value.filter(u => !q || u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)).slice(0, 10)
-})
-
-async function assignEmployee(userId: number) {
-  if (!phase.value) return
-  try {
-    await apiClient.post('allocations/', {
-      employee: userId,
-      project: props.projectId,
-      phase: phase.value.id,
-      hours_per_week: assignHours.value,
-      start_date: editDates.value.start || new Date().toISOString().substring(0, 10),
-      end_date: editDates.value.end || new Date(Date.now() + 90 * 86400000).toISOString().substring(0, 10),
-      distribution_mode: 'uniform',
-      time_unit: 'week',
-    })
-    showAssign.value = false
-    assignSearch.value = ''
-    await loadPhase()
-    emit('updated')
-  } catch { /* */ }
 }
 
 // Computed
@@ -328,12 +200,17 @@ const maxChartVal = computed(() => Math.max(1, ...monthlyChart.value.map(m => Ma
             </div>
           </div>
 
-          <!-- Section 3: Equipe -->
+          <!-- Section 3: Equipe (lecture seule) -->
           <div class="pso-section">
             <h4 class="pso-section-title">
               Equipe affectee
               <span class="pso-section-badge">{{ allocations.length }} personne{{ allocations.length > 1 ? 's' : '' }} &middot; {{ totalPlannedWeek }}h/sem</span>
             </h4>
+
+            <p class="pso-empty" style="font-style:normal;">
+              La planification se fait au niveau des <strong>tâches</strong> (et sous-tâches), pas de la phase :
+              cliquez une tâche dans le Gantt pour affecter des ressources.
+            </p>
 
             <div v-if="allocations.length" class="pso-team-list">
               <div v-for="alloc in allocations" :key="alloc.id" class="pso-team-item">
@@ -343,92 +220,12 @@ const maxChartVal = computed(() => Math.max(1, ...monthlyChart.value.map(m => Ma
                     <span class="pso-team-name">{{ alloc.employee_name || `Employe #${alloc.employee_id}` }}</span>
                   </div>
                   <div class="pso-team-hours">
-                    <input
-                      type="number" min="0" max="50" step="0.5"
-                      class="pso-hours-input"
-                      :value="alloc.hours_per_week"
-                      @change="(e: Event) => updateAllocation(alloc.id, 'hours_per_week', Number((e.target as HTMLInputElement).value))"
-                    />
+                    <span class="pso-hours-ro">{{ alloc.hours_per_week }}</span>
                     <span class="pso-hours-unit">h/sem</span>
                   </div>
-                  <button class="pso-btn-remove" @click="deleteAllocation(alloc.id)" title="Retirer">&times;</button>
                 </div>
-                <div class="pso-team-dates">
-                  <input
-                    type="date" class="pso-date-input"
-                    :value="alloc.start_date"
-                    @change="(e: Event) => onAllocDateChange(alloc, 'start_date', e)"
-                  />
-                  <span class="pso-date-sep">→</span>
-                  <input
-                    type="date" class="pso-date-input"
-                    :value="alloc.end_date"
-                    @change="(e: Event) => onAllocDateChange(alloc, 'end_date', e)"
-                  />
-                </div>
-                <div class="pso-mode-segmented">
-                  <button
-                    type="button"
-                    class="pso-mode-btn"
-                    :class="{ active: alloc.distribution_mode === 'uniform' }"
-                    @click="setAllocMode(alloc, 'uniform')"
-                  >Uniforme</button>
-                  <button
-                    type="button"
-                    class="pso-mode-btn"
-                    :class="{ active: alloc.distribution_mode === 'standard' }"
-                    disabled
-                    title="Disponible en Sprint 2"
-                  >Standard</button>
-                  <button
-                    type="button"
-                    class="pso-mode-btn"
-                    :class="{ active: alloc.distribution_mode === 'manual' }"
-                    @click="setAllocMode(alloc, 'manual')"
-                  >Manuelle</button>
-                </div>
-                <div v-if="alloc.distribution_mode === 'manual'" class="pso-manual-grid-wrap">
-                  <div v-if="!allocWeeks(alloc).length" class="pso-manual-empty">
-                    Renseignez des dates valides pour afficher la grille.
-                  </div>
-                  <div v-else class="pso-manual-grid">
-                    <div
-                      v-for="wk in allocWeeks(alloc)"
-                      :key="wk"
-                      class="pso-manual-cell"
-                    >
-                      <span class="pso-manual-label">{{ weekLabel(wk) }}</span>
-                      <input
-                        type="number" min="0" step="0.5"
-                        class="pso-manual-input"
-                        :value="manualCellValue(alloc, wk) || ''"
-                        @change="(e: Event) => onManualCellChange(alloc, wk, e)"
-                      />
-                    </div>
-                  </div>
-                  <div class="pso-manual-total">Total: <strong>{{ manualTotal(alloc).toFixed(1) }}h</strong></div>
-                </div>
+                <div class="pso-team-legacy">Affectation au niveau phase (héritage) — à recréer sur une tâche.</div>
               </div>
-            </div>
-            <div v-else class="pso-empty">Aucun employe affecte a cette phase</div>
-
-            <!-- Add employee -->
-            <div v-if="!showAssign" class="pso-add-btn-row">
-              <button class="pso-btn-add" @click="showAssign = true; loadAssignUsers()">+ Affecter un employe</button>
-            </div>
-            <div v-else class="pso-assign-form">
-              <input v-model="assignSearch" type="text" placeholder="Rechercher..." class="pso-input" style="margin-bottom:6px;" />
-              <div class="pso-assign-list">
-                <div v-for="u in filteredAssignUsers" :key="u.id" class="pso-assign-item" @click="assignEmployee(u.id)">
-                  {{ u.username }} <span class="pso-assign-email">{{ u.email }}</span>
-                </div>
-                <div v-if="!filteredAssignUsers.length" class="pso-empty" style="padding:8px;">Aucun resultat</div>
-              </div>
-              <div class="pso-assign-hours">
-                <label>Heures/semaine:</label>
-                <input v-model.number="assignHours" type="number" min="1" max="50" class="pso-hours-input" />
-              </div>
-              <button class="pso-btn-cancel" @click="showAssign = false">Annuler</button>
             </div>
           </div>
 
@@ -525,6 +322,8 @@ const maxChartVal = computed(() => Math.max(1, ...monthlyChart.value.map(m => Ma
 .pso-hours-input { width: 50px; padding: 3px 6px; border: 1px solid #D1D5DB; border-radius: 4px; font-size: 12px; font-family: var(--font-mono, monospace); text-align: right; -moz-appearance: textfield; appearance: textfield; }
 .pso-hours-input::-webkit-outer-spin-button, .pso-hours-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .pso-hours-unit { font-size: 10px; color: #9CA3AF; }
+.pso-hours-ro { font-size: 12px; font-weight: 600; font-family: var(--font-mono, monospace); color: #111827; }
+.pso-team-legacy { font-size: 10px; color: #9CA3AF; font-style: italic; padding-left: 36px; }
 .pso-btn-remove { background: none; border: none; font-size: 18px; color: #9CA3AF; cursor: pointer; padding: 0 4px; }
 .pso-btn-remove:hover { color: #DC2626; }
 .pso-empty { font-size: 12px; color: #9CA3AF; font-style: italic; padding: 8px 0; }
