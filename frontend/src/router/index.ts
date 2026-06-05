@@ -219,6 +219,11 @@ const router = createRouter({
           component: () => import('@/features/admin/views/TemplateList.vue'),
         },
         {
+          path: 'admin/standard-phases',
+          name: 'admin-standard-phases',
+          component: () => import('@/features/admin/views/StandardPhaseSettings.vue'),
+        },
+        {
           path: 'admin/org',
           name: 'admin-org',
           component: () => import('@/features/admin/views/OrgSettings.vue'),
