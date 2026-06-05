@@ -286,11 +286,29 @@ async function createAllocationsFor(
 }
 
 async function onCreateVirtual(form: { name: string; rate: string }) {
+  errorMsg.value = ''
+  const name = (form.name || '').trim()
+  if (!name) {
+    errorMsg.value = 'Le libellé du profil virtuel est obligatoire.'
+    return
+  }
+  // Le nom d'un profil virtuel est unique par projet : si déjà présent, on le
+  // réutilise (message clair) plutôt que de subir un 400 silencieux.
+  const existing = virtuals.value.find(
+    v => v.name.trim().toLowerCase() === name.toLowerCase(),
+  )
+  if (existing) {
+    errorMsg.value = `Un profil virtuel « ${existing.name} » existe déjà sur ce projet — sélectionnez-le dans la liste.`
+    return
+  }
+  // Taux : tolérer la virgule décimale et les espaces ; défaut 0.
+  const normalized = String(form.rate ?? '').replace(/\s/g, '').replace(',', '.')
+  const rate = normalized && !Number.isNaN(Number(normalized)) ? normalized : '0'
   try {
     const r = await planningApi.createVirtualResource({
       project: props.projectId,
-      name: form.name,
-      default_hourly_rate: form.rate || '0',
+      name,
+      default_hourly_rate: rate,
     })
     const created = r.data?.data || r.data
     if (created?.id) {
@@ -356,6 +374,7 @@ async function save() {
       descriptionSnapshot.value = description.value
       budgetSnapshot.value = budgetImpactRaw.value
       emit('saved')
+      emit('close')
     }
   } catch (e) {
     errorMsg.value = extractError(e, 'Erreur enregistrement')
