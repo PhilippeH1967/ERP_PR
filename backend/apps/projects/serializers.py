@@ -11,6 +11,7 @@ from .models import (
     Phase,
     Project,
     ProjectTemplate,
+    StandardPhase,
     SupportService,
     Task,
 )
@@ -177,6 +178,18 @@ class SupportServiceSerializer(CostFieldFilterMixin, serializers.ModelSerializer
         fields = [
             "id", "code", "name", "client_facing_label",
             "budgeted_hours", "budgeted_cost", "billing_mode", "is_billable",
+        ]
+        read_only_fields = ["id"]
+
+
+class StandardPhaseSerializer(serializers.ModelSerializer):
+    """Jeu global de phases standard (paramétrage admin)."""
+
+    class Meta:
+        model = StandardPhase
+        fields = [
+            "id", "code", "name", "client_facing_label",
+            "phase_type", "order", "is_mandatory", "is_active",
         ]
         read_only_fields = ["id"]
 

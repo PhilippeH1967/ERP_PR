@@ -7,11 +7,14 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.core.permissions import IsAdmin
+
 from .models import (
     Amendment,
     Phase,
     Project,
     ProjectTemplate,
+    StandardPhase,
     Task,
 )
 from .serializers import (
@@ -20,6 +23,7 @@ from .serializers import (
     ProjectListSerializer,
     ProjectSerializer,
     ProjectTemplateSerializer,
+    StandardPhaseSerializer,
     TaskSerializer,
 )
 from .services import (
@@ -499,10 +503,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
 
 class PhaseViewSet(viewsets.ModelViewSet):
-    """CRUD for project phases."""
+    """CRUD for project phases.
+
+    Les phases sont du **paramétrage** (jeu standard du cabinet) : sur un
+    projet, lecture pour tout authentifié, mais création / édition /
+    suppression réservées aux administrateurs. Les PM ne définissent pas
+    les phases.
+    """
 
     serializer_class = PhaseSerializer
-    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [IsAuthenticated()]
+        return [IsAdmin()]
 
     def get_queryset(self):
         return Phase.objects.filter(project_id=self.kwargs["project_pk"])
@@ -525,6 +539,35 @@ class PhaseViewSet(viewsets.ModelViewSet):
                 }
             )
         instance.delete()
+
+
+class StandardPhaseViewSet(viewsets.ModelViewSet):
+    """Jeu global de phases standard (paramétrage du cabinet).
+
+    Lecture : tout utilisateur authentifié. Écriture (création / édition /
+    suppression) : administrateurs uniquement — les PM ne définissent pas
+    les phases.
+    """
+
+    serializer_class = StandardPhaseSerializer
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [IsAuthenticated()]
+        return [IsAdmin()]
+
+    def get_queryset(self):
+        qs = StandardPhase.objects.all()
+        if hasattr(self.request, "tenant_id") and self.request.tenant_id:
+            qs = qs.filter(tenant_id=self.request.tenant_id)
+        return qs
+
+    def perform_create(self, serializer):
+        from apps.core.models import Tenant
+
+        tenant_id = getattr(self.request, "tenant_id", None)
+        tenant = Tenant.objects.get(pk=tenant_id) if tenant_id else Tenant.objects.first()
+        serializer.save(tenant=tenant)
 
 
 class AmendmentViewSet(viewsets.ModelViewSet):

@@ -144,6 +144,11 @@ const canEdit = computed(() => {
 // Users with rights always see edit affordances; each card manages its own local edit state.
 const isEditing = canEdit
 
+// Les phases relèvent du paramétrage (jeu standard du cabinet) : seul un
+// administrateur peut les créer/modifier/supprimer sur un projet. Le backend
+// (PhaseViewSet) reste la source de vérité (403 sinon).
+const isAdmin = computed(() => (currentUser.value?.roles || []).includes('ADMIN'))
+
 const canEditBudget = computed(() => {
   const roles = currentUser.value?.roles || []
   // PM et Associé en charge négocient les honoraires : ils peuvent modifier.
@@ -1355,10 +1360,13 @@ watch(activeTab, (tab) => {
       <div v-else-if="phaseFuturePlannedTotal <= 0 && store.currentProject?.status === 'ACTIVE'" class="phase-alert alert-red">
         &#128680; <strong>Pas de planification a venir</strong> — toutes les allocations sont dans le passe. Le projet est actif mais aucune ressource n'est planifiee pour les prochaines semaines. <button class="btn-link-inline" @click="router.push('/planning')">Planifier &rarr;</button>
       </div>
-      <div v-if="isEditing" class="section-actions" style="margin-bottom:10px;">
+      <div v-if="isAdmin" class="section-actions" style="margin-bottom:10px;">
         <button class="btn-primary" @click="showAddPhaseForm = !showAddPhaseForm">+ Ajouter une phase</button>
       </div>
-      <div v-if="showAddPhaseForm && isEditing" class="card" style="margin-bottom:10px;">
+      <p v-else class="phase-form-hint" style="margin-bottom:10px;">
+        Les phases sont définies dans le <strong>paramétrage</strong> du cabinet (administrateur). Vous pouvez y rattacher des tâches dans l'onglet Tâches.
+      </p>
+      <div v-if="showAddPhaseForm && isAdmin" class="card" style="margin-bottom:10px;">
         <p class="phase-form-hint">Une phase est un regroupement standard. Le budget, les heures et le mode de facturation se définissent sur ses <strong>tâches</strong>.</p>
         <div class="form-row-2">
           <div class="form-group"><label>Nom interne *</label><input v-model="newPhase.name" placeholder="Concept" /></div>
@@ -1420,13 +1428,11 @@ watch(activeTab, (tab) => {
                   <span v-else class="badge badge-green">Active</span>
                 </td>
                 <td v-if="isEditing" class="text-right actions-cell">
-                    <button class="btn-action" @click="startEditPhase(phase)">Modifier</button>
+                    <button v-if="isAdmin" class="btn-action" @click="startEditPhase(phase)">Modifier</button>
                     <button class="btn-action" @click="openAssignModal(phase.id, phase.name)">Affecter</button>
-                    <template v-if="phase.is_mandatory">
-                      <span class="badge badge-amber" style="font-size:9px;cursor:default;">&#x1F512; Obligatoire</span>
-                    </template>
-                    <template v-else>
-                      <template v-if="confirmDeletePhase === phase.id">
+                    <template v-if="isAdmin">
+                      <span v-if="phase.is_mandatory" class="badge badge-amber" style="font-size:9px;cursor:default;">&#x1F512; Obligatoire</span>
+                      <template v-else-if="confirmDeletePhase === phase.id">
                         <button class="btn-action danger" @click="deletePhase(phase.id)">Confirmer</button>
                         <button class="btn-action" @click="confirmDeletePhase = null">Annuler</button>
                       </template>

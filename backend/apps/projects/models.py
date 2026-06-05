@@ -483,3 +483,43 @@ class FinancialPhase(TenantScopedModel):
 
     def __str__(self):
         return f"{self.code} — {self.name}"
+
+
+class StandardPhase(TenantScopedModel):
+    """Jeu de phases **standard** du cabinet — paramétrage global (admin).
+
+    Les phases d'un projet sont instanciées à partir de ce jeu unique à la
+    création. Les PM ne définissent pas les phases : elles sont fixées ici, en
+    paramétrage. Modifiable uniquement par un administrateur.
+    """
+
+    code = models.CharField(max_length=50, help_text="Code court, ex: 1, G, Q")
+    name = models.CharField(max_length=255, verbose_name="Nom interne")
+    client_facing_label = models.CharField(max_length=255, blank=True, default="")
+    phase_type = models.CharField(
+        max_length=20,
+        choices=Phase.PhaseType.choices,
+        default=Phase.PhaseType.REALIZATION,
+    )
+    order = models.PositiveIntegerField(default=0)
+    is_mandatory = models.BooleanField(
+        default=False,
+        help_text="Phase obligatoire sur chaque projet (ex: Gestion de projet).",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Si False, la phase n'est plus instanciée sur les nouveaux projets.",
+    )
+
+    class Meta:
+        db_table = "projects_standard_phase"
+        ordering = ["order", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "code"],
+                name="uq_standard_phase_tenant_code",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.code} — {self.name}"

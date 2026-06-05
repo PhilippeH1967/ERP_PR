@@ -1,6 +1,15 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
-from .models import Amendment, FinancialPhase, Phase, Project, ProjectTemplate, SupportService
+
+from .models import (
+    Amendment,
+    FinancialPhase,
+    Phase,
+    Project,
+    ProjectTemplate,
+    StandardPhase,
+    SupportService,
+)
 
 
 class PhaseInline(admin.TabularInline):
@@ -46,3 +55,14 @@ class AmendmentAdmin(admin.ModelAdmin):
 @admin.register(FinancialPhase)
 class FinancialPhaseAdmin(admin.ModelAdmin):
     list_display = ("name", "project", "billing_mode")
+
+
+@admin.register(StandardPhase)
+class StandardPhaseAdmin(admin.ModelAdmin):
+    list_display = (
+        "order", "code", "name", "client_facing_label",
+        "phase_type", "is_mandatory", "is_active", "tenant",
+    )
+    list_filter = ("phase_type", "is_mandatory", "is_active", "tenant")
+    search_fields = ("code", "name", "client_facing_label")
+    ordering = ("tenant", "order")

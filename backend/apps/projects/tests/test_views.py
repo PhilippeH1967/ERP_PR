@@ -575,6 +575,37 @@ class TestPhaseViewSet:
         assert response.status_code == 204
         assert not Phase.objects.filter(pk=phase.pk).exists()
 
+    # Les phases sont du paramétrage : seuls les admins les modifient sur un projet.
+    def test_pm_can_list_phases(self, pm_client, project):
+        PhaseFactory(project=project, tenant=project.tenant)
+        assert pm_client.get(f"/api/v1/projects/{project.pk}/phases/").status_code == 200
+
+    def test_pm_cannot_create_phase(self, pm_client, project):
+        response = pm_client.post(
+            f"/api/v1/projects/{project.pk}/phases/",
+            {"name": "PM Phase", "order": 1},
+            format="json",
+        )
+        assert response.status_code == 403
+        assert not Phase.objects.filter(project=project, name="PM Phase").exists()
+
+    def test_pm_cannot_update_phase(self, pm_client, project):
+        phase = PhaseFactory(project=project, tenant=project.tenant, name="Origine")
+        response = pm_client.patch(
+            f"/api/v1/projects/{project.pk}/phases/{phase.pk}/",
+            {"name": "Modifiée"},
+            format="json",
+        )
+        assert response.status_code == 403
+        phase.refresh_from_db()
+        assert phase.name == "Origine"
+
+    def test_pm_cannot_delete_phase(self, pm_client, project):
+        phase = PhaseFactory(project=project, tenant=project.tenant, is_mandatory=False)
+        response = pm_client.delete(f"/api/v1/projects/{project.pk}/phases/{phase.pk}/")
+        assert response.status_code == 403
+        assert Phase.objects.filter(pk=phase.pk).exists()
+
 
 # --------------------------------------------------------------------------- #
 # TaskViewSet (nested) — brand new
