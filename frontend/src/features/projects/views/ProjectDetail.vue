@@ -1389,16 +1389,16 @@ watch(activeTab, (tab) => {
         <div class="form-actions"><button class="btn-ghost" @click="showAddPhaseForm = false">Annuler</button><button class="btn-primary" @click="addPhase">Ajouter</button></div>
       </div>
       <div class="card-table" style="overflow-x:auto;">
-        <table style="table-layout:auto; width:100%; min-width:900px;">
+        <table style="table-layout:auto; width:100%; min-width:1080px;">
           <thead><tr>
-            <th style="max-width:200px;">Phase</th><th style="width:75px;">Type</th>
-            <th class="text-right" style="width:85px;">Budget ($) <span class="agg-mark" title="Somme des tâches">Σ</span></th>
-            <th class="text-right" style="width:70px;">H. budget <span class="agg-mark" title="Somme des tâches">Σ</span></th>
-            <th class="text-right" style="width:70px;">H. planif. <span class="agg-mark" title="Somme des tâches">Σ</span></th>
-            <th class="text-right" style="width:70px;">H. réelles <span class="agg-mark" title="Somme des tâches">Σ</span></th>
-            <th class="text-right" style="width:70px;">Écart</th>
-            <th>Statut</th>
-            <th v-if="isEditing" class="text-right">Actions</th>
+            <th style="min-width:180px;">Phase</th><th style="width:95px; white-space:nowrap;">Type</th>
+            <th class="text-right" style="width:115px; white-space:nowrap;">Budget ($) <span class="agg-mark" title="Somme des tâches">Σ</span></th>
+            <th class="text-right" style="width:100px; white-space:nowrap;">H. budget <span class="agg-mark" title="Somme des tâches">Σ</span></th>
+            <th class="text-right" style="width:100px; white-space:nowrap;">H. planif. <span class="agg-mark" title="Somme des tâches">Σ</span></th>
+            <th class="text-right" style="width:100px; white-space:nowrap;">H. réelles <span class="agg-mark" title="Somme des tâches">Σ</span></th>
+            <th class="text-right" style="width:85px; white-space:nowrap;">Écart</th>
+            <th style="width:110px; white-space:nowrap;">Statut</th>
+            <th v-if="isEditing" class="text-right" style="white-space:nowrap;">Actions</th>
           </tr></thead>
           <tbody>
             <tr v-for="phase in (store.currentProject.phases || []).filter(Boolean)" :key="phase.id" :class="{ 'phase-empty-row': !phase.has_tasks }">
