@@ -334,9 +334,9 @@ export const useTimesheetStore = defineStore('timesheet', () => {
         const idx = entries.value.findIndex((e) => e.id === existing.id)
         if (idx >= 0 && updated) entries.value[idx] = updated
       } else if (hours !== '0' && hours !== '') {
+        // La saisie se fait au niveau tâche ; la phase est dérivée côté backend.
         const payload: Record<string, unknown> = { project: projectId, date, hours }
         if (taskId) payload.task = taskId
-        if (phaseId) payload.phase = phaseId
         const resp = await timesheetApi.createEntry(payload)
         const created = resp.data?.data || resp.data
         if (created) entries.value.push(created)

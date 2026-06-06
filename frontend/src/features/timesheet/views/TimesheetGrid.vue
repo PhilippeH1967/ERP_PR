@@ -44,7 +44,7 @@ const liveDailyTotals = computed(() =>
 
 // Add task with dropdowns
 interface ProjectOption { id: number; code: string; name: string }
-interface TaskOption { id: number; wbs_code: string; name: string; display_label: string; phase_name: string; phase: number | null }
+interface TaskOption { id: number; wbs_code: string; name: string; display_label: string; phase_name: string; phase: number | null; is_chargeable?: boolean }
 const availableProjects = ref<ProjectOption[]>([])
 const availableTasks = ref<TaskOption[]>([])
 const selectedProjectId = ref<number | null>(null)
@@ -65,7 +65,9 @@ async function onProjectSelect() {
   try {
     const resp = await apiClient.get(`projects/${selectedProjectId.value}/tasks/`)
     const data = resp.data?.data || resp.data
-    availableTasks.value = Array.isArray(data) ? data : data?.results || []
+    const all: TaskOption[] = Array.isArray(data) ? data : data?.results || []
+    // Seules les tâches SAISISSABLES (feuilles) : on exclut les tâches-mères.
+    availableTasks.value = all.filter(t => t.is_chargeable !== false)
   } catch { availableTasks.value = [] }
 }
 
@@ -116,6 +118,12 @@ async function addTask() {
   if (!selectedProjectId.value) return
   addTaskError.value = ''
 
+  // Tâche obligatoire quand le projet a des tâches (la saisie se fait sur une tâche).
+  if (availableTasks.value.length && !selectedTaskId.value) {
+    addTaskError.value = 'Choisis une tâche : la saisie se fait au niveau tâche.'
+    return
+  }
+
   // Block if period is locked
   if (store.periodLocked) {
     addTaskError.value = 'Cette periode est verrouillee. Aucune modification possible.'
@@ -134,11 +142,9 @@ async function addTask() {
       date: store.weekDates[0] || '',
       hours: '0',
     }
-    // If a task is selected, use it (+ its phase)
+    // Saisie au niveau tâche ; la phase est dérivée côté backend.
     if (selectedTaskId.value) {
-      const task = availableTasks.value.find(t => t.id === selectedTaskId.value)
       payload.task = selectedTaskId.value
-      if (task?.phase) payload.phase = task.phase
     }
     await apiClient.post('time_entries/', payload)
     showAddTask.value = false
@@ -469,7 +475,7 @@ function normClass(total: number, norm: number): string {
           </select>
         </div>
         <div v-if="availableTasks.length" style="min-width: 280px;">
-          <label class="text-xs font-medium text-text-muted">Tâche</label>
+          <label class="text-xs font-medium text-text-muted">Tâche *</label>
           <select v-model="selectedTaskId" class="mt-1 block w-full rounded border border-border px-2 py-1.5 text-sm">
             <option :value="null">— Choisir une tâche —</option>
             <optgroup v-for="(tasks, phaseName) in tasksByPhase" :key="phaseName" :label="String(phaseName)">
@@ -480,10 +486,10 @@ function normClass(total: number, norm: number): string {
         <div v-else-if="selectedProjectId && !availableTasks.length" style="min-width: 200px;">
           <label class="text-xs font-medium text-text-muted">Tâche</label>
           <div class="mt-1 rounded border border-warning/40 bg-warning/5 px-2 py-1.5 text-xs text-warning">
-            Aucune tâche WBS — saisie au niveau projet
+            Aucune tâche saisissable — saisie au niveau projet
           </div>
         </div>
-        <button class="btn-primary" :disabled="!selectedProjectId || store.periodLocked" @click="addTask">Ajouter</button>
+        <button class="btn-primary" :disabled="!selectedProjectId || (availableTasks.length > 0 && !selectedTaskId) || store.periodLocked" @click="addTask">Ajouter</button>
         <button class="btn-ghost" @click="showAddTask = false; addTaskError = ''">Annuler</button>
       </div>
       <div v-if="addTaskError" class="mt-2 rounded-lg border border-danger/30 bg-danger/5 p-2 text-sm text-danger">
