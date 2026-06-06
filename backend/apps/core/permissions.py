@@ -127,6 +127,17 @@ class IsFinance(BasePermission):
         return request.user.is_authenticated and is_finance(request.user)
 
 
+class IsFinancePaieOrAdmin(BasePermission):
+    """Écriture réservée aux rôles Finance, Paie ou Admin (ex. paramétrage des équipes)."""
+
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        return ProjectRole.objects.filter(
+            user=request.user, role__in=[Role.FINANCE, Role.PAIE, Role.ADMIN]
+        ).exists()
+
+
 class HasProjectRole(BasePermission):
     """
     Configurable permission requiring specific role(s) on a project.

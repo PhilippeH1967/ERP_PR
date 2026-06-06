@@ -15,6 +15,7 @@ from apps.core.config_views import (
     TaxConfigurationViewSet,
     TaxRateViewSet,
     TaxSchemeViewSet,
+    TeamViewSet,
 )
 
 config_router = DefaultRouter()
@@ -23,6 +24,7 @@ config_router.register(r"position_profiles", PositionProfileViewSet, basename="p
 config_router.register(r"tax_configurations", TaxConfigurationViewSet, basename="tax-configuration")
 config_router.register(r"tax_schemes", TaxSchemeViewSet, basename="tax-scheme")
 config_router.register(r"labor_rules", LaborRuleViewSet, basename="labor-rule")
+config_router.register(r"teams", TeamViewSet, basename="team")
 
 tax_rate_router = DefaultRouter()
 tax_rate_router.register(r"rates", TaxRateViewSet, basename="tax-rate")

@@ -75,6 +75,14 @@ const sections: AdminSection[] = [
     ready: true,
   },
   {
+    key: 'teams',
+    title: 'Équipes',
+    desc: 'Groupes d\'employés réutilisables, affectables en entier sur un projet (Finance/Paie/Admin)',
+    icon: '👥',
+    route: '/admin/teams',
+    ready: true,
+  },
+  {
     key: 'leave-types',
     title: 'Types de congés',
     desc: 'Vacances, maladie, personnel, parental — quotas et règles d\'accumulation',

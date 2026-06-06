@@ -3,8 +3,16 @@
 from rest_framework import serializers, viewsets
 from rest_framework.permissions import IsAuthenticated
 
-from .models import BusinessUnit, LaborRule, PositionProfile, TaxConfiguration, TaxRate, TaxScheme
-from .permissions import IsAdmin
+from .models import (
+    BusinessUnit,
+    LaborRule,
+    PositionProfile,
+    TaxConfiguration,
+    TaxRate,
+    TaxScheme,
+    Team,
+)
+from .permissions import IsAdmin, IsFinancePaieOrAdmin
 
 
 class BusinessUnitSerializer(serializers.ModelSerializer):
@@ -56,6 +64,27 @@ class LaborRuleSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
 
+class TeamSerializer(serializers.ModelSerializer):
+    """Équipe réutilisable (paramétrage) — membres + détails pour l'affichage."""
+
+    member_details = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Team
+        fields = ["id", "name", "members", "member_details", "is_active", "created_at"]
+        read_only_fields = ["id", "member_details", "created_at"]
+
+    def get_member_details(self, obj):
+        return [
+            {
+                "id": u.id,
+                "username": u.username,
+                "name": (u.get_full_name() or u.username).strip() or u.username,
+            }
+            for u in obj.members.all()
+        ]
+
+
 class _TenantCreateMixin:
     """Mixin to auto-assign tenant on create."""
 
@@ -75,6 +104,24 @@ class BusinessUnitViewSet(_TenantCreateMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = BusinessUnit.objects.all()
+        if hasattr(self.request, "tenant_id") and self.request.tenant_id:
+            qs = qs.filter(tenant_id=self.request.tenant_id)
+        return qs
+
+
+class TeamViewSet(_TenantCreateMixin, viewsets.ModelViewSet):
+    """Équipes réutilisables (paramétrage). Lecture : tout authentifié.
+    Écriture (création / édition / suppression) : Finance / Paie / Admin."""
+
+    serializer_class = TeamSerializer
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [IsAuthenticated()]
+        return [IsFinancePaieOrAdmin()]
+
+    def get_queryset(self):
+        qs = Team.objects.prefetch_related("members")
         if hasattr(self.request, "tenant_id") and self.request.tenant_id:
             qs = qs.filter(tenant_id=self.request.tenant_id)
         return qs

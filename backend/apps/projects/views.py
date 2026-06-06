@@ -591,6 +591,38 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project.team_members.remove(user_id)
         return Response({"data": {"team_members": self._member_detail(project)}})
 
+    @action(detail=True, methods=["post"], url_path="assign_team")
+    def assign_team(self, request, pk=None):
+        """Affecte une équipe (paramétrage) au projet : ajoute tous ses membres
+        aux membres du projet, d'un coup. Réservé aux gestionnaires du projet."""
+        if not self._can_manage_members():
+            return self._forbidden()
+
+        project = self.get_object()
+        team_id = request.data.get("team_id")
+        if not team_id:
+            return Response(
+                {"error": {"code": "MISSING_TEAM_ID", "message": "team_id requis", "details": []}},
+                status=400,
+            )
+
+        from apps.core.models import Team
+
+        try:
+            team = Team.objects.prefetch_related("members").get(
+                pk=team_id, tenant=project.tenant
+            )
+        except (Team.DoesNotExist, ValueError, TypeError):
+            return Response(
+                {"error": {"code": "TEAM_NOT_FOUND", "message": "Équipe introuvable.", "details": []}},
+                status=404,
+            )
+
+        members = list(team.members.all())
+        if members:
+            project.team_members.add(*members)
+        return Response({"data": {"team_members": self._member_detail(project)}})
+
 
 class PhaseViewSet(viewsets.ModelViewSet):
     """CRUD for project phases.
