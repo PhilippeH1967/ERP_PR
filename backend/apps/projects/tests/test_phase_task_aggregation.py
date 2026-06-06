@@ -134,6 +134,19 @@ class TestPhaseAggregation:
         assert data["tasks_start_date"] is None
         assert data["tasks_end_date"] is None
 
+    def test_phase_list_no_n_plus_1(self, admin_client, project, django_assert_max_num_queries):
+        """L'endpoint liste des phases ne doit pas faire de N+1 sur les agrégats :
+        le nombre de requêtes reste borné quel que soit le nombre de phases."""
+        from datetime import date as d
+        for i in range(6):
+            ph = PhaseFactory(project=project, tenant=project.tenant, order=i)
+            t = TaskFactory(project=project, phase=ph, budgeted_hours=10,
+                            start_date=d(2026, 3, 1), end_date=d(2026, 4, 1))
+            _alloc(tenant=project.tenant, project=project, employee=UserFactory(), task=t)
+        with django_assert_max_num_queries(15):
+            resp = admin_client.get(f"/api/v1/projects/{project.pk}/phases/")
+        assert resp.status_code == 200
+
     def test_has_tasks_flag_and_count(self, project, phase):
         empty = PhaseFactory(project=project)
         TaskFactory(project=project, phase=phase)

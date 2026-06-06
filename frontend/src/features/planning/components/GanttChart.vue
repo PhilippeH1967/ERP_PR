@@ -7,6 +7,7 @@ import { ref, computed, onMounted } from 'vue'
 import apiClient from '@/plugins/axios'
 import PhaseSlideOver from './PhaseSlideOver.vue'
 import TaskSlideOver from './TaskSlideOver.vue'
+import { isAggregateTask, phasesWithTasks } from '../utils/ganttHelpers'
 
 const props = defineProps<{ projectId: number }>()
 
@@ -25,11 +26,8 @@ function openTaskPanel(taskId: number) {
   showTaskSlideOver.value = true
 }
 
-// Une tâche AVEC sous-tâches est un agrégat (comme une phase) : on ne la
-// planifie pas — la planification se fait sur les sous-tâches (feuilles).
-function isAggregateTask(t: { is_chargeable?: boolean }) {
-  return t.is_chargeable === false
-}
+// isAggregateTask : util pur partagé (testé) — une tâche avec sous-tâches est
+// un agrégat non planifiable ; la planification se fait sur les feuilles.
 function onTaskClick(t: GanttTask) {
   if (isAggregateTask(t)) return
   openTaskPanel(t.id)
@@ -144,9 +142,7 @@ const timelineEnd = computed(() => {
 
 // On n'affiche dans le Gantt que les phases QUI ONT des tâches (les phases
 // standard vides sont masquées). Les autres écrans suivent la même règle.
-const visiblePhases = computed(() =>
-  phases.value.filter(p => tasks.value.some(t => t.phase === p.id)),
-)
+const visiblePhases = computed(() => phasesWithTasks(phases.value, tasks.value))
 
 // Avertissement « sans dates » uniquement pour les phases visibles (avec
 // tâches). Une phase vide ne déclenche donc aucun message.
