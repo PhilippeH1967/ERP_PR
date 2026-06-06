@@ -32,6 +32,8 @@ frontend/dist-ssr/
 # Playwright
 frontend/test-results/
 frontend/playwright-report/
+# Artefact de compilation de playwright.config.ts par vue-tsc --build
+frontend/playwright.config.js
 
 # Celery
 backend/celerybeat-schedule

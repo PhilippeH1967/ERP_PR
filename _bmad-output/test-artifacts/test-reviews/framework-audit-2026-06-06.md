@@ -27,7 +27,7 @@ Solide pour un MVP :
 
 | Sév. | Constat | Reco |
 |---|---|---|
-| ⚠️ Medium | **Doublon de config** : `playwright.config.js` **et** `.ts` (quasi identiques). Playwright charge `.ts` en priorité → le `.js` est mort et prête à confusion. | **Supprimer `playwright.config.js`** (1 fichier mort). |
+| ⚠️ Medium | **`playwright.config.js` = artefact de compilation** : `vue-tsc --build` (type-check) transpile `playwright.config.ts` → `.js` à la racine. Ce n'était pas un doublon manuel mais un fichier généré, committé par erreur. | ✅ **Corrigé** : retiré du suivi git + ajouté à `.gitignore`. |
 | ℹ️ Low | Pattern E2E = **mock total des API** (contract-only) → ne détecte pas les régressions backend réelles. | Garder pour la vitesse ; envisager qq E2E « full-stack » sur les flux critiques. |
 | ℹ️ Low | 1 seul navigateur (chromium). | Suffisant MVP ; ajouter webkit/firefox plus tard si besoin. |
 | ⚠️ Medium | Exécution **CI** de `test:e2e` non confirmée (pas de pipeline détecté côté repo). | Vérifier que la CI lance vitest **et** playwright (sinon les E2E ne gardent rien). |

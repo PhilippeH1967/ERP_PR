@@ -449,6 +449,7 @@ function normClass(total: number, norm: number): string {
         class="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-muted hover:bg-surface-alt"
         :class="{ 'opacity-50 cursor-not-allowed': store.periodLocked }"
         :disabled="store.periodLocked"
+        data-add-task-toggle
         @click="openAddTask"
       >
         + Ajouter une tâche
@@ -469,14 +470,14 @@ function normClass(total: number, norm: number): string {
       <div class="flex items-end gap-3">
         <div style="min-width: 250px;">
           <label class="text-xs font-medium text-text-muted">Projet *</label>
-          <select v-model="selectedProjectId" @change="onProjectSelect" class="mt-1 block w-full rounded border border-border px-2 py-1.5 text-sm">
+          <select v-model="selectedProjectId" @change="onProjectSelect" data-add-project class="mt-1 block w-full rounded border border-border px-2 py-1.5 text-sm">
             <option :value="null">— Choisir un projet —</option>
             <option v-for="p in availableProjects" :key="p.id" :value="p.id">{{ p.code }} — {{ p.name }}</option>
           </select>
         </div>
         <div v-if="availableTasks.length" style="min-width: 280px;">
           <label class="text-xs font-medium text-text-muted">Tâche *</label>
-          <select v-model="selectedTaskId" class="mt-1 block w-full rounded border border-border px-2 py-1.5 text-sm">
+          <select v-model="selectedTaskId" data-add-task class="mt-1 block w-full rounded border border-border px-2 py-1.5 text-sm">
             <option :value="null">— Choisir une tâche —</option>
             <optgroup v-for="(tasks, phaseName) in tasksByPhase" :key="phaseName" :label="String(phaseName)">
               <option v-for="t in tasks" :key="t.id" :value="t.id">{{ t.wbs_code }} — {{ t.display_label || t.name }}</option>
@@ -489,7 +490,7 @@ function normClass(total: number, norm: number): string {
             Aucune tâche saisissable — saisie au niveau projet
           </div>
         </div>
-        <button class="btn-primary" :disabled="!selectedProjectId || (availableTasks.length > 0 && !selectedTaskId) || store.periodLocked" @click="addTask">Ajouter</button>
+        <button class="btn-primary" data-add-confirm :disabled="!selectedProjectId || (availableTasks.length > 0 && !selectedTaskId) || store.periodLocked" @click="addTask">Ajouter</button>
         <button class="btn-ghost" @click="showAddTask = false; addTaskError = ''">Annuler</button>
       </div>
       <div v-if="addTaskError" class="mt-2 rounded-lg border border-danger/30 bg-danger/5 p-2 text-sm text-danger">
