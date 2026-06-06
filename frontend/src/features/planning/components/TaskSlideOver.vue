@@ -6,6 +6,7 @@
 import { ref, computed, watch } from 'vue'
 import apiClient from '@/plugins/axios'
 import { isoWeeksBetween, weekLabel } from '../utils/isoWeek'
+import { totalPlannedHours as sumPlanned, isOverBudget as overBudget } from '../utils/ganttHelpers'
 
 const props = defineProps<{
   open: boolean
@@ -212,16 +213,13 @@ async function assignEmployee(userId: number) {
 
 const totalPlannedWeek = computed(() => allocations.value.reduce((s, a) => s + a.hours_per_week, 0))
 
-// Heures planifiées TOTALES = Σ (h/sem × nb de semaines) sur les allocations.
+// Heures planifiées TOTALES = Σ (h/sem × nb de semaines) — util pur partagé/testé.
 const totalPlannedHours = computed(() =>
-  allocations.value.reduce(
-    (s, a) => s + a.hours_per_week * Math.max(1, isoWeeksBetween(a.start_date, a.end_date).length),
-    0,
-  ),
+  sumPlanned(allocations.value, (s, e) => isoWeeksBetween(s, e).length),
 )
 const budgetHours = computed(() => Number(task.value?.budgeted_hours || 0))
 // Contrôle non bloquant : on signale en rouge si le planifié dépasse le budget.
-const isOverBudget = computed(() => budgetHours.value > 0 && totalPlannedHours.value > budgetHours.value)
+const isOverBudget = computed(() => overBudget(totalPlannedHours.value, budgetHours.value))
 </script>
 
 <template>
