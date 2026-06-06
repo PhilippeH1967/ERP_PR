@@ -11,8 +11,8 @@ const currentStep = ref(1)
 const isSubmitting = ref(false)
 const error = ref('')
 
-const totalSteps = 5
-const stepLabels = ['Identification', 'Phases', 'Ressources', 'Sous-traitants', 'Confirmation']
+const totalSteps = 4
+const stepLabels = ['Identification', 'Ressources', 'Sous-traitants', 'Confirmation']
 
 // Step 1: Metadata
 const form = ref({
@@ -151,17 +151,6 @@ async function loadLookups() {
   } catch { /* silent */ }
 }
 
-// Step 2: Phases (from template or manual)
-const phases = ref<Array<{ name: string; client_facing_label: string; billing_mode: string; budgeted_hours: string; budgeted_cost: string }>>([])
-
-function addPhase() {
-  phases.value.push({ name: '', client_facing_label: '', billing_mode: 'FORFAIT', budgeted_hours: '0', budgeted_cost: '0' })
-}
-
-function removePhase(index: number) {
-  phases.value.splice(index, 1)
-}
-
 function nextStep() {
   if (currentStep.value === 1) {
     if (!form.value.code || !form.value.name) {
@@ -186,13 +175,6 @@ function nextStep() {
       const tmpl = store.templates.find((t) => t.id === form.value.template_id)
       if (tmpl) {
         const phasesConfig = tmpl.phases_config as Array<Record<string, unknown>>
-        phases.value = phasesConfig.map((p) => ({
-          name: (p.name as string) || '',
-          client_facing_label: (p.client_label as string) || '',
-          billing_mode: (p.billing_mode as string) || 'FORFAIT',
-          budgeted_hours: '0',
-          budgeted_cost: '0',
-        }))
         // Build preview tree — iterate ALL phases (including GP/SUPPORT)
         templatePreview.value = phasesConfig.map((p) => {
           const rawTasks = p.tasks
@@ -254,21 +236,8 @@ async function onSubmit() {
       project = resp
     }
     if (project?.id) {
-      // Avec template : les phases sont créées depuis le jeu standard du cabinet.
-      // Sans template : on crée les phases définies dans le wizard. Le budget
-      // (heures et $) ne se saisit pas ici — il se saisit sur les tâches.
-      if (!form.value.template_id && phases.value.length) {
-        for (const phase of phases.value) {
-          try {
-            await apiClient.post(`projects/${project.id}/phases/`, {
-              name: phase.name,
-              client_facing_label: phase.client_facing_label,
-              billing_mode: phase.billing_mode,
-              phase_type: 'REALIZATION',
-            })
-          } catch { /* continue with other phases */ }
-        }
-      }
+      // Les phases (jeu standard du cabinet) sont créées automatiquement par le
+      // backend à la création — avec ou sans template. Plus de création manuelle.
       await router.push(`/projects/${project.id}`)
       return
     }
@@ -696,82 +665,8 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Step 2: Budget & Phases -->
+      <!-- Step 2: Resources -->
       <div v-if="currentStep === 2">
-        <div class="mb-2 flex items-center justify-between">
-          <h2 class="text-lg font-medium text-text">
-            Phases
-          </h2>
-          <button
-            class="rounded bg-primary px-3 py-1.5 text-xs font-medium text-white"
-            @click="addPhase"
-          >
-            + Ajouter une phase
-          </button>
-        </div>
-        <p class="mb-4 text-xs text-text-muted">
-          Les phases sont des regroupements. Le <strong>budget (heures et $) se saisit sur les tâches</strong>
-          après création, pas ici.
-        </p>
-
-        <div class="space-y-3">
-          <div
-            v-for="(phase, i) in phases"
-            :key="i"
-            class="rounded border border-border p-3"
-          >
-            <div class="mb-2 flex items-center justify-between">
-              <span class="text-xs font-medium text-text-muted">Phase {{ i + 1 }}</span>
-              <button
-                class="text-xs text-danger hover:underline"
-                @click="removePhase(i)"
-              >
-                Supprimer
-              </button>
-            </div>
-            <div class="grid grid-cols-3 gap-3">
-              <div>
-                <label class="text-[10px] font-medium text-text-muted">Nom interne (Provencher Roy)</label>
-                <input
-                  v-model="phase.name"
-                  type="text"
-                  placeholder="ex. Concept"
-                  class="mt-0.5 w-full rounded border border-border px-2 py-1.5 text-sm"
-                >
-              </div>
-              <div>
-                <label class="text-[10px] font-medium text-text-muted">Libellé client (affiché sur factures/rapports)</label>
-                <input
-                  v-model="phase.client_facing_label"
-                  type="text"
-                  placeholder="ex. Phase 1 — Étude de faisabilité"
-                  class="mt-0.5 w-full rounded border border-border px-2 py-1.5 text-sm"
-                >
-              </div>
-              <div>
-                <label class="text-[10px] font-medium text-text-muted">Mode de facturation</label>
-                <select
-                  v-model="phase.billing_mode"
-                  class="mt-0.5 w-full rounded border border-border px-2 py-1.5 text-sm"
-                >
-                  <option value="FORFAIT">Forfait</option>
-                  <option value="HORAIRE">Horaire</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <p
-          v-if="!phases.length"
-          class="py-8 text-center text-sm text-text-muted"
-        >
-          Aucune phase — cliquez + ou sélectionnez un template à l'étape 1
-        </p>
-      </div>
-
-      <!-- Step 3: Resources -->
-      <div v-if="currentStep === 3">
         <h2 class="mb-4 text-lg font-medium text-text">
           Ressources et planification
         </h2>
@@ -781,8 +676,8 @@ onMounted(() => {
         </p>
       </div>
 
-      <!-- Step 4: Sous-traitants (E-09/E-10) -->
-      <div v-if="currentStep === 4">
+      <!-- Step 3: Sous-traitants (E-09/E-10) -->
+      <div v-if="currentStep === 3">
         <div class="mb-4 flex items-center justify-between">
           <h2 class="text-lg font-medium text-text">
             Sous-traitants
@@ -836,8 +731,8 @@ onMounted(() => {
         </p>
       </div>
 
-      <!-- Step 5: Confirmation -->
-      <div v-if="currentStep === 5">
+      <!-- Step 4: Confirmation -->
+      <div v-if="currentStep === 4">
         <h2 class="mb-4 text-lg font-medium text-text">
           Confirmation
         </h2>
@@ -900,55 +795,7 @@ onMounted(() => {
                 <span class="text-text-muted">Approbateur factures:</span>
                 <span class="ml-2">{{ allUsers.find(u => u.id === form.invoice_approver)?.username || '—' }}</span>
               </div>
-              <div>
-                <span class="text-text-muted">Phases:</span>
-                <span class="ml-2">{{ phases.length }}</span>
-              </div>
             </div>
-          </div>
-
-          <div
-            v-if="phases.length"
-            class="rounded border border-border"
-          >
-            <table class="w-full text-sm">
-              <thead class="border-b bg-surface-alt text-xs text-text-muted">
-                <tr>
-                  <th class="px-3 py-2 text-left">
-                    Phase
-                  </th>
-                  <th class="px-3 py-2 text-left">
-                    Mode
-                  </th>
-                  <th class="px-3 py-2 text-right font-mono">
-                    Heures
-                  </th>
-                  <th class="px-3 py-2 text-right font-mono">
-                    Coût
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="(phase, i) in phases"
-                  :key="i"
-                  class="border-b last:border-0"
-                >
-                  <td class="px-3 py-2">
-                    {{ phase.name }}
-                  </td>
-                  <td class="px-3 py-2 text-text-muted">
-                    {{ phase.billing_mode }}
-                  </td>
-                  <td class="px-3 py-2 text-right font-mono">
-                    {{ phase.budgeted_hours }}h
-                  </td>
-                  <td class="px-3 py-2 text-right font-mono">
-                    {{ phase.budgeted_cost }}$
-                  </td>
-                </tr>
-              </tbody>
-            </table>
           </div>
         </div>
       </div>

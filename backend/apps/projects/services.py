@@ -95,6 +95,29 @@ def reject_amendment(amendment, *, actor, reason=""):
     return amendment
 
 
+def instantiate_standard_phases(project):
+    """Crée sur le projet les phases du jeu **standard** du cabinet (paramétrage
+    global). Tous les projets héritent du même jeu — des regroupements vides ;
+    les tâches sont ajoutées ensuite. Retourne la liste des phases créées
+    (``[]`` si aucun jeu standard n'est paramétré pour le tenant)."""
+    standard_phases = StandardPhase.objects.filter(
+        tenant=project.tenant, is_active=True
+    ).order_by("order", "name")
+    return [
+        Phase.objects.create(
+            tenant=project.tenant,
+            project=project,
+            code=sp.code,
+            name=sp.name,
+            client_facing_label=sp.client_facing_label,
+            phase_type=sp.phase_type,
+            order=sp.order,
+            is_mandatory=sp.is_mandatory,
+        )
+        for sp in standard_phases
+    ]
+
+
 def create_project_from_template(template_id, project_data, tenant_id=None):
     """
     Create a project from a template, pre-populating phases, tasks, and support services.
@@ -188,26 +211,8 @@ def create_project_from_template(template_id, project_data, tenant_id=None):
     )
 
     # Les phases proviennent du jeu **standard** du cabinet (paramétrage
-    # global), pas du template : tous les projets héritent du même jeu. Les
-    # phases sont des regroupements vides (les tâches sont ajoutées ensuite).
-    standard_phases = list(
-        StandardPhase.objects.filter(tenant=tenant, is_active=True).order_by(
-            "order", "name"
-        )
-    )
-    if standard_phases:
-        for sp in standard_phases:
-            Phase.objects.create(
-                tenant=tenant,
-                project=project,
-                code=sp.code,
-                name=sp.name,
-                client_facing_label=sp.client_facing_label,
-                phase_type=sp.phase_type,
-                order=sp.order,
-                is_mandatory=sp.is_mandatory,
-            )
-    else:
+    # global), pas du template : tous les projets héritent du même jeu.
+    if not instantiate_standard_phases(project):
         # Fallback hérité : tant que le jeu standard n'est pas paramétré, on
         # retombe sur les phases (et tâches) du template.
         phase_budgets = project_data.get("phase_budgets") or {}
