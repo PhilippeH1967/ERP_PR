@@ -138,6 +138,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
         ctx["if_match_version"] = self.request.headers.get("If-Match")
+        # Détail projet : agrégats de phase pré-calculés en bloc (anti N+1).
+        if getattr(self, "action", None) == "retrieve" and self.kwargs.get("pk"):
+            from .serializers import compute_phase_aggregates
+            ctx["phase_aggregates"] = compute_phase_aggregates(
+                list(Phase.objects.filter(project_id=self.kwargs["pk"]))
+            )
         return ctx
 
     def perform_create(self, serializer):
@@ -520,6 +526,13 @@ class PhaseViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Phase.objects.filter(project_id=self.kwargs["project_pk"])
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        if getattr(self, "action", None) == "list":
+            from .serializers import compute_phase_aggregates
+            ctx["phase_aggregates"] = compute_phase_aggregates(list(self.get_queryset()))
+        return ctx
 
     def perform_create(self, serializer):
         project = Project.objects.get(pk=self.kwargs["project_pk"])

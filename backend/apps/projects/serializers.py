@@ -27,6 +27,57 @@ def _chargeable_tasks(phase):
     return phase.tasks.filter(subtasks__isnull=True)
 
 
+def compute_phase_aggregates(phases):
+    """Agrégats de TOUTES les phases en un nombre BORNÉ de requêtes (anti N+1).
+
+    Retourne ``{phase_id: {...}}``. À injecter dans le contexte du
+    ``PhaseSerializer`` (clé ``phase_aggregates``) ; sinon chaque phase
+    recalcule ses agrégats à l'unité (repli).
+    """
+    from django.db.models import Count, Max, Min, Sum
+
+    ids = [p.id for p in phases]
+    out = {
+        pid: {
+            "tasks_budgeted_hours": 0.0, "tasks_budgeted_cost": 0.0,
+            "task_count": 0, "tasks_start_date": None, "tasks_end_date": None,
+            "actual_hours": 0.0, "planned_hours": 0.0,
+        }
+        for pid in ids
+    }
+    if not ids:
+        return out
+    # Budget : tâches saisissables (feuilles)
+    for r in (
+        Task.objects.filter(phase_id__in=ids, subtasks__isnull=True)
+        .values("phase_id").annotate(bh=Sum("budgeted_hours"), bc=Sum("budgeted_cost"))
+    ):
+        out[r["phase_id"]]["tasks_budgeted_hours"] = float(r["bh"] or 0)
+        out[r["phase_id"]]["tasks_budgeted_cost"] = float(r["bc"] or 0)
+    # Count + dates : toutes les tâches
+    for r in (
+        Task.objects.filter(phase_id__in=ids)
+        .values("phase_id").annotate(c=Count("id"), smin=Min("start_date"), emax=Max("end_date"))
+    ):
+        out[r["phase_id"]]["task_count"] = r["c"]
+        out[r["phase_id"]]["tasks_start_date"] = r["smin"].isoformat() if r["smin"] else None
+        out[r["phase_id"]]["tasks_end_date"] = r["emax"].isoformat() if r["emax"] else None
+    # Heures réelles (saisies sur les tâches)
+    from apps.time_entries.models import TimeEntry
+    for r in (
+        TimeEntry.objects.filter(task__phase_id__in=ids)
+        .values("task__phase_id").annotate(s=Sum("hours"))
+    ):
+        out[r["task__phase_id"]]["actual_hours"] = float(r["s"] or 0)
+    # Heures planifiées (total_planned_hours = propriété Python → 1 requête + boucle mémoire)
+    from apps.planning.models import ResourceAllocation
+    for a in ResourceAllocation.objects.filter(
+        task__phase_id__in=ids, status="ACTIVE"
+    ).select_related("task"):
+        out[a.task.phase_id]["planned_hours"] += a.total_planned_hours
+    return out
+
+
 class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
     tasks_budgeted_hours = serializers.SerializerMethodField()
     tasks_budgeted_cost = serializers.SerializerMethodField()
@@ -53,32 +104,51 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "amendment_number"]
 
+    def _agg(self, obj):
+        """Agrégats pré-calculés en bloc (anti N+1), si fournis dans le contexte."""
+        return (self.context.get("phase_aggregates") or {}).get(obj.id)
+
     def get_tasks_start_date(self, obj):
         """Date de début la plus tôt parmi les tâches/sous-tâches de la phase."""
+        a = self._agg(obj)
+        if a is not None:
+            return a["tasks_start_date"]
         from django.db.models import Min
         d = obj.tasks.aggregate(d=Min("start_date"))["d"]
         return d.isoformat() if d else None
 
     def get_tasks_end_date(self, obj):
         """Date de fin la plus tardive parmi les tâches/sous-tâches de la phase."""
+        a = self._agg(obj)
+        if a is not None:
+            return a["tasks_end_date"]
         from django.db.models import Max
         d = obj.tasks.aggregate(d=Max("end_date"))["d"]
         return d.isoformat() if d else None
 
     def get_tasks_budgeted_hours(self, obj):
         """Σ des heures budgétées des tâches saisissables (feuilles)."""
+        a = self._agg(obj)
+        if a is not None:
+            return a["tasks_budgeted_hours"]
         from django.db.models import Sum
         total = _chargeable_tasks(obj).aggregate(s=Sum("budgeted_hours"))["s"]
         return float(total) if total else 0
 
     def get_tasks_budgeted_cost(self, obj):
         """Σ des coûts budgétés des tâches saisissables (feuilles)."""
+        a = self._agg(obj)
+        if a is not None:
+            return a["tasks_budgeted_cost"]
         from django.db.models import Sum
         total = _chargeable_tasks(obj).aggregate(s=Sum("budgeted_cost"))["s"]
         return float(total) if total else 0
 
     def get_planned_hours(self, obj):
         """Σ des heures planifiées des allocations posées sur les tâches."""
+        a = self._agg(obj)
+        if a is not None:
+            return a["planned_hours"]
         from apps.planning.models import ResourceAllocation
         total = 0
         for alloc in ResourceAllocation.objects.filter(
@@ -89,15 +159,24 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
 
     def get_actual_hours(self, obj):
         """Σ des heures réelles saisies sur les tâches de la phase."""
+        a = self._agg(obj)
+        if a is not None:
+            return a["actual_hours"]
         from django.db.models import Sum
         from apps.time_entries.models import TimeEntry
         total = TimeEntry.objects.filter(task__phase=obj).aggregate(s=Sum("hours"))["s"]
         return float(total) if total else 0
 
     def get_has_tasks(self, obj):
+        a = self._agg(obj)
+        if a is not None:
+            return a["task_count"] > 0
         return obj.tasks.exists()
 
     def get_task_count(self, obj):
+        a = self._agg(obj)
+        if a is not None:
+            return a["task_count"]
         return obj.tasks.count()
 
 
