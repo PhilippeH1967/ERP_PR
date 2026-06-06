@@ -132,9 +132,16 @@ const timelineEnd = computed(() => {
   return d
 })
 
-// Phases sans dates : on les affiche couvrant toute la timeline (style "ghost")
+// On n'affiche dans le Gantt que les phases QUI ONT des tâches (les phases
+// standard vides sont masquées). Les autres écrans suivent la même règle.
+const visiblePhases = computed(() =>
+  phases.value.filter(p => tasks.value.some(t => t.phase === p.id)),
+)
+
+// Avertissement « sans dates » uniquement pour les phases visibles (avec
+// tâches). Une phase vide ne déclenche donc aucun message.
 const phasesWithoutDates = computed(() =>
-  phases.value.filter(p => !p.start_date || !p.end_date).length,
+  visiblePhases.value.filter(p => !p.start_date || !p.end_date).length,
 )
 
 const totalDays = computed(() => Math.max(1, Math.round((timelineEnd.value.getTime() - timelineStart.value.getTime()) / 86400000)))
@@ -295,9 +302,13 @@ const tooltipData = computed(() => {
     <div v-else-if="!phases.length" class="gantt-empty">
       Aucune phase à afficher. Crée des phases dans l'onglet <strong>Structure → Phases</strong>.
     </div>
+    <div v-else-if="!visiblePhases.length" class="gantt-empty">
+      Aucune tâche à planifier. Ajoute des tâches dans l'onglet <strong>Structure → Tâches</strong> —
+      elles apparaîtront ici sous leur phase.
+    </div>
     <template v-else>
       <div v-if="phasesWithoutDates > 0" class="gantt-warning">
-        ⚠ {{ phasesWithoutDates }} phase(s) sans dates —
+        ⚠ {{ phasesWithoutDates }} phase(s) avec des tâches sans dates —
         leurs barres s'affichent sur toute la période du projet.
         Renseigne les dates des <strong>tâches</strong> pour un Gantt précis.
       </div>
@@ -312,7 +323,7 @@ const tooltipData = computed(() => {
       </div>
 
       <!-- Phase rows + task rows -->
-      <template v-for="phase in phases" :key="phase.id">
+      <template v-for="phase in visiblePhases" :key="phase.id">
         <!-- Phase bar -->
         <div class="gantt-row" :class="{ 'gantt-row-noDates': !phase.start_date }">
           <div class="gantt-label-col">
@@ -414,7 +425,7 @@ const tooltipData = computed(() => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="phase in phases" :key="'tbl-' + phase.id" style="cursor:pointer;" @click="openPhasePanel(phase.id)">
+          <tr v-for="phase in visiblePhases" :key="'tbl-' + phase.id" style="cursor:pointer;" @click="openPhasePanel(phase.id)">
             <td class="font-semibold" style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ phase.code }} — {{ phase.name }}</td>
             <td>{{ phase.start_date || '—' }}</td>
             <td>{{ phase.end_date || '—' }}</td>
