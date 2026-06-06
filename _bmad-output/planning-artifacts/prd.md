@@ -42,6 +42,8 @@ author: Philippe
 # Product Requirements Document - ERP
 
 > **Version History:** v1.1.012 (2026-04-01) — Added PAIE role (9th role), time entry status flow (DRAFT→SUBMITTED→PM_APPROVED→FINANCE_APPROVED→PAIE_VALIDATED→LOCKED), period locking (PeriodFreeze/PeriodUnlock/TimesheetLock), 11 payroll controls, billing permissions matrix, per-entry PM approval with multi-PM color coding, MVP-1.5 deferred backlog from Sprint V5 and BMAD audits. Added project-linked invoices, free invoices, ST refacturable lines, invoiced hours tracking, mark-hours-invoiced action, project Budget tab with phase-level editing (Added v1.1.012). All additions marked "(Added v1.1.012)" or "(Updated v1.1.012)".
+>
+> **v1.2.000 (2026-06-06) — Refonte structure WBS « phase = regroupement, tâche = unité ».** Les phases deviennent un **jeu standard du cabinet** paramétré globalement (modèle `StandardPhase`, écran *Administration › Phases standard*, **admin uniquement**) ; tout projet en hérite à la création. La **tâche / sous-tâche** porte désormais budget, dates, planification, mode de facturation et saisie de temps ; la **phase** (et toute tâche-mère) n'est plus qu'un **agrégat en lecture seule** (Σ des feuilles, dates min/max). Suppression du modèle déprécié `WBSElement` (remplacé par `Task`). Planification au niveau **tâche/sous-tâche dans le Gantt** (contrôle budget non bloquant, alerte rouge si dépassement) — plus d'allocation au niveau phase ni dans le slide-over d'avenant. Voir [docs/changelog-structure-v1.2.md](../../docs/changelog-structure-v1.2.md). Changements marqués "(Updated v1.2.000)".
 
 ## Executive Summary
 
@@ -111,7 +113,7 @@ The solution draws functional inspiration from two reference applications — Ch
 
 ### In Scope
 
-- **Project Management** — 4-step creation wizard, two-axis structure (sequential phases + transversal support services), virtual resource profiles, multi-employee assignment, WBS hierarchy, contract management, subcontractor management, internal projects, project dashboard
+- **Project Management** — creation wizard, **standard phase set** (firm-level parametrage, admin-only) inherited by every project, **task/subtask WBS** carrying budget/dates/planning/billing (phase = read-only aggregate), Gantt planning at task/subtask level with non-blocking budget control, virtual resource profiles, multi-employee assignment, contract management, subcontractor management, internal projects, project dashboard *(Updated v1.2.000)*
 - **Time Tracking** — Authorization-based visibility, weekly entry, 3-level approval (PM → Finance → PAIE), per-entry PM approval, multi-PM color coding, period locking (freeze/unlock), phase/person blocking, payroll controls, correction workflows, favorites and quick-switch
 - **Invoicing & Financial Layer** — Dual project layers (realization + financial), mixed billing modes, dual hourly rates, 7-column invoice preparation, CA/Salary ratio tracking, 10+ billing templates, billing dossiers, invoice workflow, payment tracking, Intact export
 - **Expense Reports** — Expense entry with receipt upload, 3-level approval, per-project refundability, configurable categories, reporting, Intact export
