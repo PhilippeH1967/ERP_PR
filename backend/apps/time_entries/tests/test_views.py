@@ -7,7 +7,7 @@ from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 
 from apps.core.models import Tenant
-from apps.projects.models import Phase, Project
+from apps.projects.models import Phase, Project, Task
 from apps.time_entries.models import TimeEntry, WeeklyApproval
 
 
@@ -24,6 +24,36 @@ class TestTimeEntryAPI:
     def test_list_entries(self):
         response = self.api.get("/api/v1/time_entries/")
         assert response.status_code == 200
+
+    def test_create_entry_on_leaf_task_ok(self):
+        """Saisie autorisée sur une tâche saisissable (feuille)."""
+        leaf = Task.objects.create(
+            tenant=self.tenant, project=self.project, phase=self.phase,
+            wbs_code="1.1", name="Feuille",
+        )
+        response = self.api.post(
+            "/api/v1/time_entries/",
+            {"project": self.project.pk, "task": leaf.pk, "date": "2026-03-16", "hours": "4"},
+            format="json", HTTP_X_TENANT_ID=str(self.tenant.pk),
+        )
+        assert response.status_code == 201
+
+    def test_create_entry_on_parent_task_rejected(self):
+        """API : saisie refusée (400) sur une tâche-mère (regroupement)."""
+        parent = Task.objects.create(
+            tenant=self.tenant, project=self.project, phase=self.phase,
+            wbs_code="1.0", name="Mère",
+        )
+        Task.objects.create(
+            tenant=self.tenant, project=self.project, phase=self.phase,
+            parent=parent, task_type="SUBTASK", wbs_code="1.0.1", name="Sous",
+        )
+        response = self.api.post(
+            "/api/v1/time_entries/",
+            {"project": self.project.pk, "task": parent.pk, "date": "2026-03-16", "hours": "4"},
+            format="json", HTTP_X_TENANT_ID=str(self.tenant.pk),
+        )
+        assert response.status_code == 400
 
     def test_create_entry(self):
         response = self.api.post(
