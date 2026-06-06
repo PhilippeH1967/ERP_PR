@@ -25,6 +25,16 @@ function openTaskPanel(taskId: number) {
   showTaskSlideOver.value = true
 }
 
+// Une tâche AVEC sous-tâches est un agrégat (comme une phase) : on ne la
+// planifie pas — la planification se fait sur les sous-tâches (feuilles).
+function isAggregateTask(t: { is_chargeable?: boolean }) {
+  return t.is_chargeable === false
+}
+function onTaskClick(t: GanttTask) {
+  if (isAggregateTask(t)) return
+  openTaskPanel(t.id)
+}
+
 function onSlideOverUpdated() {
   load() // refresh Gantt after changes
 }
@@ -40,7 +50,7 @@ interface GanttDependency { id: number; from: number; to: number; type: string; 
 interface GanttTask {
   id: number; name: string; client_facing_label: string; wbs_code: string
   phase: number; budgeted_hours: number; actual_hours?: number; planned_hours?: number
-  progress_pct?: number; task_type?: string
+  progress_pct?: number; task_type?: string; is_chargeable?: boolean
   start_date: string | null; end_date: string | null
 }
 
@@ -365,9 +375,15 @@ const tooltipData = computed(() => {
         <template v-if="showTasks">
           <div v-for="task in phaseTasks(phase.id)" :key="'t-' + task.id" class="gantt-row gantt-task-row">
             <div class="gantt-label-col">
-              <div class="gantt-task-label gantt-task-clickable" :class="{ 'gantt-subtask': task.task_type === 'SUBTASK' }" @click="openTaskPanel(task.id)" title="Ouvrir pour planifier (dates, heures)">
+              <div
+                class="gantt-task-label"
+                :class="{ 'gantt-subtask': task.task_type === 'SUBTASK', 'gantt-task-clickable': !isAggregateTask(task), 'gantt-task-aggregate': isAggregateTask(task) }"
+                @click="onTaskClick(task)"
+                :title="isAggregateTask(task) ? 'Tâche-mère : regroupement — planification au niveau des sous-tâches' : 'Ouvrir pour planifier (dates, heures)'"
+              >
                 <span class="task-wbs">{{ task.wbs_code }}</span>
                 <span class="task-name">{{ task.client_facing_label || task.name }}</span>
+                <span v-if="isAggregateTask(task)" class="agg-mark" title="Regroupement de sous-tâches">Σ</span>
               </div>
             </div>
             <div class="gantt-timeline-area">
@@ -376,14 +392,16 @@ const tooltipData = computed(() => {
               <div
                 v-if="(task.start_date || phase.start_date) && (task.end_date || phase.end_date)"
                 class="gantt-bar gantt-bar-task"
+                :class="{ 'gantt-bar-aggregate': isAggregateTask(task) }"
                 :style="{ ...barStyle(task.start_date || phase.start_date, task.end_date || phase.end_date), backgroundColor: '#E5E7EB' }"
                 @mouseenter="showTooltip($event, task.id, 'task')"
                 @mouseleave="hideTooltip"
-                @click="openTaskPanel(task.id)"
+                @click="onTaskClick(task)"
               >
                 <div class="gantt-bar-fill" :style="{ width: (task.progress_pct || 0) + '%', backgroundColor: advancementColor(task.progress_pct || 0) }"></div>
               </div>
-              <span v-else class="gantt-nodates-hint" @click="openTaskPanel(task.id)">sans dates — cliquer pour planifier →</span>
+              <span v-else-if="!isAggregateTask(task)" class="gantt-nodates-hint" @click="openTaskPanel(task.id)">sans dates — cliquer pour planifier →</span>
+              <span v-else class="gantt-agg-hint">Σ dates des sous-tâches</span>
             </div>
           </div>
         </template>
@@ -498,6 +516,11 @@ const tooltipData = computed(() => {
 .gantt-subtask { padding-left: 36px; }
 .gantt-nodates-hint { font-size: 10px; color: var(--color-gray-400); font-style: italic; cursor: pointer; padding-left: 8px; }
 .gantt-nodates-hint:hover { color: var(--color-primary); }
+.gantt-task-aggregate { cursor: default; }
+.gantt-task-aggregate .task-name { font-style: italic; color: var(--color-gray-500); }
+.gantt-task-aggregate .agg-mark { font-size: 10px; color: var(--color-gray-400); font-weight: 600; margin-left: 4px; }
+.gantt-bar-aggregate { cursor: default; opacity: 0.7; }
+.gantt-agg-hint { font-size: 10px; color: var(--color-gray-400); font-style: italic; padding-left: 8px; }
 .task-wbs { font-family: var(--font-mono); font-size: 9px; color: var(--color-gray-400); }
 .task-name { font-size: 10px; color: var(--color-gray-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
