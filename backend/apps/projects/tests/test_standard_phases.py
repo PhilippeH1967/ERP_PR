@@ -89,3 +89,26 @@ class TestProjectCreationInstantiatesStandardPhases:
         assert {"1", "G"}.issubset(codes)
         # La phase obligatoire conserve son flag.
         assert project.phases.filter(code="G", is_mandatory=True).exists()
+
+    def test_plain_create_instantiates_support_services_from_transversaux(
+        self, admin_client, tenant
+    ):
+        from apps.projects.models import Project
+
+        resp = admin_client.post(
+            "/api/v1/projects/",
+            {
+                "code": "PRJ-SVC", "name": "Avec services", "is_internal": True,
+                "services_transversaux": ["BIM", "DD"],
+            },
+            format="json",
+        )
+        assert resp.status_code == 201
+        pid = resp.json().get("data", resp.json())["id"]
+        project = Project.objects.get(pk=pid)
+        codes = set(project.support_services.values_list("code", flat=True))
+        assert {"BIM", "DD"}.issubset(codes)
+        # Nom lisible (label), pas seulement le code.
+        assert "BIM" in project.support_services.get(code="BIM").name
+        # Idempotent : pas de doublon de code.
+        assert project.support_services.filter(code="BIM").count() == 1
