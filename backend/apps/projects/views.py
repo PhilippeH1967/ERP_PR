@@ -291,9 +291,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
             "total"
         ] or Decimal("0")
 
-        budget_hours = project.phases.aggregate(total=Sum("budgeted_hours"))["total"] or Decimal(
-            "0"
-        )
+        # Budget heures : porté par les TÂCHES depuis la refonte v1.2 (le champ
+        # legacy Phase.budgeted_hours vaut 0). Repli sur les phases si aucune tâche.
+        budget_hours = project.tasks.aggregate(total=Sum("budgeted_hours"))["total"] or Decimal("0")
+        if not budget_hours:
+            budget_hours = project.phases.aggregate(total=Sum("budgeted_hours"))[
+                "total"
+            ] or Decimal("0")
 
         utilization = float(hours_consumed / budget_hours * 100) if budget_hours > 0 else 0
 

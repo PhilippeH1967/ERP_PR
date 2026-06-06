@@ -52,6 +52,9 @@ export interface Phase {
   tasks_budgeted_cost?: number
   planned_hours?: number
   actual_hours?: number
+  actual_cost?: number
+  invoiced_amount?: number
+  fees_contract_amount?: number
   has_tasks?: boolean
   task_count?: number
   amendment?: number | null

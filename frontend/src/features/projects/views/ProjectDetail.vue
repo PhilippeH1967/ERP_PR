@@ -16,6 +16,7 @@ import TeamMembersPanel from '../components/TeamMembersPanel.vue'
 import TabGroup from '@/shared/components/TabGroup.vue'
 import { planningApi } from '@/features/planning/api/planningApi'
 import { visibleTaskGroups, isTaskReadOnly } from '../utils/taskStructure'
+import { progressHoursPct, progressCostPct, progressFeesPct } from '../utils/phaseProgress'
 
 const route = useRoute()
 const router = useRouter()
@@ -169,13 +170,19 @@ const budgetTotal = computed(() => {
   return phases.reduce((sum: number, p: { budgeted_cost: string | number }) => sum + Number(p?.budgeted_cost || 0), 0)
 })
 
-const budgetInvoiced = computed(() => 0) // placeholder — will come from invoices
-
-const budgetConsumedPercent = computed(() => {
-  const total = taskBudgetTotal?.value ?? budgetTotal.value
-  if (total <= 0) return 0
-  return Math.round((budgetInvoiced.value / total) * 100 * 10) / 10
+// Facturé réel : Σ des montants facturés par phase (factures finalisées).
+const budgetInvoiced = computed(() => {
+  const phases = (store.currentProject?.phases || []).filter(Boolean)
+  return phases.reduce(
+    (sum: number, p: { invoiced_amount?: number | string }) => sum + Number(p?.invoiced_amount || 0),
+    0,
+  )
 })
+
+// « Consommé » = avancement en heures (réelles / budgétées), fourni par le
+// dashboard dont budget_hours vient désormais des tâches (et non du champ
+// legacy Phase.budgeted_hours qui valait 0 depuis la refonte v1.2).
+const budgetConsumedPercent = computed(() => dashboard.value?.budget_utilization_percent ?? 0)
 
 const budgetRemaining = computed(() => (taskBudgetTotal?.value ?? budgetTotal.value) - budgetInvoiced.value)
 
@@ -1293,16 +1300,20 @@ watch(activeTab, (tab) => {
 
         <!-- Phases summary table (E-27) -->
         <div v-if="store.currentProject.phases?.length" style="margin-top: 12px;">
-          <p class="phase-form-hint" style="margin:0 0 6px;">Heures et budget = <strong>somme des tâches</strong> de chaque phase.</p>
+          <p class="phase-form-hint" style="margin:0 0 6px;">Heures et budget = <strong>somme des tâches</strong>. <strong>%</strong> = avancement (réel / budget) ; <strong>Facturé</strong> = factures finalisées (envoyées / payées).</p>
           <table class="data-table">
             <thead>
               <tr>
                 <th>Phase</th>
-                <th style="width:110px;">Type</th>
-                <th class="text-right" style="width:90px;">H. budget</th>
-                <th class="text-right" style="width:90px;">H. planifiées</th>
-                <th class="text-right" style="width:90px;">H. réelles</th>
-                <th class="text-right" style="width:120px;">Budget ($)</th>
+                <th style="width:100px;">Type</th>
+                <th class="text-right" style="width:84px;">H. budget</th>
+                <th class="text-right" style="width:84px;">H. planif.</th>
+                <th class="text-right" style="width:84px;">H. réelles</th>
+                <th class="text-right" style="width:64px;" title="Avancement en heures (réelles / budgétées)">% h.</th>
+                <th class="text-right" style="width:110px;">Budget ($)</th>
+                <th class="text-right" style="width:64px;" title="Avancement en coût (heures réelles × taux tâche / coût budgété)">% coût</th>
+                <th class="text-right" style="width:110px;">Facturé ($)</th>
+                <th class="text-right" style="width:64px;" title="Avancement honoraires (facturé / honoraires contractés)">% hon.</th>
               </tr>
             </thead>
             <tbody>
@@ -1315,7 +1326,11 @@ watch(activeTab, (tab) => {
                 <td class="text-right font-mono">{{ phase.has_tasks ? (phase.tasks_budgeted_hours || 0).toFixed(1) : '—' }}</td>
                 <td class="text-right font-mono" :class="{ 'text-primary': (phase.planned_hours || 0) > 0 }">{{ phase.has_tasks ? (phase.planned_hours || 0).toFixed(1) : '—' }}</td>
                 <td class="text-right font-mono" :class="{ 'font-semibold': (phase.actual_hours || 0) > 0 }">{{ phase.has_tasks ? (phase.actual_hours || 0).toFixed(1) : '—' }}</td>
+                <td class="text-right font-mono" :class="{ 'text-danger': progressHoursPct(phase) > 100, 'text-success': progressHoursPct(phase) > 0 && progressHoursPct(phase) <= 100 }" :title="`${(phase.actual_hours || 0).toFixed(1)} / ${(phase.tasks_budgeted_hours || 0).toFixed(1)} h`">{{ phase.has_tasks && (phase.tasks_budgeted_hours || 0) > 0 ? progressHoursPct(phase).toFixed(0) + ' %' : '—' }}</td>
                 <td class="text-right font-mono">{{ phase.has_tasks ? formatAmount(phase.tasks_budgeted_cost || 0) + ' $' : '—' }}</td>
+                <td class="text-right font-mono" :class="{ 'text-danger': progressCostPct(phase) > 100, 'text-success': progressCostPct(phase) > 0 && progressCostPct(phase) <= 100 }" :title="`${formatAmount(phase.actual_cost || 0)} / ${formatAmount(phase.tasks_budgeted_cost || 0)} $`">{{ phase.has_tasks && (phase.tasks_budgeted_cost || 0) > 0 ? progressCostPct(phase).toFixed(0) + ' %' : '—' }}</td>
+                <td class="text-right font-mono" :class="{ 'font-semibold': (phase.invoiced_amount || 0) > 0 }">{{ phase.has_tasks ? formatAmount(phase.invoiced_amount || 0) + ' $' : '—' }}</td>
+                <td class="text-right font-mono" :class="{ 'text-primary': progressFeesPct(phase) > 0 }" :title="`${formatAmount(phase.invoiced_amount || 0)} / ${formatAmount(phase.fees_contract_amount || 0)} $`">{{ phase.has_tasks && (phase.fees_contract_amount || 0) > 0 ? progressFeesPct(phase).toFixed(0) + ' %' : '—' }}</td>
               </tr>
             </tbody>
           </table>

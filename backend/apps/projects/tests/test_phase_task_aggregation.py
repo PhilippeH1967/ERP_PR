@@ -154,3 +154,89 @@ class TestPhaseAggregation:
         assert PhaseSerializer(phase).data["task_count"] == 1
         assert PhaseSerializer(empty).data["has_tasks"] is False
         assert PhaseSerializer(empty).data["task_count"] == 0
+
+
+def _invoice_line(*, tenant, project, task, status, invoiced, contract, number):
+    """Crée une facture + 1 ligne rattachée à une tâche."""
+    from apps.billing.models import Invoice, InvoiceLine
+    from apps.clients.models import Client
+
+    client = Client.objects.filter(tenant=tenant).first() or Client.objects.create(
+        tenant=tenant, name="ACME"
+    )
+    inv = Invoice.objects.create(
+        tenant=tenant, project=project, client=client,
+        invoice_number=number, status=status, total_amount=invoiced,
+    )
+    return InvoiceLine.objects.create(
+        tenant=tenant, invoice=inv, task=task, deliverable_name=task.name,
+        total_contract_amount=contract, invoiced_to_date=invoiced,
+    )
+
+
+@pytest.mark.django_db
+class TestPhaseFinancialAggregation:
+    """Agrégats financiers de phase : coût réel (heures × taux tâche), facturé
+    et honoraires contractés (via InvoiceLine, dernière ligne par tâche)."""
+
+    def test_actual_cost_uses_task_hourly_rate(self, project, phase, tenant):
+        emp = UserFactory()
+        t1 = TaskFactory(project=project, phase=phase, budgeted_cost=1000, hourly_rate=100)
+        t2 = TaskFactory(project=project, phase=phase, budgeted_cost=500, hourly_rate=50)
+        _entry(tenant=tenant, project=project, employee=emp, task=t1, hours=4)  # 4×100
+        _entry(tenant=tenant, project=project, employee=emp, task=t2, hours=2)  # 2×50
+        data = PhaseSerializer(phase).data
+        assert float(data["actual_cost"]) == 500.0  # 400 + 100
+
+    def test_actual_cost_zero_when_task_has_no_rate(self, project, phase, tenant):
+        emp = UserFactory()
+        t1 = TaskFactory(project=project, phase=phase, hourly_rate=None)
+        _entry(tenant=tenant, project=project, employee=emp, task=t1, hours=4)
+        data = PhaseSerializer(phase).data
+        assert float(data["actual_cost"]) == 0.0
+
+    def test_invoiced_and_fees_from_finalized_line(self, project, phase, tenant):
+        t1 = TaskFactory(project=project, phase=phase)
+        _invoice_line(tenant=tenant, project=project, task=t1, status="SENT",
+                      invoiced=300, contract=1000, number="INV-1")
+        data = PhaseSerializer(phase).data
+        assert float(data["invoiced_amount"]) == 300.0
+        assert float(data["fees_contract_amount"]) == 1000.0
+
+    def test_invoiced_excludes_draft_invoices(self, project, phase, tenant):
+        t1 = TaskFactory(project=project, phase=phase)
+        _invoice_line(tenant=tenant, project=project, task=t1, status="DRAFT",
+                      invoiced=999, contract=1000, number="INV-DRAFT")
+        data = PhaseSerializer(phase).data
+        assert float(data["invoiced_amount"]) == 0.0
+
+    def test_invoiced_takes_latest_line_per_task_no_double_count(self, project, phase, tenant):
+        # Deux périodes pour la MÊME tâche : invoiced_to_date est cumulatif →
+        # on prend la dernière ligne (500), pas la somme (200 + 500).
+        t1 = TaskFactory(project=project, phase=phase)
+        _invoice_line(tenant=tenant, project=project, task=t1, status="SENT",
+                      invoiced=200, contract=1000, number="INV-P1")
+        _invoice_line(tenant=tenant, project=project, task=t1, status="SENT",
+                      invoiced=500, contract=1000, number="INV-P2")
+        data = PhaseSerializer(phase).data
+        assert float(data["invoiced_amount"]) == 500.0
+        assert float(data["fees_contract_amount"]) == 1000.0
+
+
+@pytest.mark.django_db
+class TestDashboardBudgetHoursBugfix:
+    """Bug v1.2 : le dashboard sommait Phase.budgeted_hours (legacy = 0) au lieu
+    des budgets de tâches. Le budget doit venir des tâches."""
+
+    def test_budget_hours_comes_from_tasks_not_phase_legacy_field(
+        self, admin_client, project, phase
+    ):
+        # Phase sans budget legacy ; budget réel porté par les tâches.
+        phase.budgeted_hours = 0
+        phase.save()
+        TaskFactory(project=project, phase=phase, budgeted_hours=40)
+        TaskFactory(project=project, phase=phase, budgeted_hours=10)
+        resp = admin_client.get(f"/api/v1/projects/{project.pk}/dashboard/")
+        assert resp.status_code == 200
+        body = resp.json().get("data", resp.json())
+        assert float(body["budget_hours"]) == 50.0
