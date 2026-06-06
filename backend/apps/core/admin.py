@@ -11,9 +11,18 @@ from .models import (
     TaxConfiguration,
     TaxRate,
     TaxScheme,
+    Team,
     Tenant,
     UserTenantAssociation,
 )
+
+
+@admin.register(Team)
+class TeamAdmin(admin.ModelAdmin):
+    list_display = ("name", "is_active", "tenant")
+    list_filter = ("is_active", "tenant")
+    search_fields = ("name",)
+    filter_horizontal = ("members",)
 
 
 @admin.register(Tenant)

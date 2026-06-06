@@ -377,6 +377,27 @@ class LaborRule(TenantScopedModel):
         return f"{self.name} ({self.weekly_hours}h/sem)"
 
 
+class Team(TenantScopedModel):
+    """Équipe réutilisable (paramétrage) — groupe d'employés affectable en bloc
+    sur un projet. Création / édition réservées à Finance / Paie / Admin.
+    """
+
+    name = models.CharField(max_length=255, verbose_name="Nom de l'équipe")
+    members = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, related_name="teams", blank=True
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "name"], name="uq_team_tenant_name"),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
 class SampleTenantModel(TenantScopedModel, VersionedModel):
     """
     Concrete model for testing TenantScopedModel, VersionedModel, and RLS policies.

@@ -250,6 +250,34 @@ async function addTeamMember(userId: number) {
   }
 }
 
+// Affectation d'une équipe (paramétrage) en entier sur le projet.
+const teams = ref<Array<{ id: number; name: string; member_details: Array<{ id: number }> }>>([])
+const assignTeamId = ref<number | null>(null)
+const assigningTeam = ref(false)
+async function loadTeams() {
+  try {
+    const r = await apiClient.get('teams/')
+    const d = (r.data as { data?: unknown })?.data ?? r.data
+    teams.value = Array.isArray(d) ? d : ((d as { results?: unknown })?.results as typeof teams.value) ?? []
+  } catch { teams.value = [] }
+}
+async function assignTeam() {
+  if (!assignTeamId.value) return
+  memberError.value = ''
+  assigningTeam.value = true
+  try {
+    const r = await projectApi.assignTeam(projectId, assignTeamId.value)
+    const list = (r.data as { data?: { team_members?: Array<{ id: number; name: string }> } })?.data?.team_members
+    if (list) teamMembers.value = list
+    assignTeamId.value = null
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+    memberError.value = msg || "Impossible d'affecter l'équipe."
+  } finally {
+    assigningTeam.value = false
+  }
+}
+
 async function removeTeamMember(userId: number) {
   memberError.value = ''
   const prev = teamMembers.value
@@ -1209,7 +1237,7 @@ onMounted(reload)
 watch(activeTab, (tab) => {
   if (tab === 'tasks' && !tasks.value.length) loadTasks()
   if (tab === 'budget') { initHonoraires(); loadBudgetSummary() }
-  if (tab === 'team') { if (!projectTimeEntries.value.length) loadProjectTime(); loadTeamStats(); loadProjectVirtuals(); syncTeamMembers() }
+  if (tab === 'team') { if (!projectTimeEntries.value.length) loadProjectTime(); loadTeamStats(); loadProjectVirtuals(); syncTeamMembers(); loadTeams() }
   if (tab === 'time') loadProjectTime()
   if (tab === 'st') loadSTInvoices()
   if (tab === 'invoices') loadProjectInvoices()
@@ -1727,6 +1755,16 @@ watch(activeTab, (tab) => {
           <div class="kpi-value mono">{{ projectTotalHours.toFixed(1) }}h</div>
           <div class="kpi-label">H. réelles totales</div>
         </div>
+      </div>
+
+      <!-- Affecter une équipe (paramétrage) en entier sur le projet -->
+      <div v-if="canManageMembers && teams.length" data-team-assign style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; padding:10px 12px; background:var(--color-gray-50); border:1px solid var(--color-gray-200); border-radius:6px;">
+        <span style="font-size:12px; font-weight:600; color:var(--color-gray-600);">Affecter une équipe :</span>
+        <select v-model.number="assignTeamId" class="select-sm" data-team-assign-select style="min-width:200px; padding:4px 8px; border:1px solid var(--color-gray-300); border-radius:4px; font-size:12px;">
+          <option :value="null">— Choisir une équipe —</option>
+          <option v-for="t in teams" :key="t.id" :value="t.id">{{ t.name }} ({{ t.member_details.length }} membre{{ t.member_details.length > 1 ? 's' : '' }})</option>
+        </select>
+        <button class="btn-action primary" :disabled="!assignTeamId || assigningTeam" data-team-assign-confirm @click="assignTeam">{{ assigningTeam ? '…' : "Affecter l'équipe" }}</button>
       </div>
 
       <!-- Membres de l'équipe — autorise la saisie de temps sans planification -->

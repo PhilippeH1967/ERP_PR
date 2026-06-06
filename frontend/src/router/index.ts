@@ -229,6 +229,11 @@ const router = createRouter({
           component: () => import('@/features/admin/views/StandardTaskSettings.vue'),
         },
         {
+          path: 'admin/teams',
+          name: 'admin-teams',
+          component: () => import('@/features/admin/views/TeamSettings.vue'),
+        },
+        {
           path: 'admin/org',
           name: 'admin-org',
           component: () => import('@/features/admin/views/OrgSettings.vue'),
