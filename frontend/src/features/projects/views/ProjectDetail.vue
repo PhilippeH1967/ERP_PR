@@ -742,6 +742,7 @@ const honorairesForm = ref({
   total_fees: '',
   fee_calculation_method: 'FORFAIT',
   fee_rate_pct: '',
+  construction_cost: '',
 })
 const honorairesSaving = ref(false)
 
@@ -752,13 +753,18 @@ function initHonoraires() {
     total_fees: p.total_fees ?? '',
     fee_calculation_method: p.fee_calculation_method || 'FORFAIT',
     fee_rate_pct: p.fee_rate_pct ?? '',
+    construction_cost: p.construction_cost != null ? String(p.construction_cost) : '',
   }
+}
+
+function parseAmount(v: unknown): number {
+  return Number(String(v ?? '').replace(/\s/g, '').replace(',', '.')) || 0
 }
 
 const computedFees = computed(() => {
   if (honorairesForm.value.fee_calculation_method !== 'COUT_TRAVAUX') return null
-  const cost = Number(store.currentProject?.construction_cost || 0)
-  const rate = Number(honorairesForm.value.fee_rate_pct || 0)
+  const cost = parseAmount(honorairesForm.value.construction_cost)
+  const rate = parseAmount(honorairesForm.value.fee_rate_pct)
   return cost * rate / 100
 })
 
@@ -773,6 +779,7 @@ async function saveHonoraires() {
     else payload.total_fees = null
     if (honorairesForm.value.fee_rate_pct !== '') payload.fee_rate_pct = parseFloat(String(honorairesForm.value.fee_rate_pct).replace(/\s/g, '').replace(',', '.'))
     else payload.fee_rate_pct = null
+    payload.construction_cost = parseAmount(honorairesForm.value.construction_cost)
     await projectApi.update(projectId, payload)
     await reload()
     initHonoraires()
@@ -2093,6 +2100,18 @@ watch(activeTab, (tab) => {
               <option value="HORAIRE">Horaire</option>
             </select>
           </div>
+          <div class="form-group" v-if="!store.currentProject?.is_internal">
+            <label>Coût de construction ($)</label>
+            <input
+              v-model="honorairesForm.construction_cost"
+              type="text"
+              inputmode="decimal"
+              class="inline-input"
+              :disabled="!canEditBudget"
+              placeholder="0.00"
+              data-construction-cost
+            />
+          </div>
           <div class="form-group" v-if="honorairesForm.fee_calculation_method === 'COUT_TRAVAUX'">
             <label>Taux (%)</label>
             <input
@@ -2106,7 +2125,7 @@ watch(activeTab, (tab) => {
           </div>
         </div>
         <div v-if="honorairesForm.fee_calculation_method === 'COUT_TRAVAUX'" class="text-xs text-text-muted" style="margin-top:6px;">
-          Coût de construction: {{ formatAmount(store.currentProject?.construction_cost || 0) }} $ &times; {{ honorairesForm.fee_rate_pct || 0 }}% = <strong>{{ formatAmount(computedFees || 0) }} $</strong>
+          Coût de construction: {{ formatAmount(parseAmount(honorairesForm.construction_cost)) }} $ &times; {{ honorairesForm.fee_rate_pct || 0 }}% = <strong>{{ formatAmount(computedFees || 0) }} $</strong>
         </div>
         <div v-if="canEditBudget" class="form-actions" style="margin-top:8px;">
           <button class="btn-primary btn-sm" :disabled="honorairesSaving" @click="saveHonoraires">
