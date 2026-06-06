@@ -118,6 +118,41 @@ def instantiate_standard_phases(project):
     ]
 
 
+# Libellés des services transversaux (alignés sur AVAILABLE_SERVICES du wizard).
+SUPPORT_SERVICE_LABELS = {
+    "BIM": "BIM / Modélisation",
+    "PAYSAGE": "Architecture de paysage",
+    "DD": "Développement durable",
+    "CIVIL": "Génie civil",
+    "PATRIMOINE": "Patrimoine",
+    "DESIGN_INT": "Design intérieur",
+    "ECLAIRAGE": "Éclairage",
+}
+
+
+def instantiate_support_services(project):
+    """Crée un ``SupportService`` par service transversal sélectionné au wizard
+    (``project.services_transversaux`` = liste de codes : BIM, DD, …). Idempotent
+    par code. Retourne la liste des services créés."""
+    existing = set(
+        SupportService.objects.filter(project=project).values_list("code", flat=True)
+    )
+    created = []
+    for code in project.services_transversaux or []:
+        if not code or code in existing:
+            continue
+        created.append(
+            SupportService.objects.create(
+                tenant=project.tenant,
+                project=project,
+                code=code,
+                name=SUPPORT_SERVICE_LABELS.get(code, code),
+            )
+        )
+        existing.add(code)
+    return created
+
+
 def create_project_from_template(template_id, project_data, tenant_id=None):
     """
     Create a project from a template, pre-populating phases, tasks, and support services.
@@ -259,6 +294,9 @@ def create_project_from_template(template_id, project_data, tenant_id=None):
             name=svc_config.get("name", ""),
             client_facing_label=svc_config.get("client_label", ""),
         )
+
+    # + les services transversaux sélectionnés au wizard (BIM, DD, …)
+    instantiate_support_services(project)
 
     return project
 

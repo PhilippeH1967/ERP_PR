@@ -702,24 +702,31 @@ onMounted(() => {
               <button type="button" class="text-xs text-danger hover:underline" @click="removeST(i)">Supprimer</button>
             </div>
             <div class="grid grid-cols-3 gap-3">
-              <input
-                v-model="st.name"
-                type="text"
-                placeholder="Nom du sous-traitant"
-                class="rounded border border-border px-2 py-1.5 text-sm"
-              >
-              <input
-                v-model="st.specialty"
-                type="text"
-                placeholder="Spécialité (ex: structure)"
-                class="rounded border border-border px-2 py-1.5 text-sm"
-              >
               <div>
+                <label class="text-[10px] font-medium text-text-muted">Nom</label>
+                <input
+                  v-model="st.name"
+                  type="text"
+                  placeholder="ex. Bouthillette Parizeau"
+                  class="mt-0.5 w-full rounded border border-border px-2 py-1.5 text-sm"
+                >
+              </div>
+              <div>
+                <label class="text-[10px] font-medium text-text-muted">Spécialité</label>
+                <input
+                  v-model="st.specialty"
+                  type="text"
+                  placeholder="ex. structure, mécanique"
+                  class="mt-0.5 w-full rounded border border-border px-2 py-1.5 text-sm"
+                >
+              </div>
+              <div>
+                <label class="text-[10px] font-medium text-text-muted">Budget ($)</label>
                 <input
                   v-model="st.budgeted_amount"
                   type="number"
-                  placeholder="Budget ($)"
-                  class="w-full rounded border border-border px-2 py-1.5 text-sm font-mono"
+                  placeholder="0"
+                  class="mt-0.5 w-full rounded border border-border px-2 py-1.5 text-sm font-mono"
                 >
               </div>
             </div>

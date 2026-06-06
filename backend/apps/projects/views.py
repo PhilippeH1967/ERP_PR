@@ -32,6 +32,7 @@ from .services import (
     compute_closure_checklist,
     create_project_from_template,
     instantiate_standard_phases,
+    instantiate_support_services,
     reject_amendment,
     submit_amendment,
 )
@@ -156,6 +157,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Tout projet hérite du jeu de phases standard du cabinet (paramétrage
         # admin) — y compris sans template. Cf. domain.md (phases = regroupements).
         instantiate_standard_phases(project)
+        # Les services transversaux sélectionnés (BIM, DD, …) deviennent des
+        # SupportService du projet.
+        instantiate_support_services(project)
 
     def partial_update(self, request, *args, **kwargs):
         """Validate status transitions + closure checklist before updating."""
