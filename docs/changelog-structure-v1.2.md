@@ -40,6 +40,13 @@ Règle unique : **budget / heures / dates / planification / facturation / saisie
 
 Voir [.claude/rules/domain.md](../.claude/rules/domain.md) — section « Hiérarchie projet ». Garde-fous à remonter : budget/planif au niveau phase, phase modifiée par non-admin, double-comptage d'agrégat, réapparition de `WBSElement`.
 
-## Reste à faire (chantier B — non livré)
+## Saisie de temps « par tâche » (livré)
 
-- **Saisie de temps « par tâche »** : la feuille de temps enregistre encore les heures au niveau **phase**. Migration du module timesheet (grille hebdo, contrainte d'unicité, verrous, approbations) à cadrer (maquette d'abord).
+La grille de saisie était déjà task-based dans l'UI ; rendue **stricte** :
+
+- `TimeEntry.save()` **dérive `phase` depuis `task`** (champ `phase` déprécié, conservé pour les rapports/exports).
+- **Unicité `(employee, project, task, date)`** (partielle, task non-null) au lieu de `(…, phase, date)` — migration `time_entries 0008`. Corrige un bug latent : deux tâches d'une même phase le même jour entraient en conflit.
+- Serializer : **saisie refusée sur une tâche-mère** (regroupement) — feuille obligatoire.
+- Frontend : `saveCell`/`addTask` n'envoient plus `phase` ; picker = **tâche obligatoire** + **feuilles uniquement** (`is_chargeable`).
+
+Workflow d'approbation (PM → Finance → Paie), verrous de période, favoris : **inchangés**.
