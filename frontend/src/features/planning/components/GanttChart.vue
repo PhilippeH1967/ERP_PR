@@ -388,12 +388,13 @@ const tooltipData = computed(() => {
             </div>
             <div class="gantt-timeline-area">
               <div v-if="todayPosition >= 0" class="gantt-today" :style="{ left: todayPosition + '%' }"></div>
-              <!-- Task bar: task dates preferred, phase dates as fallback -->
+              <!-- Barre uniquement si la tâche a SES PROPRES dates (pas de
+                   fallback sur la phase, qui serait trompeur). -->
               <div
-                v-if="(task.start_date || phase.start_date) && (task.end_date || phase.end_date)"
+                v-if="task.start_date && task.end_date"
                 class="gantt-bar gantt-bar-task"
                 :class="{ 'gantt-bar-aggregate': isAggregateTask(task) }"
-                :style="{ ...barStyle(task.start_date || phase.start_date, task.end_date || phase.end_date), backgroundColor: '#E5E7EB' }"
+                :style="{ ...barStyle(task.start_date, task.end_date), backgroundColor: '#E5E7EB' }"
                 @mouseenter="showTooltip($event, task.id, 'task')"
                 @mouseleave="hideTooltip"
                 @click="onTaskClick(task)"
