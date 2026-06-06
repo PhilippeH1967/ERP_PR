@@ -42,6 +42,7 @@ def compute_phase_aggregates(phases):
             "tasks_budgeted_hours": 0.0, "tasks_budgeted_cost": 0.0,
             "task_count": 0, "tasks_start_date": None, "tasks_end_date": None,
             "actual_hours": 0.0, "planned_hours": 0.0,
+            "actual_cost": 0.0, "invoiced_amount": 0.0, "fees_contract_amount": 0.0,
         }
         for pid in ids
     }
@@ -75,6 +76,35 @@ def compute_phase_aggregates(phases):
         task__phase_id__in=ids, status="ACTIVE"
     ).select_related("task"):
         out[a.task.phase_id]["planned_hours"] += a.total_planned_hours
+    # Coût réel : Σ (heures réelles de la tâche × hourly_rate de la tâche).
+    for r in (
+        TimeEntry.objects.filter(task__phase_id__in=ids)
+        .values("task_id", "task__phase_id", "task__hourly_rate")
+        .annotate(s=Sum("hours"))
+    ):
+        out[r["task__phase_id"]]["actual_cost"] += (
+            float(r["s"] or 0) * float(r["task__hourly_rate"] or 0)
+        )
+    # Facturé + honoraires contractés : on prend la DERNIÈRE ligne de facture par
+    # tâche (invoiced_to_date est cumulatif → éviter le double-comptage), en ne
+    # comptant que les factures finalisées (cohérent avec total_invoiced projet).
+    from apps.billing.models import InvoiceLine
+    seen_tasks = set()
+    for ln in (
+        InvoiceLine.objects.filter(
+            task__phase_id__in=ids,
+            invoice__status__in=["APPROVED", "SENT", "PAID"],
+        )
+        .select_related("task")
+        .order_by("task_id", "-invoice__date_created", "-id")
+    ):
+        if ln.task_id in seen_tasks:
+            continue
+        seen_tasks.add(ln.task_id)
+        pid = ln.task.phase_id
+        if pid in out:
+            out[pid]["invoiced_amount"] += float(ln.invoiced_to_date or 0)
+            out[pid]["fees_contract_amount"] += float(ln.total_contract_amount or 0)
     return out
 
 
@@ -83,6 +113,9 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
     tasks_budgeted_cost = serializers.SerializerMethodField()
     planned_hours = serializers.SerializerMethodField()
     actual_hours = serializers.SerializerMethodField()
+    actual_cost = serializers.SerializerMethodField()
+    invoiced_amount = serializers.SerializerMethodField()
+    fees_contract_amount = serializers.SerializerMethodField()
     has_tasks = serializers.SerializerMethodField()
     task_count = serializers.SerializerMethodField()
     tasks_start_date = serializers.SerializerMethodField()
@@ -100,6 +133,7 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
             "is_mandatory", "is_locked", "budgeted_hours", "budgeted_cost",
             "tasks_budgeted_hours", "tasks_budgeted_cost",
             "planned_hours", "actual_hours", "has_tasks", "task_count",
+            "actual_cost", "invoiced_amount", "fees_contract_amount",
             "amendment", "amendment_number",
         ]
         read_only_fields = ["id", "amendment_number"]
@@ -166,6 +200,58 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
         from apps.time_entries.models import TimeEntry
         total = TimeEntry.objects.filter(task__phase=obj).aggregate(s=Sum("hours"))["s"]
         return float(total) if total else 0
+
+    def get_actual_cost(self, obj):
+        """Coût réel de la phase : Σ (heures réelles × hourly_rate) des tâches."""
+        a = self._agg(obj)
+        if a is not None:
+            return a["actual_cost"]
+        from django.db.models import Sum
+        from apps.time_entries.models import TimeEntry
+        total = 0.0
+        for r in (
+            TimeEntry.objects.filter(task__phase=obj)
+            .values("task__hourly_rate").annotate(s=Sum("hours"))
+        ):
+            total += float(r["s"] or 0) * float(r["task__hourly_rate"] or 0)
+        return total
+
+    def get_invoiced_amount(self, obj):
+        """Total facturé sur la phase (dernière ligne par tâche, factures finalisées)."""
+        a = self._agg(obj)
+        if a is not None:
+            return a["invoiced_amount"]
+        return self._billing_rollup(obj)[0]
+
+    def get_fees_contract_amount(self, obj):
+        """Honoraires contractés sur la phase (dernière ligne par tâche, finalisées)."""
+        a = self._agg(obj)
+        if a is not None:
+            return a["fees_contract_amount"]
+        return self._billing_rollup(obj)[1]
+
+    @staticmethod
+    def _billing_rollup(obj):
+        """(facturé, honoraires) : dernière ligne par tâche, factures finalisées.
+
+        ``invoiced_to_date`` étant cumulatif, on ne garde que la ligne la plus
+        récente de chaque tâche pour éviter le double-comptage entre périodes.
+        """
+        from apps.billing.models import InvoiceLine
+        invoiced = 0.0
+        contract = 0.0
+        seen = set()
+        for ln in (
+            InvoiceLine.objects.filter(
+                task__phase=obj, invoice__status__in=["APPROVED", "SENT", "PAID"]
+            ).order_by("task_id", "-invoice__date_created", "-id")
+        ):
+            if ln.task_id in seen:
+                continue
+            seen.add(ln.task_id)
+            invoiced += float(ln.invoiced_to_date or 0)
+            contract += float(ln.total_contract_amount or 0)
+        return invoiced, contract
 
     def get_has_tasks(self, obj):
         a = self._agg(obj)
