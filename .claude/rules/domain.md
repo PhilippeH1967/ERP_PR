@@ -36,6 +36,12 @@ Dans les filtres de dropdowns :
 - Sélection d'un PM : rôles `PM` + `PROJECT_DIRECTOR`
 - Sélection d'un Associé en charge : rôle `PROJECT_DIRECTOR` uniquement
 
+### "Occupation des ressources"
+Le terme canonique côté UI (page `/planning` + menu) est **"Occupation"** (jamais
+"Planification" dans les libellés vus par l'utilisateur). Le concept technique
+interne — allocation des ressources, `ResourceAllocation`, Gantt — garde son nom ;
+c'est uniquement le **libellé d'interface** qui dit "Occupation".
+
 ## WBS — Structure projet
 
 Deux niveaux de nomenclature coexistent :
@@ -75,6 +81,11 @@ Les libellés standards restent visibles **en interne** pour le suivi et les mé
 - Notion de **« saisissable » / feuille** : un nœud **sans enfant**. Une tâche **avec** sous-tâches devient un **agrégat en lecture seule** (comme la phase) ; seules ses sous-tâches sont saisissables. Le budget/heures/planif **vivent uniquement sur les feuilles** (pas de double-comptage).
 - Une tâche peut être **déplacée** vers une autre phase (ré-imputation) — recalcul automatique des agrégats.
 
+### Catalogue de tâches/sous-tâches standard (paramétrage)
+- Un **catalogue** de tâches et sous-tâches standard par phase est défini dans le **paramétrage** (`StandardTask`, écran *Administration › Tâches standard*, **admin uniquement** ; `parent` self-FK pour les sous-tâches).
+- Au démarrage d'un projet, sur une **phase sans tâche** (ou pour compléter une phase existante), l'utilisateur **ajoute** des tâches/sous-tâches depuis ce catalogue (endpoint `task_suggestions`). Les tâches **déjà présentes sont exclues** (déduplication par nom) — le picker ne s'applique donc pas en doublon.
+- Le catalogue **propose** ; les tâches instanciées restent éditables/supprimables sur le projet (budget, dates… vivent sur la tâche, pas sur le standard).
+
 ### Agrégation (lecture seule, calculée)
 - **Phase** : `tasks_budgeted_hours/cost`, `planned_hours`, `actual_hours`, `tasks_start_date/end_date` = Σ / min-max des **tâches saisissables** de la phase.
 - **Tâche-mère** : `effective_budgeted_*`, `planned_hours`, `actual_hours` = Σ de ses **sous-tâches**.
@@ -103,6 +114,22 @@ Le **mode de facturation se définit au niveau de la tâche** (feuille), pas de 
 - Une facture émise ne peut plus être modifiée — créer un avoir ou une facture rectificative
 - Les libellés de lignes de facture reprennent le **WBS client**
 - Taxes : architecture fiscale complète prévue MVP-2 (entités juridiques, TPS/TVQ, CTI/RTI)
+
+### Coût de construction (projets externes)
+- Champ **`construction_cost`** : montant **informatif** du coût de construction, saisi sur la **Vue d'ensemble** d'un projet. Sert au calcul/contexte des honoraires.
+- **Projets externes uniquement** : masqué pour les projets internes (`is_internal`).
+
+## Équipes (paramétrage)
+
+- Une **équipe** (`Team`) est un **groupe d'employés réutilisable** défini en paramétrage (*Administration › Équipes*).
+- **Création / modification** réservées à **Finance, Paie et Admin** (`IsFinancePaieOrAdmin`). Lecture ouverte aux authentifiés.
+- On peut **affecter une équipe en entier** sur un projet (action `assign_team` → ajoute tous ses membres aux `team_members` du projet). L'affectation se fait **au niveau projet** (pas tâche).
+- Les **profils virtuels** (ressources non nominatives) s'ajoutent à l'équipe d'un projet **sans passer par un avenant**. Le dropdown de membres est **recherchable par nom**.
+
+## Projet interne
+
+- Un projet **interne** (`is_internal`) — congés, formation, administration cabinet — est **masqué pour tous sauf ADMIN** (queryset `ProjectViewSet` filtré).
+- Il porte les **tâches obligatoires** de saisie (Congés, Formation, Maladie) affichées d'office dans les feuilles de temps. Recréables via la commande de seed dédiée (`seed_internal_mandatory_tasks`).
 
 ## Fournisseurs et sous-traitants
 
@@ -145,5 +172,10 @@ Le **mode de facturation se définit au niveau de la tâche** (feuille), pas de 
 - Saisie de temps possible sur une journée validée en congé
 - **Budget, dates, mode de facturation ou planification saisis au niveau d'une phase** (doivent vivre sur la tâche/sous-tâche)
 - **Phase créée/modifiée/supprimée par un non-admin** sur un projet (réservé ADMIN — paramétrage)
+- **Tâche standard créée/modifiée par un non-admin** (catalogue `StandardTask` réservé ADMIN)
+- **Équipe créée/modifiée par un rôle hors Finance/Paie/Admin**
+- **Projet interne visible par un non-admin** (doit être masqué)
+- **Coût de construction affiché/saisi sur un projet interne** (réservé aux projets externes)
+- Libellé "Planification" dans l'UI là où "Occupation" est attendu
 - **Double-comptage** d'agrégat (tâche-mère + sous-tâches comptées ensemble)
 - Réapparition du modèle `WBSElement` (supprimé)

@@ -19,20 +19,51 @@ docker compose exec django python -m pytest apps/consortiums/
 docker compose exec django python -m pytest -v --tb=short
 ```
 
-### Couverture par module
+### Couverture par module (pytest)
 
 | Module | Tests | Statut |
 |--------|-------|--------|
-| projects | 17 | ✅ |
-| time_entries | 17 | ✅ |
-| billing | 18 | ✅ |
-| leaves | 8 | ✅ |
-| planning | 5 | ✅ |
+| core (auth, tenant, RLS, permissions, sprints) | 282 | ✅ |
+| projects (WBS, phases/tâches standard, équipes, avenants, agrégats) | 266 | ✅ |
+| planning | 46 | ✅ |
+| time_entries | 41 | ✅ |
+| billing | 34 | ✅ |
 | suppliers | 11 | ✅ |
+| leaves | 8 | ✅ |
+| dashboards | 8 | ✅ |
 | consortiums | 6 | ✅ |
 | expenses | 6 | ✅ |
-| core (tenant isolation) | 9 | ✅ |
-| **Total** | **~100** | **✅** |
+| data_ops | 6 | ✅ |
+| **Total** | **738** | **✅** |
+
+> Les features récentes (catalogue `StandardTask` + `task_suggestions`, équipes `Team`
+> + `assign_team`, visibilité projet interne `is_internal`, `construction_cost`,
+> tâches internes obligatoires) sont couvertes — voir
+> `apps/projects/tests/test_standard_tasks.py`, `apps/core/tests/test_teams.py`,
+> `apps/projects/tests/test_internal_mandatory_tasks.py`.
+
+## Tests frontend automatisés (Vitest)
+
+```bash
+cd frontend && npm run test:unit          # vitest run
+cd frontend && npm run test:unit -- --watch
+```
+
+**130 tests** sur **24 fichiers** (`frontend/src/__tests__/*.spec.ts`). Couvrent
+notamment : grille de saisie (timesheet, favoris, tâches obligatoires), Gantt
+(chart, helpers, jalons slide-over), avancement par phase, picker de tâches
+standard, panneau membres d'équipe, schémas fiscaux, et les écrans de
+paramétrage admin **Équipes** (`teamSettings.spec.ts`) et **Tâches standard**
+(`standardTaskSettings.spec.ts`).
+
+E2E Playwright : `cd frontend && npm run test:e2e`.
+
+## Intégration continue (GitHub Actions)
+
+`.github/workflows/ci.yml` — sur chaque push / PR : service PostgreSQL,
+`config.settings.test` (cache LocMem), gate **ruff** bloquant
+(`--select F,B,S,UP,I`) + ruff complet non bloquant, puis frontend
+(`type-check`, `lint`, `test:unit`). Pas de merge si la CI échoue.
 
 ## Tests visuels (humains)
 

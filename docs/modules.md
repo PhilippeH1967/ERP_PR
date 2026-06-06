@@ -4,10 +4,15 @@
 
 ### Projets
 - **WBS** : Phase → Tâche → Sous-tâche. La **phase** est un **regroupement standard** (paramétrage `StandardPhase`, admin) ; la **tâche/sous-tâche feuille** porte budget, dates, planif, facturation, temps ; phase et tâche-mère = **agrégats lecture seule**. Voir [changelog-structure-v1.2.md](changelog-structure-v1.2.md).
-- **Wizard** : Identification → **Phases** (héritées du jeu standard, sans budget) → Ressources → Sous-traitants → Confirmation
-- **Paramétrage** : *Administration › Phases standard* (jeu du cabinet, admin) — chaque projet en hérite à la création
+- **Wizard** : Identification (dont services transversaux) → **Phases** (toutes les phases standard instanciées vides, sans saisie manuelle) → Ressources → Sous-traitants → Confirmation
+- **Démarrage des tâches** : sur une phase sans tâche (ou pour compléter une phase), l'utilisateur ajoute des **tâches/sous-tâches depuis le catalogue standard** (`StandardTask`) ; les tâches déjà présentes sont exclues (dédup).
+- **Coût de construction** : champ informatif `construction_cost` sur les **projets externes** (sert au calcul d'honoraires, masqué pour les projets internes).
+- **Paramétrage** (*Administration*) : *Phases standard* (`StandardPhase`, admin), *Tâches standard* (`StandardTask`, catalogue tâches/sous-tâches par phase, admin), *Équipes* (`Team`, groupes réutilisables, finance/paie/admin)
+- **Projet interne** : masqué pour tous sauf **admin** (queryset filtré sur `is_internal`)
 - **12 onglets fiche** : Vue d'ensemble, Phases, Tâches, Équipe, Temps, Avenants, Budget, Avancement, Gantt, Finance, Sous-traitants, Factures
-- **Gantt interactif** : planification au niveau **tâche/sous-tâche** (tâche-mère/phase non cliquables = agrégats), contrôle budget non bloquant, 3 zooms, jalons, dépendances FS/SS
+- **Vue d'ensemble** : avancement par phase en **% heures / % coût / % honoraires** + total facturé réel
+- **Équipe** : ajout de **profils virtuels sans avenant**, dropdown membres **recherchable**, affectation d'une **équipe entière** (paramétrage) sur le projet
+- **Gantt interactif** : planification au niveau **tâche/sous-tâche** (tâche-mère/phase non cliquables = agrégats), contrôle budget non bloquant, 3 zooms, **jalons éditables (slide-over)**, dépendances FS/SS
 
 ### Clients
 - CRUD avec 5 onglets : Informations, Contacts, Adresses, Financier, Projets
@@ -40,7 +45,10 @@
 - Workflow : received → authorized → paid / disputed
 - Batch authorize, holdback release, summary par fournisseur
 
-### Planification
+### Occupation des ressources
+> Anciennement « Planification » (libellé UI renommé — page `/planning` et menu).
+> Le concept interne (allocation, Gantt) est inchangé.
+
 - ResourceAllocation (employé → projet, hours/week)
 - Détection surcharge (>100%) / sous-charge (<50%) / critique (>120%)
 - Milestones avec auto-détection retards
