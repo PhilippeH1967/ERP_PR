@@ -1228,13 +1228,13 @@ watch(activeTab, (tab) => {
       <template v-if="!editingProject">
         <!-- KPIs unifiés (finance + heures) — 7 cards -->
         <div class="kpi-grid-7">
-          <div class="kpi-card" title="Honoraires totaux contractuels (saisis dans Finances → Budget)"><div class="kpi-value mono">{{ formatAmount(Number(store.currentProject?.total_fees) || 0) }}&nbsp;$</div><div class="kpi-label">Honoraires</div></div>
           <div class="kpi-card" title="Somme des budgets des tâches (Heures × Taux)"><div class="kpi-value mono">{{ formatAmount(taskBudgetTotal) }}&nbsp;$</div><div class="kpi-label">Budget tâches</div></div>
           <div class="kpi-card"><div class="kpi-value mono">{{ formatAmount(budgetInvoiced) }}&nbsp;$</div><div class="kpi-label">Facturé</div></div>
           <div class="kpi-card"><div class="kpi-value" :class="{ success: budgetConsumedPercent < 75, warning: budgetConsumedPercent >= 75, danger: budgetConsumedPercent >= 90 }">{{ budgetConsumedPercent }}&nbsp;%</div><div class="kpi-label">Consommé</div></div>
           <div class="kpi-card"><div class="kpi-value mono" :class="{ danger: budgetRemaining < 0 }">{{ formatAmount(budgetRemaining) }}&nbsp;$</div><div class="kpi-label">Solde restant</div></div>
           <div class="kpi-card"><div class="kpi-value mono">{{ dashboard ? fmt.hours(dashboard.hours_consumed) : '0' }}</div><div class="kpi-label">Heures consommées</div></div>
           <div class="kpi-card"><div class="kpi-value mono">{{ dashboard ? fmt.hours(dashboard.budget_hours) : '0' }}</div><div class="kpi-label">Heures budget</div></div>
+          <div class="kpi-card" title="Somme des heures planifiées (allocations) sur les tâches"><div class="kpi-value mono text-primary">{{ fmt.hours(phasePlannedTotal) }}</div><div class="kpi-label">Heures planifiées</div></div>
         </div>
 
         <div class="info-grid">
