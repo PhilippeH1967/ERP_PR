@@ -388,7 +388,7 @@ class StandardTaskSerializer(serializers.ModelSerializer):
         model = StandardTask
         fields = [
             "id", "standard_phase", "standard_phase_code", "standard_phase_name",
-            "name", "client_facing_label", "billing_mode", "order", "is_active",
+            "parent", "name", "client_facing_label", "billing_mode", "order", "is_active",
         ]
         read_only_fields = ["id", "standard_phase_code", "standard_phase_name"]
 

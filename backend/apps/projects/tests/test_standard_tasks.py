@@ -89,3 +89,56 @@ class TestTaskSuggestionsEndpoint:
         r = admin_client.get(f"/api/v1/projects/{project.id}/task_suggestions/")
         body = r.json().get("data", r.json())
         assert body["has_tasks"] is True
+
+
+@pytest.mark.django_db
+class TestStandardTaskSubtasksAndDedup:
+    def test_parent_subtask_relation(self, tenant):
+        sp = StandardPhase.objects.create(tenant=tenant, code="3", name="Définitif")
+        parent = StandardTask.objects.create(tenant=tenant, standard_phase=sp, name="Plans détaillés")
+        sub = StandardTask.objects.create(
+            tenant=tenant, standard_phase=sp, parent=parent, name="Coupes"
+        )
+        assert sub.is_subtask is True
+        assert parent.is_subtask is False
+        assert list(parent.subtasks.all()) == [sub]
+
+    def test_suggestions_include_subtasks(self, admin_client, tenant):
+        call_command("seed_standard_phases", tenant_id=tenant.id)
+        call_command("seed_standard_tasks", tenant_id=tenant.id)
+        resp = admin_client.post(
+            "/api/v1/projects/",
+            {"code": "PRJ-SUB", "name": "Sub", "is_internal": True},
+            format="json",
+        )
+        pid = resp.json().get("data", resp.json())["id"]
+        body = admin_client.get(f"/api/v1/projects/{pid}/task_suggestions/").json()
+        body = body.get("data", body)
+        plans = next(
+            (
+                t
+                for g in body["groups"]
+                for t in g["tasks"]
+                if t["name"].startswith("Plans architecturaux")
+            ),
+            None,
+        )
+        assert plans is not None
+        assert any(s["name"] == "Coupes et élévations" for s in plans["subtasks"])
+
+    def test_suggestions_dedup_and_phase_filter(self, admin_client, tenant, project, phase):
+        from apps.projects.tests.conftest import TaskFactory
+
+        sp = StandardPhase.objects.create(tenant=tenant, code=phase.code, name=phase.name)
+        StandardTask.objects.create(tenant=tenant, standard_phase=sp, name="Esquisse")
+        StandardTask.objects.create(tenant=tenant, standard_phase=sp, name="Estimation")
+        # Une tâche "Esquisse" existe déjà dans la phase → ne doit plus être proposée.
+        TaskFactory(project=project, phase=phase, name="Esquisse")
+
+        r = admin_client.get(
+            f"/api/v1/projects/{project.id}/task_suggestions/?phase={phase.id}"
+        )
+        body = r.json().get("data", r.json())
+        names = {t["name"] for g in body["groups"] for t in g["tasks"]}
+        assert "Esquisse" not in names  # dédup : déjà présente
+        assert "Estimation" in names  # manquante → proposée

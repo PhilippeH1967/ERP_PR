@@ -585,6 +585,15 @@ async function onTemplateTasksCreated() {
   await store.fetchProject(projectId)
 }
 
+// Picker par phase : ajout ciblé depuis le catalogue (phases vides OU non, les
+// tâches déjà présentes sont exclues côté backend).
+const showTemplatePhase = ref<number | null>(null)
+async function onPhaseTemplateCreated() {
+  showTemplatePhase.value = null
+  await loadTasks()
+  await store.fetchProject(projectId)
+}
+
 async function addTask(phaseId: number | null) {
   if (!newTaskName.value.trim()) return
   try {
@@ -1513,6 +1522,7 @@ watch(activeTab, (tab) => {
             <span class="font-semibold">{{ group.phase_name }}</span>
             <span class="text-muted" style="margin-left:8px;">({{ group.tasks.length }} tâche{{ group.tasks.length > 1 ? 's' : '' }})</span>
             <button v-if="isEditing" class="btn-action" style="margin-left:auto;" @click.stop="showAddTaskPhase = group.phase_id; newTaskName = ''">+ Tâche</button>
+            <button v-if="isEditing" class="btn-action" style="margin-left:6px;" @click.stop="showTemplatePhase = showTemplatePhase === group.phase_id ? null : group.phase_id">+ depuis le modèle</button>
           </div>
 
           <!-- Add task form -->
@@ -1521,6 +1531,14 @@ watch(activeTab, (tab) => {
             <button class="btn-primary btn-sm" @click="addTask(group.phase_id)">Ajouter</button>
             <button class="btn-ghost btn-sm" @click="showAddTaskPhase = null">Annuler</button>
           </div>
+
+          <!-- Ajout depuis le catalogue standard (ciblé sur la phase, dédup) -->
+          <TaskTemplatePicker
+            v-if="showTemplatePhase === group.phase_id && isEditing"
+            :project-id="projectId"
+            :phase-id="group.phase_id"
+            @created="onPhaseTemplateCreated"
+          />
 
           <!-- Tasks table -->
           <table v-if="!collapsedPhases.has(group.phase_name)" class="data-table task-table" style="table-layout:auto; width:100%; min-width:950px;">

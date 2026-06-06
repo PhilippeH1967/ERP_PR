@@ -535,6 +535,14 @@ class StandardTask(TenantScopedModel):
     standard_phase = models.ForeignKey(
         StandardPhase, on_delete=models.CASCADE, related_name="standard_tasks"
     )
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="subtasks",
+        help_text="Si défini, cette tâche standard est une SOUS-tâche du modèle.",
+    )
     name = models.CharField(max_length=255, verbose_name="Nom interne")
     client_facing_label = models.CharField(max_length=255, blank=True, default="")
     billing_mode = models.CharField(
@@ -551,10 +559,15 @@ class StandardTask(TenantScopedModel):
         ordering = ["standard_phase__order", "order", "name"]
         constraints = [
             models.UniqueConstraint(
-                fields=["standard_phase", "name"],
-                name="uq_standard_task_phase_name",
+                fields=["standard_phase", "parent", "name"],
+                nulls_distinct=False,
+                name="uq_standard_task_phase_parent_name",
             ),
         ]
+
+    @property
+    def is_subtask(self) -> bool:
+        return self.parent_id is not None
 
     def __str__(self):
         return f"{self.standard_phase.code} · {self.name}"

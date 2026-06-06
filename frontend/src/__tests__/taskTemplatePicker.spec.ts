@@ -14,29 +14,28 @@ const SUGG = {
     {
       phase_id: 1, phase_code: '1', phase_name: 'Concept',
       tasks: [
-        { name: 'Esquisse', client_facing_label: '', billing_mode: 'FORFAIT' },
-        { name: 'Estimation classe D', client_facing_label: '', billing_mode: 'FORFAIT' },
+        {
+          name: 'Esquisse', client_facing_label: '', billing_mode: 'FORFAIT',
+          subtasks: [{ name: 'Variante A', client_facing_label: '', billing_mode: 'FORFAIT' }],
+        },
+        { name: 'Estimation', client_facing_label: '', billing_mode: 'FORFAIT', subtasks: [] },
       ],
-    },
-    {
-      phase_id: 2, phase_code: '5', phase_name: 'Surveillance',
-      tasks: [{ name: 'Réunions de chantier', client_facing_label: '', billing_mode: 'HORAIRE' }],
     },
   ],
 }
 
-function mountPicker() {
-  return mount(TaskTemplatePicker, { props: { projectId: 7 } })
+function mountPicker(props: Record<string, unknown> = {}) {
+  return mount(TaskTemplatePicker, { props: { projectId: 7, ...props } })
 }
 
 describe('TaskTemplatePicker', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(projectApi.taskSuggestions).mockResolvedValue({ data: SUGG } as never)
-    vi.mocked(projectApi.createTask).mockResolvedValue({ data: {} } as never)
+    vi.mocked(projectApi.createTask).mockResolvedValue({ data: { id: 99 } } as never)
   })
 
-  it('reste masqué quand le projet a déjà des tâches', async () => {
+  it('masqué (niveau projet) quand le projet a déjà des tâches', async () => {
     vi.mocked(projectApi.taskSuggestions).mockResolvedValue(
       { data: { has_tasks: true, groups: [] } } as never,
     )
@@ -45,28 +44,36 @@ describe('TaskTemplatePicker', () => {
     expect(w.find('[data-task-picker]').exists()).toBe(false)
   })
 
-  it('affiche les suggestions par phase (tout coché) à l’état vide', async () => {
+  it('affiche les tâches ET sous-tâches (tout coché), compte les tâches', async () => {
     const w = mountPicker()
     await flushPromises()
     expect(w.find('[data-task-picker]').exists()).toBe(true)
-    expect(w.findAll('[data-suggestion]')).toHaveLength(3)
-    expect(w.text()).toContain('Esquisse')
-    expect(w.text()).toContain('Concept')
-    expect(w.find('[data-create-tasks]').text()).toContain('(3)') // 3 cochées
+    expect(w.findAll('[data-suggestion]')).toHaveLength(2) // 2 tâches racines
+    expect(w.findAll('[data-suggestion-sub]')).toHaveLength(1) // 1 sous-tâche
+    expect(w.text()).toContain('Variante A')
+    expect(w.find('[data-create-tasks]').text()).toContain('(2)')
   })
 
-  it('crée les tâches sélectionnées et émet created', async () => {
+  it('crée la tâche puis sa sous-tâche (parent = tâche créée) et émet created', async () => {
     const w = mountPicker()
     await flushPromises()
-    // Décocher la 1re → 2 restantes
-    await w.findAll('[data-suggestion] input')[0]!.trigger('change')
-    expect(w.find('[data-create-tasks]').text()).toContain('(2)')
     await w.find('[data-create-tasks]').trigger('click')
     await flushPromises()
-    expect(projectApi.createTask).toHaveBeenCalledTimes(2)
+    // Esquisse (TASK) + Variante A (SUBTASK, parent) + Estimation (TASK) = 3
+    expect(projectApi.createTask).toHaveBeenCalledTimes(3)
     expect(projectApi.createTask).toHaveBeenCalledWith(
-      7, expect.objectContaining({ phase: expect.any(Number), name: expect.any(String) }),
+      7, expect.objectContaining({ name: 'Variante A', task_type: 'SUBTASK', parent: 99 }),
     )
     expect(w.emitted('created')).toBeTruthy()
+  })
+
+  it('ciblé sur une phase : visible même si le projet a des tâches + filtre ?phase', async () => {
+    vi.mocked(projectApi.taskSuggestions).mockResolvedValue(
+      { data: { ...SUGG, has_tasks: true } } as never,
+    )
+    const w = mountPicker({ phaseId: 1 })
+    await flushPromises()
+    expect(w.find('[data-task-picker]').exists()).toBe(true) // visible malgré has_tasks
+    expect(projectApi.taskSuggestions).toHaveBeenCalledWith(7, { phase: '1' })
   })
 })
