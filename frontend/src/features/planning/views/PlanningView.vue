@@ -71,7 +71,7 @@ function loadLabel(status: unknown): string {
     <!-- Original table view -->
     <template v-if="viewMode === 'table'">
     <div class="mb-6 flex items-center justify-between">
-      <h1 class="text-2xl font-semibold text-text">Planification des ressources</h1>
+      <h1 class="text-2xl font-semibold text-text">Occupation des ressources</h1>
       <div class="flex items-center gap-3">
         <input v-model="startDate" type="date" class="rounded border border-border px-2 py-1.5 text-sm" />
         <span class="text-text-muted">→</span>

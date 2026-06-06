@@ -122,7 +122,7 @@ function resetPeriod() { startOffset.value = 0; load() }
     <!-- Header -->
     <div class="rg-header">
       <div>
-        <h2 class="rg-title">Planification des ressources</h2>
+        <h2 class="rg-title">Occupation des ressources</h2>
         <p class="rg-subtitle">Vue globale — {{ weeks.length }} semaines a partir du {{ periodStart }}</p>
       </div>
       <div class="rg-controls">
