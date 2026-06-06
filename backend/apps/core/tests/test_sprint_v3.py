@@ -5,8 +5,14 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.core.models import (
-    BusinessUnit, LaborRule, PositionProfile, ProjectRole, Role,
-    TaxConfiguration, Tenant, UserTenantAssociation,
+    BusinessUnit,
+    LaborRule,
+    PositionProfile,
+    ProjectRole,
+    Role,
+    TaxConfiguration,
+    Tenant,
+    UserTenantAssociation,
 )
 
 User = get_user_model()

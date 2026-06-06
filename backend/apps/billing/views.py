@@ -1,9 +1,10 @@
 """Billing API views."""
 
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 
 from apps.core.models import ProjectRole, Role
@@ -518,7 +519,6 @@ class InvoiceLineViewSet(viewsets.ModelViewSet):
 
     def _recalculate_line_percentages(self, line):
         """Recalculate % fields on a single line."""
-        from decimal import Decimal
         contract = float(line.total_contract_amount or 0)
         invoiced = float(line.invoiced_to_date or 0)
         to_bill = float(line.amount_to_bill or 0)
@@ -536,7 +536,9 @@ class InvoiceLineViewSet(viewsets.ModelViewSet):
     def _recalculate_invoice_totals(self, invoice):
         """Recalculate invoice totals and taxes using the invoice's tax scheme."""
         from decimal import Decimal
+
         from django.db.models import Sum
+
         from .tax_service import calculate_taxes
         # Recalculate % on each line
         for line in invoice.lines.all():

@@ -197,6 +197,7 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
         if a is not None:
             return a["actual_hours"]
         from django.db.models import Sum
+
         from apps.time_entries.models import TimeEntry
         total = TimeEntry.objects.filter(task__phase=obj).aggregate(s=Sum("hours"))["s"]
         return float(total) if total else 0
@@ -207,6 +208,7 @@ class PhaseSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
         if a is not None:
             return a["actual_cost"]
         from django.db.models import Sum
+
         from apps.time_entries.models import TimeEntry
         total = 0.0
         for r in (
@@ -343,6 +345,7 @@ class TaskSerializer(CostFieldFilterMixin, serializers.ModelSerializer):
     def get_actual_hours(self, obj):
         """Heures réelles : propres si saisissable, sinon Σ des sous-tâches."""
         from django.db.models import Sum
+
         from apps.time_entries.models import TimeEntry
         if self.get_is_chargeable(obj):
             qs = TimeEntry.objects.filter(task=obj)
@@ -441,6 +444,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
     def get_total_invoiced(self, obj):
         """Sum of approved/sent/paid invoice amounts."""
         from django.db.models import Sum
+
         from apps.billing.models import Invoice
         total = Invoice.objects.filter(
             project=obj, status__in=["APPROVED", "SENT", "PAID"]

@@ -49,8 +49,12 @@ known-first-party = ["apps", "config"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101", "S106"]
 "**/tests/*.py" = ["S101", "S106"]
+"**/tests.py" = ["S101", "S106"]            # modules de test (pas seulement les dossiers tests/)
 "conftest.py" = ["S101"]
 "*/migrations/*.py" = ["E501"]
+"scripts/*.py" = ["T201"]                   # scripts opérateur standalone : print = sortie console
+"**/generate_templates.py" = ["T201"]       # générateur de gabarits : print volontaire
+"config/settings/*.py" = ["F403", "F405"]   # pattern Django `from .base import *`
 
 [tool.coverage.run]
 source = ["apps"]

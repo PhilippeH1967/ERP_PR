@@ -5,7 +5,6 @@ from django.core.management.base import BaseCommand
 from apps.core.models import Tenant
 from apps.expenses.models import ExpenseCategory
 
-
 CATEGORIES = [
     {"name": "Transport — Taxi/VTC", "gl_account": "6230", "is_refacturable_default": True, "requires_receipt": True},
     {"name": "Transport — Avion", "gl_account": "6231", "is_refacturable_default": True, "requires_receipt": True},

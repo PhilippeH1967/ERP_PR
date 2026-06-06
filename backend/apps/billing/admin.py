@@ -1,6 +1,20 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
-from .models import BillingDossier, ClientLabel, CreditNote, DunningAction, DunningLevel, Holdback, Invoice, InvoiceLine, InvoiceTemplate, Payment, PaymentAllocation, WriteOff
+
+from .models import (
+    BillingDossier,
+    ClientLabel,
+    CreditNote,
+    DunningAction,
+    DunningLevel,
+    Holdback,
+    Invoice,
+    InvoiceLine,
+    InvoiceTemplate,
+    Payment,
+    PaymentAllocation,
+    WriteOff,
+)
 
 
 class InvoiceLineInline(admin.TabularInline):

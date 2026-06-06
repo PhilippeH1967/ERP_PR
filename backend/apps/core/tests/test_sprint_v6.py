@@ -448,7 +448,6 @@ class TestInvoicedHours(BaseV6Test):
 
     def test_uninvoiced_hours_only_in_new_invoice(self):
         """create_from_project only includes uninvoiced hours for HORAIRE lines."""
-        from apps.time_entries.models import TimeEntry
 
         # Mark entry1 as already invoiced
         self.entry1.is_invoiced = True

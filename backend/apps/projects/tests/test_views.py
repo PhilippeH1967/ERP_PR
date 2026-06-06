@@ -991,6 +991,7 @@ class TestProjectClosureChecklist:
 
     def test_unvalidated_time_entries_block_closure(self, admin_client, project, tenant):
         from datetime import date
+
         from django.contrib.auth import get_user_model
 
         from apps.time_entries.models import TimeEntry, TimeEntryStatus
@@ -1056,6 +1057,7 @@ class TestProjectClosureChecklist:
         self, admin_client, project, tenant, phase,
     ):
         from datetime import date, timedelta
+
         from django.contrib.auth import get_user_model
 
         from apps.planning.models import ResourceAllocation
@@ -1083,6 +1085,7 @@ class TestProjectClosureEnforcement:
         self, admin_client, project, tenant,
     ):
         from datetime import date
+
         from django.contrib.auth import get_user_model
 
         from apps.time_entries.models import TimeEntry, TimeEntryStatus
@@ -1111,6 +1114,7 @@ class TestProjectClosureEnforcement:
 
     def test_non_completion_transition_not_affected(self, admin_client, project, tenant):
         from datetime import date
+
         from django.contrib.auth import get_user_model
 
         from apps.time_entries.models import TimeEntry, TimeEntryStatus

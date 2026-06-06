@@ -53,6 +53,21 @@ class TestInvoiceAPI:
         payload = data.get("data", data)
         assert payload["status"] == "SUBMITTED"
 
+    def test_print_view_renders_without_nameerror(self):
+        """Régression F821 : le footer de print_view utilisait ``timezone`` sans
+        l'importer dans la fonction → NameError (500) à la génération du document."""
+        inv = Invoice.objects.create(
+            tenant=self.tenant, project=self.project, client=self.client_obj,
+            invoice_number="PROV-PRINT",
+        )
+        response = self.api.get(
+            f"/api/v1/invoices/{inv.pk}/print/",
+            HTTP_X_TENANT_ID=str(self.tenant.pk),
+        )
+        assert response.status_code == 200
+        # Le footer (qui appelle timezone.now()) s'est bien rendu.
+        assert b"Document" in response.content
+
     def test_approve_invoice(self):
         inv = Invoice.objects.create(
             tenant=self.tenant, project=self.project, client=self.client_obj,

@@ -36,23 +36,37 @@ from django.core.management import call_command  # noqa: E402
 from django.db import transaction  # noqa: E402
 
 from apps.billing.models import (  # noqa: E402
-    CreditNote, Invoice, InvoiceLine, Payment,
+    CreditNote,
+    Invoice,
+    InvoiceLine,
+    Payment,
 )
 from apps.clients.models import Client, ClientAddress, Contact  # noqa: E402
 from apps.consortiums.models import Consortium, ConsortiumMember  # noqa: E402
 from apps.expenses.models import ExpenseLine, ExpenseReport  # noqa: E402
 from apps.leaves.models import LeaveRequest  # noqa: E402
 from apps.planning.models import (  # noqa: E402
-    Availability, Milestone, PlanningStandard, ResourceAllocation, VirtualResource,
+    Availability,
+    Milestone,
+    PlanningStandard,
+    ResourceAllocation,
+    VirtualResource,
 )
 from apps.projects.models import (  # noqa: E402
-    Amendment, Phase, Project, SupportService, Task,
+    Amendment,
+    Phase,
+    Project,
+    SupportService,
+    Task,
 )
 from apps.suppliers.models import ExternalOrganization  # noqa: E402
 from apps.time_entries.models import (  # noqa: E402
-    PeriodFreeze, PeriodUnlock, TimeEntry, TimesheetLock, WeeklyApproval,
+    PeriodFreeze,
+    PeriodUnlock,
+    TimeEntry,
+    TimesheetLock,
+    WeeklyApproval,
 )
-
 
 # Ordre crucial: enfants avant parents pour FK ON DELETE PROTECT/RESTRICT
 DELETION_ORDER = [
@@ -153,15 +167,21 @@ def main():
     call_command("seed_internal_mandatory_tasks")
 
     # 4. Récap des éléments PRÉSERVÉS
+    from django.contrib.auth import get_user_model
+
     from apps.billing.models import DunningLevel, InvoiceTemplate
     from apps.core.models import (
-        LaborRule, PositionProfile, ProjectRole, TaxConfiguration,
-        TaxRate, TaxScheme, Tenant,
+        LaborRule,
+        PositionProfile,
+        ProjectRole,
+        TaxConfiguration,
+        TaxRate,
+        TaxScheme,
+        Tenant,
     )
     from apps.expenses.models import ExpenseCategory
     from apps.leaves.models import LeaveBank, LeaveType, PublicHoliday
     from apps.projects.models import ProjectTemplate, StandardPhase
-    from django.contrib.auth import get_user_model
 
     print()
     print("Préservés :")

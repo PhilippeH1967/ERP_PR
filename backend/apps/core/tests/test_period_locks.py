@@ -18,7 +18,6 @@ from apps.time_entries.models import (
     PeriodUnlock,
     TimeEntry,
     TimesheetLock,
-    WeeklyApproval,
 )
 
 User = get_user_model()

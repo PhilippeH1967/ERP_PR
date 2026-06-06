@@ -88,7 +88,7 @@ def global_search(request):
                 "type": "employee", "id": u.id,
                 "title": f"{u.first_name} {u.last_name}".strip() or u.username,
                 "subtitle": u.email,
-                "url": f"/admin/users",
+                "url": "/admin/users",
                 "_score": score(u.first_name),
             })
         for u in User.objects.filter(last_name__icontains=q).exclude(first_name__icontains=q)[:5]:
@@ -96,7 +96,7 @@ def global_search(request):
                 "type": "employee", "id": u.id,
                 "title": f"{u.first_name} {u.last_name}".strip() or u.username,
                 "subtitle": u.email,
-                "url": f"/admin/users",
+                "url": "/admin/users",
                 "_score": score(u.last_name),
             })
 

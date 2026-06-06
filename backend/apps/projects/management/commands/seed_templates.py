@@ -5,7 +5,6 @@ from django.core.management.base import BaseCommand
 from apps.core.models import Tenant
 from apps.projects.models import ProjectTemplate
 
-
 ARCHITECTURE_STANDARD = {
     "name": "Architecture standard",
     "code": "ARCH-STD",

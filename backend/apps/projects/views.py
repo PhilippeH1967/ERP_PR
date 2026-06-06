@@ -326,15 +326,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def team_stats(self, request, pk=None):
         """Team statistics: monthly hours per employee + budget health per phase."""
         from datetime import timedelta
-        from decimal import Decimal
 
         from django.db.models import Sum
         from django.db.models.functions import TruncMonth
 
         project = self.get_object()
 
-        from apps.time_entries.models import TimeEntry
         from apps.planning.models import ResourceAllocation
+        from apps.time_entries.models import TimeEntry
 
         # Budget health per phase: which phases are over budget?
         phases_health = []
