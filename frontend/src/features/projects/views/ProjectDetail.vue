@@ -1357,10 +1357,10 @@ watch(activeTab, (tab) => {
         &#9888;&#65039; <strong>{{ phasesWithoutBudget.length }} phase{{ phasesWithoutBudget.length > 1 ? 's' : '' }} sans budget</strong> : {{ phasesWithoutBudget.map(p => p.name).join(', ') }}
       </div>
       <div v-if="phasePlannedTotal <= 0 && store.currentProject?.status === 'ACTIVE'" class="phase-alert alert-orange">
-        &#128197; <strong>Aucune planification</strong> — aucune allocation de ressources n'est definie. <button class="btn-link-inline" @click="router.push('/planning')">Aller a la planification &rarr;</button>
+        &#128197; <strong>Aucune planification</strong> — aucune allocation de ressources n'est definie. <button class="btn-link-inline" @click="activeTab = 'gantt'">Aller a la planification &rarr;</button>
       </div>
       <div v-else-if="phaseFuturePlannedTotal <= 0 && store.currentProject?.status === 'ACTIVE'" class="phase-alert alert-red">
-        &#128680; <strong>Pas de planification a venir</strong> — toutes les allocations sont dans le passe. Le projet est actif mais aucune ressource n'est planifiee pour les prochaines semaines. <button class="btn-link-inline" @click="router.push('/planning')">Planifier &rarr;</button>
+        &#128680; <strong>Pas de planification a venir</strong> — toutes les allocations sont dans le passe. Le projet est actif mais aucune ressource n'est planifiee pour les prochaines semaines. <button class="btn-link-inline" @click="activeTab = 'gantt'">Planifier &rarr;</button>
       </div>
       <div v-if="isAdmin" class="section-actions" style="margin-bottom:10px;">
         <button class="btn-primary" @click="showAddPhaseForm = !showAddPhaseForm">+ Ajouter une phase</button>
@@ -1458,7 +1458,7 @@ watch(activeTab, (tab) => {
         &#9888;&#65039; <strong>{{ tasksWithoutBudget.length }} tache{{ tasksWithoutBudget.length > 1 ? 's' : '' }} sans budget</strong> sur {{ tasks.length }}
       </div>
       <div v-if="taskPlannedTotal <= 0 && tasks.length > 0 && store.currentProject?.status === 'ACTIVE'" class="phase-alert alert-orange">
-        &#128197; <strong>Aucune planification sur les taches</strong> — les ressources ne sont pas encore planifiees. <button class="btn-link-inline" @click="router.push('/planning')">Planifier &rarr;</button>
+        &#128197; <strong>Aucune planification sur les taches</strong> — les ressources ne sont pas encore planifiees. <button class="btn-link-inline" @click="activeTab = 'gantt'">Planifier &rarr;</button>
       </div>
       <!-- Ajout global d'une tâche : choisir n'importe quelle phase (même vide) -->
       <div v-if="isEditing && allProjectPhases.length" class="tasks-toolbar">
@@ -1788,7 +1788,7 @@ watch(activeTab, (tab) => {
                   <td class="text-right"><span class="badge badge-blue" style="font-size:10px;">{{ a.hours_per_week }}h/sem</span></td>
                   <td class="text-muted" style="font-size:11px;">{{ a.start_date || '—' }} → {{ a.end_date || '...' }}</td>
                   <td>
-                    <button class="btn-action" style="font-size:10px;" @click="router.push('/planning')">Planifier</button>
+                    <button class="btn-action" style="font-size:10px;" @click="activeTab = 'gantt'">Planifier</button>
                     <template v-if="confirmDeleteAssignment === a.id">
                       <button class="btn-action danger" style="font-size:10px;" @click="deleteAssignment(a.id)">OK</button>
                       <button class="btn-action" style="font-size:10px;" @click="confirmDeleteAssignment = null">×</button>
