@@ -7,6 +7,7 @@ import { ref, computed, onMounted } from 'vue'
 import apiClient from '@/plugins/axios'
 import PhaseSlideOver from './PhaseSlideOver.vue'
 import TaskSlideOver from './TaskSlideOver.vue'
+import MilestoneSlideOver from './MilestoneSlideOver.vue'
 import { isAggregateTask, phasesWithTasks } from '../utils/ganttHelpers'
 
 const props = defineProps<{ projectId: number }>()
@@ -24,6 +25,13 @@ function openPhasePanel(phaseId: number) {
 function openTaskPanel(taskId: number) {
   selectedTaskId.value = taskId
   showTaskSlideOver.value = true
+}
+
+const selectedMilestoneId = ref<number | null>(null)
+const showMilestoneSlideOver = ref(false)
+function openMilestonePanel(id: number) {
+  selectedMilestoneId.value = id
+  showMilestoneSlideOver.value = true
 }
 
 // isAggregateTask : util pur partagé (testé) — une tâche avec sous-tâches est
@@ -210,6 +218,12 @@ function milestoneStyle(m: GanttMilestone) {
   const d = new Date(m.date)
   const left = ((d.getTime() - timelineStart.value.getTime()) / 86400000) / totalDays.value * 100
   return { left: `${left}%` }
+}
+
+// "YYYY-MM-DD" → "DD/MM/YYYY" (affichage, sans souci de fuseau horaire)
+function mDate(iso: string): string {
+  const p = (iso || '').split('-')
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso
 }
 
 // Phase advancement %
@@ -404,17 +418,35 @@ const tooltipData = computed(() => {
         </template>
       </template>
 
-      <!-- Milestones row -->
-      <div v-if="milestones.length" class="gantt-row milestone-row">
-        <div class="gantt-label-col"><span class="phase-name" style="font-style:italic;">Jalons</span></div>
-        <div class="gantt-timeline-area">
-          <div v-if="todayPosition >= 0" class="gantt-today" :style="{ left: todayPosition + '%' }"></div>
-          <div v-for="m in milestones" :key="'mrow-' + m.id" class="gantt-milestone" :style="milestoneStyle(m)" :title="m.title">
-            <span class="milestone-diamond" :style="{ borderBottomColor: m.color }"></span>
-            <span class="milestone-label">{{ m.title }}</span>
+      <!-- Milestones — une ligne par jalon (cliquable → panneau d'édition) -->
+      <template v-if="milestones.length">
+        <div class="gantt-row milestone-header-row">
+          <div class="gantt-label-col"><span class="phase-name" style="font-style:italic;">Jalons</span></div>
+          <div class="gantt-timeline-area">
+            <div v-if="todayPosition >= 0" class="gantt-today" :style="{ left: todayPosition + '%' }"></div>
           </div>
         </div>
-      </div>
+        <div
+          v-for="m in milestones"
+          :key="'mrow-' + m.id"
+          class="gantt-row gantt-milestone-row"
+          :title="'Modifier le jalon : ' + m.title"
+          data-milestone-row
+          @click="openMilestonePanel(m.id)"
+        >
+          <div class="gantt-label-col milestone-label-col">
+            <span class="milestone-dot" :style="{ background: m.color }"></span>
+            <span class="milestone-row-title">{{ m.title }}</span>
+            <span class="milestone-row-date">{{ mDate(m.date) }}</span>
+          </div>
+          <div class="gantt-timeline-area">
+            <div v-if="todayPosition >= 0" class="gantt-today" :style="{ left: todayPosition + '%' }"></div>
+            <div class="gantt-milestone" :style="milestoneStyle(m)">
+              <span class="milestone-diamond" :style="{ borderBottomColor: m.color }"></span>
+            </div>
+          </div>
+        </div>
+      </template>
     </div>
     </template>
 
@@ -471,6 +503,13 @@ const tooltipData = computed(() => {
       @close="showTaskSlideOver = false"
       @updated="onSlideOverUpdated"
     />
+    <!-- Milestone edit slide-over -->
+    <MilestoneSlideOver
+      :open="showMilestoneSlideOver"
+      :milestone-id="selectedMilestoneId"
+      @close="showMilestoneSlideOver = false"
+      @updated="onSlideOverUpdated"
+    />
   </div>
 </template>
 
@@ -500,6 +539,13 @@ const tooltipData = computed(() => {
 .gantt-row-noDates { opacity: 0.5; }
 .gantt-task-row { min-height: 26px; background: var(--color-gray-50); }
 .milestone-row { background: var(--color-gray-50); }
+.milestone-header-row { background: var(--color-gray-50); }
+.gantt-milestone-row { cursor: pointer; }
+.gantt-milestone-row:hover { background: #EFF6FF; }
+.milestone-label-col { display: flex; align-items: center; gap: 6px; overflow: hidden; }
+.milestone-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.milestone-row-title { font-size: 11px; color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.milestone-row-date { font-size: 10px; color: var(--color-gray-500, #9CA3AF); font-family: var(--font-mono, monospace); margin-left: auto; flex-shrink: 0; }
 
 .gantt-phase-label { display: flex; align-items: center; gap: 6px; }
 .phase-code { font-family: var(--font-mono); font-size: 9px; color: var(--color-gray-400); }

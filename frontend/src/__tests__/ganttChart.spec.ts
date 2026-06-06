@@ -16,7 +16,10 @@ const GANTT = {
       { id: 1, name: 'Concept', client_label: '', code: '1', type: 'REALIZATION', start_date: null, end_date: null, billing_mode: 'FORFAIT', budgeted_hours: 0, is_mandatory: false, order: 0 },
       { id: 2, name: 'Vide', client_label: '', code: '2', type: 'REALIZATION', start_date: null, end_date: null, billing_mode: 'FORFAIT', budgeted_hours: 0, is_mandatory: false, order: 1 },
     ],
-    milestones: [],
+    milestones: [
+      { id: 21, title: 'Permis', date: '2026-03-20', status: 'UPCOMING', color: '#3B82F6' },
+      { id: 22, title: 'Concept fin', date: '2026-04-15', status: 'UPCOMING', color: '#10B981' },
+    ],
     dependencies: [],
   },
 }
@@ -42,10 +45,16 @@ function mockApi() {
   })
 }
 
+// Stub interrogeable du panneau jalon (pour vérifier l'ouverture au clic).
+const MilestoneStub = {
+  template: '<div class="ms-stub" :data-open="String(open)"></div>',
+  props: ['open', 'milestoneId'],
+}
+
 async function mountGantt() {
   const wrapper = mount(GanttChart, {
     props: { projectId: 1 },
-    global: { stubs: { PhaseSlideOver: true, TaskSlideOver: true } },
+    global: { stubs: { PhaseSlideOver: true, TaskSlideOver: true, MilestoneSlideOver: MilestoneStub } },
   })
   await flushPromises()
   await flushPromises()
@@ -69,5 +78,17 @@ describe('GanttChart', () => {
     expect(leaf.text()).toContain('Feuille')
     expect(aggregate.exists()).toBe(true)
     expect(aggregate.text()).toContain('Mere')
+  })
+
+  it('affiche un jalon par ligne (pas tous sur une seule) et ouvre le panneau au clic', async () => {
+    const wrapper = await mountGantt()
+    const rows = wrapper.findAll('[data-milestone-row]')
+    expect(rows).toHaveLength(2) // une ligne par jalon
+    expect(wrapper.text()).toContain('Permis')
+    expect(wrapper.text()).toContain('Concept fin')
+    // Panneau fermé au départ, ouvert après clic sur un jalon
+    expect(wrapper.find('.ms-stub').attributes('data-open')).toBe('false')
+    await rows[0]!.trigger('click')
+    expect(wrapper.find('.ms-stub').attributes('data-open')).toBe('true')
   })
 })

@@ -11,6 +11,7 @@ export const planningApi = {
 
   // Milestones
   listMilestones: (params?: Record<string, string>) => apiClient.get('milestones/', { params }),
+  getMilestone: (id: number) => apiClient.get(`milestones/${id}/`),
   createMilestone: (data: Record<string, unknown>) => apiClient.post('milestones/', data),
   updateMilestone: (id: number, data: Record<string, unknown>) => apiClient.patch(`milestones/${id}/`, data),
   deleteMilestone: (id: number) => apiClient.delete(`milestones/${id}/`),
