@@ -63,3 +63,29 @@ class TestSeedStandardPhases:
         call_command("seed_standard_phases", tenant_id=tenant.id)
         n2 = StandardPhase.objects.filter(tenant=tenant).count()
         assert n1 == n2 and n1 > 0
+
+
+@pytest.mark.django_db
+class TestProjectCreationInstantiatesStandardPhases:
+    """Tout projet hérite du jeu standard à la création — y compris sans
+    template (le wizard ne crée plus de phase manuellement)."""
+
+    def test_plain_create_instantiates_standard_phases(self, admin_client, tenant):
+        from apps.projects.models import Project
+
+        StandardPhase.objects.create(tenant=tenant, code="1", name="Concept", order=0)
+        StandardPhase.objects.create(
+            tenant=tenant, code="G", name="Gestion de projet", order=1, is_mandatory=True
+        )
+        resp = admin_client.post(
+            "/api/v1/projects/",
+            {"code": "PRJ-NEW", "name": "Nouveau", "is_internal": True},
+            format="json",
+        )
+        assert resp.status_code == 201
+        pid = resp.json().get("data", resp.json())["id"]
+        project = Project.objects.get(pk=pid)
+        codes = set(project.phases.values_list("code", flat=True))
+        assert {"1", "G"}.issubset(codes)
+        # La phase obligatoire conserve son flag.
+        assert project.phases.filter(code="G", is_mandatory=True).exists()

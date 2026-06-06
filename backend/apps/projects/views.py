@@ -31,6 +31,7 @@ from .services import (
     approve_amendment,
     compute_closure_checklist,
     create_project_from_template,
+    instantiate_standard_phases,
     reject_amendment,
     submit_amendment,
 )
@@ -147,15 +148,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return ctx
 
     def perform_create(self, serializer):
+        from apps.core.models import Tenant
+
         tenant_id = getattr(self.request, "tenant_id", None)
-        if tenant_id:
-            from apps.core.models import Tenant
-
-            serializer.save(tenant=Tenant.objects.get(pk=tenant_id))
-        else:
-            from apps.core.models import Tenant
-
-            serializer.save(tenant=Tenant.objects.first())
+        tenant = Tenant.objects.get(pk=tenant_id) if tenant_id else Tenant.objects.first()
+        project = serializer.save(tenant=tenant)
+        # Tout projet hérite du jeu de phases standard du cabinet (paramétrage
+        # admin) — y compris sans template. Cf. domain.md (phases = regroupements).
+        instantiate_standard_phases(project)
 
     def partial_update(self, request, *args, **kwargs):
         """Validate status transitions + closure checklist before updating."""
