@@ -146,6 +146,12 @@ def main():
     print("Re-seed des phases standard (paramétrage)…")
     call_command("seed_standard_phases")
 
+    # 4ter. Re-création du projet interne + tâches obligatoires de la feuille
+    # de temps (Congés/Formation/Maladie). Sans ça, la grille de saisie perd
+    # ses lignes obligatoires après nettoyage.
+    print("Re-seed du projet interne + tâches obligatoires…")
+    call_command("seed_internal_mandatory_tasks")
+
     # 4. Récap des éléments PRÉSERVÉS
     from apps.billing.models import DunningLevel, InvoiceTemplate
     from apps.core.models import (
