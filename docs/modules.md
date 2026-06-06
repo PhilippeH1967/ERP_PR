@@ -3,11 +3,11 @@
 ## Bloc 1 — Projets (apps: projects, clients, consortiums)
 
 ### Projets
-- **WBS Option B** : Phase (conteneur) → Tâche (unité opérationnelle, code WBS 3.1, 3.2)
-- **Wizard 5 étapes** : Identification → Budget & Phases → Ressources → Sous-traitants → Confirmation
-- **Templates** : Architecture standard = 7 phases + 23 tâches auto-déployées
+- **WBS** : Phase → Tâche → Sous-tâche. La **phase** est un **regroupement standard** (paramétrage `StandardPhase`, admin) ; la **tâche/sous-tâche feuille** porte budget, dates, planif, facturation, temps ; phase et tâche-mère = **agrégats lecture seule**. Voir [changelog-structure-v1.2.md](changelog-structure-v1.2.md).
+- **Wizard** : Identification → **Phases** (héritées du jeu standard, sans budget) → Ressources → Sous-traitants → Confirmation
+- **Paramétrage** : *Administration › Phases standard* (jeu du cabinet, admin) — chaque projet en hérite à la création
 - **12 onglets fiche** : Vue d'ensemble, Phases, Tâches, Équipe, Temps, Avenants, Budget, Avancement, Gantt, Finance, Sous-traitants, Factures
-- **Gantt interactif** : Barres phases, 3 zooms (mois/trimestre/année), jalons, dépendances FS/SS
+- **Gantt interactif** : planification au niveau **tâche/sous-tâche** (tâche-mère/phase non cliquables = agrégats), contrôle budget non bloquant, 3 zooms, jalons, dépendances FS/SS
 
 ### Clients
 - CRUD avec 5 onglets : Informations, Contacts, Adresses, Financier, Projets

@@ -62,15 +62,32 @@ Les libellés standards restent visibles **en interne** pour le suivi et les mé
 
 ## Hiérarchie projet
 
-- **Projet** → **Phase** → **Tâche** (WBS Option B, validée)
-- Pas de sous-tâches dans la structure actuelle (à ré-évaluer si besoin client)
-- Numérotation : `{code_projet}-{séquence_phase}-{séquence_tâche}`
+- **Projet** → **Phase** → **Tâche** → **Sous-tâche**
+- Numérotation WBS de la tâche : `{code_phase}.{séquence}` (ex. `1.1`), sous-tâche : `{wbs_parent}.{séquence}` (ex. `1.1.1`)
+
+### Phases = regroupements standard (paramétrage)
+- Les phases sont un **jeu standard du cabinet**, défini dans le **paramétrage** (`StandardPhase`, écran *Administration › Phases standard*, **admin uniquement**).
+- À la création d'un projet, **toutes les phases standard** sont instanciées (vides). Les **PM ne créent/modifient/suppriment pas** de phase sur un projet (réservé ADMIN — `PhaseViewSet` en écriture admin-only ; fallback template si aucun jeu standard paramétré).
+- Une phase est un **pur regroupement** : elle **ne porte ni budget, ni dates, ni mode de facturation**. Elle **agrège** ses tâches.
+
+### Tâches / sous-tâches = unité opérationnelle
+- La **tâche** (ou sous-tâche) porte : **budget** (heures et $), **dates**, **planification** (allocations), **mode de facturation**, **saisie de temps**.
+- Notion de **« saisissable » / feuille** : un nœud **sans enfant**. Une tâche **avec** sous-tâches devient un **agrégat en lecture seule** (comme la phase) ; seules ses sous-tâches sont saisissables. Le budget/heures/planif **vivent uniquement sur les feuilles** (pas de double-comptage).
+- Une tâche peut être **déplacée** vers une autre phase (ré-imputation) — recalcul automatique des agrégats.
+
+### Agrégation (lecture seule, calculée)
+- **Phase** : `tasks_budgeted_hours/cost`, `planned_hours`, `actual_hours`, `tasks_start_date/end_date` = Σ / min-max des **tâches saisissables** de la phase.
+- **Tâche-mère** : `effective_budgeted_*`, `planned_hours`, `actual_hours` = Σ de ses **sous-tâches**.
+- Les **phases sans tâche** sont **masquées** dans les écrans opérationnels (Tâches, Gantt, Budget) ; visibles en structure, marquées « Sans tâche ».
+
+> Le modèle déprécié `WBSElement` a été **supprimé** (remplacé par `Task`).
 
 ## Avenants
 
 - Chaque avenant est un **mini-contrat** rattaché au projet principal
 - Numéro auto : `{code_projet}-AV-{séquentiel}` + numéro externe libre
-- Peut avoir ses propres phases, ressources, mode de facturation (cible MVP-1.5)
+- Un avenant **ajoute/modifie des tâches** sur les **phases standard existantes** (il ne crée pas de phase). Les tâches d'avenant portent un `amendment` et un badge `AV-n`.
+- **Pas d'affectation de ressources ni de planification** dans le slide-over d'avenant — ça se fait dans le **Gantt**, au niveau des tâches.
 
 ## Facturation
 
@@ -79,7 +96,7 @@ Les libellés standards restent visibles **en interne** pour le suivi et les mé
 - **Temps & matériel (T&M)** : taux horaires × heures
 - **Cost-plus** : coûts réels + marge
 
-Chaque phase d'un avenant peut utiliser un mode différent (MVP-1.5).
+Le **mode de facturation se définit au niveau de la tâche** (feuille), pas de la phase.
 
 ### Règles
 - Numéro de facture auto-incrémenté, unique, non modifiable après émission
@@ -101,12 +118,14 @@ Chaque phase d'un avenant peut utiliser un mode différent (MVP-1.5).
 
 ## Contraintes métier clés
 
-### Allocation ressources
-- **% affectation** : max 100% par phase, empêcher doublon personne/phase
-- Auto-calcul du % restant lors de l'affectation
+### Allocation ressources / planification
+- La planification se fait dans l'onglet **Gantt**, au niveau **tâche / sous-tâche** (jamais la phase ni une tâche-mère, qui sont des agrégats non cliquables).
+- Contrôle **non bloquant** : si les heures planifiées dépassent le budget de la tâche → signalé en **rouge** (on ne bloque pas).
+- Une barre Gantt ne s'affiche que si la tâche a **ses propres dates** (pas de fallback sur la phase).
 
 ### Dates
-- `date_fin >= date_debut` à la création **ET** modification (projet, phase, tâche, avenant, congé)
+- `date_fin >= date_debut` à la création **ET** modification (projet, tâche, sous-tâche, avenant, congé)
+- Les **dates de phase sont dérivées** (min/max des tâches), en lecture seule — on ne les saisit pas.
 - Validation côté backend (serializer) **ET** frontend (form)
 
 ### Feuilles de temps
@@ -122,6 +141,9 @@ Chaque phase d'un avenant peut utiliser un mode différent (MVP-1.5).
 
 - Libellé "Directeur de projet" trouvé dans le code ou l'UI
 - Rapport ou facture client affichant les libellés standards au lieu des libellés client
-- % affectation permettant > 100% par phase sans garde-fou
 - Facture émise modifiable après émission
 - Saisie de temps possible sur une journée validée en congé
+- **Budget, dates, mode de facturation ou planification saisis au niveau d'une phase** (doivent vivre sur la tâche/sous-tâche)
+- **Phase créée/modifiée/supprimée par un non-admin** sur un projet (réservé ADMIN — paramétrage)
+- **Double-comptage** d'agrégat (tâche-mère + sous-tâches comptées ensemble)
+- Réapparition du modèle `WBSElement` (supprimé)
