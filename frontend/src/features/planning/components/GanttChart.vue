@@ -40,7 +40,7 @@ interface GanttDependency { id: number; from: number; to: number; type: string; 
 interface GanttTask {
   id: number; name: string; client_facing_label: string; wbs_code: string
   phase: number; budgeted_hours: number; actual_hours?: number; planned_hours?: number
-  progress_pct?: number
+  progress_pct?: number; task_type?: string
   start_date: string | null; end_date: string | null
 }
 
@@ -51,7 +51,9 @@ const dependencies = ref<GanttDependency[]>([])
 const projectInfo = ref({ code: '', name: '', start_date: '', end_date: '' })
 const isLoading = ref(true)
 const zoomLevel = ref<'month' | 'quarter' | 'year'>('quarter')
-const showTasks = ref(false)
+// Tâches affichées par défaut : elles sont l'unité de planification (clic →
+// panneau tâche). La case permet de revenir à une vue phases seules.
+const showTasks = ref(true)
 const hoveredItem = ref<{ id: number; type: string } | null>(null)
 const tooltipPos = ref({ x: 0, y: 0 })
 
@@ -352,7 +354,7 @@ const tooltipData = computed(() => {
         <template v-if="showTasks">
           <div v-for="task in phaseTasks(phase.id)" :key="'t-' + task.id" class="gantt-row gantt-task-row">
             <div class="gantt-label-col">
-              <div class="gantt-task-label">
+              <div class="gantt-task-label gantt-task-clickable" :class="{ 'gantt-subtask': task.task_type === 'SUBTASK' }" @click="openTaskPanel(task.id)" title="Ouvrir pour planifier (dates, heures)">
                 <span class="task-wbs">{{ task.wbs_code }}</span>
                 <span class="task-name">{{ task.client_facing_label || task.name }}</span>
               </div>
@@ -370,6 +372,7 @@ const tooltipData = computed(() => {
               >
                 <div class="gantt-bar-fill" :style="{ width: (task.progress_pct || 0) + '%', backgroundColor: advancementColor(task.progress_pct || 0) }"></div>
               </div>
+              <span v-else class="gantt-nodates-hint" @click="openTaskPanel(task.id)">sans dates — cliquer pour planifier →</span>
             </div>
           </div>
         </template>
@@ -479,6 +482,11 @@ const tooltipData = computed(() => {
 .mandatory-badge { font-size: 8px; font-weight: 700; background: #FEF3C7; color: #92400E; padding: 1px 4px; border-radius: 3px; }
 
 .gantt-task-label { display: flex; align-items: center; gap: 6px; padding-left: 20px; }
+.gantt-task-clickable { cursor: pointer; }
+.gantt-task-clickable:hover .task-name { color: var(--color-primary); text-decoration: underline; }
+.gantt-subtask { padding-left: 36px; }
+.gantt-nodates-hint { font-size: 10px; color: var(--color-gray-400); font-style: italic; cursor: pointer; padding-left: 8px; }
+.gantt-nodates-hint:hover { color: var(--color-primary); }
 .task-wbs { font-family: var(--font-mono); font-size: 9px; color: var(--color-gray-400); }
 .task-name { font-size: 10px; color: var(--color-gray-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
