@@ -228,13 +228,11 @@ def get_hours_report(tenant_id: int, group_by="project", period_start=None, peri
 
 def get_system_health(tenant_id: int) -> dict:
     """FR75 — System health metrics for admin."""
-    from django.contrib.auth import get_user_model
 
     from apps.billing.models import Invoice
     from apps.core.models import UserTenantAssociation
     from apps.time_entries.models import WeeklyApproval
 
-    User = get_user_model()
     today = timezone.now().date()
 
     active_users = UserTenantAssociation.objects.filter(

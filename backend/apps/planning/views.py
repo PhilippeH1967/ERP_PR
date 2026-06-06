@@ -1,9 +1,7 @@
 """Planning API views."""
 
 from datetime import timedelta
-from decimal import Decimal
 
-from django.db.models import Sum
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
@@ -328,8 +326,8 @@ class AvailabilityViewSet(viewsets.ModelViewSet):
                 status=400,
             )
 
-        from datetime import date as dt_date
         from django.contrib.auth import get_user_model
+
         from apps.leaves.models import LeaveRequest, RequestStatus
 
         User = get_user_model()

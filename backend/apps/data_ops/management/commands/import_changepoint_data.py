@@ -519,7 +519,6 @@ class Command(BaseCommand):
             amount = safe_decimal(inv.get("montant"), 0)
             inv_date = safe_date(inv.get("date_facture"))
             status = safe_str(inv.get("statut")) or "received"
-            description = safe_str(inv.get("description"))
             cat = safe_str(inv.get("categorie_budget")).lower()
 
             project = project_map.get(proj_code)

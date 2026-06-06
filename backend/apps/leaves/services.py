@@ -2,8 +2,6 @@
 
 from datetime import timedelta
 
-from django.utils import timezone
-
 
 def create_time_entries_for_leave(leave_request):
     """

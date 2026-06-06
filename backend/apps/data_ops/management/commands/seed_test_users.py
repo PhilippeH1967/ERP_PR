@@ -19,7 +19,7 @@ class Command(BaseCommand):
         from apps.core.models import ProjectRole, Tenant, UserTenantAssociation
 
         t = Tenant.objects.get(id=options["tenant"])
-        pwd = "Test1234!"
+        pwd = "Test1234!"  # noqa: S105 — mot de passe des comptes de démo (documenté)
         accounts = [
             ("admin@provencher-roy.com", "Admin", "PR", "ADMIN", True),
             ("pm@test.com", "Jean-Francois", "PM", "PM", False),

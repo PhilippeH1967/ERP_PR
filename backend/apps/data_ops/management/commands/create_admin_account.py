@@ -1,12 +1,18 @@
 """
 Create the initial admin account for the application.
 
+Le mot de passe n'est JAMAIS en dur : il est lu depuis la variable
+d'environnement ``ADMIN_SEED_PASSWORD`` (ou l'argument ``--password``).
+
 Usage:
-    python manage.py create_admin_account --tenant=provencher-roy
+    ADMIN_SEED_PASSWORD='...' python manage.py create_admin_account --tenant=provencher-roy
+    python manage.py create_admin_account --tenant=provencher-roy --password='...'
 """
 
+import os
+
 from django.contrib.auth.models import User
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
@@ -14,9 +20,22 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--tenant", type=str, required=True)
+        parser.add_argument(
+            "--password",
+            type=str,
+            default=None,
+            help="Mot de passe admin. À défaut, lu depuis ADMIN_SEED_PASSWORD.",
+        )
 
     def handle(self, *args, **options):
         from apps.core.models import ProjectRole, Tenant, UserTenantAssociation
+
+        password = options.get("password") or os.environ.get("ADMIN_SEED_PASSWORD")
+        if not password:
+            raise CommandError(
+                "Mot de passe requis : passez --password ou définissez la "
+                "variable d'environnement ADMIN_SEED_PASSWORD."
+            )
 
         tenant_slug = options["tenant"]
         tenant, _ = Tenant.objects.get_or_create(
@@ -26,7 +45,6 @@ class Command(BaseCommand):
 
         username = "ph.admin"
         email = "admin@provencher-roy.com"
-        password = "Pr0v3nch3r!2026"
 
         user, created = User.objects.get_or_create(
             username=username,
@@ -54,16 +72,16 @@ class Command(BaseCommand):
             tenant=tenant, user=user, project_id=None, role="ADMIN",
         )
 
+        # Le mot de passe n'est volontairement PAS ré-affiché (secret).
         self.stdout.write(self.style.SUCCESS(f"""
 ╔══════════════════════════════════════╗
 ║  COMPTE ADMINISTRATEUR              ║
 ╠══════════════════════════════════════╣
 ║  Username : {username:<24}║
-║  Password : {password:<24}║
 ║  Email    : {email:<24}║
 ║  Tenant   : {tenant.name:<24}║
 ║  Role     : ADMIN (superuser)       ║
 ╚══════════════════════════════════════╝
-
-⚠️  Changez le mot de passe après la première connexion!
+   Mot de passe : défini via ADMIN_SEED_PASSWORD / --password.
+⚠️  Changez-le après la première connexion.
 """))

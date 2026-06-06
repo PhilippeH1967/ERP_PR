@@ -2,7 +2,18 @@
 
 from django.contrib import admin
 
-from .models import BusinessUnit, Delegation, LaborRule, PositionProfile, ProjectRole, TaxConfiguration, TaxRate, TaxScheme, Tenant, UserTenantAssociation
+from .models import (
+    BusinessUnit,
+    Delegation,
+    LaborRule,
+    PositionProfile,
+    ProjectRole,
+    TaxConfiguration,
+    TaxRate,
+    TaxScheme,
+    Tenant,
+    UserTenantAssociation,
+)
 
 
 @admin.register(Tenant)

@@ -1,8 +1,7 @@
 """Sprint V1 — Auth + RBAC + Locale integration tests."""
 
-import pytest
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.core.models import ProjectRole, Role, Tenant, UserTenantAssociation
@@ -172,8 +171,10 @@ class TestFR67_SalaryVisibility(TestCase):
     def test_cost_fields_filtered_in_serializer(self):
         """CostFieldFilterMixin hides cost fields from employees."""
         from unittest.mock import Mock
-        from apps.core.serializer_mixins import CostFieldFilterMixin, COST_FIELDS
+
         from rest_framework import serializers
+
+        from apps.core.serializer_mixins import CostFieldFilterMixin
 
         class TestSerializer(CostFieldFilterMixin, serializers.Serializer):
             name = serializers.CharField()

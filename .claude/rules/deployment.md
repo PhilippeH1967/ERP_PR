@@ -72,6 +72,14 @@ lancées avec `DJANGO_DB_PRIVILEGED=1` (rôle propriétaire, bypass RLS).
 Les tâches Celery, elles, posent `app.current_tenant` automatiquement
 via `tenant_context` (aucune action requise).
 
+**`create_admin_account` — mot de passe (sécurité)** : le mot de passe
+n'est plus en dur. Il est lu depuis `ADMIN_SEED_PASSWORD` (ou `--password`) ;
+la commande échoue si aucun n'est fourni. Exemple :
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production exec -e ADMIN_SEED_PASSWORD="<secret>" -e DJANGO_DB_PRIVILEGED=1 django python manage.py create_admin_account --tenant=provencher-roy
+```
+
 **Django admin (`/django-admin/`) et RLS (audit F7)** : le Django admin
 natif est un outil superuser cross-tenant, exempté du `SET` tenant. Avec
 RLS forcée + rôle app non-superuser, les tables tenant-scoped ne sont

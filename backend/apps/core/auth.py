@@ -8,7 +8,7 @@ Provides /auth/me/ and /auth/config/ endpoints.
 import contextlib
 
 from django.conf import settings
-from rest_framework import serializers, status
+from rest_framework import serializers
 from rest_framework.decorators import (
     api_view,
     authentication_classes,
@@ -16,10 +16,10 @@ from rest_framework.decorators import (
 )
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-
-from apps.core.permissions import IsAdmin
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+from apps.core.permissions import IsAdmin
 
 
 def _caller_tenant_id(request):
@@ -368,8 +368,9 @@ def delegation_list_create(request):
         return Response({"data": result})
 
     # POST
-    from apps.core.models import Tenant
     from django.contrib.auth import get_user_model
+
+    from apps.core.models import Tenant
 
     User = get_user_model()
     data = request.data

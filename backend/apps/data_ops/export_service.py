@@ -2,7 +2,6 @@
 
 import csv
 import io
-from decimal import Decimal
 
 
 def export_invoices_csv(tenant):
@@ -71,7 +70,7 @@ def export_payments_csv(tenant):
 
 def export_expenses_csv(tenant):
     """Export expense reports in Intacct-compatible CSV format."""
-    from apps.expenses.models import ExpenseLine, ExpenseReport
+    from apps.expenses.models import ExpenseReport
 
     reports = ExpenseReport.objects.filter(
         tenant=tenant, status__in=["FINANCE_VALIDATED", "PAID"]

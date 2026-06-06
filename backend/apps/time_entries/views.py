@@ -272,7 +272,8 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         if not week_start:
             err = {"code": "MISSING_WEEK", "message": "week_start required", "details": []}
             return Response({"error": err}, status=status.HTTP_400_BAD_REQUEST)
-        from datetime import timedelta, date as date_type
+        from datetime import date as date_type
+        from datetime import timedelta
 
         if isinstance(week_start, str):
             week_start_date = date_type.fromisoformat(week_start)
@@ -289,7 +290,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
                     {
                         "error": {
                             "code": "PERIOD_LOCKED",
-                            "message": f"La période est verrouillée. Impossible de soumettre.",
+                            "message": "La période est verrouillée. Impossible de soumettre.",
                         }
                     },
                     status=status.HTTP_400_BAD_REQUEST,
@@ -307,12 +308,10 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         if count > 0:
             tenant_id = getattr(request, "tenant_id", None)
             if not tenant_id:
-                from apps.core.models import Tenant
 
                 tenant = _get_tenant(self.request)
                 tenant_id = tenant.id if tenant else None
             if tenant_id:
-                from apps.core.models import Tenant
 
                 WeeklyApproval.objects.get_or_create(
                     employee=request.user,
@@ -359,7 +358,8 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def weekly_stats(self, request):
         """Employee timesheet stats relative to displayed week."""
-        from datetime import date as date_type, timedelta
+        from datetime import date as date_type
+        from datetime import timedelta
         from decimal import Decimal
 
         from django.db.models import Sum
@@ -494,7 +494,8 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def is_period_locked(self, request):
         """Check if a period is locked — via freeze date or direct lock, with unlock exceptions."""
-        from datetime import date as date_type, timedelta
+        from datetime import date as date_type
+        from datetime import timedelta
 
         from .models import PeriodFreeze, PeriodUnlock
 
@@ -539,7 +540,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["post"])
     def unlock_period(self, request):
         """Unlock a period — reverts LOCKED entries to DRAFT for corrections."""
-        from datetime import date as date_type, timedelta
+        from datetime import date as date_type
 
         denied = self._require_lock_role()
         if denied:
@@ -581,11 +582,10 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def period_summary(self, request):
         """Return all weeks that have entries, with lock status."""
-        from collections import defaultdict
         from datetime import timedelta
         from decimal import Decimal
 
-        from django.db.models import Count, Min, Max, Sum
+        from django.db.models import Max, Min, Sum
 
         denied = self._require_lock_role()
         if denied:
@@ -657,6 +657,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         from django.db import transaction
 
         from apps.core.models import Tenant
+
         from .models import PeriodFreeze
 
         tenant_id = getattr(request, "tenant_id", None)
@@ -823,7 +824,8 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        from datetime import date as date_type, timedelta
+        from datetime import date as date_type
+        from datetime import timedelta
 
         ws = date_type.fromisoformat(week_start) if isinstance(week_start, str) else week_start
         we = ws + timedelta(days=6)
@@ -1387,10 +1389,7 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
         from datetime import timedelta
         from decimal import Decimal
 
-        from django.contrib.auth import get_user_model
         from django.db.models import Sum
-
-        User = get_user_model()
 
         # Determine week — défaut : plus ancienne semaine en attente Finance
         week_start_str = request.query_params.get("week_start")
@@ -1480,10 +1479,8 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
     def paie_dashboard(self, request):
         """Paie dashboard: completeness check + validation status for all employees."""
         from datetime import timedelta
-        from decimal import Decimal
 
         from django.contrib.auth import get_user_model
-        from django.db.models import Sum
 
         User = get_user_model()
 

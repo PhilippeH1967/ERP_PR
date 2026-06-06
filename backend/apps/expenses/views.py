@@ -98,6 +98,7 @@ class ExpenseReportViewSet(viewsets.ModelViewSet):
     def upload_receipt(self, request, pk=None):
         """Upload receipt file for an expense line."""
         import os
+
         from django.conf import settings
 
         report = self.get_object()

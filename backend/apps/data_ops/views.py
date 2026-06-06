@@ -208,8 +208,9 @@ def upload_import(request, import_key):
             return Response({"status": "success", "import_type": import_key, "output": result})
 
         # Generic handler via management command
-        from django.core.management import call_command
         from io import StringIO
+
+        from django.core.management import call_command
 
         out = StringIO()
         folder = os.path.dirname(tmp_path)
@@ -254,6 +255,7 @@ def export_csv(request, export_type):
     from django.http import HttpResponse
 
     from apps.core.models import Tenant
+
     from .export_service import (
         export_expenses_csv,
         export_invoices_csv,
@@ -317,7 +319,6 @@ def _import_st_invoices(filepath, tenant):
         date_facture = row[3]
         montant = row[4]
         statut = str(row[6] or "received").strip().lower()
-        description = str(row[7] or "").strip()
 
         if not no_facture or not nom_fournisseur or not code_projet:
             errors.append(f"Ligne {row_num}: champs obligatoires manquants")
