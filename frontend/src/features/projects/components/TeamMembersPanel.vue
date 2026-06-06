@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 interface Member { id: number; name: string }
 interface AddableUser { id: number; username: string }
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     members: Member[]
     addableUsers: AddableUser[]
@@ -23,10 +23,30 @@ const emit = defineEmits<{
 const addingMemberId = ref<number | null>(null)
 const removingMemberId = ref<number | null>(null)
 
+// Dropdown recherchable : filtre la liste par nom (côté client).
+const memberSearch = ref('')
+const showMemberList = ref(false)
+const filteredAddable = computed(() => {
+  const q = memberSearch.value.trim().toLowerCase()
+  if (!q) return props.addableUsers
+  return props.addableUsers.filter((u) => u.username.toLowerCase().includes(q))
+})
+function pickMember(u: AddableUser) {
+  addingMemberId.value = u.id
+  memberSearch.value = u.username
+  showMemberList.value = false
+}
+function onSearchBlur() {
+  // Léger délai pour laisser le clic sur un item se déclencher avant fermeture.
+  setTimeout(() => { showMemberList.value = false }, 150)
+}
+
 function confirmAdd() {
   if (!addingMemberId.value) return
   emit('add', addingMemberId.value)
   addingMemberId.value = null
+  memberSearch.value = ''
+  showMemberList.value = false
 }
 
 function confirmRemove(userId: number) {
@@ -86,10 +106,28 @@ function confirmRemove(userId: number) {
     </div>
 
     <div v-if="canManage" class="members-add">
-      <select v-model.number="addingMemberId" class="select-sm" data-member-add-select>
-        <option :value="null">— Ajouter un membre —</option>
-        <option v-for="u in addableUsers" :key="u.id" :value="u.id">{{ u.username }}</option>
-      </select>
+      <div class="member-search-wrap">
+        <input
+          v-model="memberSearch"
+          class="select-sm member-search-input"
+          placeholder="Rechercher un membre par nom…"
+          data-member-add-search
+          @focus="showMemberList = true"
+          @input="showMemberList = true; addingMemberId = null"
+          @blur="onSearchBlur"
+        />
+        <div v-if="showMemberList && filteredAddable.length" class="member-search-list" data-member-search-list>
+          <button
+            v-for="u in filteredAddable"
+            :key="u.id"
+            type="button"
+            class="member-search-item"
+            :class="{ active: addingMemberId === u.id }"
+            @mousedown.prevent="pickMember(u)"
+          >{{ u.username }}</button>
+        </div>
+        <div v-else-if="showMemberList && memberSearch.trim()" class="member-search-empty">Aucun membre trouvé</div>
+      </div>
       <button
         class="btn-action primary"
         :disabled="!addingMemberId || saving"
@@ -121,4 +159,10 @@ function confirmRemove(userId: number) {
 .members-add { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--color-gray-200); }
 .members-add .select-sm { padding: 4px 8px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; min-width: 200px; }
 .members-confirm-label { font-size: 12px; color: var(--color-gray-600); }
+.member-search-wrap { position: relative; min-width: 220px; }
+.member-search-input { width: 100%; box-sizing: border-box; }
+.member-search-list { position: absolute; top: 100%; left: 0; right: 0; z-index: 20; max-height: 210px; overflow-y: auto; background: var(--color-white); border: 1px solid var(--color-gray-300); border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); margin-top: 2px; }
+.member-search-item { display: block; width: 100%; text-align: left; padding: 6px 10px; font-size: 12px; background: none; border: none; cursor: pointer; color: var(--color-gray-700); }
+.member-search-item:hover, .member-search-item.active { background: #EFF6FF; color: var(--color-primary); }
+.member-search-empty { position: absolute; top: 100%; left: 0; right: 0; z-index: 20; background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: 4px; padding: 8px 10px; font-size: 12px; color: var(--color-gray-400); margin-top: 2px; }
 </style>

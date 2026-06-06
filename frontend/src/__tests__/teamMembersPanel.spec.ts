@@ -33,18 +33,34 @@ describe('TeamMembersPanel', () => {
     const wrapper = mount(TeamMembersPanel, {
       props: { members: MEMBERS, addableUsers: ADDABLE, canManage: false },
     })
-    expect(wrapper.find('[data-member-add-select]').exists()).toBe(false)
+    expect(wrapper.find('[data-member-add-search]').exists()).toBe(false)
     expect(wrapper.find('[data-member-remove-start]').exists()).toBe(false)
   })
 
-  it('emits add with the selected user id', async () => {
+  it('recherche par nom puis émet add avec l’utilisateur choisi', async () => {
     const wrapper = mount(TeamMembersPanel, {
       props: { members: MEMBERS, addableUsers: ADDABLE, canManage: true },
     })
-    await wrapper.find('[data-member-add-select]').setValue('3')
+    const input = wrapper.find('[data-member-add-search]')
+    await input.setValue('cdupont') // filtre la liste par nom
+    const items = wrapper.findAll('[data-member-search-list] button')
+    expect(items).toHaveLength(1) // seul cdupont correspond
+    await items[0]!.trigger('mousedown')
     await wrapper.find('[data-member-add-confirm]').trigger('click')
     expect(wrapper.emitted('add')).toBeTruthy()
     expect(wrapper.emitted('add')![0]).toEqual([3])
+  })
+
+  it('filtre la liste à mesure de la frappe (recherche par nom)', async () => {
+    const wrapper = mount(TeamMembersPanel, {
+      props: { members: MEMBERS, addableUsers: ADDABLE, canManage: true },
+    })
+    const input = wrapper.find('[data-member-add-search]')
+    await input.trigger('focus')
+    expect(wrapper.findAll('[data-member-search-list] button')).toHaveLength(2) // tous
+    await input.setValue('ela')
+    expect(wrapper.findAll('[data-member-search-list] button')).toHaveLength(1) // elavoie
+    expect(wrapper.find('[data-member-search-list]').text()).toContain('elavoie')
   })
 
   it('disables the add button when no user is selected', () => {
