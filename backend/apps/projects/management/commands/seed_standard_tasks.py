@@ -39,7 +39,11 @@ CATALOG = {
         ("Estimation classe C", F),
     ],
     "3": [
-        ("Plans architecturaux détaillés", F),
+        ("Plans architecturaux détaillés", F, [
+            ("Plans d'étage", F),
+            ("Coupes et élévations", F),
+            ("Détails de construction", F),
+        ]),
         ("Plans structure et fondations", F),
         ("Plans et devis MEP", F),
         ("Devis quantitatif", F),
@@ -51,7 +55,10 @@ CATALOG = {
         ("Recommandation d'attribution", F),
     ],
     "5": [
-        ("Surveillance de chantier", H),
+        ("Surveillance de chantier", H, [
+            ("Visites de chantier", H),
+            ("Rapports de surveillance", H),
+        ]),
         ("Réunions de chantier", H),
         ("Inspection et réception", H),
     ],
@@ -96,9 +103,12 @@ class Command(BaseCommand):
                 phase = phases.get(code)
                 if not phase:
                     continue
-                for order, (name, billing) in enumerate(tasks):
-                    _, created = StandardTask.objects.update_or_create(
+                for order, entry in enumerate(tasks):
+                    name, billing = entry[0], entry[1]
+                    subs = entry[2] if len(entry) > 2 else []
+                    task_obj, created = StandardTask.objects.update_or_create(
                         standard_phase=phase,
+                        parent=None,
                         name=name,
                         defaults={
                             "tenant": tenant,
@@ -109,6 +119,20 @@ class Command(BaseCommand):
                     )
                     created_here += int(created)
                     total += 1
+                    for sorder, (sname, sbilling) in enumerate(subs):
+                        _, screated = StandardTask.objects.update_or_create(
+                            standard_phase=phase,
+                            parent=task_obj,
+                            name=sname,
+                            defaults={
+                                "tenant": tenant,
+                                "billing_mode": sbilling,
+                                "order": sorder,
+                                "is_active": True,
+                            },
+                        )
+                        created_here += int(screated)
+                        total += 1
             self.stdout.write(
                 self.style.SUCCESS(
                     f"  ✓ {tenant.name}: catalogue traité ({created_here} tâches créées)"

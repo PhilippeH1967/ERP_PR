@@ -335,41 +335,71 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"], url_path="task_suggestions")
     def task_suggestions(self, request, pk=None):
-        """Tâches standard proposées par phase pour démarrer un projet vide.
+        """Tâches standard proposées par phase, pour démarrer OU compléter.
 
-        Pour chaque phase du projet, renvoie les StandardTask actives de la phase
-        standard de même code. Le frontend ne propose ce démarrage que si le
-        projet n'a encore aucune tâche (``has_tasks=False``).
+        - ``?phase=<id>`` : limite à une phase du projet.
+        - Exclut, par phase, les tâches standard dont le nom existe **déjà**
+          dans la phase (pas de doublon).
+        - Inclut les **sous-tâches** standard de chaque tâche proposée.
+        - ``has_tasks`` (projet) sert au picker de démarrage à l'état vide.
         """
         project = self.get_object()
-        by_code = {}
+        phase_filter = request.query_params.get("phase")
+
+        # Tâches standard racines (parent=None) actives, indexées par code phase.
+        roots_by_code: dict[str, list] = {}
         for st in (
             StandardTask.objects.filter(
                 standard_phase__tenant=project.tenant,
+                parent__isnull=True,
                 is_active=True,
                 standard_phase__is_active=True,
             )
             .select_related("standard_phase")
+            .prefetch_related("subtasks")
             .order_by("standard_phase__order", "order", "name")
         ):
-            by_code.setdefault(st.standard_phase.code, []).append(st)
+            roots_by_code.setdefault(st.standard_phase.code, []).append(st)
+
+        phases_qs = project.phases.order_by("order", "name")
+        if phase_filter:
+            phases_qs = phases_qs.filter(pk=phase_filter)
+
         groups = []
-        for phase in project.phases.order_by("order", "name"):
-            tasks = by_code.get(phase.code, [])
+        for phase in phases_qs:
+            roots = roots_by_code.get(phase.code, [])
+            if not roots:
+                continue
+            # Dédup : noms déjà présents dans la phase (insensible à la casse).
+            existing = {n.strip().lower() for n in phase.tasks.values_list("name", flat=True)}
+            tasks = []
+            for st in roots:
+                if st.name.strip().lower() in existing:
+                    continue
+                subs = sorted(
+                    (s for s in st.subtasks.all() if s.is_active),
+                    key=lambda s: (s.order, s.name),
+                )
+                tasks.append({
+                    "name": st.name,
+                    "client_facing_label": st.client_facing_label,
+                    "billing_mode": st.billing_mode,
+                    "subtasks": [
+                        {
+                            "name": s.name,
+                            "client_facing_label": s.client_facing_label,
+                            "billing_mode": s.billing_mode,
+                        }
+                        for s in subs
+                    ],
+                })
             if not tasks:
                 continue
             groups.append({
                 "phase_id": phase.id,
                 "phase_code": phase.code,
                 "phase_name": phase.name,
-                "tasks": [
-                    {
-                        "name": t.name,
-                        "client_facing_label": t.client_facing_label,
-                        "billing_mode": t.billing_mode,
-                    }
-                    for t in tasks
-                ],
+                "tasks": tasks,
             })
         return Response({"has_tasks": project.tasks.exists(), "groups": groups})
 

@@ -67,6 +67,14 @@ const sections: AdminSection[] = [
     ready: true,
   },
   {
+    key: 'standard-tasks',
+    title: 'Tâches standard',
+    desc: 'Catalogue de tâches et sous-tâches par phase, proposé au démarrage d\'un projet',
+    icon: '🧩',
+    route: '/admin/standard-tasks',
+    ready: true,
+  },
+  {
     key: 'leave-types',
     title: 'Types de congés',
     desc: 'Vacances, maladie, personnel, parental — quotas et règles d\'accumulation',
