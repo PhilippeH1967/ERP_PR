@@ -103,16 +103,17 @@ describe('useTimesheetStore', () => {
     })
   })
 
-  it('saveCell calls createEntry for new cell', async () => {
+  it('saveCell calls createEntry par tâche (sans phase)', async () => {
     vi.mocked(apiClient.post).mockResolvedValue({ data: { data: makeEntry({ id: 99 }) } })
     const store = useTimesheetStore()
     store.entries = []
 
-    await store.saveCell(10, 20, '2026-03-16', '7.5')
+    // Saisie au niveau tâche : la phase n'est PAS envoyée (dérivée backend).
+    await store.saveCell(10, 20, '2026-03-16', '7.5', 50)
 
     expect(apiClient.post).toHaveBeenCalledWith('time_entries/', {
       project: 10,
-      phase: 20,
+      task: 50,
       date: '2026-03-16',
       hours: '7.5',
     })

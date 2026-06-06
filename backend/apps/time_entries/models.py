@@ -53,12 +53,22 @@ class TimeEntry(TenantScopedModel, VersionedModel):
     class Meta:
         db_table = "time_entries_entry"
         constraints = [
+            # Unicité au niveau TÂCHE (l'unité de saisie). Contrainte partielle :
+            # ne s'applique qu'aux entrées rattachées à une tâche.
             models.UniqueConstraint(
-                fields=["employee", "project", "phase", "date"],
-                name="uq_time_entry_employee_project_phase_date",
+                fields=["employee", "project", "task", "date"],
+                condition=models.Q(task__isnull=False),
+                name="uq_time_entry_employee_project_task_date",
             ),
         ]
         ordering = ["-date"]
+
+    def save(self, *args, **kwargs):
+        # La phase est dérivée de la tâche (champ déprécié, conservé pour les
+        # rapports/exports). La saisie se fait au niveau tâche.
+        if self.task_id:
+            self.phase_id = self.task.phase_id
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.employee} — {self.project} — {self.date} ({self.hours}h)"

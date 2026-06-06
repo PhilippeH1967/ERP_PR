@@ -7,7 +7,7 @@ from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 
 from apps.core.models import Tenant
-from apps.projects.models import Phase, Project
+from apps.projects.models import Phase, Project, Task
 from apps.time_entries.models import TimeEntry, WeeklyApproval
 
 
@@ -21,24 +21,28 @@ class TestTimeEntryValidation:
         self.phase = Phase.objects.create(
             tenant=self.tenant, project=self.project, name="Ph"
         )
+        self.task = Task.objects.create(
+            tenant=self.tenant, project=self.project, phase=self.phase,
+            wbs_code="1.1", name="Tâche",
+        )
         self.user = User.objects.create_user(username="val_user", password="pass123!")
         self.api = APIClient()
         self.api.force_authenticate(user=self.user)
 
     def test_duplicate_entry_rejected(self):
-        """Same employee+project+phase+date cannot have two entries."""
+        """Same employee+project+task+date cannot have two entries."""
         from django.db import IntegrityError as DjangoIntegrityError
 
         TimeEntry.objects.create(
             tenant=self.tenant, employee=self.user,
-            project=self.project, phase=self.phase,
+            project=self.project, task=self.task,
             date=date(2026, 3, 16), hours=7,
         )
         # DB unique constraint prevents duplicate — raises IntegrityError
         with pytest.raises(DjangoIntegrityError):
             TimeEntry.objects.create(
                 tenant=self.tenant, employee=self.user,
-                project=self.project, phase=self.phase,
+                project=self.project, task=self.task,
                 date=date(2026, 3, 16), hours=8,
             )
 

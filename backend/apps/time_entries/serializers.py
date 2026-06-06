@@ -69,6 +69,20 @@ class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
             raise serializers.ValidationError("Les heures ne peuvent pas depasser 24h sur une journee.")
         return value
 
+    def validate(self, attrs):
+        """La saisie se fait sur une tâche **saisissable** (feuille).
+
+        On refuse une tâche-mère (regroupement de sous-tâches) : il faut
+        choisir une de ses sous-tâches.
+        """
+        task = attrs.get("task") or getattr(self.instance, "task", None)
+        if task is not None and task.subtasks.exists():
+            raise serializers.ValidationError({
+                "task": "Saisie impossible sur une tâche-mère (regroupement) — "
+                        "choisir une sous-tâche.",
+            })
+        return attrs
+
 
 class WeeklyApprovalSerializer(serializers.ModelSerializer):
     employee_name = serializers.SerializerMethodField()
