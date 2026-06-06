@@ -1293,23 +1293,29 @@ watch(activeTab, (tab) => {
 
         <!-- Phases summary table (E-27) -->
         <div v-if="store.currentProject.phases?.length" style="margin-top: 12px;">
+          <p class="phase-form-hint" style="margin:0 0 6px;">Heures et budget = <strong>somme des tâches</strong> de chaque phase.</p>
           <table class="data-table">
             <thead>
               <tr>
                 <th>Phase</th>
-                <th style="width:120px;">Type</th>
-                <th style="width:100px;">Mode</th>
-                <th class="text-right" style="width:100px;">Heures</th>
+                <th style="width:110px;">Type</th>
+                <th class="text-right" style="width:90px;">H. budget</th>
+                <th class="text-right" style="width:90px;">H. planifiées</th>
+                <th class="text-right" style="width:90px;">H. réelles</th>
                 <th class="text-right" style="width:120px;">Budget ($)</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="phase in (store.currentProject.phases || []).filter(Boolean)" :key="phase.id">
-                <td class="font-semibold">{{ phase.name }}</td>
+                <td class="font-semibold">
+                  {{ phase.name }}
+                  <span v-if="!phase.has_tasks" class="badge badge-gray" style="font-size:9px; margin-left:6px;">Sans tâche</span>
+                </td>
                 <td><span class="badge badge-gray">{{ phase.phase_type === 'SUPPORT' ? 'Support' : 'Réalisation' }}</span></td>
-                <td><span class="badge" :class="phase.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ phase.billing_mode }}</span></td>
-                <td class="text-right font-mono">{{ fmt.hours(phase.budgeted_hours) }}</td>
-                <td class="text-right font-mono">{{ formatAmount(phase.budgeted_cost) }}</td>
+                <td class="text-right font-mono">{{ phase.has_tasks ? (phase.tasks_budgeted_hours || 0).toFixed(1) : '—' }}</td>
+                <td class="text-right font-mono" :class="{ 'text-primary': (phase.planned_hours || 0) > 0 }">{{ phase.has_tasks ? (phase.planned_hours || 0).toFixed(1) : '—' }}</td>
+                <td class="text-right font-mono" :class="{ 'font-semibold': (phase.actual_hours || 0) > 0 }">{{ phase.has_tasks ? (phase.actual_hours || 0).toFixed(1) : '—' }}</td>
+                <td class="text-right font-mono">{{ phase.has_tasks ? formatAmount(phase.tasks_budgeted_cost || 0) + ' $' : '—' }}</td>
               </tr>
             </tbody>
           </table>
