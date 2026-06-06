@@ -12,6 +12,7 @@ import GanttChart from '@/features/planning/components/GanttChart.vue'
 import AmendmentSlideOver from '../components/AmendmentSlideOver.vue'
 import ProjectCloseModal from '../components/ProjectCloseModal.vue'
 import TaskEditModal from '../components/TaskEditModal.vue'
+import TaskTemplatePicker from '../components/TaskTemplatePicker.vue'
 import TeamMembersPanel from '../components/TeamMembersPanel.vue'
 import TabGroup from '@/shared/components/TabGroup.vue'
 import { planningApi } from '@/features/planning/api/planningApi'
@@ -575,6 +576,13 @@ async function saveTaskField(taskId: number, field: string, value: unknown) {
   } catch (e: unknown) {
     actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
   }
+}
+
+// Après création des tâches depuis le modèle (picker à l'état vide) : recharger
+// les tâches + les agrégats de phase. Le picker disparaît (tasks.length > 0).
+async function onTemplateTasksCreated() {
+  await loadTasks()
+  await store.fetchProject(projectId)
 }
 
 async function addTask(phaseId: number | null) {
@@ -1471,6 +1479,8 @@ watch(activeTab, (tab) => {
 
     <!-- ═══ Tâches ═══ -->
     <template v-if="activeTab === 'tasks'">
+      <!-- Démarrage depuis un modèle : uniquement si le projet n'a aucune tâche -->
+      <TaskTemplatePicker v-if="!tasks.length" :project-id="projectId" @created="onTemplateTasksCreated" />
       <!-- Alertes budget + planification -->
       <div v-if="taskBudgetTotal <= 0 && tasks.length > 0" class="phase-alert alert-orange">
         &#9888;&#65039; <strong>Aucun budget sur les taches</strong> — definissez les heures et couts budgetes pour chaque tache.

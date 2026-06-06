@@ -15,6 +15,7 @@ from .models import (
     Project,
     ProjectTemplate,
     StandardPhase,
+    StandardTask,
     Task,
 )
 from .serializers import (
@@ -24,6 +25,7 @@ from .serializers import (
     ProjectSerializer,
     ProjectTemplateSerializer,
     StandardPhaseSerializer,
+    StandardTaskSerializer,
     TaskSerializer,
 )
 from .services import (
@@ -331,6 +333,46 @@ class ProjectViewSet(viewsets.ModelViewSet):
             }
         )
 
+    @action(detail=True, methods=["get"], url_path="task_suggestions")
+    def task_suggestions(self, request, pk=None):
+        """Tâches standard proposées par phase pour démarrer un projet vide.
+
+        Pour chaque phase du projet, renvoie les StandardTask actives de la phase
+        standard de même code. Le frontend ne propose ce démarrage que si le
+        projet n'a encore aucune tâche (``has_tasks=False``).
+        """
+        project = self.get_object()
+        by_code = {}
+        for st in (
+            StandardTask.objects.filter(
+                standard_phase__tenant=project.tenant,
+                is_active=True,
+                standard_phase__is_active=True,
+            )
+            .select_related("standard_phase")
+            .order_by("standard_phase__order", "order", "name")
+        ):
+            by_code.setdefault(st.standard_phase.code, []).append(st)
+        groups = []
+        for phase in project.phases.order_by("order", "name"):
+            tasks = by_code.get(phase.code, [])
+            if not tasks:
+                continue
+            groups.append({
+                "phase_id": phase.id,
+                "phase_code": phase.code,
+                "phase_name": phase.name,
+                "tasks": [
+                    {
+                        "name": t.name,
+                        "client_facing_label": t.client_facing_label,
+                        "billing_mode": t.billing_mode,
+                    }
+                    for t in tasks
+                ],
+            })
+        return Response({"has_tasks": project.tasks.exists(), "groups": groups})
+
     @action(detail=True, methods=["get"], url_path="team_stats")
     def team_stats(self, request, pk=None):
         """Team statistics: monthly hours per employee + budget health per phase."""
@@ -593,6 +635,33 @@ class StandardPhaseViewSet(viewsets.ModelViewSet):
         tenant_id = getattr(self.request, "tenant_id", None)
         tenant = Tenant.objects.get(pk=tenant_id) if tenant_id else Tenant.objects.first()
         serializer.save(tenant=tenant)
+
+
+class StandardTaskViewSet(viewsets.ModelViewSet):
+    """Catalogue de tâches standard par phase (paramétrage du cabinet).
+
+    Lecture : tout utilisateur authentifié. Écriture : administrateurs
+    uniquement — sert de modèle pour démarrer un projet vide.
+    """
+
+    serializer_class = StandardTaskSerializer
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ["standard_phase", "is_active"]
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [IsAuthenticated()]
+        return [IsAdmin()]
+
+    def get_queryset(self):
+        qs = StandardTask.objects.select_related("standard_phase")
+        if hasattr(self.request, "tenant_id") and self.request.tenant_id:
+            qs = qs.filter(standard_phase__tenant_id=self.request.tenant_id)
+        return qs
+
+    def perform_create(self, serializer):
+        # Le tenant dérive de la phase standard rattachée.
+        serializer.save(tenant=serializer.validated_data["standard_phase"].tenant)
 
 
 class AmendmentViewSet(viewsets.ModelViewSet):

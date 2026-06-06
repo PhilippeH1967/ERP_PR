@@ -41,6 +41,7 @@ export const projectApi = {
 
   // Tasks
   listTasks: (projectId: number) => apiClient.get(`${BASE}/${projectId}/tasks/`),
+  taskSuggestions: (projectId: number) => apiClient.get(`${BASE}/${projectId}/task_suggestions/`),
   createTask: (projectId: number, data: Record<string, unknown>) =>
     apiClient.post(`${BASE}/${projectId}/tasks/`, { project: projectId, ...data }),
   updateTask: (projectId: number, taskId: number, data: Record<string, unknown>) => apiClient.patch(`${BASE}/${projectId}/tasks/${taskId}/`, data),
