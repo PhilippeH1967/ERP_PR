@@ -523,3 +523,38 @@ class StandardPhase(TenantScopedModel):
 
     def __str__(self):
         return f"{self.code} — {self.name}"
+
+
+class StandardTask(TenantScopedModel):
+    """Tâche **standard** du cabinet rattachée à une phase standard — paramétrage
+    global (admin). Sert de catalogue pour démarrer un projet vide : tant qu'un
+    projet n'a aucune tâche, l'utilisateur peut instancier ces tâches par phase.
+    Modifiable uniquement par un administrateur.
+    """
+
+    standard_phase = models.ForeignKey(
+        StandardPhase, on_delete=models.CASCADE, related_name="standard_tasks"
+    )
+    name = models.CharField(max_length=255, verbose_name="Nom interne")
+    client_facing_label = models.CharField(max_length=255, blank=True, default="")
+    billing_mode = models.CharField(
+        max_length=10, choices=BillingMode.choices, default=BillingMode.FORFAIT
+    )
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Si False, la tâche n'est plus proposée au démarrage d'un projet.",
+    )
+
+    class Meta:
+        db_table = "projects_standard_task"
+        ordering = ["standard_phase__order", "order", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["standard_phase", "name"],
+                name="uq_standard_task_phase_name",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.standard_phase.code} · {self.name}"

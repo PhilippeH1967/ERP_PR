@@ -9,6 +9,7 @@ from .views import (
     ProjectTemplateViewSet,
     ProjectViewSet,
     StandardPhaseViewSet,
+    StandardTaskViewSet,
     TaskViewSet,
 )
 
@@ -16,6 +17,7 @@ router = DefaultRouter()
 router.register(r"projects", ProjectViewSet, basename="project")
 router.register(r"project_templates", ProjectTemplateViewSet, basename="project-template")
 router.register(r"standard_phases", StandardPhaseViewSet, basename="standard-phase")
+router.register(r"standard_tasks", StandardTaskViewSet, basename="standard-task")
 
 # Nested routes
 phase_router = DefaultRouter()

@@ -8,6 +8,7 @@ from .models import (
     Project,
     ProjectTemplate,
     StandardPhase,
+    StandardTask,
     SupportService,
 )
 
@@ -66,3 +67,11 @@ class StandardPhaseAdmin(admin.ModelAdmin):
     list_filter = ("phase_type", "is_mandatory", "is_active", "tenant")
     search_fields = ("code", "name", "client_facing_label")
     ordering = ("tenant", "order")
+
+
+@admin.register(StandardTask)
+class StandardTaskAdmin(admin.ModelAdmin):
+    list_display = ("standard_phase", "order", "name", "billing_mode", "is_active")
+    list_filter = ("billing_mode", "is_active", "standard_phase")
+    search_fields = ("name", "client_facing_label", "standard_phase__name")
+    ordering = ("standard_phase", "order")
