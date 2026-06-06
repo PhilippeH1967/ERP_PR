@@ -23,6 +23,14 @@ DATABASES = {
     }
 }
 
+# Cache en mémoire : les tests ne doivent pas dépendre d'un Redis externe
+# (sinon le health-check renvoie 503 en CI sans service Redis).
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}
+
 # Disable Celery in tests
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
