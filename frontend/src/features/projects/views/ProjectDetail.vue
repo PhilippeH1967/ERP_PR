@@ -274,6 +274,38 @@ async function loadProjectVirtuals() {
   }
 }
 
+// Création directe d'un profil virtuel (sans avenant).
+const showVirtualForm = ref(false)
+const newVirtualName = ref('')
+const newVirtualRate = ref('0')
+const creatingVirtual = ref(false)
+const virtualError = ref('')
+
+async function createVirtual() {
+  virtualError.value = ''
+  if (!newVirtualName.value.trim()) {
+    virtualError.value = 'Le nom du profil est obligatoire.'
+    return
+  }
+  creatingVirtual.value = true
+  try {
+    await planningApi.createVirtualResource({
+      project: projectId,
+      name: newVirtualName.value.trim(),
+      default_hourly_rate: Number(newVirtualRate.value) || 0,
+    })
+    newVirtualName.value = ''
+    newVirtualRate.value = '0'
+    showVirtualForm.value = false
+    await loadProjectVirtuals()
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+    virtualError.value = msg || 'Erreur lors de la création du profil virtuel.'
+  } finally {
+    creatingVirtual.value = false
+  }
+}
+
 function startReplaceVirtual(virtualId: number) {
   replacingVirtualId.value = virtualId
   replaceEmployeeId.value = null
@@ -1714,12 +1746,25 @@ watch(activeTab, (tab) => {
           <span class="virtuals-title">Profils virtuels</span>
           <span v-if="activeVirtuals.length" class="virtuals-count">{{ activeVirtuals.length }} actif{{ activeVirtuals.length > 1 ? 's' : '' }}</span>
           <span v-if="replacedVirtuals.length" class="virtuals-count virtuals-count-muted">{{ replacedVirtuals.length }} remplacé{{ replacedVirtuals.length > 1 ? 's' : '' }}</span>
+          <button v-if="canEditBudget && !showVirtualForm" class="btn-action primary" style="margin-left:auto;" data-virtual-add @click="showVirtualForm = true; virtualError = ''">+ Profil virtuel</button>
+        </div>
+
+        <!-- Création directe d'un profil virtuel (sans avenant) -->
+        <div v-if="showVirtualForm && canEditBudget" class="virtual-create-form" data-virtual-form>
+          <input v-model="newVirtualName" class="inline-input" placeholder="Nom du profil (ex. Architecte senior)" data-virtual-name @keydown.enter="createVirtual" />
+          <input v-model="newVirtualRate" class="inline-input" type="number" min="0" step="0.01" placeholder="Taux $/h" style="max-width:120px;" data-virtual-rate />
+          <button class="btn-action primary" :disabled="creatingVirtual || !newVirtualName.trim()" data-virtual-confirm @click="createVirtual">{{ creatingVirtual ? '…' : 'Créer' }}</button>
+          <button class="btn-action" :disabled="creatingVirtual" @click="showVirtualForm = false">Annuler</button>
+          <div v-if="virtualError" class="virtual-error" data-virtual-error>{{ virtualError }}</div>
         </div>
 
         <!-- Empty state -->
-        <div v-if="!projectVirtuals.length" class="virtuals-empty" data-virtuals-empty>
+        <div v-if="!projectVirtuals.length && !showVirtualForm" class="virtuals-empty" data-virtuals-empty>
           Aucun profil virtuel pour ce projet.<br>
-          <span class="virtuals-empty-hint">Créez-en un via un avenant (section « Répartition par personne » → <em>+ Nouveau profil virtuel</em>).</span>
+          <span class="virtuals-empty-hint">
+            <template v-if="canEditBudget">Cliquez « + Profil virtuel » pour en ajouter un directement (sans avenant).</template>
+            <template v-else>Un PM, un associé ou la finance peut en ajouter.</template>
+          </span>
         </div>
 
         <!-- Actifs -->
