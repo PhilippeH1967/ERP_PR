@@ -107,6 +107,51 @@ class TestProjectList:
 
 
 @pytest.mark.django_db
+class TestInternalProjectVisibility:
+    """Le projet interne (is_internal, ex. « Interne » hébergeant Congés/
+    Formation/Maladie) n'est visible que par les ADMIN — pas par les PM,
+    associés, finance, employés. Les tâches obligatoires restent saisissables
+    via l'endpoint dédié (mandatory_tasks)."""
+
+    def _make_internal(self, tenant):
+        from apps.projects.models import Project
+
+        return Project.objects.create(
+            tenant=tenant, code="INT-01", name="Interne",
+            is_internal=True, status="ACTIVE",
+        )
+
+    def test_internal_hidden_from_pm_list_but_visible_to_admin(
+        self, pm_client, admin_client, tenant
+    ):
+        self._make_internal(tenant)
+        ProjectFactory(tenant=tenant, code="PRJ-CLIENT", name="Client")
+
+        pm_codes = {r["code"] for r in pm_client.get("/api/v1/projects/").json()["data"]}
+        assert "INT-01" not in pm_codes
+        assert "PRJ-CLIENT" in pm_codes  # les projets clients restent visibles
+
+        admin_codes = {
+            r["code"] for r in admin_client.get("/api/v1/projects/").json()["data"]
+        }
+        assert "INT-01" in admin_codes
+
+    def test_internal_detail_404_for_pm_200_for_admin(
+        self, pm_client, admin_client, tenant
+    ):
+        internal = self._make_internal(tenant)
+        assert pm_client.get(f"/api/v1/projects/{internal.id}/").status_code == 404
+        assert admin_client.get(f"/api/v1/projects/{internal.id}/").status_code == 200
+
+    def test_internal_hidden_from_employee_list(self, employee_client, tenant):
+        self._make_internal(tenant)
+        codes = {
+            r["code"] for r in employee_client.get("/api/v1/projects/").json()["data"]
+        }
+        assert "INT-01" not in codes
+
+
+@pytest.mark.django_db
 class TestProjectTeamMembers:
     """Team membership (M2M) — lets an employee log time on a project even
     without a ResourceAllocation (planification), as long as they were

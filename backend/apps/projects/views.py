@@ -107,6 +107,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         user_roles = set(
             ProjectRole.objects.filter(user=self.request.user).values_list("role", flat=True)
         )
+        # Projets internes (ex. « Interne » : absences / temps interne) : visibles
+        # uniquement par les ADMIN. Les tâches obligatoires (Congés/Formation/
+        # Maladie) restent saisissables via l'endpoint mandatory_tasks.
+        if Role.ADMIN not in user_roles:
+            qs = qs.exclude(is_internal=True)
         privileged = {
             Role.ADMIN,
             Role.FINANCE,
