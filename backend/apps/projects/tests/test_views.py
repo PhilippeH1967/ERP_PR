@@ -505,7 +505,11 @@ class TestCreateFromTemplateAction:
         )
         assert response.status_code == 201, response.data
         project = Project.objects.get(code="FT-1")
-        assert project.phases.count() == 2
+        # 2 phases du template + 1 phase SUPPORT pour le service transversal BIM
+        # (support_services_config par défaut du ProjectTemplateFactory).
+        assert project.phases.count() == 3
+        support = project.phases.get(phase_type=Phase.PhaseType.SUPPORT, code="BIM")
+        assert support.tasks.filter(parent__isnull=True).count() == 1
 
     def test_missing_template_id_returns_400(self, admin_client):
         response = admin_client.post(

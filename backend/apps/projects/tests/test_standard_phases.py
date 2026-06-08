@@ -90,10 +90,13 @@ class TestProjectCreationInstantiatesStandardPhases:
         # La phase obligatoire conserve son flag.
         assert project.phases.filter(code="G", is_mandatory=True).exists()
 
-    def test_plain_create_instantiates_support_services_from_transversaux(
+    def test_plain_create_instantiates_support_phases_from_transversaux(
         self, admin_client, tenant
     ):
-        from apps.projects.models import Project
+        """Chaque service transversal sélectionné au wizard devient une **phase
+        SUPPORT** (regroupement) contenant **une tâche feuille imputable** du
+        même nom — pas un ``SupportService`` non imputable."""
+        from apps.projects.models import Phase, Project, Task
 
         resp = admin_client.post(
             "/api/v1/projects/",
@@ -106,9 +109,18 @@ class TestProjectCreationInstantiatesStandardPhases:
         assert resp.status_code == 201
         pid = resp.json().get("data", resp.json())["id"]
         project = Project.objects.get(pk=pid)
-        codes = set(project.support_services.values_list("code", flat=True))
+
+        support_phases = project.phases.filter(phase_type=Phase.PhaseType.SUPPORT)
+        codes = set(support_phases.values_list("code", flat=True))
         assert {"BIM", "DD"}.issubset(codes)
+        bim = support_phases.get(code="BIM")
         # Nom lisible (label), pas seulement le code.
-        assert "BIM" in project.support_services.get(code="BIM").name
-        # Idempotent : pas de doublon de code.
-        assert project.support_services.filter(code="BIM").count() == 1
+        assert "BIM" in bim.name
+        # La phase porte une tâche feuille imputable (sans enfant).
+        bim_task = Task.objects.get(project=project, phase=bim)
+        assert bim_task.parent is None
+        assert "BIM" in bim_task.name
+        # Idempotent : pas de doublon de phase de service.
+        assert support_phases.filter(code="BIM").count() == 1
+        # Aucun SupportService (modèle déprécié) n'est créé.
+        assert project.support_services.count() == 0
