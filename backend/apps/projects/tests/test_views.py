@@ -720,6 +720,49 @@ class TestTaskViewSet:
         assert response.status_code == 201
         assert Task.objects.filter(wbs_code="7.42").exists()
 
+    def test_create_subtask_autogenerates_nested_three_level_wbs(
+        self, admin_client, project, phase
+    ):
+        """Une sous-tâche (``parent`` renseigné, sans ``wbs_code``) reçoit un WBS
+        à 3 niveaux ``{wbs_parent}.{séquence}`` — pas ``{code_phase}.{n}`` (bug
+        du picker de tâches standard au wizard)."""
+        parent = TaskFactory(
+            project=project, phase=phase, tenant=project.tenant, wbs_code="1.1"
+        )
+        sub_a = admin_client.post(
+            f"/api/v1/projects/{project.pk}/tasks/",
+            {
+                "project": project.pk, "phase": phase.pk, "parent": parent.pk,
+                "task_type": "SUBTASK", "name": "Sous A", "wbs_code": "",
+            },
+            format="json",
+        )
+        assert sub_a.status_code == 201, sub_a.data
+        assert Task.objects.get(project=project, name="Sous A").wbs_code == "1.1.1"
+
+        sub_b = admin_client.post(
+            f"/api/v1/projects/{project.pk}/tasks/",
+            {
+                "project": project.pk, "phase": phase.pk, "parent": parent.pk,
+                "task_type": "SUBTASK", "name": "Sous B", "wbs_code": "",
+            },
+            format="json",
+        )
+        assert sub_b.status_code == 201, sub_b.data
+        assert Task.objects.get(project=project, name="Sous B").wbs_code == "1.1.2"
+
+    def test_create_root_task_keeps_two_level_wbs(self, admin_client, project, phase):
+        """Régression : une tâche racine (sans ``parent``) garde ``{code_phase}.{n}``."""
+        resp = admin_client.post(
+            f"/api/v1/projects/{project.pk}/tasks/",
+            {"project": project.pk, "phase": phase.pk, "name": "Racine", "wbs_code": ""},
+            format="json",
+        )
+        assert resp.status_code == 201, resp.data
+        code = Task.objects.get(project=project, name="Racine").wbs_code
+        assert code.startswith(f"{phase.code}.")
+        assert code.count(".") == 1
+
     def test_update_task(self, admin_client, project, phase):
         task = TaskFactory(project=project, phase=phase, tenant=project.tenant, wbs_code="11.1")
         response = admin_client.patch(
