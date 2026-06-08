@@ -14,9 +14,112 @@ from apps.projects.models import (
     SupportService,
     Task,
 )
-from apps.projects.services import create_project_from_template
+from apps.projects.services import (
+    create_project_from_template,
+    instantiate_support_services,
+)
 
-from .conftest import ProjectTemplateFactory, UserFactory
+from .conftest import ProjectFactory, ProjectTemplateFactory, UserFactory
+
+
+@pytest.mark.django_db
+class TestInstantiateSupportServices:
+    """Les services transversaux deviennent des phases SUPPORT imputables."""
+
+    def test_creates_support_phase_with_one_leaf_task_per_service(self, tenant):
+        project = ProjectFactory(
+            tenant=tenant, code="SVC-A", services_transversaux=["BIM", "DD"]
+        )
+        created = instantiate_support_services(project)
+
+        assert len(created) == 2
+        assert all(p.phase_type == Phase.PhaseType.SUPPORT for p in created)
+        for phase in created:
+            tasks = Task.objects.filter(phase=phase)
+            assert tasks.count() == 1  # une tâche feuille…
+            assert tasks.first().parent is None  # …imputable (sans enfant)
+        # Aucun SupportService (modèle déprécié).
+        assert SupportService.objects.filter(project=project).count() == 0
+
+    def test_idempotent_by_service_code(self, tenant):
+        project = ProjectFactory(
+            tenant=tenant, code="SVC-B", services_transversaux=["BIM"]
+        )
+        instantiate_support_services(project)
+        instantiate_support_services(project)  # re-run
+
+        assert (
+            project.phases.filter(
+                phase_type=Phase.PhaseType.SUPPORT, code="BIM"
+            ).count()
+            == 1
+        )
+        assert Task.objects.filter(project=project).count() == 1
+
+    def test_support_phases_ordered_after_existing_phases(self, tenant):
+        project = ProjectFactory(
+            tenant=tenant, code="SVC-C", services_transversaux=["BIM"]
+        )
+        Phase.objects.create(
+            tenant=tenant, project=project, code="1", name="Concept", order=5
+        )
+        created = instantiate_support_services(project)
+        assert created[0].order > 5
+
+    def test_no_services_creates_nothing(self, tenant):
+        project = ProjectFactory(tenant=tenant, code="SVC-D", services_transversaux=[])
+        assert instantiate_support_services(project) == []
+        assert project.phases.count() == 0
+
+
+@pytest.mark.django_db
+class TestSupportServiceMigration:
+    """Migration 0016 : SupportService existant → phase SUPPORT + tâche feuille."""
+
+    def _mig(self):
+        from importlib import import_module
+
+        return import_module(
+            "apps.projects.migrations.0016_support_services_to_phases"
+        )
+
+    def test_forward_converts_to_support_phase_with_leaf_task(self, tenant):
+        from django.apps import apps as django_apps
+
+        project = ProjectFactory(tenant=tenant, code="MIG-1")
+        SupportService.objects.create(
+            tenant=tenant,
+            project=project,
+            code="BIM",
+            name="BIM / Modélisation",
+            budgeted_hours=12,
+        )
+        self._mig().support_services_to_phases(django_apps, None)
+
+        assert SupportService.objects.filter(project=project).count() == 0
+        phase = project.phases.get(phase_type=Phase.PhaseType.SUPPORT, code="BIM")
+        task = Task.objects.get(phase=phase)
+        assert task.parent is None
+        assert task.budgeted_hours == Decimal("12")
+
+    def test_reverse_restores_support_service(self, tenant):
+        from django.apps import apps as django_apps
+
+        project = ProjectFactory(tenant=tenant, code="MIG-2")
+        SupportService.objects.create(
+            tenant=tenant, project=project, code="DD", name="Développement durable"
+        )
+        mig = self._mig()
+        mig.support_services_to_phases(django_apps, None)
+        mig.phases_to_support_services(django_apps, None)
+
+        assert (
+            project.phases.filter(
+                phase_type=Phase.PhaseType.SUPPORT, code="DD"
+            ).count()
+            == 0
+        )
+        assert SupportService.objects.filter(project=project, code="DD").count() == 1
 
 
 @pytest.mark.django_db
@@ -68,7 +171,9 @@ class TestCreateProjectFromTemplate:
         assert project.contract_type == "FORFAITAIRE"
 
         phases = list(project.phases.order_by("order"))
-        assert len(phases) == 2
+        # 2 phases du template (Concept, Gestion) + 1 phase SUPPORT par service
+        # transversal (BIM, DD) → 4 phases.
+        assert len(phases) == 4
         assert phases[0].name == "Concept"
         assert phases[0].is_mandatory is False
         assert phases[1].name == "Gestion"
@@ -83,8 +188,17 @@ class TestCreateProjectFromTemplate:
 
         assert phases[1].tasks.count() == 0
 
-        services = list(project.support_services.order_by("name"))
-        assert {s.name for s in services} == {"BIM", "DD"}
+        # Les services transversaux du template deviennent des phases SUPPORT
+        # imputables (1 tâche feuille chacune), pas des SupportService.
+        svc_phases = {
+            p.name: p
+            for p in phases
+            if p.phase_type == "SUPPORT" and p.name in ("BIM", "DD")
+        }
+        assert set(svc_phases) == {"BIM", "DD"}
+        for p in svc_phases.values():
+            assert p.tasks.filter(parent__isnull=True).count() == 1
+        assert project.support_services.count() == 0
 
     def test_raises_when_template_missing(self, tenant):
         with pytest.raises(ProjectTemplate.DoesNotExist):
@@ -250,6 +364,11 @@ class TestCreateProjectFromTemplate:
             tmpl.pk, {"code": "CNT", "name": "Counts"}, tenant_id=tenant.pk
         )
         assert Project.objects.count() == before_projects + 1
-        assert Phase.objects.filter(project=project).count() == 3
-        assert Task.objects.filter(project=project).count() == 3
-        assert SupportService.objects.filter(project=project).count() == 3
+        # 3 phases template + 3 phases SUPPORT (S1/S2/S3) ; idem côté tâches
+        # (3 tâches template + 1 tâche feuille par service).
+        assert Phase.objects.filter(project=project).count() == 6
+        assert Task.objects.filter(project=project).count() == 6
+        assert (
+            Phase.objects.filter(project=project, phase_type="SUPPORT").count() == 3
+        )
+        assert SupportService.objects.filter(project=project).count() == 0

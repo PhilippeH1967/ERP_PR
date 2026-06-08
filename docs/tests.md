@@ -24,7 +24,7 @@ docker compose exec django python -m pytest -v --tb=short
 | Module | Tests | Statut |
 |--------|-------|--------|
 | core (auth, tenant, RLS, permissions, sprints) | 282 | ✅ |
-| projects (WBS, phases/tâches standard, équipes, avenants, agrégats) | 266 | ✅ |
+| projects (WBS, phases/tâches standard, services transversaux, équipes, avenants, agrégats) | 272 | ✅ |
 | planning | 46 | ✅ |
 | time_entries | 41 | ✅ |
 | billing | 34 | ✅ |
@@ -34,7 +34,7 @@ docker compose exec django python -m pytest -v --tb=short
 | consortiums | 6 | ✅ |
 | expenses | 6 | ✅ |
 | data_ops | 6 | ✅ |
-| **Total** | **738** | **✅** |
+| **Total** | **744** | **✅** |
 
 > Les features récentes (catalogue `StandardTask` + `task_suggestions`, équipes `Team`
 > + `assign_team`, visibilité projet interne `is_internal`, `construction_cost`,

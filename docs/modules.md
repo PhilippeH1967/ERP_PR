@@ -5,6 +5,7 @@
 ### Projets
 - **WBS** : Phase → Tâche → Sous-tâche. La **phase** est un **regroupement standard** (paramétrage `StandardPhase`, admin) ; la **tâche/sous-tâche feuille** porte budget, dates, planif, facturation, temps ; phase et tâche-mère = **agrégats lecture seule**. Voir [changelog-structure-v1.2.md](changelog-structure-v1.2.md).
 - **Wizard** : Identification (dont services transversaux) → **Phases** (toutes les phases standard instanciées vides, sans saisie manuelle) → Ressources → Sous-traitants → Confirmation
+- **Services transversaux** (BIM, DD, Paysage…) : chaque service sélectionné devient une **phase de type SUPPORT** contenant **une tâche feuille imputable** du même nom (on impute du temps dessus). Remplace l'ancien `SupportService` non imputable (migration `projects 0016`).
 - **Démarrage des tâches** : sur une phase sans tâche (ou pour compléter une phase), l'utilisateur ajoute des **tâches/sous-tâches depuis le catalogue standard** (`StandardTask`) ; les tâches déjà présentes sont exclues (dédup).
 - **Coût de construction** : champ informatif `construction_cost` sur les **projets externes** (sert au calcul d'honoraires, masqué pour les projets internes).
 - **Paramétrage** (*Administration*) : *Phases standard* (`StandardPhase`, admin), *Tâches standard* (`StandardTask`, catalogue tâches/sous-tâches par phase, admin), *Équipes* (`Team`, groupes réutilisables, finance/paie/admin)

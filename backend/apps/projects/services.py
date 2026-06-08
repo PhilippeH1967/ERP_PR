@@ -1,6 +1,7 @@
 """Project business logic services."""
 
 from django.db import transaction
+from django.db.models import Max
 from django.utils import timezone
 
 from apps.core.models import ProjectRole, Role, Tenant
@@ -11,7 +12,6 @@ from .models import (
     Project,
     ProjectTemplate,
     StandardPhase,
-    SupportService,
     Task,
 )
 
@@ -130,26 +130,80 @@ SUPPORT_SERVICE_LABELS = {
 }
 
 
-def instantiate_support_services(project):
-    """Crée un ``SupportService`` par service transversal sélectionné au wizard
-    (``project.services_transversaux`` = liste de codes : BIM, DD, …). Idempotent
-    par code. Retourne la liste des services créés."""
-    existing = set(
-        SupportService.objects.filter(project=project).values_list("code", flat=True)
+def _unique_support_wbs(project, code):
+    """WBS code unique pour la tâche feuille d'une phase service : ``{code}.1``,
+    puis ``{code}.2``… en cas de collision improbable."""
+    base = code or "SVC"
+    n = 1
+    while Task.objects.filter(project=project, wbs_code=f"{base}.{n}").exists():
+        n += 1
+    return f"{base}.{n}"
+
+
+def create_support_phase(
+    project,
+    *,
+    code,
+    name,
+    order,
+    client_facing_label="",
+    budgeted_hours=0,
+    budgeted_cost=0,
+):
+    """Crée une **phase de type SUPPORT** (regroupement) + **une tâche feuille
+    imputable** du même nom. Le budget/facturation/saisie de temps vivent sur
+    la tâche, jamais sur la phase. Retourne la phase créée."""
+    phase = Phase.objects.create(
+        tenant=project.tenant,
+        project=project,
+        code=code,
+        name=name,
+        client_facing_label=client_facing_label,
+        phase_type=Phase.PhaseType.SUPPORT,
+        order=order,
     )
+    Task.objects.create(
+        tenant=project.tenant,
+        project=project,
+        phase=phase,
+        wbs_code=_unique_support_wbs(project, code),
+        name=name,
+        client_facing_label=client_facing_label,
+        budgeted_hours=budgeted_hours or 0,
+        budgeted_cost=budgeted_cost or 0,
+        order=0,
+    )
+    return phase
+
+
+def instantiate_support_services(project):
+    """Pour chaque service transversal sélectionné au wizard
+    (``project.services_transversaux`` = liste de codes : BIM, DD, …), crée une
+    **phase de type SUPPORT** nommée d'après le service, contenant **une tâche
+    feuille imputable** du même nom (donc imputable en feuille de temps, à la
+    différence du modèle déprécié ``SupportService``). Les phases sont placées
+    après les phases existantes. Idempotent par code de service. Retourne la
+    liste des phases support créées."""
+    existing_codes = set(
+        project.phases.filter(phase_type=Phase.PhaseType.SUPPORT).values_list(
+            "code", flat=True
+        )
+    )
+    next_order = project.phases.aggregate(m=Max("order")).get("m") or 0
     created = []
     for code in project.services_transversaux or []:
-        if not code or code in existing:
+        if not code or code in existing_codes:
             continue
+        next_order += 1
         created.append(
-            SupportService.objects.create(
-                tenant=project.tenant,
-                project=project,
+            create_support_phase(
+                project,
                 code=code,
                 name=SUPPORT_SERVICE_LABELS.get(code, code),
+                order=next_order,
             )
         )
-        existing.add(code)
+        existing_codes.add(code)
     return created
 
 
@@ -286,13 +340,23 @@ def create_project_from_template(template_id, project_data, tenant_id=None):
                     is_billable=task_config.get("is_billable", True),
                 )
 
-    # Create support services from template
-    for svc_config in template.support_services_config or []:
-        SupportService.objects.create(
-            tenant=tenant,
-            project=project,
-            name=svc_config.get("name", ""),
+    # Services de soutien du template → phases SUPPORT imputables (tâche feuille).
+    next_order = project.phases.aggregate(m=Max("order")).get("m") or 0
+    for i, svc_config in enumerate(template.support_services_config or []):
+        name = svc_config.get("name", "") or f"Service {i + 1}"
+        slug = "".join(c for c in name if c.isalnum()).upper()[:50]
+        code = svc_config.get("code") or slug or f"SVC{i + 1}"
+        if project.phases.filter(
+            phase_type=Phase.PhaseType.SUPPORT, code=code
+        ).exists():
+            continue
+        next_order += 1
+        create_support_phase(
+            project,
+            code=code,
+            name=name,
             client_facing_label=svc_config.get("client_label", ""),
+            order=next_order,
         )
 
     # + les services transversaux sélectionnés au wizard (BIM, DD, …)

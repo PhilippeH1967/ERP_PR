@@ -86,6 +86,11 @@ Les libellés standards restent visibles **en interne** pour le suivi et les mé
 - Au démarrage d'un projet, sur une **phase sans tâche** (ou pour compléter une phase existante), l'utilisateur **ajoute** des tâches/sous-tâches depuis ce catalogue (endpoint `task_suggestions`). Les tâches **déjà présentes sont exclues** (déduplication par nom) — le picker ne s'applique donc pas en doublon.
 - Le catalogue **propose** ; les tâches instanciées restent éditables/supprimables sur le projet (budget, dates… vivent sur la tâche, pas sur le standard).
 
+### Services transversaux = phases SUPPORT imputables
+- Les **services transversaux** (BIM, Développement durable, Paysage, Génie civil, Patrimoine, Design intérieur, Éclairage…) sélectionnés au wizard deviennent chacun une **phase de type SUPPORT** (`Phase.PhaseType.SUPPORT`), nommée d'après le service, contenant **une tâche feuille imputable** du même nom.
+- Conséquence : on **impute du temps** sur un service transversal (via sa tâche feuille), au même titre qu'une tâche de réalisation. Comme pour toute phase, **budget / facturation / saisie vivent sur la tâche**, jamais sur la phase support elle-même.
+- Le modèle `SupportService` (ancienne structure **parallèle non imputable**) est **déprécié** : les données existantes ont été converties en phases SUPPORT + tâches (migration `projects 0016`). Ne plus créer de `SupportService`.
+
 ### Agrégation (lecture seule, calculée)
 - **Phase** : `tasks_budgeted_hours/cost`, `planned_hours`, `actual_hours`, `tasks_start_date/end_date` = Σ / min-max des **tâches saisissables** de la phase.
 - **Tâche-mère** : `effective_budgeted_*`, `planned_hours`, `actual_hours` = Σ de ses **sous-tâches**.
@@ -177,5 +182,6 @@ Le **mode de facturation se définit au niveau de la tâche** (feuille), pas de 
 - **Projet interne visible par un non-admin** (doit être masqué)
 - **Coût de construction affiché/saisi sur un projet interne** (réservé aux projets externes)
 - Libellé "Planification" dans l'UI là où "Occupation" est attendu
+- **Service transversal non imputable** (stocké en `SupportService` au lieu d'une phase SUPPORT + tâche feuille)
 - **Double-comptage** d'agrégat (tâche-mère + sous-tâches comptées ensemble)
 - Réapparition du modèle `WBSElement` (supprimé)

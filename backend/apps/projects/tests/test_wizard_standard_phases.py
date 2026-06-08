@@ -18,6 +18,9 @@ class TestProjectInheritsStandardPhases:
         return ProjectTemplateFactory(
             tenant=tenant,
             phases_config=[{"name": "TemplatePhase", "code": "T", "type": "REALIZATION"}],
+            # Pas de service transversal ici : ces tests portent sur le choix du
+            # jeu de phases (standard vs template), pas sur les phases SUPPORT.
+            support_services_config=[],
         )
 
     def test_uses_standard_set_when_present(self, tenant):
