@@ -28,6 +28,7 @@ type TimeUnit = 'week' | 'month'
 
 interface AllocationData {
   id: number; employee_id: number; employee_name: string
+  virtual_resource_id: number; is_virtual: boolean; display_name: string
   hours_per_week: number; start_date: string; end_date: string
   status: string
   distribution_mode: DistributionMode
@@ -43,6 +44,7 @@ const editDates = ref({ start: '', end: '' })
 const showAssign = ref(false)
 const assignSearch = ref('')
 const assignUsers = ref<Array<{ id: number; username: string; email: string }>>([])
+const assignVirtuals = ref<Array<{ id: number; name: string }>>([])
 const assignHours = ref(20)
 
 async function loadTask() {
@@ -59,20 +61,30 @@ async function loadTask() {
     const ar = await apiClient.get('allocations/', { params: { project: props.projectId, task: props.taskId } })
     const ad = ar.data?.data || ar.data
     const allocs = Array.isArray(ad) ? ad : ad?.results || []
-    allocations.value = allocs.map((a: Record<string, unknown>) => ({
-      id: Number(a.id),
-      employee_id: Number(a.employee),
-      employee_name: String(a.employee_name || a.employee || ''),
-      hours_per_week: Number(a.hours_per_week || 0),
-      start_date: String(a.start_date || ''),
-      end_date: String(a.end_date || ''),
-      status: String(a.status || 'ACTIVE'),
-      distribution_mode: (a.distribution_mode as DistributionMode) || 'uniform',
-      time_unit: (a.time_unit as TimeUnit) || 'week',
-      time_breakdown: (a.time_breakdown as Record<string, number> | null) ?? null,
-    }))
+    allocations.value = allocs.map((a: Record<string, unknown>) => {
+      const isVirtual = a.virtual_resource != null
+      const empName = String(a.employee_name || a.employee || '')
+      const vrName = String(a.virtual_resource_name || '')
+      return {
+        id: Number(a.id),
+        employee_id: Number(a.employee || 0),
+        virtual_resource_id: Number(a.virtual_resource || 0),
+        is_virtual: isVirtual,
+        display_name: isVirtual ? vrName : empName,
+        employee_name: empName,
+        hours_per_week: Number(a.hours_per_week || 0),
+        start_date: String(a.start_date || ''),
+        end_date: String(a.end_date || ''),
+        status: String(a.status || 'ACTIVE'),
+        distribution_mode: (a.distribution_mode as DistributionMode) || 'uniform',
+        time_unit: (a.time_unit as TimeUnit) || 'week',
+        time_breakdown: (a.time_breakdown as Record<string, number> | null) ?? null,
+      }
+    })
 
-    if (allocations.value.length && !allocations.value[0]?.employee_name) {
+    // Résolution tardive du nom des employés si le backend ne l'a pas renvoyé.
+    const missingEmpName = allocations.value.find((a) => !a.is_virtual && !a.employee_name)
+    if (missingEmpName) {
       try {
         const ur = await apiClient.get('users/search/')
         const users = ur.data?.data || ur.data || []
@@ -81,7 +93,10 @@ async function loadTask() {
           userMap.set(u.id, `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username)
         }
         for (const a of allocations.value) {
-          if (!a.employee_name && userMap.has(a.employee_id)) a.employee_name = userMap.get(a.employee_id)!
+          if (!a.is_virtual && !a.employee_name && userMap.has(a.employee_id)) {
+            a.employee_name = userMap.get(a.employee_id)!
+            a.display_name = a.employee_name
+          }
         }
       } catch { /* */ }
     }
@@ -179,11 +194,28 @@ async function onManualCellChange(alloc: AllocationData, weekKey: string, ev: Ev
   await updateAllocation(alloc.id, 'time_breakdown', next)
 }
 
-async function loadAssignUsers() {
+function openAssign() {
+  showAssign.value = true
+  loadAssignResources()
+}
+
+async function loadAssignResources() {
+  // Employés réels + ressources virtuelles actives du projet, chargés en parallèle.
   try {
-    const r = await apiClient.get('users/search/')
-    assignUsers.value = Array.isArray(r.data?.data || r.data) ? (r.data?.data || r.data) : []
-  } catch { assignUsers.value = [] }
+    const [ur, vr] = await Promise.all([
+      apiClient.get('users/search/'),
+      apiClient.get('virtual-resources/', {
+        params: { project: props.projectId, is_active: true },
+      }),
+    ])
+    const ud = ur.data?.data || ur.data
+    assignUsers.value = Array.isArray(ud) ? ud : ud?.results || []
+    const vd = vr.data?.data || vr.data
+    assignVirtuals.value = Array.isArray(vd) ? vd : vd?.results || []
+  } catch {
+    assignUsers.value = []
+    assignVirtuals.value = []
+  }
 }
 
 const filteredAssignUsers = computed(() => {
@@ -191,11 +223,20 @@ const filteredAssignUsers = computed(() => {
   return assignUsers.value.filter(u => !q || u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)).slice(0, 10)
 })
 
-async function assignEmployee(userId: number) {
+const filteredAssignVirtuals = computed(() => {
+  const q = assignSearch.value.toLowerCase()
+  return assignVirtuals.value.filter(v => !q || v.name.toLowerCase().includes(q)).slice(0, 10)
+})
+
+// Allocations scindées : employés réels vs ressources virtuelles (sections distinctes).
+const employeeAllocations = computed(() => allocations.value.filter(a => !a.is_virtual))
+const virtualAllocations = computed(() => allocations.value.filter(a => a.is_virtual))
+
+async function createAllocation(target: { employee: number } | { virtual_resource: number }) {
   if (!task.value) return
   try {
     await apiClient.post('allocations/', {
-      employee: userId,
+      ...target,
       project: props.projectId,
       task: task.value.id,
       hours_per_week: assignHours.value,
@@ -211,7 +252,30 @@ async function assignEmployee(userId: number) {
   } catch { /* */ }
 }
 
-const totalPlannedWeek = computed(() => allocations.value.reduce((s, a) => s + a.hours_per_week, 0))
+function assignEmployee(userId: number) {
+  return createAllocation({ employee: userId })
+}
+function assignVirtual(vrId: number) {
+  return createAllocation({ virtual_resource: vrId })
+}
+
+const allocSections = computed(() => [
+  {
+    key: 'employee',
+    title: 'Équipe',
+    items: employeeAllocations.value,
+    empty: 'Aucun employé affecté à cette tâche',
+  },
+  {
+    key: 'virtual',
+    title: 'Ressources virtuelles',
+    items: virtualAllocations.value,
+    empty: 'Aucune ressource virtuelle affectée',
+  },
+])
+function sectionWeekHours(items: AllocationData[]): number {
+  return items.reduce((s, a) => s + a.hours_per_week, 0)
+}
 
 // Heures planifiées TOTALES = Σ (h/sem × nb de semaines) — util pur partagé/testé.
 const totalPlannedHours = computed(() =>
@@ -277,19 +341,27 @@ const isOverBudget = computed(() => overBudget(totalPlannedHours.value, budgetHo
             </p>
           </div>
 
-          <!-- Equipe -->
-          <div class="pso-section">
+          <!-- Affectations : Équipe (réelle) + Ressources virtuelles, sections distinctes -->
+          <div
+            v-for="section in allocSections" :key="section.key"
+            class="pso-section" :data-section="section.key"
+          >
             <h4 class="pso-section-title">
-              Equipe affectee
-              <span class="pso-section-badge">{{ allocations.length }} personne{{ allocations.length > 1 ? 's' : '' }} &middot; {{ totalPlannedWeek }}h/sem</span>
+              {{ section.title }}
+              <span class="pso-section-badge">{{ section.items.length }} &middot; {{ sectionWeekHours(section.items) }}h/sem</span>
             </h4>
 
-            <div v-if="allocations.length" class="pso-team-list">
-              <div v-for="alloc in allocations" :key="alloc.id" class="pso-team-item">
+            <div v-if="section.items.length" class="pso-team-list">
+              <div
+                v-for="alloc in section.items" :key="alloc.id"
+                class="pso-team-item" :class="{ 'pso-team-item--virtual': alloc.is_virtual }"
+                data-alloc-row :data-alloc-virtual="alloc.is_virtual ? '' : undefined"
+              >
                 <div class="pso-team-row">
                   <div class="pso-team-info">
-                    <span class="pso-team-avatar">{{ (alloc.employee_name || '??').substring(0, 2).toUpperCase() }}</span>
-                    <span class="pso-team-name">{{ alloc.employee_name || `Employe #${alloc.employee_id}` }}</span>
+                    <span class="pso-team-avatar" :class="{ 'pso-team-avatar--virtual': alloc.is_virtual }">{{ alloc.is_virtual ? '◇' : (alloc.display_name || '??').substring(0, 2).toUpperCase() }}</span>
+                    <span class="pso-team-name">{{ alloc.display_name || (alloc.is_virtual ? 'Profil virtuel' : `Employe #${alloc.employee_id}`) }}</span>
+                    <span v-if="alloc.is_virtual" class="pso-virtual-badge">Virtuel</span>
                   </div>
                   <div class="pso-team-hours">
                     <input
@@ -351,18 +423,28 @@ const isOverBudget = computed(() => overBudget(totalPlannedHours.value, budgetHo
                 </div>
               </div>
             </div>
-            <div v-else class="pso-empty">Aucun employe affecte a cette tache</div>
+            <div v-else class="pso-empty">{{ section.empty }}</div>
+          </div>
 
+          <!-- Affecter une ressource (employé OU profil virtuel) -->
+          <div class="pso-section pso-assign-section">
             <div v-if="!showAssign" class="pso-add-btn-row">
-              <button class="pso-btn-add" @click="showAssign = true; loadAssignUsers()">+ Affecter un employe</button>
+              <button class="pso-btn-add" data-assign-open @click="openAssign()">+ Affecter une ressource</button>
             </div>
             <div v-else class="pso-assign-form">
-              <input v-model="assignSearch" type="text" placeholder="Rechercher..." class="pso-input" style="margin-bottom:6px;" />
+              <input v-model="assignSearch" type="text" placeholder="Rechercher un employé ou un profil virtuel..." class="pso-input" style="margin-bottom:6px;" />
               <div class="pso-assign-list">
-                <div v-for="u in filteredAssignUsers" :key="u.id" class="pso-assign-item" @click="assignEmployee(u.id)">
+                <div class="pso-assign-group">Employés</div>
+                <div v-for="u in filteredAssignUsers" :key="`u-${u.id}`" class="pso-assign-item" data-assign-employee @click="assignEmployee(u.id)">
                   {{ u.username }} <span class="pso-assign-email">{{ u.email }}</span>
                 </div>
-                <div v-if="!filteredAssignUsers.length" class="pso-empty" style="padding:8px;">Aucun resultat</div>
+                <div v-if="!filteredAssignUsers.length" class="pso-empty" style="padding:6px 8px;">Aucun employé</div>
+
+                <div class="pso-assign-group pso-assign-group--virtual">Ressources virtuelles</div>
+                <div v-for="v in filteredAssignVirtuals" :key="`v-${v.id}`" class="pso-assign-item pso-assign-item--virtual" data-assign-virtual @click="assignVirtual(v.id)">
+                  <span class="pso-virtual-dot">◇</span> {{ v.name }}
+                </div>
+                <div v-if="!filteredAssignVirtuals.length" class="pso-empty" style="padding:6px 8px;">Aucune ressource virtuelle</div>
               </div>
               <div class="pso-assign-hours">
                 <label>Heures/semaine:</label>
@@ -410,6 +492,14 @@ const isOverBudget = computed(() => overBudget(totalPlannedHours.value, budgetHo
 .pso-team-info { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .pso-team-avatar { width: 28px; height: 28px; border-radius: 50%; background: #2563EB; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
 .pso-team-name { display: block; font-size: 12px; font-weight: 600; color: #111827; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Ressources virtuelles : nettement distinctes des employés réels. */
+.pso-team-item--virtual { border-left: 2px dashed #7C3AED; padding-left: 8px; background: #FAF5FF; }
+.pso-team-avatar--virtual { background: transparent; color: #7C3AED; border: 1px dashed #7C3AED; font-size: 13px; }
+.pso-virtual-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #7C3AED; background: #F3E8FF; border-radius: 4px; padding: 1px 6px; letter-spacing: 0.03em; }
+.pso-assign-group { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #9CA3AF; padding: 6px 8px 2px; letter-spacing: 0.03em; }
+.pso-assign-group--virtual { color: #7C3AED; }
+.pso-assign-item--virtual { color: #6D28D9; }
+.pso-virtual-dot { color: #7C3AED; font-size: 12px; }
 .pso-team-hours { display: flex; align-items: center; gap: 3px; }
 .pso-hours-input { width: 50px; padding: 3px 6px; border: 1px solid #D1D5DB; border-radius: 4px; font-size: 12px; font-family: var(--font-mono, monospace); text-align: right; -moz-appearance: textfield; appearance: textfield; }
 .pso-hours-input::-webkit-outer-spin-button, .pso-hours-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
