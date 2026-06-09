@@ -39,6 +39,10 @@ const USERS = [
   { id: 1, username: 'amonty', email: 'a@x.com', first_name: 'Anne', last_name: 'Monty' },
   { id: 2, username: 'jbel', email: 'j@x.com', first_name: 'Jean', last_name: 'Bélanger' },
 ]
+const TEAMS = [
+  { id: 3, name: 'Studio BIM' },
+  { id: 4, name: 'Équipe paysage' },
+]
 
 function mockApi() {
   mockGet.mockImplementation((url: string) => {
@@ -46,6 +50,7 @@ function mockApi() {
     if (url === 'allocations/') return Promise.resolve({ data: ALLOCS })
     if (url === 'virtual-resources/') return Promise.resolve({ data: VIRTUALS })
     if (url === 'users/search/') return Promise.resolve({ data: USERS })
+    if (url === 'teams/') return Promise.resolve({ data: TEAMS })
     return Promise.resolve({ data: [] })
   })
 }
@@ -101,6 +106,25 @@ describe('TaskSlideOver — affectation employés + ressources virtuelles', () =
     )
     const payload = mockPost.mock.calls.at(-1)![1] as Record<string, unknown>
     expect(payload.employee).toBeUndefined()
+  })
+
+  it('le picker propose les équipes et POST assign_team_to_task', async () => {
+    const wrapper = mountSlideOver()
+    await flushPromises()
+
+    await wrapper.find('[data-assign-open]').trigger('click')
+    await flushPromises()
+
+    const teamOpts = wrapper.findAll('[data-assign-team]')
+    expect(teamOpts.length).toBe(2)
+    const bim = teamOpts.find((o) => o.text().includes('Studio BIM'))!
+    await bim.trigger('click')
+    await flushPromises()
+
+    expect(mockPost).toHaveBeenCalledWith(
+      'projects/3/assign_team_to_task/',
+      expect.objectContaining({ team_id: 3, task_id: 5 }),
+    )
   })
 
   it('affecter un employé POST employee (régression)', async () => {

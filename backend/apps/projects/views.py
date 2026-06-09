@@ -623,44 +623,24 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project.team_members.add(*members)
         return Response({"data": {"team_members": self._member_detail(project)}})
 
-    @action(detail=True, methods=["post"], url_path="assign_team_to_phase")
-    def assign_team_to_phase(self, request, pk=None):
-        """Affecte une équipe sur une **phase** : crée une allocation (planning)
-        pour chaque membre de l'équipe sur cette phase. Idempotent par
-        (employé, phase) active. Réservé aux gestionnaires du projet."""
-        if not self._can_manage_members():
-            return self._forbidden()
-
-        project = self.get_object()
-        team_id = request.data.get("team_id")
-        phase_id = request.data.get("phase_id")
-        if not team_id or not phase_id:
-            return Response(
-                {"error": {"code": "MISSING_PARAMS", "message": "team_id et phase_id requis", "details": []}},
-                status=400,
-            )
-
-        from datetime import date, timedelta
-
+    def _resolve_team(self, project, team_id):
         from apps.core.models import Team
-        from apps.planning.models import ResourceAllocation
 
         try:
-            team = Team.objects.prefetch_related("members").get(
+            return Team.objects.prefetch_related("members").get(
                 pk=team_id, tenant=project.tenant
             )
         except (Team.DoesNotExist, ValueError, TypeError):
-            return Response(
-                {"error": {"code": "TEAM_NOT_FOUND", "message": "Équipe introuvable.", "details": []}},
-                status=404,
-            )
-        try:
-            phase = project.phases.get(pk=phase_id)
-        except (Phase.DoesNotExist, ValueError, TypeError):
-            return Response(
-                {"error": {"code": "PHASE_NOT_FOUND", "message": "Phase introuvable.", "details": []}},
-                status=404,
-            )
+            return None
+
+    def _allocate_team_members(self, request, project, team, *, phase=None, task=None):
+        """Crée une allocation (planning) par membre de l'équipe sur la **phase**
+        OU la **tâche** cible. Idempotent par (employé, cible) active. Dates par
+        défaut = dates projet (ou aujourd'hui → +90 j) ; ``hours_per_week`` = 5.
+        Retourne le nombre d'allocations créées."""
+        from datetime import date, timedelta
+
+        from apps.planning.models import ResourceAllocation
 
         def _parse(val, default):
             if isinstance(val, str) and val:
@@ -683,14 +663,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         created = 0
         for member in team.members.all():
-            if ResourceAllocation.objects.filter(
-                employee=member, phase=phase, status="ACTIVE"
-            ).exists():
+            existing = ResourceAllocation.objects.filter(employee=member, status="ACTIVE")
+            existing = existing.filter(task=task) if task else existing.filter(phase=phase)
+            if existing.exists():
                 continue
             ResourceAllocation.objects.create(
                 tenant=project.tenant,
                 project=project,
                 phase=phase,
+                task=task,
                 employee=member,
                 start_date=start,
                 end_date=end,
@@ -698,8 +679,73 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 created_by=request.user,
             )
             created += 1
+        return created
+
+    @action(detail=True, methods=["post"], url_path="assign_team_to_phase")
+    def assign_team_to_phase(self, request, pk=None):
+        """Affecte une équipe sur une **phase** : une allocation par membre sur
+        cette phase. Idempotent. Réservé aux gestionnaires du projet."""
+        if not self._can_manage_members():
+            return self._forbidden()
+
+        project = self.get_object()
+        team_id = request.data.get("team_id")
+        phase_id = request.data.get("phase_id")
+        if not team_id or not phase_id:
+            return Response(
+                {"error": {"code": "MISSING_PARAMS", "message": "team_id et phase_id requis", "details": []}},
+                status=400,
+            )
+        team = self._resolve_team(project, team_id)
+        if team is None:
+            return Response(
+                {"error": {"code": "TEAM_NOT_FOUND", "message": "Équipe introuvable.", "details": []}},
+                status=404,
+            )
+        try:
+            phase = project.phases.get(pk=phase_id)
+        except (Phase.DoesNotExist, ValueError, TypeError):
+            return Response(
+                {"error": {"code": "PHASE_NOT_FOUND", "message": "Phase introuvable.", "details": []}},
+                status=404,
+            )
+        created = self._allocate_team_members(request, project, team, phase=phase)
         return Response(
             {"data": {"created": created, "team": team.name, "phase": phase.name}}
+        )
+
+    @action(detail=True, methods=["post"], url_path="assign_team_to_task")
+    def assign_team_to_task(self, request, pk=None):
+        """Affecte une équipe sur une **tâche/sous-tâche** (Gantt) : une
+        allocation par membre sur cette tâche. Idempotent. Réservé aux
+        gestionnaires du projet."""
+        if not self._can_manage_members():
+            return self._forbidden()
+
+        project = self.get_object()
+        team_id = request.data.get("team_id")
+        task_id = request.data.get("task_id")
+        if not team_id or not task_id:
+            return Response(
+                {"error": {"code": "MISSING_PARAMS", "message": "team_id et task_id requis", "details": []}},
+                status=400,
+            )
+        team = self._resolve_team(project, team_id)
+        if team is None:
+            return Response(
+                {"error": {"code": "TEAM_NOT_FOUND", "message": "Équipe introuvable.", "details": []}},
+                status=404,
+            )
+        try:
+            task = project.tasks.get(pk=task_id)
+        except (Task.DoesNotExist, ValueError, TypeError):
+            return Response(
+                {"error": {"code": "TASK_NOT_FOUND", "message": "Tâche introuvable.", "details": []}},
+                status=404,
+            )
+        created = self._allocate_team_members(request, project, team, task=task)
+        return Response(
+            {"data": {"created": created, "team": team.name, "task": task.wbs_code}}
         )
 
 
