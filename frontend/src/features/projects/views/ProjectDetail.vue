@@ -17,6 +17,7 @@ import TeamMembersPanel from '../components/TeamMembersPanel.vue'
 import TabGroup from '@/shared/components/TabGroup.vue'
 import { planningApi } from '@/features/planning/api/planningApi'
 import { visibleTaskGroups, isTaskReadOnly, taskClosureIds } from '../utils/taskStructure'
+import { buildPhasePeopleTree, filterTreeByPerson, visiblePhaseNodes, type PhaseTreeNode } from '../utils/phasePeopleTree'
 import { progressHoursPct, progressCostPct, progressFeesPct } from '../utils/phaseProgress'
 
 const route = useRoute()
@@ -34,7 +35,7 @@ const confirmDeletePhase = ref<number | null>(null)
 const confirmDeleteAssignment = ref<number | null>(null)
 
 interface DashboardData { hours_consumed: string; budget_hours: string; budget_utilization_percent: number; health: 'green' | 'yellow' | 'red' }
-interface Assignment { id: number; employee: number; employee_name: string; phase: number | null; phase_name: string; task: number | null; task_name: string; hours_per_week: string; start_date: string | null; end_date: string | null }
+interface Assignment { id: number; employee: number; employee_name: string; virtual_resource?: number | null; virtual_resource_name?: string; phase: number | null; phase_name: string; task: number | null; task_name: string; hours_per_week: string; start_date: string | null; end_date: string | null }
 interface Amendment { id: number; amendment_number: number; description: string; status: string; budget_impact: string; created_at: string }
 
 const dashboard = ref<DashboardData | null>(null)
@@ -876,6 +877,58 @@ const teamByEmployee = computed<TeamMember[]>(() => {
   }
   return Array.from(map.values()).sort((a, b) => a.employee_name.localeCompare(b.employee_name))
 })
+
+// ── Vue « Par phase » de l'onglet Équipe (accordéons + recherche) ──────────
+const teamViewMode = ref<'person' | 'phase'>('phase')
+const teamSearch = ref('')
+const expandedPhaseKeys = ref<Set<number>>(new Set())
+const expandedTaskKeys = ref<Set<number>>(new Set())
+
+const phasePeopleTree = computed<PhaseTreeNode[]>(() =>
+  visiblePhaseNodes(buildPhasePeopleTree(tasksByPhase.value, assignments.value)),
+)
+// Recherche active → arbre filtré (toujours déplié).
+const teamPhaseTree = computed<PhaseTreeNode[]>(() =>
+  filterTreeByPerson(phasePeopleTree.value, teamSearch.value),
+)
+const isTeamSearching = computed(() => teamSearch.value.trim().length > 0)
+
+function isPhaseOpen(id: number | null): boolean {
+  return isTeamSearching.value || id == null || expandedPhaseKeys.value.has(id)
+}
+function isTaskOpen(id: number): boolean {
+  return isTeamSearching.value || expandedTaskKeys.value.has(id)
+}
+function togglePhaseOpen(id: number | null) {
+  if (id == null) return
+  const s = new Set(expandedPhaseKeys.value)
+  if (s.has(id)) s.delete(id)
+  else s.add(id)
+  expandedPhaseKeys.value = s
+}
+function toggleTaskOpen(id: number) {
+  const s = new Set(expandedTaskKeys.value)
+  if (s.has(id)) s.delete(id)
+  else s.add(id)
+  expandedTaskKeys.value = s
+}
+function expandAllTeamPhases() {
+  const ph = new Set<number>()
+  const tk = new Set<number>()
+  const walk = (nodes: PhaseTreeNode['tasks']) => {
+    for (const n of nodes) { tk.add(n.id); walk(n.subtasks) }
+  }
+  for (const p of phasePeopleTree.value) {
+    if (p.phase_id != null) ph.add(p.phase_id)
+    walk(p.tasks)
+  }
+  expandedPhaseKeys.value = ph
+  expandedTaskKeys.value = tk
+}
+function collapseAllTeamPhases() {
+  expandedPhaseKeys.value = new Set()
+  expandedTaskKeys.value = new Set()
+}
 
 // Time entries for Temps tab
 interface ProjectTimeEntry { id: number; employee: number; employee_name?: string; user_name: string; date: string; hours: string; task_name: string; phase_name: string; status: string }
@@ -1888,8 +1941,69 @@ watch(activeTab, (tab) => {
         </template>
       </div>
 
+      <!-- Barre d'outils : mode (Par phase / Par personne) + recherche -->
+      <div class="team-toolbar">
+        <div class="team-view-toggle">
+          <button class="time-view-btn" :class="{ active: teamViewMode === 'phase' }" @click="teamViewMode = 'phase'">Par phase</button>
+          <button class="time-view-btn" :class="{ active: teamViewMode === 'person' }" @click="teamViewMode = 'person'">Par personne</button>
+        </div>
+        <input v-model="teamSearch" class="team-search" type="text" placeholder="Rechercher où une personne est affectée…" />
+        <div v-if="teamViewMode === 'phase'" class="team-expand-actions">
+          <button class="btn-action" @click="expandAllTeamPhases">Tout étendre</button>
+          <button class="btn-action" @click="collapseAllTeamPhases">Tout réduire</button>
+        </div>
+      </div>
+
+      <!-- ── Vue « Par phase » : accordéons Phase → Tâche → Sous-tâche + personnes ── -->
+      <template v-if="teamViewMode === 'phase'">
+        <div v-if="teamPhaseTree.length" class="phase-tree">
+          <div v-for="ph in teamPhaseTree" :key="ph.phase_id ?? ph.phase_name" class="phase-acc">
+            <div class="phase-acc-head" @click="togglePhaseOpen(ph.phase_id)">
+              <span class="acc-caret">{{ isPhaseOpen(ph.phase_id) ? '▼' : '▶' }}</span>
+              <span class="phase-acc-name">{{ ph.phase_name }}</span>
+              <span class="acc-count">{{ ph.tasks.length }} tâche{{ ph.tasks.length > 1 ? 's' : '' }}</span>
+              <span class="people-chips">
+                <span v-for="p in ph.people" :key="p.key" class="person-chip" :class="{ 'person-chip--virtual': p.kind === 'virtual' }">{{ p.name }}</span>
+              </span>
+            </div>
+            <div v-if="isPhaseOpen(ph.phase_id)" class="phase-acc-body">
+              <div v-for="t in ph.tasks" :key="t.id" class="tpn">
+                <div class="tpn-head" @click="t.subtasks.length && toggleTaskOpen(t.id)">
+                  <span v-if="t.subtasks.length" class="acc-caret">{{ isTaskOpen(t.id) ? '▼' : '▶' }}</span>
+                  <span v-else class="acc-dot">•</span>
+                  <span class="tpn-wbs">{{ t.wbs_code }}</span>
+                  <span class="tpn-name" :class="{ 'tpn-closed': !t.is_active }">{{ t.name }}</span>
+                  <span v-if="!t.is_active" class="badge badge-gray tpn-badge">Fermée</span>
+                  <span class="people-chips">
+                    <span v-for="p in t.people" :key="p.key" class="person-chip" :class="{ 'person-chip--virtual': p.kind === 'virtual' }">{{ p.name }}</span>
+                    <span v-if="!t.people.length && !t.subtasks.length" class="tpn-noone">aucune personne</span>
+                  </span>
+                </div>
+                <div v-if="t.subtasks.length && isTaskOpen(t.id)" class="tpn-children">
+                  <div v-for="s in t.subtasks" :key="s.id" class="tpn tpn-sub">
+                    <div class="tpn-head">
+                      <span class="acc-dot">•</span>
+                      <span class="tpn-wbs">{{ s.wbs_code }}</span>
+                      <span class="tpn-name" :class="{ 'tpn-closed': !s.is_active }">{{ s.name }}</span>
+                      <span v-if="!s.is_active" class="badge badge-gray tpn-badge">Fermée</span>
+                      <span class="people-chips">
+                        <span v-for="p in s.people" :key="p.key" class="person-chip" :class="{ 'person-chip--virtual': p.kind === 'virtual' }">{{ p.name }}</span>
+                        <span v-if="!s.people.length" class="tpn-noone">aucune personne</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-else class="card empty-card">
+          {{ isTeamSearching ? 'Aucune personne trouvée pour cette recherche.' : 'Aucune phase avec tâche — créez des tâches dans l’onglet Structure.' }}
+        </div>
+      </template>
+
       <!-- Team list by employee (accordion) -->
-      <div v-if="teamByEmployee.length" class="team-list">
+      <div v-else-if="teamByEmployee.length" class="team-list">
         <div v-for="member in teamByEmployee" :key="member.employee" class="team-member-card">
           <!-- Employee header (clickable) -->
           <div class="team-member-header" @click="toggleTeamMember(member.employee)">
@@ -2689,6 +2803,33 @@ watch(activeTab, (tab) => {
 .time-view-toggle { display: flex; border: 1px solid var(--color-gray-200); border-radius: 6px; overflow: hidden; }
 .time-view-btn { padding: 4px 12px; font-size: 11px; font-weight: 600; background: white; border: none; cursor: pointer; color: var(--color-gray-500); transition: all 0.1s; }
 .time-view-btn.active { background: var(--color-primary); color: white; }
+/* ── Onglet Équipe : vue « Par phase » (accordéons + recherche) ── */
+.team-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.team-view-toggle { display: flex; border: 1px solid var(--color-gray-200); border-radius: 6px; overflow: hidden; }
+.team-search { flex: 1; min-width: 220px; padding: 6px 10px; border: 1px solid var(--color-gray-300); border-radius: 6px; font-size: 12px; }
+.team-expand-actions { display: flex; gap: 4px; }
+.phase-tree { display: flex; flex-direction: column; gap: 6px; }
+.phase-acc { background: white; border: 1px solid var(--color-gray-200); border-radius: 8px; overflow: hidden; }
+.phase-acc-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--color-gray-50); cursor: pointer; }
+.phase-acc-head:hover { background: var(--color-gray-100); }
+.acc-caret { font-size: 9px; color: var(--color-gray-500); width: 12px; flex-shrink: 0; }
+.acc-dot { color: var(--color-gray-300); width: 12px; flex-shrink: 0; text-align: center; }
+.phase-acc-name { font-weight: 700; font-size: 13px; color: var(--color-gray-800); }
+.acc-count { font-size: 10px; color: var(--color-gray-400); }
+.phase-acc-body { padding: 4px 0; }
+.tpn { padding: 0 12px; }
+.tpn-head { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--color-gray-100); }
+.tpn-sub .tpn-head { padding-left: 18px; }
+.tpn-children { background: #FCFCFD; }
+.tpn-wbs { font-family: var(--font-mono, monospace); font-size: 10px; color: var(--color-gray-400); flex-shrink: 0; }
+.tpn-name { font-size: 12px; color: var(--color-gray-800); }
+.tpn-sub .tpn-name { font-size: 11px; color: var(--color-gray-600); }
+.tpn-closed { text-decoration: line-through; color: var(--color-gray-400); }
+.tpn-badge { font-size: 9px; }
+.tpn-noone { font-size: 10px; color: var(--color-gray-300); font-style: italic; }
+.people-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+.person-chip { font-size: 10px; background: #EFF6FF; color: var(--color-primary); border-radius: 10px; padding: 1px 8px; white-space: nowrap; }
+.person-chip--virtual { background: #F3E8FF; color: #7C3AED; border: 1px dashed #C4B5FD; }
 .time-pivot { border-collapse: collapse; font-size: 11px; }
 .time-pivot th { padding: 6px 8px; font-size: 10px; white-space: nowrap; }
 .time-pivot td { padding: 5px 8px; }
