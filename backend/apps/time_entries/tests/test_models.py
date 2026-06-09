@@ -111,6 +111,19 @@ class TestTimeEntry:
         })
         assert ser.is_valid(), ser.errors
 
+    def test_serializer_rejects_closed_task(self):
+        """Saisie impossible sur une tâche fermée (is_active=False)."""
+        from apps.time_entries.serializers import TimeEntrySerializer
+
+        self.task2.is_active = False
+        self.task2.save(update_fields=["is_active"])
+        ser = TimeEntrySerializer(data={
+            "project": self.project.id, "task": self.task2.id,
+            "date": "2026-03-16", "hours": "4",
+        })
+        assert not ser.is_valid()
+        assert "task" in ser.errors
+
     def test_history_tracked(self):
         entry = TimeEntry.objects.create(
             tenant=self.tenant, employee=self.user,

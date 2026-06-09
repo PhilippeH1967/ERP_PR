@@ -34,3 +34,19 @@ export function visibleTaskGroups<T>(groups: PhaseGroupLike<T>[]): PhaseGroupLik
 export function isTaskReadOnly(task: TaskLike): boolean {
   return task.is_chargeable === false
 }
+
+export interface TaskNode {
+  id: number
+  parent?: number | null
+}
+
+/**
+ * IDs à (ré)ouvrir/fermer en bloc quand on agit sur ``task`` : la tâche
+ * elle-même **et** ses sous-tâches directes. Fermer une tâche-mère ferme donc
+ * tout son groupe (les sous-tâches sont les nœuds réellement saisissables) ;
+ * sur une feuille, ne renvoie qu'elle-même.
+ */
+export function taskClosureIds(task: TaskNode, allTasks: TaskNode[]): number[] {
+  const childIds = allTasks.filter((t) => t.parent === task.id).map((t) => t.id)
+  return [task.id, ...childIds]
+}

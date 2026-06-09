@@ -70,16 +70,21 @@ class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        """La saisie se fait sur une tâche **saisissable** (feuille).
+        """La saisie se fait sur une tâche **saisissable** (feuille) et **ouverte**.
 
-        On refuse une tâche-mère (regroupement de sous-tâches) : il faut
-        choisir une de ses sous-tâches.
+        On refuse :
+        - une tâche-mère (regroupement de sous-tâches) → choisir une sous-tâche ;
+        - une tâche **fermée** (``is_active=False``) → plus d'imputation possible.
         """
         task = attrs.get("task") or getattr(self.instance, "task", None)
         if task is not None and task.subtasks.exists():
             raise serializers.ValidationError({
                 "task": "Saisie impossible sur une tâche-mère (regroupement) — "
                         "choisir une sous-tâche.",
+            })
+        if task is not None and not task.is_active:
+            raise serializers.ValidationError({
+                "task": "Saisie impossible : cette tâche est fermée.",
             })
         return attrs
 
