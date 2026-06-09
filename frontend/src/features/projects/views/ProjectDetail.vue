@@ -803,7 +803,7 @@ async function saveHonoraires() {
     else payload.total_fees = null
     if (honorairesForm.value.fee_rate_pct !== '') payload.fee_rate_pct = parseFloat(String(honorairesForm.value.fee_rate_pct).replace(/\s/g, '').replace(',', '.'))
     else payload.fee_rate_pct = null
-    payload.construction_cost = parseAmount(honorairesForm.value.construction_cost)
+    // construction_cost : géré sur la Vue d'ensemble (plus envoyé ici).
     await projectApi.update(projectId, payload)
     await reload()
     initHonoraires()
@@ -2360,18 +2360,6 @@ watch(activeTab, (tab) => {
               <option value="HORAIRE">Horaire</option>
             </select>
           </div>
-          <div class="form-group" v-if="!store.currentProject?.is_internal">
-            <label>Coût de construction ($)</label>
-            <input
-              v-model="honorairesForm.construction_cost"
-              type="text"
-              inputmode="decimal"
-              class="inline-input"
-              :disabled="!canEditBudget"
-              placeholder="0.00"
-              data-construction-cost
-            />
-          </div>
           <div class="form-group" v-if="honorairesForm.fee_calculation_method === 'COUT_TRAVAUX'">
             <label>Taux (%)</label>
             <input
@@ -2386,6 +2374,7 @@ watch(activeTab, (tab) => {
         </div>
         <div v-if="honorairesForm.fee_calculation_method === 'COUT_TRAVAUX'" class="text-xs text-text-muted" style="margin-top:6px;">
           Coût de construction: {{ formatAmount(parseAmount(honorairesForm.construction_cost)) }} $ &times; {{ honorairesForm.fee_rate_pct || 0 }}% = <strong>{{ formatAmount(computedFees || 0) }} $</strong>
+          <span style="margin-left:6px;">(coût de construction modifiable sur la <strong>Vue d'ensemble</strong>)</span>
         </div>
         <div v-if="canEditBudget" class="form-actions" style="margin-top:8px;">
           <button class="btn-primary btn-sm" :disabled="honorairesSaving" @click="saveHonoraires">
