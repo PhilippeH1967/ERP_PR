@@ -241,11 +241,10 @@ class TimeEntryBlock(TenantScopedModel):
         db_table = "time_entries_block"
         ordering = ["employee_id", "phase_id", "task_id"]
         constraints = [
+            # Cible au plus une portée : tâche, phase, ou aucune (= projet
+            # entier). Interdit seulement « phase ET tâche » simultanément.
             models.CheckConstraint(
-                condition=(
-                    models.Q(phase__isnull=False, task__isnull=True)
-                    | models.Q(phase__isnull=True, task__isnull=False)
-                ),
+                condition=~models.Q(phase__isnull=False, task__isnull=False),
                 name="time_entry_block_phase_xor_task",
             ),
             models.UniqueConstraint(
@@ -258,20 +257,38 @@ class TimeEntryBlock(TenantScopedModel):
                 condition=models.Q(phase__isnull=False),
                 name="uq_time_entry_block_employee_phase",
             ),
+            # Blocage niveau PROJET (ni phase ni tâche) : 1 par (employé, projet).
+            models.UniqueConstraint(
+                fields=["employee", "project"],
+                condition=models.Q(phase__isnull=True, task__isnull=True),
+                name="uq_time_entry_block_employee_project",
+            ),
         ]
 
     def __str__(self):
-        target = f"task#{self.task_id}" if self.task_id else f"phase#{self.phase_id}"
+        if self.task_id:
+            target = f"task#{self.task_id}"
+        elif self.phase_id:
+            target = f"phase#{self.phase_id}"
+        else:
+            target = f"project#{self.project_id}"
         return f"block {self.employee_id} → {target}"
 
     @classmethod
     def blocks(cls, employee_id, task) -> bool:
         """True si ``employee_id`` est bloqué pour saisir sur ``task`` — via un
-        blocage sur la tâche elle-même OU sur sa phase."""
+        blocage sur la tâche, sur sa phase, ou sur **tout le projet** (ni phase
+        ni tâche)."""
         if task is None or employee_id is None:
             return False
         return (
             cls.objects.filter(employee_id=employee_id)
-            .filter(models.Q(task_id=task.id) | models.Q(phase_id=task.phase_id))
+            .filter(
+                models.Q(task_id=task.id)
+                | models.Q(phase_id=task.phase_id)
+                | models.Q(
+                    task__isnull=True, phase__isnull=True, project_id=task.project_id
+                )
+            )
             .exists()
         )

@@ -1024,6 +1024,24 @@ function toggleAssignmentBlock(employeeId: number, a: Assignment) {
   return blockMember(a.task ? { task: a.task } : { phase: a.phase as number }, employeeId)
 }
 
+// Blocage NIVEAU PROJET : la personne ne peut imputer sur AUCUNE tâche du projet.
+function personBlock(employeeId: number): TimeBlock | null {
+  return timeBlocks.value.find(b => b.employee === employeeId && b.task == null && b.phase == null) || null
+}
+function isPersonFullyBlocked(employeeId: number): boolean {
+  return personBlock(employeeId) != null
+}
+async function togglePersonBlock(employeeId: number) {
+  const blk = personBlock(employeeId)
+  if (blk) return unblockTime(blk.id)
+  try {
+    await apiClient.post('time_entry_blocks/', { project: projectId, employee: employeeId })
+    await loadTimeBlocks()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Blocage impossible (droits gestionnaire requis).'
+  }
+}
+
 async function blockMember(target: { phase: number } | { task: number }, employeeId: number) {
   try {
     await apiClient.post('time_entry_blocks/', { project: projectId, employee: employeeId, ...target })
@@ -2176,7 +2194,10 @@ watch(activeTab, (tab) => {
               <span class="team-toggle">{{ expandedTeamMembers.has(member.employee) ? '&#9660;' : '&#9654;' }}</span>
               <span class="team-avatar" :class="{ 'avatar-noplanning': !member.hasPlanning }">{{ member.employee_name.substring(0, 2).toUpperCase() }}</span>
               <div>
-                <div class="team-name">{{ member.employee_name }}</div>
+                <div class="team-name" :class="{ 'name-blocked': isPersonFullyBlocked(member.employee) }">
+                  {{ member.employee_name }}
+                  <span v-if="isPersonFullyBlocked(member.employee)" class="badge badge-red" style="font-size:9px;margin-left:6px;">Bloqué</span>
+                </div>
                 <div class="team-sub">
                   {{ member.assignments.length }} phase{{ member.assignments.length > 1 ? 's' : '' }}
                   <span v-if="!member.hasPlanning" class="team-no-planning">&#9888; Pas de planification</span>
@@ -2184,6 +2205,9 @@ watch(activeTab, (tab) => {
               </div>
             </div>
             <div class="team-member-right">
+              <button v-if="canEditBudget" class="btn-action" :class="{ danger: !isPersonFullyBlocked(member.employee) }" style="font-size:10px;" :title="isPersonFullyBlocked(member.employee) ? 'Rouvrir la saisie sur tout le projet' : 'Bloquer la saisie de cette personne sur tout le projet'" @click.stop="togglePersonBlock(member.employee)">
+                {{ isPersonFullyBlocked(member.employee) ? 'Rouvrir (projet)' : '🔒 Bloquer (projet)' }}
+              </button>
               <div class="team-hours">
                 <span class="team-hours-label">Planifie</span>
                 <span class="team-hours-value" :class="member.hasPlanning ? 'text-primary' : 'team-no-planning'">{{ member.totalPlanned.toFixed(1) }}h</span>
@@ -2222,13 +2246,16 @@ watch(activeTab, (tab) => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="a in member.assignments" :key="a.id">
+                <tr v-for="a in member.assignments" :key="a.id" :class="{ 'assign-blocked': isPersonFullyBlocked(member.employee) || assignmentBlock(member.employee, a) }">
                   <td>{{ a.task ? (a.task_name || `Tache #${a.task}`) : (a.phase ? (a.phase_name || `Phase #${a.phase}`) : 'Global') }}</td>
                   <td class="text-right"><span class="badge badge-blue" style="font-size:10px;">{{ a.hours_per_week }}h/sem</span></td>
                   <td class="text-muted" style="font-size:11px;">{{ a.start_date || '—' }} → {{ a.end_date || '...' }}</td>
                   <td>
-                    <button v-if="canEditBudget && assignmentBlock(member.employee, a)" class="btn-action danger" style="font-size:10px;" title="Saisie bloquée pour cette personne — cliquer pour débloquer" @click="toggleAssignmentBlock(member.employee, a)">🔒 Bloqué</button>
-                    <button v-else-if="canEditBudget" class="btn-action" style="font-size:10px;" title="Bloquer la saisie de temps de cette personne sur ce nœud" @click="toggleAssignmentBlock(member.employee, a)">🔓 Bloquer</button>
+                    <span v-if="isPersonFullyBlocked(member.employee)" class="text-muted" style="font-size:10px;" title="Personne bloquée sur tout le projet">🔒 Projet</span>
+                    <template v-else-if="canEditBudget">
+                      <button v-if="assignmentBlock(member.employee, a)" class="btn-action danger" style="font-size:10px;" title="Saisie bloquée pour cette personne — cliquer pour débloquer" @click="toggleAssignmentBlock(member.employee, a)">🔒 Bloqué</button>
+                      <button v-else class="btn-action" style="font-size:10px;" title="Bloquer la saisie de temps de cette personne sur ce nœud" @click="toggleAssignmentBlock(member.employee, a)">🔓 Bloquer</button>
+                    </template>
                     <span v-else class="text-muted" style="font-size:10px;">—</span>
                   </td>
                   <td>
@@ -2940,6 +2967,9 @@ watch(activeTab, (tab) => {
 .team-toggle { font-size: 10px; color: var(--color-gray-400); width: 14px; }
 .team-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--color-primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
 .team-name { font-size: 13px; font-weight: 600; color: var(--color-gray-800); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
+.team-name.name-blocked { text-decoration: line-through; color: var(--color-gray-400); }
+.assign-blocked { opacity: 0.5; }
+.assign-blocked td:first-child { text-decoration: line-through; }
 .team-sub { font-size: 11px; color: var(--color-gray-500); }
 .team-member-right { display: flex; gap: 20px; flex: 1; justify-content: flex-end; }
 .team-hours { text-align: right; }

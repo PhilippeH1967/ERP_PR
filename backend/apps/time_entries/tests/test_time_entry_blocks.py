@@ -38,12 +38,14 @@ class TestTimeEntryBlockModel:
                 employee=setup["user"], phase=setup["phase"], task=setup["task"],
             )
 
-    def test_phase_xor_task_rejects_neither(self, setup):
-        with pytest.raises(IntegrityError):
-            TimeEntryBlock.objects.create(
-                tenant=setup["tenant"], project=setup["project"],
-                employee=setup["user"],
-            )
+    def test_neither_phase_nor_task_is_project_level_block(self, setup):
+        # Ni phase ni tâche = blocage NIVEAU PROJET (désormais autorisé).
+        blk = TimeEntryBlock.objects.create(
+            tenant=setup["tenant"], project=setup["project"],
+            employee=setup["user"],
+        )
+        assert blk.pk is not None
+        assert blk.phase_id is None and blk.task_id is None
 
     def test_unique_employee_task(self, setup):
         TimeEntryBlock.objects.create(
@@ -181,3 +183,50 @@ class TestTimeEntryBlockViewSet:
             format="json", HTTP_X_TENANT_ID=str(setup["tenant"].pk),
         )
         assert resp.status_code == 400
+
+
+@pytest.mark.django_db
+class TestProjectLevelBlock:
+    """Blocage d'une personne sur TOUT le projet (ni phase ni tâche)."""
+
+    def test_blocks_classmethod_via_project(self, setup):
+        TimeEntryBlock.objects.create(
+            tenant=setup["tenant"], project=setup["project"], employee=setup["user"],
+        )  # ni phase ni tâche → niveau projet
+        assert TimeEntryBlock.blocks(setup["user"].pk, setup["task"]) is True
+
+    def test_project_block_rejects_entry_on_any_task(self, setup):
+        TimeEntryBlock.objects.create(
+            tenant=setup["tenant"], project=setup["project"], employee=setup["user"],
+        )
+        api = APIClient()
+        api.force_authenticate(user=setup["user"])
+        resp = api.post(
+            "/api/v1/time_entries/",
+            {"project": setup["project"].pk, "task": setup["task"].pk,
+             "date": "2026-03-16", "hours": "4"},
+            format="json", HTTP_X_TENANT_ID=str(setup["tenant"].pk),
+        )
+        assert resp.status_code == 400
+
+    def test_pm_creates_project_block(self, setup):
+        pm = User.objects.create_user(username="pm_proj", password="x")
+        ProjectRole.objects.create(tenant=setup["tenant"], user=pm, role=Role.PM)
+        api = APIClient()
+        api.force_authenticate(user=pm)
+        resp = api.post(
+            "/api/v1/time_entry_blocks/",
+            {"project": setup["project"].pk, "employee": setup["user"].pk},
+            format="json", HTTP_X_TENANT_ID=str(setup["tenant"].pk),
+        )
+        assert resp.status_code == 201, resp.data
+        assert TimeEntryBlock.blocks(setup["user"].pk, setup["task"]) is True
+
+    def test_unique_project_block_per_employee(self, setup):
+        TimeEntryBlock.objects.create(
+            tenant=setup["tenant"], project=setup["project"], employee=setup["user"],
+        )
+        with pytest.raises(IntegrityError):
+            TimeEntryBlock.objects.create(
+                tenant=setup["tenant"], project=setup["project"], employee=setup["user"],
+            )
