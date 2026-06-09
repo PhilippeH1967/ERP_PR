@@ -213,6 +213,13 @@ const replacingVirtualId = ref<number | null>(null)
 const replaceEmployeeId = ref<number | null>(null)
 const replaceError = ref('')
 const replacing = ref(false)
+// Édition / suppression d'un profil virtuel.
+const editingVirtualId = ref<number | null>(null)
+const editVirtualName = ref('')
+const editVirtualRate = ref('')
+const savingVirtual = ref(false)
+const virtualEditError = ref('')
+const confirmDeleteVirtualId = ref<number | null>(null)
 
 const activeVirtuals = computed(() => projectVirtuals.value.filter(v => v.is_active))
 const replacedVirtuals = computed(() => projectVirtuals.value.filter(v => !v.is_active))
@@ -339,6 +346,42 @@ function startReplaceVirtual(virtualId: number) {
   replacingVirtualId.value = virtualId
   replaceEmployeeId.value = null
   replaceError.value = ''
+}
+
+function startEditVirtual(v: VirtualResource) {
+  editingVirtualId.value = v.id
+  editVirtualName.value = v.name
+  editVirtualRate.value = v.default_hourly_rate != null ? String(v.default_hourly_rate) : ''
+  virtualEditError.value = ''
+}
+
+async function saveEditVirtual(virtualId: number) {
+  if (!editVirtualName.value.trim()) { virtualEditError.value = 'Le nom est obligatoire.'; return }
+  savingVirtual.value = true
+  virtualEditError.value = ''
+  try {
+    await planningApi.updateVirtualResource(virtualId, {
+      name: editVirtualName.value.trim(),
+      default_hourly_rate: parseAmount(editVirtualRate.value),
+    })
+    editingVirtualId.value = null
+    await loadProjectVirtuals()
+  } catch (e: unknown) {
+    virtualEditError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
+  } finally {
+    savingVirtual.value = false
+  }
+}
+
+async function deleteVirtual(virtualId: number) {
+  confirmDeleteVirtualId.value = null
+  projectVirtuals.value = projectVirtuals.value.filter(v => v.id !== virtualId) // optimiste
+  try {
+    await planningApi.deleteVirtualResource(virtualId)
+    await Promise.all([loadProjectVirtuals(), reload()])
+  } catch {
+    await loadProjectVirtuals() // rollback via reload
+  }
 }
 
 function cancelReplaceVirtual() {
@@ -2003,14 +2046,22 @@ watch(activeTab, (tab) => {
               <button class="btn-action" :disabled="replacing" @click="cancelReplaceVirtual">Annuler</button>
               <div v-if="replaceError" class="virtual-error" data-replace-error>{{ replaceError }}</div>
             </div>
-            <button
-              v-else
-              class="btn-action"
-              data-replace-start
-              @click="startReplaceVirtual(v.id)"
-            >
-              Remplacer…
-            </button>
+            <div v-else-if="editingVirtualId === v.id" class="virtual-replace-form">
+              <input v-model="editVirtualName" class="inline-input" placeholder="Nom du profil" data-virtual-edit-name @keydown.enter="saveEditVirtual(v.id)" />
+              <input v-model="editVirtualRate" class="inline-input" type="number" min="0" step="0.01" placeholder="Taux $/h" style="max-width:110px;" data-virtual-edit-rate />
+              <button class="btn-action primary" :disabled="savingVirtual || !editVirtualName.trim()" data-virtual-edit-save @click="saveEditVirtual(v.id)">{{ savingVirtual ? '…' : 'Enregistrer' }}</button>
+              <button class="btn-action" :disabled="savingVirtual" @click="editingVirtualId = null">Annuler</button>
+              <div v-if="virtualEditError" class="virtual-error">{{ virtualEditError }}</div>
+            </div>
+            <div v-else class="virtual-actions">
+              <button class="btn-action" data-virtual-edit @click="startEditVirtual(v)">Modifier</button>
+              <button class="btn-action" data-replace-start @click="startReplaceVirtual(v.id)">Remplacer…</button>
+              <template v-if="confirmDeleteVirtualId === v.id">
+                <button class="btn-action danger" data-virtual-delete-confirm @click="deleteVirtual(v.id)">Confirmer</button>
+                <button class="btn-action" @click="confirmDeleteVirtualId = null">Annuler</button>
+              </template>
+              <button v-else class="btn-action danger" data-virtual-delete @click="confirmDeleteVirtualId = v.id">Supprimer…</button>
+            </div>
           </div>
         </template>
 
@@ -2976,6 +3027,7 @@ watch(activeTab, (tab) => {
 .virtual-name { font-size: 13px; font-weight: 600; color: var(--color-gray-800); }
 .virtual-sub { font-size: 11px; color: var(--color-gray-500); font-family: var(--font-mono); }
 .virtual-replace-form { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.virtual-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; }
 .virtual-replace-form .select-sm { padding: 4px 8px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; min-width: 180px; }
 .virtual-error { flex-basis: 100%; font-size: 11px; color: var(--color-danger); }
 
