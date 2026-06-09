@@ -94,3 +94,69 @@ class TestAssignTeamToProject:
             format="json",
         )
         assert resp.status_code in (403, 404)
+
+
+@pytest.mark.django_db
+class TestAssignTeamToPhase:
+    def setup_method(self):
+        self.tenant = Tenant.objects.create(name="T", slug="t-assign-ph")
+        from apps.projects.models import Phase, Project
+
+        self.project = Project.objects.create(
+            tenant=self.tenant, code="P-PH", name="Assign", status="ACTIVE"
+        )
+        self.phase = Phase.objects.create(
+            tenant=self.tenant, project=self.project, name="Concept"
+        )
+
+    def _url(self):
+        return f"/api/v1/projects/{self.project.id}/assign_team_to_phase/"
+
+    def test_creates_allocation_per_member_on_phase(self):
+        from apps.planning.models import ResourceAllocation
+
+        m1 = User.objects.create_user(username="ph1", password="x")
+        m2 = User.objects.create_user(username="ph2", password="x")
+        team = Team.objects.create(tenant=self.tenant, name="Studio")
+        team.members.add(m1, m2)
+
+        resp = _client(self.tenant, Role.ADMIN).post(
+            self._url(),
+            {"team_id": team.id, "phase_id": self.phase.id, "hours_per_week": 6},
+            format="json",
+        )
+        assert resp.status_code == 200, resp.data
+        allocs = ResourceAllocation.objects.filter(project=self.project, phase=self.phase)
+        assert set(allocs.values_list("employee_id", flat=True)) == {m1.id, m2.id}
+        assert all(float(a.hours_per_week) == 6 for a in allocs)
+        # Allocations sur la PHASE (pas de tâche).
+        assert all(a.task_id is None for a in allocs)
+
+    def test_idempotent_skips_existing_active_allocation(self):
+        from apps.planning.models import ResourceAllocation
+
+        m1 = User.objects.create_user(username="ph3", password="x")
+        team = Team.objects.create(tenant=self.tenant, name="Studio")
+        team.members.add(m1)
+        admin = _client(self.tenant, Role.ADMIN)
+        admin.post(self._url(), {"team_id": team.id, "phase_id": self.phase.id}, format="json")
+        admin.post(self._url(), {"team_id": team.id, "phase_id": self.phase.id}, format="json")
+        assert (
+            ResourceAllocation.objects.filter(
+                project=self.project, phase=self.phase, employee=m1
+            ).count()
+            == 1
+        )
+
+    def test_forbidden_for_employee(self):
+        team = Team.objects.create(tenant=self.tenant, name="Studio")
+        resp = _client(self.tenant, Role.EMPLOYEE).post(
+            self._url(), {"team_id": team.id, "phase_id": self.phase.id}, format="json"
+        )
+        assert resp.status_code in (403, 404)
+
+    def test_missing_params_returns_400(self):
+        resp = _client(self.tenant, Role.ADMIN).post(
+            self._url(), {"team_id": None}, format="json"
+        )
+        assert resp.status_code == 400

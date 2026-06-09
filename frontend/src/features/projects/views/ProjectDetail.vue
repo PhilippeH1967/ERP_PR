@@ -990,6 +990,27 @@ async function unblockTime(blockId: number) {
   try { await apiClient.delete(`time_entry_blocks/${blockId}/`) } catch { await loadTimeBlocks() }
 }
 
+// Affecter une équipe (paramétrage) à une PHASE → crée une allocation par membre.
+const teamPhasePicker = ref<number | null>(null)
+const phaseTeamId = ref<number | null>(null)
+const assigningTeamPhase = ref(false)
+async function assignTeamToPhase(phaseId: number) {
+  if (!phaseTeamId.value) return
+  assigningTeamPhase.value = true
+  try {
+    await projectApi.assignTeamToPhase(projectId, phaseTeamId.value, phaseId)
+    teamPhasePicker.value = null
+    phaseTeamId.value = null
+    try {
+      const r = await apiClient.get('allocations/', { params: { project: String(projectId), page_size: '500' } })
+      const d = r.data?.data || r.data
+      assignments.value = Array.isArray(d) ? d : d?.results || []
+    } catch { /* ignore */ }
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Affectation impossible (droits gestionnaire requis).'
+  } finally { assigningTeamPhase.value = false }
+}
+
 // Time entries for Temps tab
 interface ProjectTimeEntry { id: number; employee: number; employee_name?: string; user_name: string; date: string; hours: string; task_name: string; phase_name: string; status: string }
 const projectTimeEntries = ref<ProjectTimeEntry[]>([])
@@ -2033,6 +2054,17 @@ watch(activeTab, (tab) => {
                   @unblock="unblockTime"
                 />
               </span>
+              <span v-if="canEditBudget && ph.phase_id != null" class="phase-team-assign" @click.stop>
+                <template v-if="teamPhasePicker === ph.phase_id">
+                  <select v-model.number="phaseTeamId" class="inline-select">
+                    <option :value="null">— Équipe —</option>
+                    <option v-for="t in teams" :key="t.id" :value="t.id">{{ t.name }}</option>
+                  </select>
+                  <button class="btn-action primary" :disabled="!phaseTeamId || assigningTeamPhase" @click="assignTeamToPhase(Number(ph.phase_id))">{{ assigningTeamPhase ? '…' : 'Affecter' }}</button>
+                  <button class="btn-action" @click="teamPhasePicker = null">×</button>
+                </template>
+                <button v-else class="btn-action" title="Affecter une équipe à cette phase (crée une allocation par membre)" @click="teamPhasePicker = ph.phase_id; phaseTeamId = null">+ Équipe</button>
+              </span>
             </div>
             <div v-if="isPhaseOpen(ph.phase_id)" class="phase-acc-body">
               <div v-for="t in ph.tasks" :key="t.id" class="tpn">
@@ -2899,6 +2931,7 @@ watch(activeTab, (tab) => {
 .phase-acc-name { font-weight: 700; font-size: 13px; color: var(--color-gray-800); }
 .acc-count { font-size: 10px; color: var(--color-gray-400); }
 .phase-acc-body { padding: 4px 0; }
+.phase-team-assign { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; flex-shrink: 0; }
 .tpn { padding: 0 12px; }
 .tpn-head { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--color-gray-100); }
 .tpn-sub .tpn-head { padding-left: 18px; }

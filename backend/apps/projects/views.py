@@ -623,6 +623,85 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project.team_members.add(*members)
         return Response({"data": {"team_members": self._member_detail(project)}})
 
+    @action(detail=True, methods=["post"], url_path="assign_team_to_phase")
+    def assign_team_to_phase(self, request, pk=None):
+        """Affecte une équipe sur une **phase** : crée une allocation (planning)
+        pour chaque membre de l'équipe sur cette phase. Idempotent par
+        (employé, phase) active. Réservé aux gestionnaires du projet."""
+        if not self._can_manage_members():
+            return self._forbidden()
+
+        project = self.get_object()
+        team_id = request.data.get("team_id")
+        phase_id = request.data.get("phase_id")
+        if not team_id or not phase_id:
+            return Response(
+                {"error": {"code": "MISSING_PARAMS", "message": "team_id et phase_id requis", "details": []}},
+                status=400,
+            )
+
+        from datetime import date, timedelta
+
+        from apps.core.models import Team
+        from apps.planning.models import ResourceAllocation
+
+        try:
+            team = Team.objects.prefetch_related("members").get(
+                pk=team_id, tenant=project.tenant
+            )
+        except (Team.DoesNotExist, ValueError, TypeError):
+            return Response(
+                {"error": {"code": "TEAM_NOT_FOUND", "message": "Équipe introuvable.", "details": []}},
+                status=404,
+            )
+        try:
+            phase = project.phases.get(pk=phase_id)
+        except (Phase.DoesNotExist, ValueError, TypeError):
+            return Response(
+                {"error": {"code": "PHASE_NOT_FOUND", "message": "Phase introuvable.", "details": []}},
+                status=404,
+            )
+
+        def _parse(val, default):
+            if isinstance(val, str) and val:
+                try:
+                    return date.fromisoformat(val)
+                except ValueError:
+                    return default
+            return default
+
+        start = _parse(request.data.get("start_date"), project.start_date or date.today())
+        end = _parse(
+            request.data.get("end_date"), project.end_date or (start + timedelta(days=90))
+        )
+        if end < start:
+            end = start
+        try:
+            hours = float(request.data.get("hours_per_week") or 5)
+        except (ValueError, TypeError):
+            hours = 5
+
+        created = 0
+        for member in team.members.all():
+            if ResourceAllocation.objects.filter(
+                employee=member, phase=phase, status="ACTIVE"
+            ).exists():
+                continue
+            ResourceAllocation.objects.create(
+                tenant=project.tenant,
+                project=project,
+                phase=phase,
+                employee=member,
+                start_date=start,
+                end_date=end,
+                hours_per_week=hours,
+                created_by=request.user,
+            )
+            created += 1
+        return Response(
+            {"data": {"created": created, "team": team.name, "phase": phase.name}}
+        )
+
 
 class PhaseViewSet(viewsets.ModelViewSet):
     """CRUD for project phases.

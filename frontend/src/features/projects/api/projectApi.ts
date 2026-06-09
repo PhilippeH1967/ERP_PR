@@ -45,6 +45,8 @@ export const projectApi = {
     apiClient.get(`${BASE}/${projectId}/task_suggestions/`, { params }),
   assignTeam: (projectId: number, teamId: number) =>
     apiClient.post(`${BASE}/${projectId}/assign_team/`, { team_id: teamId }),
+  assignTeamToPhase: (projectId: number, teamId: number, phaseId: number, opts?: { hours_per_week?: number }) =>
+    apiClient.post(`${BASE}/${projectId}/assign_team_to_phase/`, { team_id: teamId, phase_id: phaseId, ...opts }),
   createTask: (projectId: number, data: Record<string, unknown>) =>
     apiClient.post(`${BASE}/${projectId}/tasks/`, { project: projectId, ...data }),
   updateTask: (projectId: number, taskId: number, data: Record<string, unknown>) => apiClient.patch(`${BASE}/${projectId}/tasks/${taskId}/`, data),
