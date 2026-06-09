@@ -4,7 +4,13 @@ from rest_framework import serializers
 
 from apps.core.mixins import OptimisticLockMixin
 
-from .models import PeriodUnlock, TimeEntry, TimesheetLock, WeeklyApproval
+from .models import (
+    PeriodUnlock,
+    TimeEntry,
+    TimeEntryBlock,
+    TimesheetLock,
+    WeeklyApproval,
+)
 
 
 class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
@@ -86,6 +92,17 @@ class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "task": "Saisie impossible : cette tâche est fermée.",
             })
+        if task is not None:
+            employee = getattr(self.instance, "employee", None)
+            if employee is None:
+                request = (self.context or {}).get("request")
+                employee = getattr(request, "user", None) if request else None
+            employee_id = getattr(employee, "pk", None)
+            if employee_id and TimeEntryBlock.blocks(employee_id, task):
+                raise serializers.ValidationError({
+                    "task": "Saisie bloquée : vous n'êtes pas autorisé à "
+                            "imputer du temps sur cette tâche.",
+                })
         return attrs
 
 
@@ -145,3 +162,38 @@ class PeriodUnlockSerializer(serializers.ModelSerializer):
             "justification", "unlocked_by", "unlocked_at",
         ]
         read_only_fields = ["id", "unlocked_at"]
+
+
+class TimeEntryBlockSerializer(serializers.ModelSerializer):
+    """Blocage de saisie d'un employé sur une tâche (ou une phase entière)."""
+
+    employee_name = serializers.SerializerMethodField()
+    phase_name = serializers.CharField(source="phase.name", read_only=True, default="")
+    task_name = serializers.CharField(source="task.name", read_only=True, default="")
+    task_wbs_code = serializers.CharField(
+        source="task.wbs_code", read_only=True, default=""
+    )
+
+    class Meta:
+        model = TimeEntryBlock
+        fields = [
+            "id", "project", "employee", "employee_name",
+            "phase", "phase_name", "task", "task_name", "task_wbs_code",
+            "reason", "created_by", "created_at",
+        ]
+        read_only_fields = ["id", "created_by", "created_at"]
+
+    def get_employee_name(self, obj):
+        u = obj.employee
+        full = f"{u.first_name} {u.last_name}".strip()
+        return full or u.username
+
+    def validate(self, attrs):
+        """Cible exactement une phase OU une tâche (pas les deux, pas aucune)."""
+        phase = attrs.get("phase") if "phase" in attrs else getattr(self.instance, "phase", None)
+        task = attrs.get("task") if "task" in attrs else getattr(self.instance, "task", None)
+        if (phase is None) == (task is None):
+            raise serializers.ValidationError(
+                "Un blocage cible exactement une phase OU une tâche."
+            )
+        return attrs

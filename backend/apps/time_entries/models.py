@@ -207,3 +207,71 @@ class PeriodFreeze(TenantScopedModel):
 
     def __str__(self):
         return f"Freeze before {self.freeze_before}"
+
+
+class TimeEntryBlock(TenantScopedModel):
+    """Blocage de saisie : empêche **un employé** d'imputer du temps sur une
+    **tâche** (ou sur **toute une phase**). Additif — par défaut tout membre du
+    projet peut saisir ; un blocage ferme la possibilité pour CET employé sur la
+    cible. Distinct du verrouillage de période (``TimesheetLock``) et de la
+    fermeture globale d'une tâche (``Task.is_active``)."""
+
+    project = models.ForeignKey(
+        "projects.Project", on_delete=models.CASCADE, related_name="time_entry_blocks"
+    )
+    employee = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="time_entry_blocks",
+    )
+    phase = models.ForeignKey(
+        "projects.Phase", on_delete=models.CASCADE, null=True, blank=True,
+        related_name="time_entry_blocks",
+    )
+    task = models.ForeignKey(
+        "projects.Task", on_delete=models.CASCADE, null=True, blank=True,
+        related_name="time_entry_blocks",
+    )
+    reason = models.CharField(max_length=255, blank=True, default="")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, related_name="+",
+    )
+
+    class Meta:
+        db_table = "time_entries_block"
+        ordering = ["employee_id", "phase_id", "task_id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(phase__isnull=False, task__isnull=True)
+                    | models.Q(phase__isnull=True, task__isnull=False)
+                ),
+                name="time_entry_block_phase_xor_task",
+            ),
+            models.UniqueConstraint(
+                fields=["employee", "task"],
+                condition=models.Q(task__isnull=False),
+                name="uq_time_entry_block_employee_task",
+            ),
+            models.UniqueConstraint(
+                fields=["employee", "phase"],
+                condition=models.Q(phase__isnull=False),
+                name="uq_time_entry_block_employee_phase",
+            ),
+        ]
+
+    def __str__(self):
+        target = f"task#{self.task_id}" if self.task_id else f"phase#{self.phase_id}"
+        return f"block {self.employee_id} → {target}"
+
+    @classmethod
+    def blocks(cls, employee_id, task) -> bool:
+        """True si ``employee_id`` est bloqué pour saisir sur ``task`` — via un
+        blocage sur la tâche elle-même OU sur sa phase."""
+        if task is None or employee_id is None:
+            return False
+        return (
+            cls.objects.filter(employee_id=employee_id)
+            .filter(models.Q(task_id=task.id) | models.Q(phase_id=task.phase_id))
+            .exists()
+        )

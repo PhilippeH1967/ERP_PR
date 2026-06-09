@@ -14,6 +14,7 @@ import ProjectCloseModal from '../components/ProjectCloseModal.vue'
 import TaskEditModal from '../components/TaskEditModal.vue'
 import TaskTemplatePicker from '../components/TaskTemplatePicker.vue'
 import TeamMembersPanel from '../components/TeamMembersPanel.vue'
+import NodeBlockControls from '../components/NodeBlockControls.vue'
 import TabGroup from '@/shared/components/TabGroup.vue'
 import { planningApi } from '@/features/planning/api/planningApi'
 import { visibleTaskGroups, isTaskReadOnly, taskClosureIds } from '../utils/taskStructure'
@@ -930,6 +931,52 @@ function collapseAllTeamPhases() {
   expandedTaskKeys.value = new Set()
 }
 
+// ── Blocage de saisie par personne (Lot 2) ─────────────────────────────────
+interface TimeBlock { id: number; employee: number; employee_name: string; phase: number | null; task: number | null }
+const timeBlocks = ref<TimeBlock[]>([])
+
+async function loadTimeBlocks() {
+  try {
+    const r = await apiClient.get('time_entry_blocks/', { params: { project: String(projectId), page_size: '500' } })
+    const d = r.data?.data || r.data
+    timeBlocks.value = Array.isArray(d) ? d : d?.results || []
+  } catch { timeBlocks.value = [] }
+}
+
+const blocksByTask = computed(() => {
+  const m = new Map<number, TimeBlock[]>()
+  for (const b of timeBlocks.value) {
+    if (b.task != null) { if (!m.has(b.task)) m.set(b.task, []); m.get(b.task)!.push(b) }
+  }
+  return m
+})
+const blocksByPhase = computed(() => {
+  const m = new Map<number, TimeBlock[]>()
+  for (const b of timeBlocks.value) {
+    if (b.phase != null) { if (!m.has(b.phase)) m.set(b.phase, []); m.get(b.phase)!.push(b) }
+  }
+  return m
+})
+
+// Membres du projet pas encore bloqués sur ce nœud (candidats au blocage).
+function blockCandidates(existing: TimeBlock[]): Array<{ id: number; name: string }> {
+  const blocked = new Set(existing.map(b => b.employee))
+  return teamMembers.value.filter(m => !blocked.has(m.id)).map(m => ({ id: m.id, name: m.name }))
+}
+
+async function blockMember(target: { phase: number } | { task: number }, employeeId: number) {
+  try {
+    await apiClient.post('time_entry_blocks/', { project: projectId, employee: employeeId, ...target })
+    await loadTimeBlocks()
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Blocage impossible (droits gestionnaire requis).'
+  }
+}
+async function unblockTime(blockId: number) {
+  timeBlocks.value = timeBlocks.value.filter(b => b.id !== blockId)
+  try { await apiClient.delete(`time_entry_blocks/${blockId}/`) } catch { await loadTimeBlocks() }
+}
+
 // Time entries for Temps tab
 interface ProjectTimeEntry { id: number; employee: number; employee_name?: string; user_name: string; date: string; hours: string; task_name: string; phase_name: string; status: string }
 const projectTimeEntries = ref<ProjectTimeEntry[]>([])
@@ -1129,6 +1176,7 @@ async function reload() {
     const d = r.data?.data || r.data
     assignments.value = Array.isArray(d) ? d : d?.results || []
   } catch { assignments.value = [] }
+  await loadTimeBlocks()
   try { const r = await projectApi.listAmendments(projectId); amendments.value = r.data?.data || r.data || [] } catch { amendments.value = [] }
   await loadClientData()
   await loadConsortiumData()
@@ -1964,6 +2012,13 @@ watch(activeTab, (tab) => {
               <span class="acc-count">{{ ph.tasks.length }} tâche{{ ph.tasks.length > 1 ? 's' : '' }}</span>
               <span class="people-chips">
                 <span v-for="p in ph.people" :key="p.key" class="person-chip" :class="{ 'person-chip--virtual': p.kind === 'virtual' }">{{ p.name }}</span>
+                <NodeBlockControls
+                  v-if="canEditBudget && ph.phase_id != null"
+                  :blocks="blocksByPhase.get(ph.phase_id) || []"
+                  :candidates="blockCandidates(blocksByPhase.get(ph.phase_id) || [])"
+                  @block="(eid) => blockMember({ phase: Number(ph.phase_id) }, eid)"
+                  @unblock="unblockTime"
+                />
               </span>
             </div>
             <div v-if="isPhaseOpen(ph.phase_id)" class="phase-acc-body">
@@ -1977,6 +2032,13 @@ watch(activeTab, (tab) => {
                   <span class="people-chips">
                     <span v-for="p in t.people" :key="p.key" class="person-chip" :class="{ 'person-chip--virtual': p.kind === 'virtual' }">{{ p.name }}</span>
                     <span v-if="!t.people.length && !t.subtasks.length" class="tpn-noone">aucune personne</span>
+                    <NodeBlockControls
+                      v-if="canEditBudget && !t.subtasks.length"
+                      :blocks="blocksByTask.get(t.id) || []"
+                      :candidates="blockCandidates(blocksByTask.get(t.id) || [])"
+                      @block="(eid) => blockMember({ task: t.id }, eid)"
+                      @unblock="unblockTime"
+                    />
                   </span>
                 </div>
                 <div v-if="t.subtasks.length && isTaskOpen(t.id)" class="tpn-children">
@@ -1989,6 +2051,13 @@ watch(activeTab, (tab) => {
                       <span class="people-chips">
                         <span v-for="p in s.people" :key="p.key" class="person-chip" :class="{ 'person-chip--virtual': p.kind === 'virtual' }">{{ p.name }}</span>
                         <span v-if="!s.people.length" class="tpn-noone">aucune personne</span>
+                        <NodeBlockControls
+                          v-if="canEditBudget"
+                          :blocks="blocksByTask.get(s.id) || []"
+                          :candidates="blockCandidates(blocksByTask.get(s.id) || [])"
+                          @block="(eid) => blockMember({ task: s.id }, eid)"
+                          @unblock="unblockTime"
+                        />
                       </span>
                     </div>
                   </div>

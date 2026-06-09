@@ -10,9 +10,16 @@ from rest_framework.response import Response
 
 from apps.core.permissions import cannot_approve_own
 
-from .models import PeriodUnlock, TimeEntry, TimesheetLock, WeeklyApproval
+from .models import (
+    PeriodUnlock,
+    TimeEntry,
+    TimeEntryBlock,
+    TimesheetLock,
+    WeeklyApproval,
+)
 from .serializers import (
     PeriodUnlockSerializer,
+    TimeEntryBlockSerializer,
     TimeEntrySerializer,
     TimesheetLockSerializer,
     WeeklyApprovalSerializer,
@@ -1905,3 +1912,57 @@ class PeriodUnlockViewSet(viewsets.ModelViewSet):
         count = entries.update(status="LOCKED")
         instance.delete()
         return Response({"deleted": True, "relocked_count": count}, status=status.HTTP_200_OK)
+
+
+class TimeEntryBlockViewSet(viewsets.ModelViewSet):
+    """Blocages de saisie (employé × tâche, ou employé × phase). Lecture ouverte
+    aux authentifiés ; écriture réservée aux gestionnaires de projet (ADMIN, PM,
+    PROJECT_DIRECTOR)."""
+
+    serializer_class = TimeEntryBlockSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["project", "employee", "phase", "task"]
+
+    def get_queryset(self):
+        qs = TimeEntryBlock.objects.all()
+        if hasattr(self.request, "tenant_id") and self.request.tenant_id:
+            qs = qs.filter(tenant_id=self.request.tenant_id)
+        return qs.select_related("employee", "phase", "task", "project")
+
+    def _require_manage_permission(self):
+        from rest_framework.exceptions import PermissionDenied
+
+        from apps.core.models import ProjectRole, Role
+
+        tenant_id = getattr(self.request, "tenant_id", None)
+        qs = ProjectRole.objects.filter(
+            user=self.request.user,
+            role__in=[Role.ADMIN, Role.PM, Role.PROJECT_DIRECTOR],
+        )
+        if tenant_id:
+            qs = qs.filter(tenant_id=tenant_id)
+        if not qs.exists():
+            raise PermissionDenied(
+                "Seuls les gestionnaires de projet (ADMIN, PM, Associé en charge) "
+                "peuvent bloquer la saisie de temps."
+            )
+
+    def perform_create(self, serializer):
+        self._require_manage_permission()
+        tenant_id = getattr(self.request, "tenant_id", None)
+        if tenant_id:
+            from apps.core.models import Tenant
+
+            serializer.save(
+                tenant=Tenant.objects.get(pk=tenant_id),
+                created_by=self.request.user,
+            )
+        else:
+            serializer.save(
+                tenant=_get_tenant(self.request), created_by=self.request.user
+            )
+
+    def perform_destroy(self, instance):
+        self._require_manage_permission()
+        instance.delete()
