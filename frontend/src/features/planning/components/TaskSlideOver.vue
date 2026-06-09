@@ -45,6 +45,7 @@ const showAssign = ref(false)
 const assignSearch = ref('')
 const assignUsers = ref<Array<{ id: number; username: string; email: string }>>([])
 const assignVirtuals = ref<Array<{ id: number; name: string }>>([])
+const assignTeams = ref<Array<{ id: number; name: string }>>([])
 const assignHours = ref(20)
 
 async function loadTask() {
@@ -200,21 +201,25 @@ function openAssign() {
 }
 
 async function loadAssignResources() {
-  // Employés réels + ressources virtuelles actives du projet, chargés en parallèle.
+  // Employés réels + ressources virtuelles + équipes (paramétrage), en parallèle.
   try {
-    const [ur, vr] = await Promise.all([
+    const [ur, vr, tr] = await Promise.all([
       apiClient.get('users/search/'),
       apiClient.get('virtual-resources/', {
         params: { project: props.projectId, is_active: true },
       }),
+      apiClient.get('teams/'),
     ])
     const ud = ur.data?.data || ur.data
     assignUsers.value = Array.isArray(ud) ? ud : ud?.results || []
     const vd = vr.data?.data || vr.data
     assignVirtuals.value = Array.isArray(vd) ? vd : vd?.results || []
+    const td = tr.data?.data || tr.data
+    assignTeams.value = Array.isArray(td) ? td : td?.results || []
   } catch {
     assignUsers.value = []
     assignVirtuals.value = []
+    assignTeams.value = []
   }
 }
 
@@ -226,6 +231,11 @@ const filteredAssignUsers = computed(() => {
 const filteredAssignVirtuals = computed(() => {
   const q = assignSearch.value.toLowerCase()
   return assignVirtuals.value.filter(v => !q || v.name.toLowerCase().includes(q)).slice(0, 10)
+})
+
+const filteredAssignTeams = computed(() => {
+  const q = assignSearch.value.toLowerCase()
+  return assignTeams.value.filter(t => !q || t.name.toLowerCase().includes(q)).slice(0, 10)
 })
 
 // Allocations scindées : employés réels vs ressources virtuelles (sections distinctes).
@@ -257,6 +267,24 @@ function assignEmployee(userId: number) {
 }
 function assignVirtual(vrId: number) {
   return createAllocation({ virtual_resource: vrId })
+}
+
+// Affecter une ÉQUIPE entière à la tâche : crée une allocation par membre.
+async function assignTeam(teamId: number) {
+  if (!task.value) return
+  try {
+    await apiClient.post(`projects/${props.projectId}/assign_team_to_task/`, {
+      team_id: teamId,
+      task_id: task.value.id,
+      start_date: editDates.value.start || undefined,
+      end_date: editDates.value.end || undefined,
+      hours_per_week: assignHours.value,
+    })
+    showAssign.value = false
+    assignSearch.value = ''
+    await loadTask()
+    emit('updated')
+  } catch { /* */ }
 }
 
 const allocSections = computed(() => [
@@ -445,6 +473,12 @@ const isOverBudget = computed(() => overBudget(totalPlannedHours.value, budgetHo
                   <span class="pso-virtual-dot">◇</span> {{ v.name }}
                 </div>
                 <div v-if="!filteredAssignVirtuals.length" class="pso-empty" style="padding:6px 8px;">Aucune ressource virtuelle</div>
+
+                <div class="pso-assign-group pso-assign-group--team">Équipes (tous les membres)</div>
+                <div v-for="t in filteredAssignTeams" :key="`t-${t.id}`" class="pso-assign-item pso-assign-item--team" data-assign-team @click="assignTeam(t.id)">
+                  <span class="pso-team-dot">👥</span> {{ t.name }}
+                </div>
+                <div v-if="!filteredAssignTeams.length" class="pso-empty" style="padding:6px 8px;">Aucune équipe</div>
               </div>
               <div class="pso-assign-hours">
                 <label>Heures/semaine:</label>
@@ -500,6 +534,9 @@ const isOverBudget = computed(() => overBudget(totalPlannedHours.value, budgetHo
 .pso-assign-group--virtual { color: #7C3AED; }
 .pso-assign-item--virtual { color: #6D28D9; }
 .pso-virtual-dot { color: #7C3AED; font-size: 12px; }
+.pso-assign-group--team { color: #0E7490; }
+.pso-assign-item--team { color: #0E7490; font-weight: 600; }
+.pso-team-dot { font-size: 12px; }
 .pso-team-hours { display: flex; align-items: center; gap: 3px; }
 .pso-hours-input { width: 50px; padding: 3px 6px; border: 1px solid #D1D5DB; border-radius: 4px; font-size: 12px; font-family: var(--font-mono, monospace); text-align: right; -moz-appearance: textfield; appearance: textfield; }
 .pso-hours-input::-webkit-outer-spin-button, .pso-hours-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
