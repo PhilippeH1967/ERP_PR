@@ -189,11 +189,12 @@ class TimeEntryBlockSerializer(serializers.ModelSerializer):
         return full or u.username
 
     def validate(self, attrs):
-        """Cible exactement une phase OU une tâche (pas les deux, pas aucune)."""
+        """Cible une tâche, une phase, ou **aucune** (= projet entier). On
+        interdit seulement « phase ET tâche » simultanément."""
         phase = attrs.get("phase") if "phase" in attrs else getattr(self.instance, "phase", None)
         task = attrs.get("task") if "task" in attrs else getattr(self.instance, "task", None)
-        if (phase is None) == (task is None):
+        if phase is not None and task is not None:
             raise serializers.ValidationError(
-                "Un blocage cible exactement une phase OU une tâche."
+                "Un blocage cible une phase OU une tâche, pas les deux."
             )
         return attrs
