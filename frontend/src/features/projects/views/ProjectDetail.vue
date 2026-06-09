@@ -958,10 +958,23 @@ const blocksByPhase = computed(() => {
   return m
 })
 
-// Membres du projet pas encore bloqués sur ce nœud (candidats au blocage).
+// Personnes bloquables = membres du projet ∪ employés alloués (la vue « Par
+// phase » montre surtout des gens alloués, pas forcément ajoutés aux membres).
+const blockableMembers = computed<Array<{ id: number; name: string }>>(() => {
+  const map = new Map<number, string>()
+  for (const m of teamMembers.value) map.set(m.id, m.name)
+  for (const a of assignments.value) {
+    if (a.employee && !map.has(a.employee)) {
+      map.set(a.employee, a.employee_name || `Employé #${a.employee}`)
+    }
+  }
+  return Array.from(map, ([id, name]) => ({ id, name }))
+})
+
+// Candidats au blocage sur un nœud = bloquables pas encore bloqués ici.
 function blockCandidates(existing: TimeBlock[]): Array<{ id: number; name: string }> {
   const blocked = new Set(existing.map(b => b.employee))
-  return teamMembers.value.filter(m => !blocked.has(m.id)).map(m => ({ id: m.id, name: m.name }))
+  return blockableMembers.value.filter(m => !blocked.has(m.id))
 }
 
 async function blockMember(target: { phase: number } | { task: number }, employeeId: number) {

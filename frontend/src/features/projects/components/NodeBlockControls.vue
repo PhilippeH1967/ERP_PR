@@ -39,18 +39,18 @@ function pick(id: number) {
       🔒 {{ b.employee_name }}
       <button class="nbc-x" data-unblock title="Débloquer" @click.stop="emit('unblock', b.id)">×</button>
     </span>
-    <button class="nbc-btn" data-block-toggle title="Bloquer la saisie pour une personne" @click.stop="open = !open">🔒</button>
+    <button class="nbc-btn" data-block-toggle :title="open ? 'Fermer' : 'Bloquer la saisie pour une personne'" @click.stop="open = !open">🔓 Bloquer</button>
     <div v-if="open" class="nbc-picker" @click.stop>
       <input
         v-model="search" type="text" class="nbc-search"
-        placeholder="Bloquer un membre…" data-block-search
+        placeholder="Rechercher un membre à bloquer…" data-block-search
       />
-      <div v-if="!filtered.length" class="nbc-empty">Aucun membre</div>
+      <div v-if="!filtered.length" class="nbc-empty">Aucun membre disponible</div>
       <button
         v-for="m in filtered" :key="m.id"
         class="nbc-item" data-block-candidate
-        @click="pick(m.id)"
-      >{{ m.name }}</button>
+        @click.stop="pick(m.id)"
+      >🔒 {{ m.name }}</button>
     </div>
   </span>
 </template>
