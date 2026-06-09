@@ -375,7 +375,7 @@ const newPhase = ref({ name: '', client_facing_label: '', phase_type: 'REALIZATI
 
 // Inline edit project
 const editingProject = ref(false)
-const projectForm = ref({ name: '', start_date: '', end_date: '', business_unit: '', pm: '', associate_in_charge: '' })
+const projectForm = ref({ name: '', start_date: '', end_date: '', business_unit: '', pm: '', associate_in_charge: '', construction_cost: '' })
 
 function startEditProject() {
   if (!canEdit.value) return
@@ -388,6 +388,9 @@ function startEditProject() {
     business_unit: p.business_unit || '',
     pm: String(p.pm || ''),
     associate_in_charge: String(p.associate_in_charge || ''),
+    construction_cost: (p as { construction_cost?: number | string | null }).construction_cost != null
+      ? String((p as { construction_cost?: number | string | null }).construction_cost)
+      : '',
   }
   editingProject.value = true
 }
@@ -422,6 +425,10 @@ async function saveProject() {
     else payload.pm = null
     if (projectForm.value.associate_in_charge) payload.associate_in_charge = Number(projectForm.value.associate_in_charge)
     else payload.associate_in_charge = null
+    // Coût de construction : projets externes uniquement (informatif, calcul honoraires).
+    if (!store.currentProject?.is_internal) {
+      payload.construction_cost = parseAmount(projectForm.value.construction_cost)
+    }
     await projectApi.update(projectId, payload)
     editingProject.value = false
     await reload()
@@ -796,7 +803,7 @@ async function saveHonoraires() {
     else payload.total_fees = null
     if (honorairesForm.value.fee_rate_pct !== '') payload.fee_rate_pct = parseFloat(String(honorairesForm.value.fee_rate_pct).replace(/\s/g, '').replace(',', '.'))
     else payload.fee_rate_pct = null
-    payload.construction_cost = parseAmount(honorairesForm.value.construction_cost)
+    // construction_cost : géré sur la Vue d'ensemble (plus envoyé ici).
     await projectApi.update(projectId, payload)
     await reload()
     initHonoraires()
@@ -1479,7 +1486,7 @@ watch(activeTab, (tab) => {
         </div>
 
         <div class="info-grid">
-          <div class="info-card"><h3>Informations <button v-if="isEditing" class="btn-action" @click="startEditProject">Modifier</button></h3><div class="info-pairs"><div><span>Type de contrat</span><p>{{ store.currentProject.contract_type }}</p></div><div><span>Unité d'affaires</span><p>{{ store.currentProject.business_unit || '—' }}</p></div><div><span>Date début</span><p>{{ store.currentProject.start_date ? fmt.date(store.currentProject.start_date) : '—' }}</p></div><div><span>Date fin</span><p>{{ store.currentProject.end_date ? fmt.date(store.currentProject.end_date) : '—' }}</p></div><div><span>Public/Privé</span><p>{{ store.currentProject.is_public ? 'Public' : 'Privé' }}</p></div><div><span>Consortium</span><p>{{ store.currentProject.is_consortium ? 'Oui' : 'Non' }}</p></div></div></div>
+          <div class="info-card"><h3>Informations <button v-if="isEditing" class="btn-action" @click="startEditProject">Modifier le projet</button></h3><div class="info-pairs"><div><span>Type de contrat</span><p>{{ store.currentProject.contract_type }}</p></div><div><span>Unité d'affaires</span><p>{{ store.currentProject.business_unit || '—' }}</p></div><div><span>Date début</span><p>{{ store.currentProject.start_date ? fmt.date(store.currentProject.start_date) : '—' }}</p></div><div><span>Date fin</span><p>{{ store.currentProject.end_date ? fmt.date(store.currentProject.end_date) : '—' }}</p></div><div><span>Public/Privé</span><p>{{ store.currentProject.is_public ? 'Public' : 'Privé' }}</p></div><div><span>Consortium</span><p>{{ store.currentProject.is_consortium ? 'Oui' : 'Non' }}</p></div><div v-if="!store.currentProject.is_internal"><span>Coût de construction</span><p>{{ store.currentProject.construction_cost != null && Number(store.currentProject.construction_cost) > 0 ? formatAmount(store.currentProject.construction_cost) + ' $' : '—' }}</p></div></div></div>
           <div class="info-card"><h3>Direction</h3><div class="info-pairs single"><div><span>Chef de projet</span><p>{{ allUsers.find(u => u.id === store.currentProject?.pm)?.username || store.currentProject.pm || '—' }}</p></div><div><span>Associé en charge</span><p>{{ allUsers.find(u => u.id === store.currentProject?.associate_in_charge)?.username || store.currentProject.associate_in_charge || '—' }}</p></div></div></div>
         </div>
         <div class="info-card" style="margin-top: 12px;">
@@ -1595,6 +1602,11 @@ watch(activeTab, (tab) => {
               <option value="">— Aucun —</option>
               <option v-for="u in allUsers" :key="u.id" :value="String(u.id)">{{ u.username }} ({{ u.email }})</option>
             </select>
+          </div>
+          <div class="form-group" v-if="!store.currentProject?.is_internal">
+            <label>Coût de construction ($)</label>
+            <input v-model="projectForm.construction_cost" type="text" inputmode="decimal" placeholder="Ex. 2 500 000" data-construction-cost-overview />
+            <p class="phase-form-hint" style="margin:4px 0 0;">Informatif — sert au calcul/contexte des honoraires (projets externes).</p>
           </div>
         </div>
         <div class="form-actions"><button class="btn-ghost" @click="editingProject = false">Annuler</button><button class="btn-primary" @click="saveProject">Enregistrer</button></div>
@@ -2348,18 +2360,6 @@ watch(activeTab, (tab) => {
               <option value="HORAIRE">Horaire</option>
             </select>
           </div>
-          <div class="form-group" v-if="!store.currentProject?.is_internal">
-            <label>Coût de construction ($)</label>
-            <input
-              v-model="honorairesForm.construction_cost"
-              type="text"
-              inputmode="decimal"
-              class="inline-input"
-              :disabled="!canEditBudget"
-              placeholder="0.00"
-              data-construction-cost
-            />
-          </div>
           <div class="form-group" v-if="honorairesForm.fee_calculation_method === 'COUT_TRAVAUX'">
             <label>Taux (%)</label>
             <input
@@ -2374,6 +2374,7 @@ watch(activeTab, (tab) => {
         </div>
         <div v-if="honorairesForm.fee_calculation_method === 'COUT_TRAVAUX'" class="text-xs text-text-muted" style="margin-top:6px;">
           Coût de construction: {{ formatAmount(parseAmount(honorairesForm.construction_cost)) }} $ &times; {{ honorairesForm.fee_rate_pct || 0 }}% = <strong>{{ formatAmount(computedFees || 0) }} $</strong>
+          <span style="margin-left:6px;">(coût de construction modifiable sur la <strong>Vue d'ensemble</strong>)</span>
         </div>
         <div v-if="canEditBudget" class="form-actions" style="margin-top:8px;">
           <button class="btn-primary btn-sm" :disabled="honorairesSaving" @click="saveHonoraires">
