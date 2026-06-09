@@ -16,7 +16,7 @@ import TaskTemplatePicker from '../components/TaskTemplatePicker.vue'
 import TeamMembersPanel from '../components/TeamMembersPanel.vue'
 import TabGroup from '@/shared/components/TabGroup.vue'
 import { planningApi } from '@/features/planning/api/planningApi'
-import { visibleTaskGroups, isTaskReadOnly } from '../utils/taskStructure'
+import { visibleTaskGroups, isTaskReadOnly, taskClosureIds } from '../utils/taskStructure'
 import { progressHoursPct, progressCostPct, progressFeesPct } from '../utils/phaseProgress'
 
 const route = useRoute()
@@ -632,6 +632,21 @@ async function saveTaskField(taskId: number, field: string, value: unknown) {
     await projectApi.updateTask(projectId, taskId, { [field]: value })
     await loadTasks()
     // Rafraîchir les agrégats de phase (budget/heures/dates = Σ des tâches).
+    await store.fetchProject(projectId)
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
+  }
+}
+
+// Fermer / rouvrir une tâche : bloque (ou rétablit) la saisie de temps. Fermer
+// une tâche-mère ferme tout son groupe (ses sous-tâches saisissables). Réversible.
+async function setTaskClosed(task: TaskItem, closed: boolean) {
+  const ids = taskClosureIds(task, tasks.value)
+  try {
+    for (const id of ids) {
+      await projectApi.updateTask(projectId, id, { is_active: !closed })
+    }
+    await loadTasks()
     await store.fetchProject(projectId)
   } catch (e: unknown) {
     actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
@@ -1625,7 +1640,7 @@ watch(activeTab, (tab) => {
             </thead>
             <tbody>
               <template v-for="task in group.tasks" :key="task.id">
-              <tr :class="{ 'subtask-row': task.task_type === 'SUBTASK' }">
+              <tr :class="{ 'subtask-row': task.task_type === 'SUBTASK' }" :style="!task.is_active ? 'opacity:0.6;' : ''">
                 <td style="font-size:11px; color:var(--color-gray-500);">{{ task.wbs_code || '—' }}</td>
                 <td
                   style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
@@ -1646,6 +1661,7 @@ watch(activeTab, (tab) => {
                   <template v-else>
                     {{ task.display_label || task.name }}
                     <span v-if="task.amendment_number" class="badge badge-purple" style="margin-left:6px; font-size:9px;" :title="'Tâche ajoutée via avenant #' + task.amendment_number">AV-{{ task.amendment_number }}</span>
+                    <span v-if="!task.is_active" class="badge badge-gray" style="margin-left:6px; font-size:9px;" title="Tâche fermée : saisie de temps bloquée">Fermée</span>
                   </template>
                 </td>
                 <td><span class="badge" :class="task.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'" style="font-size:10px;">{{ task.billing_mode === 'HORAIRE' ? 'H' : 'F' }}</span></td>
@@ -1680,9 +1696,13 @@ watch(activeTab, (tab) => {
                     <span class="badge badge-amber" style="font-size:9px;" title="Tâche-mère : regroupement de sous-tâches, en lecture seule">Regroupement</span>
                     <button class="btn-action" @click="enterInlineNameEdit(task)">Renommer</button>
                     <button class="btn-action" @click="showAddSubtask = task.id; newSubtaskName = ''">+ Sous-tâche</button>
+                    <button v-if="task.is_active" class="btn-action" @click="setTaskClosed(task, true)" title="Fermer la tâche et ses sous-tâches : bloque la saisie de temps">Fermer</button>
+                    <button v-else class="btn-action" @click="setTaskClosed(task, false)" title="Rouvrir la tâche et ses sous-tâches">Rouvrir</button>
                   </template>
                   <template v-else>
                     <button class="btn-action" @click="openTaskEditModal(task)">Modifier</button>
+                    <button v-if="task.is_active" class="btn-action" @click="setTaskClosed(task, true)" title="Fermer : bloque la saisie de temps sur cette tâche">Fermer</button>
+                    <button v-else class="btn-action" @click="setTaskClosed(task, false)" title="Rouvrir : autorise à nouveau la saisie">Rouvrir</button>
                     <button v-if="task.task_type !== 'SUBTASK'" class="btn-action" @click="showAddSubtask = task.id; newSubtaskName = ''">+ Sous-tâche</button>
                     <template v-if="movingTaskId === task.id">
                       <select v-model.number="moveTargetPhaseId" class="inline-select">
