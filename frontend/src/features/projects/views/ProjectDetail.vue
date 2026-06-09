@@ -14,7 +14,6 @@ import ProjectCloseModal from '../components/ProjectCloseModal.vue'
 import TaskEditModal from '../components/TaskEditModal.vue'
 import TaskTemplatePicker from '../components/TaskTemplatePicker.vue'
 import TeamMembersPanel from '../components/TeamMembersPanel.vue'
-import NodeBlockControls from '../components/NodeBlockControls.vue'
 import TabGroup from '@/shared/components/TabGroup.vue'
 import { planningApi } from '@/features/planning/api/planningApi'
 import { visibleTaskGroups, isTaskReadOnly, taskClosureIds } from '../utils/taskStructure'
@@ -950,38 +949,36 @@ async function loadTimeBlocks() {
   } catch { timeBlocks.value = [] }
 }
 
-const blocksByTask = computed(() => {
-  const m = new Map<number, TimeBlock[]>()
-  for (const b of timeBlocks.value) {
-    if (b.task != null) { if (!m.has(b.task)) m.set(b.task, []); m.get(b.task)!.push(b) }
+// ── Fermeture GLOBALE (tout le monde) d'un nœud — vue « Par phase » ──────────
+function isPhaseClosed(phaseId: number): boolean {
+  const ts = tasks.value.filter(t => t.phase === phaseId)
+  return ts.length > 0 && ts.every(t => !t.is_active)
+}
+async function setPhaseClosed(phaseId: number, closed: boolean) {
+  const ids = tasks.value.filter(t => t.phase === phaseId).map(t => t.id)
+  try {
+    for (const id of ids) await projectApi.updateTask(projectId, id, { is_active: !closed })
+    await loadTasks()
+    await store.fetchProject(projectId)
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
   }
-  return m
-})
-const blocksByPhase = computed(() => {
-  const m = new Map<number, TimeBlock[]>()
-  for (const b of timeBlocks.value) {
-    if (b.phase != null) { if (!m.has(b.phase)) m.set(b.phase, []); m.get(b.phase)!.push(b) }
-  }
-  return m
-})
+}
+function toggleNodeClosed(taskId: number) {
+  const t = tasks.value.find(x => x.id === taskId)
+  if (t) setTaskClosed(t, t.is_active) // is_active=true → fermer ; false → rouvrir
+}
 
-// Personnes bloquables = membres du projet ∪ employés alloués (la vue « Par
-// phase » montre surtout des gens alloués, pas forcément ajoutés aux membres).
-const blockableMembers = computed<Array<{ id: number; name: string }>>(() => {
-  const map = new Map<number, string>()
-  for (const m of teamMembers.value) map.set(m.id, m.name)
-  for (const a of assignments.value) {
-    if (a.employee && !map.has(a.employee)) {
-      map.set(a.employee, a.employee_name || `Employé #${a.employee}`)
-    }
-  }
-  return Array.from(map, ([id, name]) => ({ id, name }))
-})
-
-// Candidats au blocage sur un nœud = bloquables pas encore bloqués ici.
-function blockCandidates(existing: TimeBlock[]): Array<{ id: number; name: string }> {
-  const blocked = new Set(existing.map(b => b.employee))
-  return blockableMembers.value.filter(m => !blocked.has(m.id))
+// ── Blocage PAR PERSONNE — vue « Par personne » (sur une affectation) ────────
+function assignmentBlock(employeeId: number, a: Assignment): TimeBlock | null {
+  return timeBlocks.value.find(
+    b => b.employee === employeeId && (a.task ? b.task === a.task : b.phase === a.phase),
+  ) || null
+}
+function toggleAssignmentBlock(employeeId: number, a: Assignment) {
+  const blk = assignmentBlock(employeeId, a)
+  if (blk) return unblockTime(blk.id)
+  return blockMember(a.task ? { task: a.task } : { phase: a.phase as number }, employeeId)
 }
 
 async function blockMember(target: { phase: number } | { task: number }, employeeId: number) {
@@ -2058,13 +2055,10 @@ watch(activeTab, (tab) => {
               <span class="acc-count">{{ ph.tasks.length }} tâche{{ ph.tasks.length > 1 ? 's' : '' }}</span>
               <span class="people-chips">
                 <span v-for="p in ph.people" :key="p.key" class="person-chip" :class="{ 'person-chip--virtual': p.kind === 'virtual' }">{{ p.name }}</span>
-                <NodeBlockControls
-                  v-if="canEditBudget && ph.phase_id != null"
-                  :blocks="blocksByPhase.get(ph.phase_id) || []"
-                  :candidates="blockCandidates(blocksByPhase.get(ph.phase_id) || [])"
-                  @block="(eid) => blockMember({ phase: Number(ph.phase_id) }, eid)"
-                  @unblock="unblockTime"
-                />
+              </span>
+              <span v-if="canEditBudget && ph.phase_id != null && ph.tasks.length" class="node-close" @click.stop>
+                <button v-if="!isPhaseClosed(Number(ph.phase_id))" class="btn-action danger" title="Fermer toutes les tâches de la phase (bloque la saisie pour tout le monde)" @click="setPhaseClosed(Number(ph.phase_id), true)">🔒 Fermer la phase</button>
+                <button v-else class="btn-action" title="Rouvrir toutes les tâches de la phase" @click="setPhaseClosed(Number(ph.phase_id), false)">Rouvrir la phase</button>
               </span>
               <span v-if="canEditBudget && ph.phase_id != null" class="phase-team-assign" @click.stop>
                 <template v-if="teamPhasePicker === ph.phase_id">
@@ -2089,13 +2083,10 @@ watch(activeTab, (tab) => {
                   <span class="people-chips">
                     <span v-for="p in t.people" :key="p.key" class="person-chip" :class="{ 'person-chip--virtual': p.kind === 'virtual' }">{{ p.name }}</span>
                     <span v-if="!t.people.length && !t.subtasks.length" class="tpn-noone">aucune personne</span>
-                    <NodeBlockControls
-                      v-if="canEditBudget && !t.subtasks.length"
-                      :blocks="blocksByTask.get(t.id) || []"
-                      :candidates="blockCandidates(blocksByTask.get(t.id) || [])"
-                      @block="(eid) => blockMember({ task: t.id }, eid)"
-                      @unblock="unblockTime"
-                    />
+                  </span>
+                  <span v-if="canEditBudget" class="node-close" @click.stop>
+                    <button v-if="t.is_active" class="btn-action danger" :title="t.subtasks.length ? 'Fermer la tâche et ses sous-tâches (tout le monde)' : 'Fermer : bloque la saisie pour tout le monde'" @click="toggleNodeClosed(t.id)">🔒 Fermer</button>
+                    <button v-else class="btn-action" title="Rouvrir" @click="toggleNodeClosed(t.id)">Rouvrir</button>
                   </span>
                 </div>
                 <div v-if="t.subtasks.length && isTaskOpen(t.id)" class="tpn-children">
@@ -2108,13 +2099,10 @@ watch(activeTab, (tab) => {
                       <span class="people-chips">
                         <span v-for="p in s.people" :key="p.key" class="person-chip" :class="{ 'person-chip--virtual': p.kind === 'virtual' }">{{ p.name }}</span>
                         <span v-if="!s.people.length" class="tpn-noone">aucune personne</span>
-                        <NodeBlockControls
-                          v-if="canEditBudget"
-                          :blocks="blocksByTask.get(s.id) || []"
-                          :candidates="blockCandidates(blocksByTask.get(s.id) || [])"
-                          @block="(eid) => blockMember({ task: s.id }, eid)"
-                          @unblock="unblockTime"
-                        />
+                      </span>
+                      <span v-if="canEditBudget" class="node-close" @click.stop>
+                        <button v-if="s.is_active" class="btn-action danger" title="Fermer : bloque la saisie pour tout le monde" @click="toggleNodeClosed(s.id)">🔒 Fermer</button>
+                        <button v-else class="btn-action" title="Rouvrir" @click="toggleNodeClosed(s.id)">Rouvrir</button>
                       </span>
                     </div>
                   </div>
@@ -2175,9 +2163,10 @@ watch(activeTab, (tab) => {
             <table class="data-table" style="font-size:12px; margin:0;">
               <thead>
                 <tr>
-                  <th>Phase</th>
+                  <th>Phase / Tâche</th>
                   <th class="text-right" style="width:60px;">%</th>
                   <th style="width:130px;">Periode</th>
+                  <th style="width:120px;">Saisie</th>
                   <th style="width:150px;">Actions</th>
                 </tr>
               </thead>
@@ -2186,6 +2175,11 @@ watch(activeTab, (tab) => {
                   <td>{{ a.task ? (a.task_name || `Tache #${a.task}`) : (a.phase ? (a.phase_name || `Phase #${a.phase}`) : 'Global') }}</td>
                   <td class="text-right"><span class="badge badge-blue" style="font-size:10px;">{{ a.hours_per_week }}h/sem</span></td>
                   <td class="text-muted" style="font-size:11px;">{{ a.start_date || '—' }} → {{ a.end_date || '...' }}</td>
+                  <td>
+                    <button v-if="canEditBudget && assignmentBlock(member.employee, a)" class="btn-action danger" style="font-size:10px;" title="Saisie bloquée pour cette personne — cliquer pour débloquer" @click="toggleAssignmentBlock(member.employee, a)">🔒 Bloqué</button>
+                    <button v-else-if="canEditBudget" class="btn-action" style="font-size:10px;" title="Bloquer la saisie de temps de cette personne sur ce nœud" @click="toggleAssignmentBlock(member.employee, a)">🔓 Bloquer</button>
+                    <span v-else class="text-muted" style="font-size:10px;">—</span>
+                  </td>
                   <td>
                     <button class="btn-action" style="font-size:10px;" @click="activeTab = 'gantt'">Planifier</button>
                     <template v-if="confirmDeleteAssignment === a.id">
@@ -2933,6 +2927,7 @@ watch(activeTab, (tab) => {
 .acc-count { font-size: 10px; color: var(--color-gray-400); }
 .phase-acc-body { padding: 4px 0; }
 .phase-team-assign { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; flex-shrink: 0; }
+.node-close { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; flex-shrink: 0; }
 .tpn { padding: 0 12px; }
 .tpn-head { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--color-gray-100); }
 .tpn-sub .tpn-head { padding-left: 18px; }
