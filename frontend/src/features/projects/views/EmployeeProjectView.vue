@@ -31,7 +31,7 @@ onMounted(async () => {
     const [pResp, phResp, tResp, teResp, aResp] = await Promise.all([
       apiClient.get(`projects/${projectId.value}/`),
       apiClient.get(`projects/${projectId.value}/phases/`),
-      apiClient.get(`projects/${projectId.value}/tasks/`),
+      apiClient.get(`projects/${projectId.value}/tasks/`, { params: { page_size: '500' } }),
       apiClient.get(`time_entries/`, { params: { project: projectId.value } }),
       apiClient.get(`allocations/`, { params: { project: projectId.value, page_size: '500' } }),
     ])

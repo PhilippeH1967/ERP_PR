@@ -48,7 +48,7 @@ async function loadProjects() {
 async function loadTasks(projectId: number) {
   if (tasksByProject.value[projectId]) return
   try {
-    const resp = await apiClient.get(`projects/${projectId}/tasks/`)
+    const resp = await apiClient.get(`projects/${projectId}/tasks/`, { params: { page_size: '500' } })
     const data = resp.data?.data || resp.data
     tasksByProject.value[projectId] = (Array.isArray(data) ? data : data?.results || []) as ProjectTask[]
   } catch {
