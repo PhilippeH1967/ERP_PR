@@ -10,13 +10,20 @@ import TaskSlideOver from '../features/planning/components/TaskSlideOver.vue'
 
 const mockGet = apiClient.get as unknown as ReturnType<typeof vi.fn>
 const mockPost = apiClient.post as unknown as ReturnType<typeof vi.fn>
+const mockPatch = apiClient.patch as unknown as ReturnType<typeof vi.fn>
+const mockDelete = apiClient.delete as unknown as ReturnType<typeof vi.fn>
 
 const TASK = {
-  id: 5, name: 'Plans', client_facing_label: '', wbs_code: '1.1',
+  id: 5, name: 'Plans', client_facing_label: 'Client drawings', wbs_code: '1.1',
   phase: 1, phase_name: 'Concept',
   start_date: '2026-01-01', end_date: '2026-03-01',
-  budgeted_hours: '0', progress_pct: 0,
+  budgeted_hours: '80', budgeted_cost: '9600', billing_mode: 'FORFAIT',
+  hourly_rate: '120', is_active: true, progress_pct: 0,
 }
+const PHASES = [
+  { id: 1, name: 'Concept' },
+  { id: 2, name: 'Préliminaires' },
+]
 const ALLOCS = [
   {
     id: 10, employee: 1, employee_name: 'Anne Monty', virtual_resource: null,
@@ -46,6 +53,7 @@ const TEAMS = [
 
 function mockApi() {
   mockGet.mockImplementation((url: string) => {
+    if (url.includes('/phases/')) return Promise.resolve({ data: PHASES })
     if (url.includes('/tasks/')) return Promise.resolve({ data: TASK })
     if (url === 'allocations/') return Promise.resolve({ data: ALLOCS })
     if (url === 'virtual-resources/') return Promise.resolve({ data: VIRTUALS })
@@ -66,8 +74,12 @@ describe('TaskSlideOver — affectation employés + ressources virtuelles', () =
   beforeEach(() => {
     mockGet.mockReset()
     mockPost.mockReset()
+    mockPatch.mockReset()
+    mockDelete.mockReset()
     mockApi()
     mockPost.mockResolvedValue({ data: { id: 99 } })
+    mockPatch.mockResolvedValue({ data: {} })
+    mockDelete.mockResolvedValue({ data: {} })
   })
 
   it('affiche les employés et les ressources virtuelles dans deux sections séparées', async () => {
@@ -145,5 +157,53 @@ describe('TaskSlideOver — affectation employés + ressources virtuelles', () =
     )
     const payload = mockPost.mock.calls.at(-1)![1] as Record<string, unknown>
     expect(payload.virtual_resource).toBeUndefined()
+  })
+
+  it('fiche unique : identité pré-remplie et PATCH nom/libellé/phase', async () => {
+    const wrapper = mountSlideOver()
+    await flushPromises()
+    const nameInput = wrapper.find('[data-tso-name]')
+    expect((nameInput.element as HTMLInputElement).value).toBe('Plans')
+    await nameInput.setValue('Plans révisés')
+    await wrapper.find('[data-tso-phase]').setValue('2')
+    await wrapper.find('[data-tso-save-identity]').trigger('click')
+    await flushPromises()
+    expect(mockPatch).toHaveBeenCalledWith(
+      'projects/3/tasks/5/',
+      expect.objectContaining({ name: 'Plans révisés', phase: 2 }),
+    )
+  })
+
+  it('fiche unique : budget éditable (PATCH heures/coût/mode)', async () => {
+    const wrapper = mountSlideOver()
+    await flushPromises()
+    await wrapper.find('[data-tso-bh]').setValue('100')
+    await wrapper.find('[data-tso-save-budget]').trigger('click')
+    await flushPromises()
+    expect(mockPatch).toHaveBeenCalledWith(
+      'projects/3/tasks/5/',
+      expect.objectContaining({ budgeted_hours: '100' }),
+    )
+  })
+
+  it('fiche unique : fermer la saisie PATCH is_active=false', async () => {
+    const wrapper = mountSlideOver()
+    await flushPromises()
+    await wrapper.find('[data-tso-active]').trigger('click')
+    await flushPromises()
+    expect(mockPatch).toHaveBeenCalledWith(
+      'projects/3/tasks/5/',
+      expect.objectContaining({ is_active: false }),
+    )
+  })
+
+  it('fiche unique : suppression avec confirmation inline puis DELETE', async () => {
+    const wrapper = mountSlideOver()
+    await flushPromises()
+    await wrapper.find('[data-tso-delete]').trigger('click')
+    expect(mockDelete).not.toHaveBeenCalled()
+    await wrapper.find('[data-tso-delete-confirm]').trigger('click')
+    await flushPromises()
+    expect(mockDelete).toHaveBeenCalledWith('projects/3/tasks/5/')
   })
 })

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * TaskSlideOver — Planning panel for a task.
- * Sections: dates + team allocations (mode + Manuelle grid). No budget, no chart.
+ * TaskSlideOver — fiche tâche unique (identité, dates, budget, affectations,
+ * saisie, suppression). Ouverte depuis le Gantt ET l'onglet Tâches : un seul
+ * endroit pour tout éditer d'une tâche/sous-tâche.
  */
 import { ref, computed, watch } from 'vue'
 import apiClient from '@/plugins/axios'
@@ -20,7 +21,9 @@ interface TaskData {
   id: number; name: string; client_facing_label: string; wbs_code: string
   phase: number | null; phase_name: string
   start_date: string | null; end_date: string | null
-  budgeted_hours: string; progress_pct: number
+  budgeted_hours: string; budgeted_cost?: string | number
+  billing_mode?: string; hourly_rate?: string | number | null
+  is_active?: boolean; progress_pct: number
 }
 
 type DistributionMode = 'uniform' | 'standard' | 'manual'
@@ -38,6 +41,11 @@ interface AllocationData {
 
 const task = ref<TaskData | null>(null)
 const allocations = ref<AllocationData[]>([])
+const phasesList = ref<Array<{ id: number; name: string }>>([])
+const identForm = ref({ name: '', client_facing_label: '', phase: null as number | null })
+const budgetForm = ref({ budgeted_hours: '0', budgeted_cost: '0', billing_mode: 'FORFAIT', hourly_rate: '' })
+const confirmDelete = ref(false)
+const sheetError = ref('')
 const isLoading = ref(false)
 const isSaving = ref(false)
 const editDates = ref({ start: '', end: '' })
@@ -58,6 +66,24 @@ async function loadTask() {
       start: task.value?.start_date || '',
       end: task.value?.end_date || '',
     }
+    identForm.value = {
+      name: task.value?.name || '',
+      client_facing_label: task.value?.client_facing_label || '',
+      phase: task.value?.phase ?? null,
+    }
+    budgetForm.value = {
+      budgeted_hours: String(task.value?.budgeted_hours ?? '0'),
+      budgeted_cost: String(task.value?.budgeted_cost ?? '0'),
+      billing_mode: task.value?.billing_mode || 'FORFAIT',
+      hourly_rate: task.value?.hourly_rate != null ? String(task.value.hourly_rate) : '',
+    }
+    confirmDelete.value = false
+    sheetError.value = ''
+    try {
+      const phr = await apiClient.get(`projects/${props.projectId}/phases/`)
+      const phd = phr.data?.data || phr.data
+      phasesList.value = Array.isArray(phd) ? phd : phd?.results || []
+    } catch { phasesList.value = [] }
 
     const ar = await apiClient.get('allocations/', { params: { project: props.projectId, task: props.taskId } })
     const ad = ar.data?.data || ar.data
@@ -121,6 +147,55 @@ async function saveDates() {
     await loadTask()
   } catch { /* */ }
   finally { isSaving.value = false }
+}
+
+async function patchTask(payload: Record<string, unknown>) {
+  if (!task.value) return false
+  isSaving.value = true
+  sheetError.value = ''
+  try {
+    await apiClient.patch(`projects/${props.projectId}/tasks/${task.value.id}/`, payload)
+    emit('updated')
+    await loadTask()
+    return true
+  } catch (e: unknown) {
+    sheetError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
+    return false
+  } finally { isSaving.value = false }
+}
+
+function saveIdentity() {
+  if (!identForm.value.name.trim()) { sheetError.value = 'Le nom est obligatoire.'; return }
+  patchTask({
+    name: identForm.value.name.trim(),
+    client_facing_label: identForm.value.client_facing_label,
+    phase: identForm.value.phase,
+  })
+}
+
+function saveBudget() {
+  patchTask({
+    budgeted_hours: String(budgetForm.value.budgeted_hours ?? '0'),
+    budgeted_cost: String(budgetForm.value.budgeted_cost ?? '0'),
+    billing_mode: budgetForm.value.billing_mode,
+    hourly_rate: budgetForm.value.hourly_rate === '' ? null : String(budgetForm.value.hourly_rate),
+  })
+}
+
+function toggleActive() {
+  if (!task.value) return
+  patchTask({ is_active: !(task.value.is_active !== false) })
+}
+
+async function removeTask() {
+  if (!task.value) return
+  try {
+    await apiClient.delete(`projects/${props.projectId}/tasks/${task.value.id}/`)
+    emit('updated')
+    emit('close')
+  } catch {
+    sheetError.value = 'Suppression impossible.'
+  }
 }
 
 async function updateAllocation(allocId: number, field: string, value: unknown) {
@@ -329,6 +404,31 @@ const isOverBudget = computed(() => overBudget(totalPlannedHours.value, budgetHo
         <div v-if="isLoading" class="pso-loading">Chargement...</div>
 
         <div v-else-if="task" class="pso-body">
+          <div v-if="sheetError" class="pso-sheet-error">{{ sheetError }}</div>
+          <!-- Identité (fiche unique : renommer / libellé client / déplacer de phase) -->
+          <div class="pso-section">
+            <h4 class="pso-section-title">Identité</h4>
+            <div class="pso-ident">
+              <div>
+                <label>Nom interne *</label>
+                <input v-model="identForm.name" type="text" class="pso-input" data-tso-name />
+              </div>
+              <div>
+                <label>Libellé client (WBS client)</label>
+                <input v-model="identForm.client_facing_label" type="text" class="pso-input" data-tso-label />
+              </div>
+              <div>
+                <label>Phase</label>
+                <select v-model.number="identForm.phase" class="pso-input" data-tso-phase>
+                  <option v-for="p in phasesList" :key="p.id" :value="p.id">{{ p.name }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="pso-sect-actions">
+              <button class="pso-btn-save" data-tso-save-identity @click="saveIdentity">Enregistrer</button>
+            </div>
+          </div>
+
           <!-- Dates (auto-save on change) -->
           <div class="pso-section">
             <h4 class="pso-section-title">
@@ -347,9 +447,33 @@ const isOverBudget = computed(() => overBudget(totalPlannedHours.value, budgetHo
             </div>
           </div>
 
-          <!-- Budget vs planifié (contrôle non bloquant) -->
+          <!-- Budget & facturation (éditable — fiche unique) -->
           <div class="pso-section">
-            <h4 class="pso-section-title">Budget heures</h4>
+            <h4 class="pso-section-title">Budget &amp; facturation</h4>
+            <div class="pso-ident pso-budget-edit">
+              <div>
+                <label>Heures budgétées</label>
+                <input v-model="budgetForm.budgeted_hours" type="number" min="0" step="0.5" class="pso-input" data-tso-bh />
+              </div>
+              <div>
+                <label>Coût budgété ($)</label>
+                <input v-model="budgetForm.budgeted_cost" type="number" min="0" step="0.01" class="pso-input" data-tso-bc />
+              </div>
+              <div>
+                <label>Mode</label>
+                <select v-model="budgetForm.billing_mode" class="pso-input" data-tso-mode>
+                  <option value="FORFAIT">Forfait</option>
+                  <option value="HORAIRE">Horaire</option>
+                </select>
+              </div>
+              <div>
+                <label>Taux $/h</label>
+                <input v-model="budgetForm.hourly_rate" type="number" min="0" step="0.01" class="pso-input" data-tso-rate />
+              </div>
+            </div>
+            <div class="pso-sect-actions">
+              <button class="pso-btn-save" data-tso-save-budget @click="saveBudget">Enregistrer</button>
+            </div>
             <div class="pso-budget-row">
               <div class="pso-budget-cell">
                 <span class="pso-budget-lbl">Budget</span>
@@ -487,6 +611,29 @@ const isOverBudget = computed(() => overBudget(totalPlannedHours.value, budgetHo
               <button class="pso-btn-cancel" @click="showAssign = false">Annuler</button>
             </div>
           </div>
+
+          <!-- Saisie de temps (fermeture globale, réversible) -->
+          <div class="pso-section">
+            <h4 class="pso-section-title">Saisie de temps</h4>
+            <div class="pso-active-line">
+              <span v-if="task.is_active !== false">🔓 <b>Ouverte</b> — les personnes affectées peuvent imputer du temps.</span>
+              <span v-else class="pso-closed-txt">🔒 <b>Fermée</b> — saisie bloquée pour tout le monde.</span>
+              <button class="pso-btn-toggle" data-tso-active @click="toggleActive">
+                {{ task.is_active !== false ? 'Fermer la saisie' : 'Rouvrir la saisie' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Danger -->
+          <div class="pso-section">
+            <h4 class="pso-section-title pso-danger-title">Danger</h4>
+            <template v-if="confirmDelete">
+              <span class="pso-danger-hint">Supprimer définitivement cette tâche ?</span>
+              <button class="pso-btn-danger" data-tso-delete-confirm @click="removeTask">Confirmer</button>
+              <button class="pso-btn-cancel" @click="confirmDelete = false">Annuler</button>
+            </template>
+            <button v-else class="pso-btn-danger-ghost" data-tso-delete @click="confirmDelete = true">Supprimer la tâche…</button>
+          </div>
         </div>
       </div>
     </div>
@@ -505,6 +652,19 @@ const isOverBudget = computed(() => overBudget(totalPlannedHours.value, budgetHo
 .pso-body { flex: 1; overflow-y: auto; }
 
 .pso-section { padding: 16px; border-bottom: 1px solid #F3F4F6; }
+.pso-sheet-error { margin: 12px 16px 0; background: #fde8e4; color: #DC2626; padding: 8px 12px; border-radius: 6px; font-size: 12px; }
+.pso-ident { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pso-ident label { display: block; font-size: 10px; font-weight: 700; color: #6B7280; margin-bottom: 3px; }
+.pso-budget-edit { grid-template-columns: repeat(4, 1fr); margin-bottom: 10px; }
+.pso-sect-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+.pso-btn-save { background: #2563EB; color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.pso-active-line { display: flex; align-items: center; gap: 10px; font-size: 12px; flex-wrap: wrap; }
+.pso-closed-txt { color: #DC2626; }
+.pso-btn-toggle { margin-left: auto; background: none; border: 1px solid #E5E7EB; border-radius: 6px; padding: 5px 11px; font-size: 11px; font-weight: 600; color: #374151; cursor: pointer; }
+.pso-danger-title { color: #DC2626; }
+.pso-danger-hint { font-size: 12px; color: #6B7280; margin-right: 8px; }
+.pso-btn-danger { background: #DC2626; color: #fff; border: none; border-radius: 6px; padding: 5px 12px; font-size: 11px; font-weight: 700; cursor: pointer; }
+.pso-btn-danger-ghost { background: none; border: 1px solid #FCA5A5; color: #DC2626; border-radius: 6px; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; }
 .pso-section-title { font-size: 11px; font-weight: 700; color: #6B7280; text-transform: uppercase; letter-spacing: 0.3px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
 .pso-section-badge { font-size: 10px; font-weight: 400; color: #9CA3AF; text-transform: none; }
 
