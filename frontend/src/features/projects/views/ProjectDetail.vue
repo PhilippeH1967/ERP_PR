@@ -14,6 +14,7 @@ import ProjectCloseModal from '../components/ProjectCloseModal.vue'
 import TaskEditModal from '../components/TaskEditModal.vue'
 import TaskSlideOver from '@/features/planning/components/TaskSlideOver.vue'
 import AssignResourceDialog from '../components/AssignResourceDialog.vue'
+import ProjectSettingsTab from '../components/ProjectSettingsTab.vue'
 import TaskTemplatePicker from '../components/TaskTemplatePicker.vue'
 import TeamMembersPanel from '../components/TeamMembersPanel.vue'
 import TabGroup from '@/shared/components/TabGroup.vue'
@@ -201,32 +202,6 @@ function formatAmount(value: number | string): string {
 const businessUnits = ref<Array<{ id: number; name: string }>>([])
 const allUsers = ref<Array<{ id: number; username: string; email: string }>>([])
 
-// Virtual resources (profils virtuels) — onglet Équipe
-interface VirtualResource {
-  id: number
-  name: string
-  default_hourly_rate: string
-  is_active: boolean
-  replaced_by: number | null
-  replaced_by_name: string
-  replaced_at: string | null
-}
-const projectVirtuals = ref<VirtualResource[]>([])
-const replacingVirtualId = ref<number | null>(null)
-const replaceEmployeeId = ref<number | null>(null)
-const replaceError = ref('')
-const replacing = ref(false)
-// Édition / suppression d'un profil virtuel.
-const editingVirtualId = ref<number | null>(null)
-const editVirtualName = ref('')
-const editVirtualRate = ref('')
-const savingVirtual = ref(false)
-const virtualEditError = ref('')
-const confirmDeleteVirtualId = ref<number | null>(null)
-
-const activeVirtuals = computed(() => projectVirtuals.value.filter(v => v.is_active))
-const replacedVirtuals = computed(() => projectVirtuals.value.filter(v => !v.is_active))
-
 // Membres de l'équipe — l'appartenance autorise la saisie de temps même sans
 // planification (allocation). Gérée via l'endpoint dédié `members`.
 const teamMembers = ref<Array<{ id: number; name: string }>>([])
@@ -302,143 +277,9 @@ async function removeTeamMember(userId: number) {
   }
 }
 
-async function loadProjectVirtuals() {
-  try {
-    const r = await planningApi.listVirtualResources({ project: String(projectId) })
-    const d: unknown = (r.data as { data?: unknown })?.data ?? r.data
-    const list = Array.isArray(d) ? d : ((d as { results?: unknown })?.results ?? [])
-    projectVirtuals.value = Array.isArray(list) ? (list as VirtualResource[]) : []
-  } catch {
-    projectVirtuals.value = []
-  }
-}
-
-// Création directe d'un profil virtuel (sans avenant).
-const showVirtualForm = ref(false)
-const newVirtualName = ref('')
-const newVirtualRate = ref('0')
-const creatingVirtual = ref(false)
-const virtualError = ref('')
-
-async function createVirtual() {
-  virtualError.value = ''
-  if (!newVirtualName.value.trim()) {
-    virtualError.value = 'Le nom du profil est obligatoire.'
-    return
-  }
-  creatingVirtual.value = true
-  try {
-    await planningApi.createVirtualResource({
-      project: projectId,
-      name: newVirtualName.value.trim(),
-      default_hourly_rate: Number(newVirtualRate.value) || 0,
-    })
-    newVirtualName.value = ''
-    newVirtualRate.value = '0'
-    showVirtualForm.value = false
-    await loadProjectVirtuals()
-  } catch (e: unknown) {
-    const msg = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
-    virtualError.value = msg || 'Erreur lors de la création du profil virtuel.'
-  } finally {
-    creatingVirtual.value = false
-  }
-}
-
-function startReplaceVirtual(virtualId: number) {
-  replacingVirtualId.value = virtualId
-  replaceEmployeeId.value = null
-  replaceError.value = ''
-}
-
-function startEditVirtual(v: VirtualResource) {
-  editingVirtualId.value = v.id
-  editVirtualName.value = v.name
-  editVirtualRate.value = v.default_hourly_rate != null ? String(v.default_hourly_rate) : ''
-  virtualEditError.value = ''
-}
-
-async function saveEditVirtual(virtualId: number) {
-  if (!editVirtualName.value.trim()) { virtualEditError.value = 'Le nom est obligatoire.'; return }
-  savingVirtual.value = true
-  virtualEditError.value = ''
-  try {
-    await planningApi.updateVirtualResource(virtualId, {
-      name: editVirtualName.value.trim(),
-      default_hourly_rate: parseAmount(editVirtualRate.value),
-    })
-    editingVirtualId.value = null
-    await loadProjectVirtuals()
-  } catch (e: unknown) {
-    virtualEditError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
-  } finally {
-    savingVirtual.value = false
-  }
-}
-
-async function deleteVirtual(virtualId: number) {
-  confirmDeleteVirtualId.value = null
-  projectVirtuals.value = projectVirtuals.value.filter(v => v.id !== virtualId) // optimiste
-  try {
-    await planningApi.deleteVirtualResource(virtualId)
-    await Promise.all([loadProjectVirtuals(), reload()])
-  } catch {
-    await loadProjectVirtuals() // rollback via reload
-  }
-}
-
-function cancelReplaceVirtual() {
-  replacingVirtualId.value = null
-  replaceEmployeeId.value = null
-  replaceError.value = ''
-}
-
-async function confirmReplaceVirtual(virtualId: number) {
-  if (!replaceEmployeeId.value) {
-    replaceError.value = 'Sélectionnez un employé pour remplacer ce profil virtuel.'
-    return
-  }
-  replacing.value = true
-  replaceError.value = ''
-  try {
-    await planningApi.replaceVirtualWithEmployee(virtualId, Number(replaceEmployeeId.value))
-    replacingVirtualId.value = null
-    replaceEmployeeId.value = null
-    await Promise.all([loadProjectVirtuals(), loadTeamStats(), reload()])
-  } catch (e: unknown) {
-    const msg = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
-    replaceError.value = msg || 'Erreur lors du remplacement'
-  } finally {
-    replacing.value = false
-  }
-}
-
-// Add phase form
+// Ajout de phase (réservé admin — onglet Phases)
 const showAddPhaseForm = ref(false)
-// La phase est un regroupement standard : ni budget, ni mode (ils vivent sur la tâche).
 const newPhase = ref({ name: '', client_facing_label: '', phase_type: 'REALIZATION', order: 0 })
-
-// Inline edit project
-const editingProject = ref(false)
-const projectForm = ref({ name: '', start_date: '', end_date: '', business_unit: '', pm: '', associate_in_charge: '', construction_cost: '' })
-
-function startEditProject() {
-  if (!canEdit.value) return
-  const p = store.currentProject
-  if (!p) return
-  projectForm.value = {
-    name: p.name || '',
-    start_date: p.start_date || '',
-    end_date: p.end_date || '',
-    business_unit: p.business_unit || '',
-    pm: String(p.pm || ''),
-    associate_in_charge: String(p.associate_in_charge || ''),
-    construction_cost: (p as { construction_cost?: number | string | null }).construction_cost != null
-      ? String((p as { construction_cost?: number | string | null }).construction_cost)
-      : '',
-  }
-  editingProject.value = true
-}
 
 async function addPhase() {
   actionError.value = ''
@@ -450,36 +291,6 @@ async function addPhase() {
     await reload()
   } catch (e: unknown) {
     actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur'
-  }
-}
-
-async function saveProject() {
-  actionError.value = ''
-  if (projectForm.value.start_date && projectForm.value.end_date && projectForm.value.end_date < projectForm.value.start_date) {
-    actionError.value = 'La date de fin ne peut pas être antérieure à la date de début.'
-    return
-  }
-  try {
-    const payload: Record<string, unknown> = {
-      name: projectForm.value.name,
-      business_unit: projectForm.value.business_unit || '',
-      start_date: projectForm.value.start_date || null,
-      end_date: projectForm.value.end_date || null,
-    }
-    if (projectForm.value.pm) payload.pm = Number(projectForm.value.pm)
-    else payload.pm = null
-    if (projectForm.value.associate_in_charge) payload.associate_in_charge = Number(projectForm.value.associate_in_charge)
-    else payload.associate_in_charge = null
-    // Coût de construction : projets externes uniquement (informatif, calcul honoraires).
-    if (!store.currentProject?.is_internal) {
-      payload.construction_cost = parseAmount(projectForm.value.construction_cost)
-    }
-    await projectApi.update(projectId, payload)
-    editingProject.value = false
-    await reload()
-  } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: { message?: string; details?: Array<{ field?: string; message?: string }> } } } }
-    actionError.value = err.response?.data?.error?.details?.[0]?.message || err.response?.data?.error?.message || 'Erreur'
   }
 }
 
@@ -696,6 +507,8 @@ const taskBudgetTotal = computed(() => tasks.value.reduce((sum, t) => sum + Numb
 const taskHoursTotal = computed(() => tasks.value.reduce((sum, t) => sum + Number(t.budgeted_hours || 0), 0))
 const taskPlannedTotal = computed(() => tasks.value.reduce((sum, t) => sum + Number((t as Record<string, unknown>).planned_hours || 0), 0))
 const tasksWithoutBudget = computed(() => tasks.value.filter(t => Number(t.budgeted_hours || 0) === 0 && Number(t.budgeted_cost || 0) === 0))
+// Alertes Pilotage : tâches dont la fin précède le début (données héritées/erreurs).
+const badDateTasks = computed(() => tasks.value.filter(t => t.start_date && t.end_date && t.end_date < t.start_date))
 
 // Phase-level alerts
 const phaseBudgetTotal = computed(() => {
@@ -1224,27 +1037,21 @@ const dayTotals = computed(() => {
 
 // Grouped tabs — 5 root groups, some with sub-tabs (Sprint C)
 const rootTabs = computed(() => [
-  { key: 'overview', label: 'Vue d\'ensemble' },
+  { key: 'overview', label: '📊 Pilotage' },
   {
     key: 'structure',
-    label: 'Structure',
+    label: '📅 Échéancier',
     subTabs: [
       { key: 'phases', label: 'Phases' },
       { key: 'tasks', label: 'Tâches' },
       { key: 'gantt', label: 'Gantt' },
     ],
   },
-  {
-    key: 'execution',
-    label: 'Équipe',
-    subTabs: [
-      { key: 'team', label: 'Affectations' },
-      { key: 'time', label: 'Temps saisi' },
-    ],
-  },
+  { key: 'team', label: '👥 Équipe & charge' },
+  { key: 'time', label: '⏱ Temps' },
   {
     key: 'finances',
-    label: 'Finances',
+    label: '💰 Finances',
     subTabs: [
       { key: 'budget', label: 'Budget' },
       { key: 'invoices', label: 'Factures' },
@@ -1253,17 +1060,21 @@ const rootTabs = computed(() => [
   },
   {
     key: 'amendments',
-    label: `Avenants${amendments.value.length ? ` (${amendments.value.length})` : ''}`,
+    label: `📝 Avenants${amendments.value.length ? ` (${amendments.value.length})` : ''}`,
   },
+  { key: 'params', label: '⚙️ Paramètres' },
 ])
 
 // Map an activeTab key back to its root (for TabGroup binding)
 const tabToRoot: Record<string, string> = {
   overview: 'overview',
   phases: 'structure', tasks: 'structure', gantt: 'structure',
-  team: 'execution', time: 'execution',
+  // « team »/« time » étaient des sous-onglets de « execution » — promus au
+  // 1er niveau (audit UX, mockup 01). Les vieux liens ?tab=execution/team
+  // continuent de résoudre via la clé du sous-onglet.
+  team: 'team', time: 'time',
   budget: 'finances', invoices: 'finances', st: 'finances',
-  amendments: 'amendments',
+  amendments: 'amendments', params: 'params',
 }
 const rootTab = computed(() => tabToRoot[activeTab.value] || 'overview')
 const currentSubTab = computed(() => {
@@ -1325,6 +1136,7 @@ async function reload() {
     assignments.value = Array.isArray(d) ? d : d?.results || []
   } catch { assignments.value = [] }
   await loadTimeBlocks()
+  await loadTasks()
   try { const r = await projectApi.listAmendments(projectId); amendments.value = r.data?.data || r.data || [] } catch { amendments.value = [] }
   await loadClientData()
   await loadConsortiumData()
@@ -1508,7 +1320,7 @@ onMounted(reload)
 watch(activeTab, (tab) => {
   if (tab === 'tasks' && !tasks.value.length) loadTasks()
   if (tab === 'budget') { initHonoraires(); loadBudgetSummary() }
-  if (tab === 'team') { if (!projectTimeEntries.value.length) loadProjectTime(); loadTeamStats(); loadProjectVirtuals(); syncTeamMembers(); loadTeams() }
+  if (tab === 'team') { if (!projectTimeEntries.value.length) loadProjectTime(); loadTeamStats(); syncTeamMembers(); loadTeams() }
   if (tab === 'time') loadProjectTime()
   if (tab === 'st') loadSTInvoices()
   if (tab === 'invoices') loadProjectInvoices()
@@ -1579,8 +1391,6 @@ watch(activeTab, (tab) => {
 
     <!-- ═══ Overview ═══ -->
     <template v-if="activeTab === 'overview'">
-      <!-- View mode -->
-      <template v-if="!editingProject">
         <!-- KPIs unifiés (finance + heures) — 7 cards -->
         <div class="kpi-grid-7">
           <div class="kpi-card" title="Somme des budgets des tâches (Heures × Taux)"><div class="kpi-value mono">{{ formatAmount(taskBudgetTotal) }}&nbsp;$</div><div class="kpi-label">Budget tâches</div></div>
@@ -1592,8 +1402,26 @@ watch(activeTab, (tab) => {
           <div class="kpi-card" title="Somme des heures planifiées (allocations) sur les tâches"><div class="kpi-value mono text-primary">{{ fmt.hours(phasePlannedTotal) }}</div><div class="kpi-label">Heures planifiées</div></div>
         </div>
 
+        <!-- Alertes centralisées (mockup 01) : un seul endroit, liens vers l'onglet concerné -->
+        <div v-if="badDateTasks.length || tasksWithoutBudget.length || (taskPlannedTotal <= 0 && tasks.length > 0)" class="info-card" style="margin-bottom:12px;">
+          <h3>⚠ Alertes</h3>
+          <div class="alert-lines">
+            <div v-for="t in badDateTasks" :key="'bd' + t.id" class="alert-line">
+              🔴 <strong>{{ t.wbs_code }} {{ t.display_label || t.name }}</strong> — dates incohérentes (fin avant début)
+              <button class="btn-link-inline" @click="activeTab = 'tasks'">Corriger dans l'Échéancier →</button>
+            </div>
+            <div v-if="tasksWithoutBudget.length" class="alert-line">
+              🟠 <strong>{{ tasksWithoutBudget.length }} tâche{{ tasksWithoutBudget.length > 1 ? 's' : '' }} sans budget</strong> sur {{ tasks.length }}
+              <button class="btn-link-inline" @click="activeTab = 'tasks'">Définir les budgets →</button>
+            </div>
+            <div v-if="taskPlannedTotal <= 0 && tasks.length > 0" class="alert-line">
+              🟡 <strong>Aucune planification</strong> — aucune ressource n'est planifiée sur les tâches
+              <button class="btn-link-inline" @click="activeTab = 'team'">Affecter l'équipe →</button>
+            </div>
+          </div>
+        </div>
         <div class="info-grid">
-          <div class="info-card"><h3>Informations <button v-if="isEditing" class="btn-action" @click="startEditProject">Modifier le projet</button></h3><div class="info-pairs"><div><span>Type de contrat</span><p>{{ store.currentProject.contract_type }}</p></div><div><span>Unité d'affaires</span><p>{{ store.currentProject.business_unit || '—' }}</p></div><div><span>Date début</span><p>{{ store.currentProject.start_date ? fmt.date(store.currentProject.start_date) : '—' }}</p></div><div><span>Date fin</span><p>{{ store.currentProject.end_date ? fmt.date(store.currentProject.end_date) : '—' }}</p></div><div><span>Public/Privé</span><p>{{ store.currentProject.is_public ? 'Public' : 'Privé' }}</p></div><div><span>Consortium</span><p>{{ store.currentProject.is_consortium ? 'Oui' : 'Non' }}</p></div><div v-if="!store.currentProject.is_internal"><span>Coût de construction</span><p>{{ store.currentProject.construction_cost != null && Number(store.currentProject.construction_cost) > 0 ? formatAmount(store.currentProject.construction_cost) + ' $' : '—' }}</p></div></div></div>
+          <div class="info-card"><h3>Informations <button v-if="isEditing" class="btn-action" @click="activeTab = 'params'">Modifier le projet</button></h3><div class="info-pairs"><div><span>Type de contrat</span><p>{{ store.currentProject.contract_type }}</p></div><div><span>Unité d'affaires</span><p>{{ store.currentProject.business_unit || '—' }}</p></div><div><span>Date début</span><p>{{ store.currentProject.start_date ? fmt.date(store.currentProject.start_date) : '—' }}</p></div><div><span>Date fin</span><p>{{ store.currentProject.end_date ? fmt.date(store.currentProject.end_date) : '—' }}</p></div><div><span>Public/Privé</span><p>{{ store.currentProject.is_public ? 'Public' : 'Privé' }}</p></div><div><span>Consortium</span><p>{{ store.currentProject.is_consortium ? 'Oui' : 'Non' }}</p></div><div v-if="!store.currentProject.is_internal"><span>Coût de construction</span><p>{{ store.currentProject.construction_cost != null && Number(store.currentProject.construction_cost) > 0 ? formatAmount(store.currentProject.construction_cost) + ' $' : '—' }}</p></div></div></div>
           <div class="info-card"><h3>Direction</h3><div class="info-pairs single"><div><span>Chef de projet</span><p>{{ allUsers.find(u => u.id === store.currentProject?.pm)?.username || store.currentProject.pm || '—' }}</p></div><div><span>Associé en charge</span><p>{{ allUsers.find(u => u.id === store.currentProject?.associate_in_charge)?.username || store.currentProject.associate_in_charge || '—' }}</p></div></div></div>
         </div>
         <div class="info-card" style="margin-top: 12px;">
@@ -1683,42 +1511,17 @@ watch(activeTab, (tab) => {
             </tbody>
           </table>
         </div>
-      </template>
-      <!-- Edit mode -->
-      <template v-else>
-      <div class="card">
-        <h3 class="card-title-edit">Modifier le projet</h3>
-        <div class="edit-grid">
-          <div class="form-group"><label>Nom</label><input v-model="projectForm.name" /></div>
-          <div class="form-group"><label>Unité d'affaires</label>
-            <select v-model="projectForm.business_unit">
-              <option value="">— Aucune —</option>
-              <option v-for="bu in businessUnits" :key="bu.id" :value="bu.name">{{ bu.name }}</option>
-            </select>
-          </div>
-          <div class="form-group"><label>Date début</label><input v-model="projectForm.start_date" type="date" /></div>
-          <div class="form-group"><label>Date fin</label><input v-model="projectForm.end_date" type="date" /></div>
-          <div class="form-group"><label>Chef de projet</label>
-            <select v-model="projectForm.pm">
-              <option value="">— Aucun —</option>
-              <option v-for="u in allUsers" :key="u.id" :value="String(u.id)">{{ u.username }} ({{ u.email }})</option>
-            </select>
-          </div>
-          <div class="form-group"><label>Associé en charge</label>
-            <select v-model="projectForm.associate_in_charge">
-              <option value="">— Aucun —</option>
-              <option v-for="u in allUsers" :key="u.id" :value="String(u.id)">{{ u.username }} ({{ u.email }})</option>
-            </select>
-          </div>
-          <div class="form-group" v-if="!store.currentProject?.is_internal">
-            <label>Coût de construction ($)</label>
-            <input v-model="projectForm.construction_cost" type="text" inputmode="decimal" placeholder="Ex. 2 500 000" data-construction-cost-overview />
-            <p class="phase-form-hint" style="margin:4px 0 0;">Informatif — sert au calcul/contexte des honoraires (projets externes).</p>
-          </div>
-        </div>
-        <div class="form-actions"><button class="btn-ghost" @click="editingProject = false">Annuler</button><button class="btn-primary" @click="saveProject">Enregistrer</button></div>
-      </div>
-      </template>
+    </template>
+
+    <!-- ═══ ⚙️ Paramètres ═══ -->
+    <template v-if="activeTab === 'params'">
+      <ProjectSettingsTab
+        :project-id="Number(projectId)"
+        :project="store.currentProject"
+        :users="allUsers"
+        :business-units="businessUnits"
+        @updated="reload"
+      />
     </template>
 
     <!-- ═══ Phases ═══ -->
@@ -2077,96 +1880,6 @@ watch(activeTab, (tab) => {
         @remove="removeTeamMember"
       />
 
-      <!-- Profils virtuels (actifs + historique remplacements) -->
-      <div class="virtuals-panel" data-virtuals-panel>
-        <div class="virtuals-header">
-          <span class="virtuals-title">Profils virtuels</span>
-          <span v-if="activeVirtuals.length" class="virtuals-count">{{ activeVirtuals.length }} actif{{ activeVirtuals.length > 1 ? 's' : '' }}</span>
-          <span v-if="replacedVirtuals.length" class="virtuals-count virtuals-count-muted">{{ replacedVirtuals.length }} remplacé{{ replacedVirtuals.length > 1 ? 's' : '' }}</span>
-          <button v-if="canEditBudget && !showVirtualForm" class="btn-action primary" style="margin-left:auto;" data-virtual-add @click="showVirtualForm = true; virtualError = ''">+ Profil virtuel</button>
-        </div>
-
-        <!-- Création directe d'un profil virtuel (sans avenant) -->
-        <div v-if="showVirtualForm && canEditBudget" class="virtual-create-form" data-virtual-form>
-          <input v-model="newVirtualName" class="inline-input" placeholder="Nom du profil (ex. Architecte senior)" data-virtual-name @keydown.enter="createVirtual" />
-          <input v-model="newVirtualRate" class="inline-input" type="number" min="0" step="0.01" placeholder="Taux $/h" style="max-width:120px;" data-virtual-rate />
-          <button class="btn-action primary" :disabled="creatingVirtual || !newVirtualName.trim()" data-virtual-confirm @click="createVirtual">{{ creatingVirtual ? '…' : 'Créer' }}</button>
-          <button class="btn-action" :disabled="creatingVirtual" @click="showVirtualForm = false">Annuler</button>
-          <div v-if="virtualError" class="virtual-error" data-virtual-error>{{ virtualError }}</div>
-        </div>
-
-        <!-- Empty state -->
-        <div v-if="!projectVirtuals.length && !showVirtualForm" class="virtuals-empty" data-virtuals-empty>
-          Aucun profil virtuel pour ce projet.<br>
-          <span class="virtuals-empty-hint">
-            <template v-if="canEditBudget">Cliquez « + Profil virtuel » pour en ajouter un directement (sans avenant).</template>
-            <template v-else>Un PM, un associé ou la finance peut en ajouter.</template>
-          </span>
-        </div>
-
-        <!-- Actifs -->
-        <template v-if="activeVirtuals.length">
-          <p class="virtuals-hint">Remplacez chaque profil virtuel par un employé réel une fois l'équipe connue — toutes les allocations liées basculent automatiquement.</p>
-          <div v-for="v in activeVirtuals" :key="v.id" class="virtual-row" data-virtual-row>
-            <div class="virtual-info">
-              <span class="virtual-avatar">V</span>
-              <div>
-                <div class="virtual-name">{{ v.name }}</div>
-                <div class="virtual-sub">Taux: {{ formatAmount(v.default_hourly_rate) }} $/h</div>
-              </div>
-            </div>
-            <div v-if="replacingVirtualId === v.id" class="virtual-replace-form">
-              <select v-model="replaceEmployeeId" class="select-sm" data-replace-select>
-                <option :value="null">— Choisir un employé —</option>
-                <option v-for="u in allUsers" :key="u.id" :value="u.id">{{ u.username }}</option>
-              </select>
-              <button
-                class="btn-action primary"
-                :disabled="!replaceEmployeeId || replacing"
-                data-replace-confirm
-                @click="confirmReplaceVirtual(v.id)"
-              >
-                {{ replacing ? '…' : 'Confirmer' }}
-              </button>
-              <button class="btn-action" :disabled="replacing" @click="cancelReplaceVirtual">Annuler</button>
-              <div v-if="replaceError" class="virtual-error" data-replace-error>{{ replaceError }}</div>
-            </div>
-            <div v-else-if="editingVirtualId === v.id" class="virtual-replace-form">
-              <input v-model="editVirtualName" class="inline-input" placeholder="Nom du profil" data-virtual-edit-name @keydown.enter="saveEditVirtual(v.id)" />
-              <input v-model="editVirtualRate" class="inline-input" type="number" min="0" step="0.01" placeholder="Taux $/h" style="max-width:110px;" data-virtual-edit-rate />
-              <button class="btn-action primary" :disabled="savingVirtual || !editVirtualName.trim()" data-virtual-edit-save @click="saveEditVirtual(v.id)">{{ savingVirtual ? '…' : 'Enregistrer' }}</button>
-              <button class="btn-action" :disabled="savingVirtual" @click="editingVirtualId = null">Annuler</button>
-              <div v-if="virtualEditError" class="virtual-error">{{ virtualEditError }}</div>
-            </div>
-            <div v-else class="virtual-actions">
-              <button class="btn-action" data-virtual-edit @click="startEditVirtual(v)">Modifier</button>
-              <button class="btn-action" data-replace-start @click="startReplaceVirtual(v.id)">Remplacer…</button>
-              <template v-if="confirmDeleteVirtualId === v.id">
-                <button class="btn-action danger" data-virtual-delete-confirm @click="deleteVirtual(v.id)">Confirmer</button>
-                <button class="btn-action" @click="confirmDeleteVirtualId = null">Annuler</button>
-              </template>
-              <button v-else class="btn-action danger" data-virtual-delete @click="confirmDeleteVirtualId = v.id">Supprimer…</button>
-            </div>
-          </div>
-        </template>
-
-        <!-- Historique (remplacés) -->
-        <template v-if="replacedVirtuals.length">
-          <div class="virtuals-history-sep">Historique des remplacements</div>
-          <div v-for="v in replacedVirtuals" :key="`h-${v.id}`" class="virtual-row virtual-row-replaced" data-virtual-row-replaced>
-            <div class="virtual-info">
-              <span class="virtual-avatar virtual-avatar-muted">V</span>
-              <div>
-                <div class="virtual-name virtual-name-muted">{{ v.name }}</div>
-                <div class="virtual-sub">
-                  <span v-if="v.replaced_by_name">→ Remplacé par <strong>{{ v.replaced_by_name }}</strong></span>
-                  <span v-if="v.replaced_at"> · {{ v.replaced_at.substring(0, 10) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </template>
-      </div>
 
       <!-- Barre d'outils : mode (Par phase / Par personne) + recherche -->
       <div class="team-toolbar">
@@ -2876,6 +2589,8 @@ watch(activeTab, (tab) => {
 
 .kpi-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
 .kpi-grid-7 { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.alert-lines { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.alert-line { font-size: 12px; color: var(--color-gray-700); }
 @media (max-width: 1100px) { .kpi-grid-7 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .kpi-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 14px; text-align: center; }
 .kpi-value { font-size: 24px; font-weight: 700; color: var(--color-gray-900); }
