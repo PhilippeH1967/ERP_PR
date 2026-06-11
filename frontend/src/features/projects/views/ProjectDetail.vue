@@ -20,6 +20,7 @@ import TabGroup from '@/shared/components/TabGroup.vue'
 import { planningApi } from '@/features/planning/api/planningApi'
 import { visibleTaskGroups, isTaskReadOnly, taskClosureIds } from '../utils/taskStructure'
 import { buildPhasePeopleTree, filterTreeByPerson, visiblePhaseNodes, type PhaseTreeNode } from '../utils/phasePeopleTree'
+import { derivedDates, shiftIsoDate } from '../utils/scheduleHelpers'
 import { progressHoursPct, progressCostPct, progressFeesPct } from '../utils/phaseProgress'
 
 const route = useRoute()
@@ -545,6 +546,48 @@ function enterInlineNameEdit(task: TaskItem) {
 }
 
 // Task edit modal (F3.7 — édition WBS / libellé client / budgets)
+// Échéancier : édition inline des dates + décalage en masse.
+const showShiftBand = ref(false)
+const shiftDays = ref(10)
+const shifting = ref(false)
+function derivedFor(task: TaskItem) { return derivedDates(task, tasks.value) }
+function onTaskDateInline(task: TaskItem, field: 'start_date' | 'end_date', ev: Event) {
+  const val = (ev.target as HTMLInputElement).value || null
+  const next = {
+    start: field === 'start_date' ? val : (task.start_date || null),
+    end: field === 'end_date' ? val : (task.end_date || null),
+  }
+  if (next.start && next.end && next.end < next.start) {
+    actionError.value = 'La date de fin ne peut pas être antérieure à la date de début.'
+    ;(ev.target as HTMLInputElement).value = (task[field] as string) || ''
+    return
+  }
+  actionError.value = ''
+  saveTaskField(task.id, field, val)
+}
+async function applyShift() {
+  const n = Number(shiftDays.value || 0)
+  if (!n || shifting.value) return
+  shifting.value = true
+  actionError.value = ''
+  try {
+    const leafTasks = tasks.value.filter(
+      t => !tasks.value.some(x => x.parent === t.id) && (t.start_date || t.end_date),
+    )
+    for (const t of leafTasks) {
+      await projectApi.updateTask(projectId, t.id, {
+        start_date: shiftIsoDate(t.start_date || null, n),
+        end_date: shiftIsoDate(t.end_date || null, n),
+      })
+    }
+    showShiftBand.value = false
+    await loadTasks()
+    await store.fetchProject(projectId)
+  } catch (e: unknown) {
+    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Décalage impossible.'
+  } finally { shifting.value = false }
+}
+
 // Fiche tâche unique (slide-over) — ouverte au clic sur le nom d'une tâche.
 const sheetTaskId = ref<number | null>(null)
 function openTaskSheet(id: number) { sheetTaskId.value = id }
@@ -1805,6 +1848,15 @@ watch(activeTab, (tab) => {
           <button class="btn-primary btn-sm" :disabled="!newTaskPhaseId || !newTaskName.trim()" @click="addTask(newTaskPhaseId)">Ajouter</button>
           <button class="btn-ghost btn-sm" @click="showGlobalAddTask = false">Annuler</button>
         </div>
+        <button class="btn-ghost btn-sm" style="margin-left:auto;" title="Décaler toutes les dates de tâches de N jours (échéancier qui glisse)" @click="showShiftBand = !showShiftBand">↔️ Décaler l'échéancier…</button>
+      </div>
+      <div v-if="showShiftBand && isEditing" class="shift-band" data-shift-band>
+        ↔️ <strong>Décaler l'échéancier</strong> : déplacer toutes les tâches datées de
+        <input v-model.number="shiftDays" type="number" class="inline-input" style="width:64px;" /> jours
+        (négatif = avancer)
+        <button class="btn-primary btn-sm" :disabled="shifting || !shiftDays" @click="applyShift">{{ shifting ? 'Décalage…' : 'Appliquer' }}</button>
+        <button class="btn-ghost btn-sm" :disabled="shifting" @click="showShiftBand = false">Annuler</button>
+        <span class="text-muted" style="font-size:11px;">Les dates de phase suivent automatiquement (dérivées).</span>
       </div>
 
       <div v-if="visibleTaskPhaseGroups.length">
@@ -1834,11 +1886,13 @@ watch(activeTab, (tab) => {
           />
 
           <!-- Tasks table -->
-          <table v-if="!collapsedPhases.has(group.phase_name)" class="data-table task-table" style="table-layout:auto; width:100%; min-width:950px;">
+          <table v-if="!collapsedPhases.has(group.phase_name)" class="data-table task-table" style="table-layout:auto; width:100%; min-width:1150px;">
             <thead>
               <tr>
                 <th style="width:85px;">WBS</th>
                 <th style="width:170px;">Nom</th>
+                <th style="width:112px;">Début</th>
+                <th style="width:112px;">Fin</th>
                 <th style="width:35px;">Mode</th>
                 <th class="text-right" style="width:75px;">Budget ($)</th>
                 <th class="text-right" style="width:60px;">H. budg.</th>
@@ -1873,6 +1927,14 @@ watch(activeTab, (tab) => {
                     <span v-if="task.amendment_number" class="badge badge-purple" style="margin-left:6px; font-size:9px;" :title="'Tâche ajoutée via avenant #' + task.amendment_number">AV-{{ task.amendment_number }}</span>
                     <span v-if="!task.is_active" class="badge badge-gray" style="margin-left:6px; font-size:9px;" title="Tâche fermée : saisie de temps bloquée">Fermée</span>
                   </template>
+                </td>
+                <td>
+                  <input v-if="!isTaskReadOnly(task)" type="date" class="date-inline" :value="task.start_date || ''" :disabled="!isEditing" @change="(e: Event) => onTaskDateInline(task, 'start_date', e)" />
+                  <span v-else class="date-derived" title="Dérivé des sous-tâches">{{ derivedFor(task).start || '—' }}</span>
+                </td>
+                <td>
+                  <input v-if="!isTaskReadOnly(task)" type="date" class="date-inline" :value="task.end_date || ''" :disabled="!isEditing" @change="(e: Event) => onTaskDateInline(task, 'end_date', e)" />
+                  <span v-else class="date-derived" title="Dérivé des sous-tâches">{{ derivedFor(task).end || '—' }}</span>
                 </td>
                 <td><span class="badge" :class="task.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'" style="font-size:10px;">{{ task.billing_mode === 'HORAIRE' ? 'H' : 'F' }}</span></td>
                 <td class="text-right">
@@ -2841,6 +2903,10 @@ watch(activeTab, (tab) => {
 .agg-cell { color: var(--color-gray-700); background: var(--color-gray-50); }
 .phase-empty-row td { opacity: 0.62; }
 .tasks-toolbar { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.shift-band { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; font-size: 12px; }
+.date-inline { padding: 2px 4px; font-size: 11px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-family: inherit; color: var(--color-gray-700); max-width: 108px; }
+.date-inline:disabled { border-color: transparent; background: transparent; }
+.date-derived { font-size: 11px; color: var(--color-gray-400); font-style: italic; }
 .empty-phase-cell { padding: 12px 16px; text-align: center; color: var(--color-gray-500); font-size: 12px; font-style: italic; }
 .empty-card .link { color: var(--color-primary); text-decoration: underline; cursor: pointer; }
 
