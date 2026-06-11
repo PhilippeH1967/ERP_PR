@@ -130,6 +130,13 @@ describe('AssignResourceDialog — Qui / Où / Combien', () => {
     expect(wrapper.find('[data-ard-submit]').attributes('disabled')).toBeUndefined()
   })
 
+  it('charge les tâches sans pagination tronquée (page_size explicite)', async () => {
+    mountDialog()
+    await flushPromises()
+    const taskCall = mockGet.mock.calls.find(c => String(c[0]).includes('/tasks/'))!
+    expect(taskCall[1]?.params?.page_size).toBe('500')
+  })
+
   it('les tâches-mères (regroupements) ne sont pas sélectionnables', async () => {
     const wrapper = mountDialog()
     await flushPromises()
