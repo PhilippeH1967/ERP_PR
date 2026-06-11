@@ -13,6 +13,7 @@ import AmendmentSlideOver from '../components/AmendmentSlideOver.vue'
 import ProjectCloseModal from '../components/ProjectCloseModal.vue'
 import TaskEditModal from '../components/TaskEditModal.vue'
 import TaskSlideOver from '@/features/planning/components/TaskSlideOver.vue'
+import AssignResourceDialog from '../components/AssignResourceDialog.vue'
 import TaskTemplatePicker from '../components/TaskTemplatePicker.vue'
 import TeamMembersPanel from '../components/TeamMembersPanel.vue'
 import TabGroup from '@/shared/components/TabGroup.vue'
@@ -1064,25 +1065,21 @@ async function unblockTime(blockId: number) {
   try { await apiClient.delete(`time_entry_blocks/${blockId}/`) } catch { await loadTimeBlocks() }
 }
 
-// Affecter une équipe (paramétrage) à une PHASE → crée une allocation par membre.
-const teamPhasePicker = ref<number | null>(null)
-const phaseTeamId = ref<number | null>(null)
-const assigningTeamPhase = ref(false)
-async function assignTeamToPhase(phaseId: number) {
-  if (!phaseTeamId.value) return
-  assigningTeamPhase.value = true
+// Dialogue unifié « Affecter une ressource » (Qui / Où / Combien).
+const assignDialogOpen = ref(false)
+const assignDialogScope = ref<{ type: 'project' | 'phase' | 'task'; id?: number | null } | undefined>(undefined)
+function openAssignDialog(scope?: { type: 'project' | 'phase' | 'task'; id?: number | null }) {
+  assignDialogScope.value = scope
+  assignDialogOpen.value = true
+}
+async function onAssigned() {
   try {
-    await projectApi.assignTeamToPhase(projectId, phaseTeamId.value, phaseId)
-    teamPhasePicker.value = null
-    phaseTeamId.value = null
-    try {
-      const r = await apiClient.get('allocations/', { params: { project: String(projectId), page_size: '500' } })
-      const d = r.data?.data || r.data
-      assignments.value = Array.isArray(d) ? d : d?.results || []
-    } catch { /* ignore */ }
-  } catch (e: unknown) {
-    actionError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Affectation impossible (droits gestionnaire requis).'
-  } finally { assigningTeamPhase.value = false }
+    const r = await apiClient.get('allocations/', { params: { project: String(projectId), page_size: '500' } })
+    const d = r.data?.data || r.data
+    assignments.value = Array.isArray(d) ? d : d?.results || []
+  } catch { /* ignore */ }
+  syncTeamMembers()
+  loadTeamStats()
 }
 
 // Time entries for Temps tab
@@ -2116,6 +2113,7 @@ watch(activeTab, (tab) => {
           <button class="time-view-btn" :class="{ active: teamViewMode === 'person' }" @click="teamViewMode = 'person'">Par personne</button>
         </div>
         <input v-model="teamSearch" class="team-search" type="text" placeholder="Rechercher où une personne est affectée…" />
+        <button v-if="canEditBudget" class="btn-action primary" data-open-assign @click="openAssignDialog()">+ Affectation</button>
         <div v-if="teamViewMode === 'phase'" class="team-expand-actions">
           <button class="btn-action" @click="expandAllTeamPhases">Tout étendre</button>
           <button class="btn-action" @click="collapseAllTeamPhases">Tout réduire</button>
@@ -2138,15 +2136,7 @@ watch(activeTab, (tab) => {
                 <button v-else class="btn-action" title="Rouvrir toutes les tâches de la phase" @click="setPhaseClosed(Number(ph.phase_id), false)">Rouvrir la phase</button>
               </span>
               <span v-if="canEditBudget && ph.phase_id != null" class="phase-team-assign" @click.stop>
-                <template v-if="teamPhasePicker === ph.phase_id">
-                  <select v-model.number="phaseTeamId" class="inline-select">
-                    <option :value="null">— Équipe —</option>
-                    <option v-for="t in teams" :key="t.id" :value="t.id">{{ t.name }}</option>
-                  </select>
-                  <button class="btn-action primary" :disabled="!phaseTeamId || assigningTeamPhase" @click="assignTeamToPhase(Number(ph.phase_id))">{{ assigningTeamPhase ? '…' : 'Affecter' }}</button>
-                  <button class="btn-action" @click="teamPhasePicker = null">×</button>
-                </template>
-                <button v-else class="btn-action" title="Affecter une équipe à cette phase (crée une allocation par membre)" @click="teamPhasePicker = ph.phase_id; phaseTeamId = null">+ Équipe</button>
+                <button class="btn-action" title="Affecter un employé, une équipe ou un profil virtuel à cette phase" @click="openAssignDialog({ type: 'phase', id: Number(ph.phase_id) })">+ Affecter</button>
               </span>
             </div>
             <div v-if="isPhaseOpen(ph.phase_id)" class="phase-acc-body">
@@ -2768,6 +2758,13 @@ watch(activeTab, (tab) => {
       :task-id="sheetTaskId"
       @close="sheetTaskId = null"
       @updated="onTaskSheetUpdated"
+    />
+    <AssignResourceDialog
+      :open="assignDialogOpen"
+      :project-id="Number(projectId)"
+      :initial-scope="assignDialogScope"
+      @close="assignDialogOpen = false"
+      @assigned="onAssigned"
     />
     <TaskEditModal
       :open="showTaskEditModal"
