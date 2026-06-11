@@ -511,6 +511,7 @@ interface TaskItem {
   task_type: 'TASK' | 'SUBTASK'; billing_mode: 'FORFAIT' | 'HORAIRE'; order: number;
   budgeted_hours: string | number; budgeted_cost: string | number; hourly_rate: string | number;
   is_billable: boolean; is_active: boolean; progress_pct: number | string;
+  start_date?: string | null; end_date?: string | null;
   planned_hours?: number; actual_hours?: number;
   is_chargeable?: boolean; effective_budgeted_hours?: number; effective_budgeted_cost?: number;
   amendment?: number | null; amendment_number?: number | null;
@@ -899,7 +900,7 @@ const teamByEmployee = computed<TeamMember[]>(() => {
     if (!map.has(a.employee)) {
       map.set(a.employee, {
         employee: a.employee,
-        employee_name: a.employee_name || `Employe #${a.employee}`,
+        employee_name: a.employee_name || `Employé #${a.employee}`,
         assignments: [],
         totalPlanned: 0,
         totalActual: 0,
@@ -1142,7 +1143,7 @@ const timePivotRows = computed<TimePivotRow[]>(() => {
       ? String(e.employee)
       : (e.phase_name || 'Sans phase')
     const label = timeViewMode.value === 'employee'
-      ? (e.employee_name || `Employe #${e.employee}`)
+      ? (e.employee_name || `Employé #${e.employee}`)
       : (e.phase_name || 'Sans phase')
     if (!map.has(key)) {
       map.set(key, { key, label, totalHours: 0, hoursByMonth: {}, hoursByDay: {} })
@@ -2209,11 +2210,11 @@ watch(activeTab, (tab) => {
                 {{ isPersonFullyBlocked(member.employee) ? 'Rouvrir (projet)' : '🔒 Bloquer (projet)' }}
               </button>
               <div class="team-hours">
-                <span class="team-hours-label">Planifie</span>
+                <span class="team-hours-label">Planifié</span>
                 <span class="team-hours-value" :class="member.hasPlanning ? 'text-primary' : 'team-no-planning'">{{ member.totalPlanned.toFixed(1) }}h</span>
               </div>
               <div class="team-hours">
-                <span class="team-hours-label">Reel</span>
+                <span class="team-hours-label">Réel</span>
                 <span class="team-hours-value" :class="{ 'font-semibold': member.totalActual > 0 }">{{ member.totalActual.toFixed(1) }}h</span>
               </div>
             </div>
@@ -2240,14 +2241,14 @@ watch(activeTab, (tab) => {
                 <tr>
                   <th>Phase / Tâche</th>
                   <th class="text-right" style="width:60px;">%</th>
-                  <th style="width:130px;">Periode</th>
+                  <th style="width:130px;">Période</th>
                   <th style="width:120px;">Saisie</th>
                   <th style="width:150px;">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="a in member.assignments" :key="a.id" :class="{ 'assign-blocked': isPersonFullyBlocked(member.employee) || assignmentBlock(member.employee, a) }">
-                  <td>{{ a.task ? (a.task_name || `Tache #${a.task}`) : (a.phase ? (a.phase_name || `Phase #${a.phase}`) : 'Global') }}</td>
+                  <td>{{ a.task ? (a.task_name || `Tâche #${a.task}`) : (a.phase ? (a.phase_name || `Phase #${a.phase}`) : 'Global') }}</td>
                   <td class="text-right"><span class="badge badge-blue" style="font-size:10px;">{{ a.hours_per_week }}h/sem</span></td>
                   <td class="text-muted" style="font-size:11px;">{{ a.start_date || '—' }} → {{ a.end_date || '...' }}</td>
                   <td>
