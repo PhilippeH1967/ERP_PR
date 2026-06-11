@@ -388,7 +388,7 @@ const isOverBudget = computed(() => overBudget(totalPlannedHours.value, budgetHo
                 <div class="pso-team-row">
                   <div class="pso-team-info">
                     <span class="pso-team-avatar" :class="{ 'pso-team-avatar--virtual': alloc.is_virtual }">{{ alloc.is_virtual ? '◇' : (alloc.display_name || '??').substring(0, 2).toUpperCase() }}</span>
-                    <span class="pso-team-name">{{ alloc.display_name || (alloc.is_virtual ? 'Profil virtuel' : `Employe #${alloc.employee_id}`) }}</span>
+                    <span class="pso-team-name">{{ alloc.display_name || (alloc.is_virtual ? 'Profil virtuel' : `Employé #${alloc.employee_id}`) }}</span>
                     <span v-if="alloc.is_virtual" class="pso-virtual-badge">Virtuel</span>
                   </div>
                   <div class="pso-team-hours">

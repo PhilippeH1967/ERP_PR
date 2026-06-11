@@ -10,6 +10,8 @@ interface Task {
   budgeted_cost?: string | number
   billing_mode: string
   is_billable: boolean
+  start_date?: string | null
+  end_date?: string | null
 }
 
 interface SavePayload {
@@ -20,6 +22,8 @@ interface SavePayload {
   budgeted_cost?: string
   billing_mode: string
   is_billable: boolean
+  start_date: string | null
+  end_date: string | null
 }
 
 const props = defineProps<{
@@ -43,6 +47,8 @@ const form = ref<SavePayload>({
   budgeted_cost: '0',
   billing_mode: 'FORFAIT',
   is_billable: true,
+  start_date: null,
+  end_date: null,
 })
 const formError = ref('')
 
@@ -56,6 +62,8 @@ function hydrateFromTask(task: Task | null) {
     budgeted_cost: String(task.budgeted_cost ?? '0'),
     billing_mode: task.billing_mode || 'FORFAIT',
     is_billable: task.is_billable !== false,
+    start_date: task.start_date || null,
+    end_date: task.end_date || null,
   }
   formError.value = ''
 }
@@ -69,10 +77,16 @@ function onSave() {
     formError.value = 'Le nom de la tâche est obligatoire.'
     return
   }
+  if (form.value.start_date && form.value.end_date && form.value.end_date < form.value.start_date) {
+    formError.value = 'La date de fin ne peut pas être antérieure à la date de début.'
+    return
+  }
   const payload: SavePayload = {
     ...form.value,
     budgeted_hours: String(form.value.budgeted_hours ?? '0'),
     budgeted_cost: String(form.value.budgeted_cost ?? '0'),
+    start_date: form.value.start_date || null,
+    end_date: form.value.end_date || null,
   }
   if (!props.canSeeCosts) delete payload.budgeted_cost
   emit('save', payload)
@@ -110,6 +124,14 @@ function onSave() {
           <div class="tem-field tem-field-full">
             <label>Libellé client (WBS client, affiché sur factures et rapports)</label>
             <input v-model="form.client_facing_label" data-tem-client-label class="tem-input" placeholder="ex. Phase 1 — Étude de faisabilité" />
+          </div>
+          <div class="tem-field">
+            <label>Date début</label>
+            <input v-model="form.start_date" data-tem-start type="date" class="tem-input" />
+          </div>
+          <div class="tem-field">
+            <label>Date fin</label>
+            <input v-model="form.end_date" data-tem-end type="date" class="tem-input" />
           </div>
 
           <div class="tem-field">
