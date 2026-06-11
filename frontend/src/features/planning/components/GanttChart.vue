@@ -84,13 +84,15 @@ async function load() {
     projectInfo.value = data.project || { code: '', name: '', start_date: '', end_date: '' }
     // Load tasks with actual hours
     try {
-      const tr = await apiClient.get(`projects/${props.projectId}/tasks/`)
+      // page_size explicite : la pagination DRF (25) tronquait les tâches des
+      // dernières phases (ex. services SUPPORT BIM/DD) dans le Gantt.
+      const tr = await apiClient.get(`projects/${props.projectId}/tasks/`, { params: { page_size: '500' } })
       const td = tr.data?.data || tr.data
       tasks.value = Array.isArray(td) ? td : td?.results || []
     } catch { tasks.value = [] }
     // Load phase actual hours
     try {
-      const pr = await apiClient.get(`projects/${props.projectId}/phases/`)
+      const pr = await apiClient.get(`projects/${props.projectId}/phases/`, { params: { page_size: '200' } })
       const pd = pr.data?.data || pr.data
       const phaseData = Array.isArray(pd) ? pd : pd?.results || []
       for (const p of phases.value) {

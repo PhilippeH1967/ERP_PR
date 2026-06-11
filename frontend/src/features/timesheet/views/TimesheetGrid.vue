@@ -63,7 +63,7 @@ async function onProjectSelect() {
   selectedTaskId.value = null
   if (!selectedProjectId.value) return
   try {
-    const resp = await apiClient.get(`projects/${selectedProjectId.value}/tasks/`)
+    const resp = await apiClient.get(`projects/${selectedProjectId.value}/tasks/`, { params: { page_size: '500' } })
     const data = resp.data?.data || resp.data
     const all: TaskOption[] = Array.isArray(data) ? data : data?.results || []
     // Seules les tâches SAISISSABLES (feuilles) : on exclut les tâches-mères.
