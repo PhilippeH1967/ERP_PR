@@ -31,7 +31,7 @@ export const projectApi = {
   listTemplates: () => apiClient.get('project_templates/'),
 
   // Phases
-  listPhases: (projectId: number) => apiClient.get(`${BASE}/${projectId}/phases/`),
+  listPhases: (projectId: number) => apiClient.get(`${BASE}/${projectId}/phases/`, { params: { page_size: '200' } }),
   createPhase: (projectId: number, data: Partial<Phase>) =>
     apiClient.post(`${BASE}/${projectId}/phases/`, data),
   updatePhase: (projectId: number, phaseId: number, data: Partial<Phase>) =>
@@ -40,7 +40,9 @@ export const projectApi = {
     apiClient.delete(`${BASE}/${projectId}/phases/${phaseId}/`),
 
   // Tasks
-  listTasks: (projectId: number) => apiClient.get(`${BASE}/${projectId}/tasks/`),
+  // page_size explicite : la pagination DRF (25) tronquait les tâches des
+  // dernières phases (ex. services SUPPORT BIM/DD) dans Échéancier/Équipe/Budget.
+  listTasks: (projectId: number) => apiClient.get(`${BASE}/${projectId}/tasks/`, { params: { page_size: '500' } }),
   taskSuggestions: (projectId: number, params?: Record<string, string>) =>
     apiClient.get(`${BASE}/${projectId}/task_suggestions/`, { params }),
   assignTeam: (projectId: number, teamId: number) =>

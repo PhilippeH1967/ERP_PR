@@ -61,8 +61,8 @@ async function load() {
       apiClient.get('users/search/'),
       apiClient.get('virtual-resources/', { params: { project: props.projectId, is_active: true } }),
       apiClient.get('teams/'),
-      apiClient.get(`projects/${props.projectId}/phases/`),
-      apiClient.get(`projects/${props.projectId}/tasks/`),
+      apiClient.get(`projects/${props.projectId}/phases/`, { params: { page_size: '200' } }),
+      apiClient.get(`projects/${props.projectId}/tasks/`, { params: { page_size: '500' } }),
     ])
     users.value = arr(ur.data) as UserL[]
     virtuals.value = arr(vr.data) as Array<{ id: number; name: string }>

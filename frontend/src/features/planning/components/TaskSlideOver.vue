@@ -80,7 +80,7 @@ async function loadTask() {
     confirmDelete.value = false
     sheetError.value = ''
     try {
-      const phr = await apiClient.get(`projects/${props.projectId}/phases/`)
+      const phr = await apiClient.get(`projects/${props.projectId}/phases/`, { params: { page_size: '200' } })
       const phd = phr.data?.data || phr.data
       phasesList.value = Array.isArray(phd) ? phd : phd?.results || []
     } catch { phasesList.value = [] }
