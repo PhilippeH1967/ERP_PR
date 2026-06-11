@@ -12,6 +12,7 @@ import GanttChart from '@/features/planning/components/GanttChart.vue'
 import AmendmentSlideOver from '../components/AmendmentSlideOver.vue'
 import ProjectCloseModal from '../components/ProjectCloseModal.vue'
 import TaskEditModal from '../components/TaskEditModal.vue'
+import TaskSlideOver from '@/features/planning/components/TaskSlideOver.vue'
 import TaskTemplatePicker from '../components/TaskTemplatePicker.vue'
 import TeamMembersPanel from '../components/TeamMembersPanel.vue'
 import TabGroup from '@/shared/components/TabGroup.vue'
@@ -543,6 +544,13 @@ function enterInlineNameEdit(task: TaskItem) {
 }
 
 // Task edit modal (F3.7 — édition WBS / libellé client / budgets)
+// Fiche tâche unique (slide-over) — ouverte au clic sur le nom d'une tâche.
+const sheetTaskId = ref<number | null>(null)
+function openTaskSheet(id: number) { sheetTaskId.value = id }
+async function onTaskSheetUpdated() {
+  await loadTasks()
+  await store.fetchProject(projectId)
+}
 const showTaskEditModal = ref(false)
 const taskBeingEdited = ref<TaskItem | null>(null)
 const taskEditLoading = ref(false)
@@ -1850,8 +1858,7 @@ watch(activeTab, (tab) => {
                 <td style="font-size:11px; color:var(--color-gray-500);">{{ task.wbs_code || '—' }}</td>
                 <td
                   style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
-                  :title="isEditing ? 'Double-clic pour renommer rapidement' : (task.display_label || task.name)"
-                  @dblclick="isEditing && enterInlineNameEdit(task)"
+                  :title="'Ouvrir la fiche tâche — ' + (task.display_label || task.name)"
                 >
                   <span v-if="task.task_type === 'SUBTASK'" class="subtask-indent"></span>
                   <template v-if="editingTaskNameId === task.id">
@@ -1865,7 +1872,7 @@ watch(activeTab, (tab) => {
                       @blur="commitEditTaskName(task.id)" />
                   </template>
                   <template v-else>
-                    {{ task.display_label || task.name }}
+                    <span class="task-name-link" @click="openTaskSheet(task.id)">{{ task.display_label || task.name }}</span>
                     <span v-if="task.amendment_number" class="badge badge-purple" style="margin-left:6px; font-size:9px;" :title="'Tâche ajoutée via avenant #' + task.amendment_number">AV-{{ task.amendment_number }}</span>
                     <span v-if="!task.is_active" class="badge badge-gray" style="margin-left:6px; font-size:9px;" title="Tâche fermée : saisie de temps bloquée">Fermée</span>
                   </template>
@@ -2755,6 +2762,13 @@ watch(activeTab, (tab) => {
     />
 
     <!-- ═══ Modal édition tâche (F3.7 — WBS / libellé client / budgets) ═══ -->
+    <TaskSlideOver
+      :open="sheetTaskId !== null"
+      :project-id="Number(projectId)"
+      :task-id="sheetTaskId"
+      @close="sheetTaskId = null"
+      @updated="onTaskSheetUpdated"
+    />
     <TaskEditModal
       :open="showTaskEditModal"
       :task="taskBeingEdited"
@@ -2837,6 +2851,8 @@ watch(activeTab, (tab) => {
 .font-mono { font-family: var(--font-mono); font-size: 12px; } .font-semibold { font-weight: 600; }
 .actions-cell { white-space: nowrap; }
 .btn-action { background: none; border: none; font-size: 11px; cursor: pointer; color: var(--color-primary); padding: 2px 6px; font-weight: 600; }
+.task-name-link { cursor: pointer; }
+.task-name-link:hover { color: var(--color-primary); text-decoration: underline; }
 .btn-action:hover { text-decoration: underline; } .btn-action.danger { color: var(--color-danger); }
 
 .section-actions { margin-bottom: 12px; }
