@@ -23,12 +23,15 @@ class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
     client_label = serializers.SerializerMethodField()
     task_wbs_code = serializers.CharField(source="task.wbs_code", read_only=True, default="")
     task_name = serializers.SerializerMethodField()
+    task_parent_name = serializers.SerializerMethodField()
+    task_is_billable = serializers.SerializerMethodField()
 
     class Meta:
         model = TimeEntry
         fields = [
             "id", "employee", "employee_name", "project", "project_code", "project_name",
             "phase", "phase_name", "task", "task_wbs_code", "task_name",
+            "task_parent_name", "task_is_billable",
             "client_label",
             "date", "hours", "notes", "rejection_reason", "status", "is_favorite",
             "is_invoiced", "version",
@@ -37,6 +40,7 @@ class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
         read_only_fields = [
             "id", "employee", "employee_name", "project_code", "project_name",
             "phase_name", "task_wbs_code", "task_name",
+            "task_parent_name", "task_is_billable",
             "client_label", "rejection_reason", "is_invoiced",
             "created_at", "updated_at",
         ]
@@ -64,6 +68,17 @@ class TimeEntrySerializer(OptimisticLockMixin, serializers.ModelSerializer):
         if obj.task:
             return obj.task.client_facing_label or obj.task.name
         return ""
+
+    def get_task_parent_name(self, obj) -> str:
+        """Référentiel d'une sous-tâche : libellé (client) de sa tâche-mère."""
+        parent = obj.task.parent if obj.task and obj.task.parent_id else None
+        if not parent:
+            return ""
+        return parent.client_facing_label or parent.name
+
+    def get_task_is_billable(self, obj):
+        """Caractère facturable de la tâche (badge $ dans la grille)."""
+        return obj.task.is_billable if obj.task else None
 
     def validate_hours(self, value):
         """Reject negative hours and absurd values >24h/day."""

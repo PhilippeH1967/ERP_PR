@@ -160,3 +160,53 @@ class TestTimesheetLock:
         )
         assert lock.pk is not None
         assert lock.lock_type == "PHASE"
+
+
+@pytest.mark.django_db
+class TestTimeEntryReferential:
+    """La grille de temps affiche le référentiel de la tâche : phase, tâche-mère
+    (pour une sous-tâche) et caractère facturable."""
+
+    def setup_method(self):
+        self.tenant = Tenant.objects.create(name="T", slug="t-ref")
+        self.user = User.objects.create_user(username="emp_ref", password="x")
+        self.project = Project.objects.create(tenant=self.tenant, code="REF1", name="P")
+        self.phase = Phase.objects.create(tenant=self.tenant, project=self.project, name="Préliminaires")
+        self.parent = Task.objects.create(
+            tenant=self.tenant, project=self.project, phase=self.phase,
+            wbs_code="3.1", name="Plans préliminaires",
+            client_facing_label="Preliminary set",
+        )
+        self.sub = Task.objects.create(
+            tenant=self.tenant, project=self.project, phase=self.phase,
+            parent=self.parent, task_type="SUBTASK", wbs_code="3.1.1",
+            name="Plans d'étage", is_billable=True,
+        )
+
+    def test_serializer_exposes_parent_name_and_billable(self):
+        from apps.time_entries.serializers import TimeEntrySerializer
+
+        entry = TimeEntry.objects.create(
+            tenant=self.tenant, employee=self.user, project=self.project,
+            task=self.sub, date=date(2026, 3, 16), hours=4,
+        )
+        data = TimeEntrySerializer(entry).data
+        # Libellé client de la tâche-mère (référentiel), pas le nom interne.
+        assert data["task_parent_name"] == "Preliminary set"
+        assert data["task_is_billable"] is True
+        assert data["phase_name"] == "Préliminaires"
+
+    def test_root_task_has_empty_parent_and_billable_flag(self):
+        from apps.time_entries.serializers import TimeEntrySerializer
+
+        self.parent2 = Task.objects.create(
+            tenant=self.tenant, project=self.project, phase=self.phase,
+            wbs_code="3.2", name="Relevés", is_billable=False,
+        )
+        entry = TimeEntry.objects.create(
+            tenant=self.tenant, employee=self.user, project=self.project,
+            task=self.parent2, date=date(2026, 3, 17), hours=2,
+        )
+        data = TimeEntrySerializer(entry).data
+        assert data["task_parent_name"] == ""
+        assert data["task_is_billable"] is False

@@ -117,7 +117,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             qs = TimeEntry.objects.filter(employee=self.request.user)
         if hasattr(self.request, "tenant_id") and self.request.tenant_id:
             qs = qs.filter(tenant_id=self.request.tenant_id)
-        return qs.select_related("project", "phase", "task", "employee")
+        return qs.select_related("project", "phase", "task", "task__parent", "employee")
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
