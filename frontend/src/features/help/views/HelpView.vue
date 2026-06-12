@@ -237,9 +237,9 @@ const sections = computed(() =>
             <tr><td><strong>📅 Échéancier</strong></td><td>Phases (regroupements, dates dérivées) · Tâches (dates éditables en ligne, « Décaler l'échéancier », fiche tâche au clic) · Gantt (barres, jalons, dépendances)</td></tr>
             <tr><td><strong>👥 Équipe &amp; charge</strong></td><td>Vues « Par phase » (arbre + personnes) et « Par personne » (affectations + cadenas de blocage). Dialogue « + Affectation » : Qui → Où → Combien</td></tr>
             <tr><td><strong>⏱ Temps</strong></td><td>Heures saisies, pivot par employé ou par phase</td></tr>
-            <tr><td><strong>💰 Finances</strong></td><td>Budget (par tâche), honoraires, factures (WBS client), sous-traitants</td></tr>
+            <tr><td><strong>💰 Finances</strong></td><td>Budget = <em>synthèse en lecture seule</em> (il se définit sur les tâches), honoraires, factures (WBS client), sous-traitants</td></tr>
             <tr><td><strong>📝 Avenants</strong></td><td>Mini-contrats : ajout de tâches sur les phases existantes (badge AV-n), workflow d'approbation</td></tr>
-            <tr><td><strong>⚙️ Paramètres</strong></td><td>Infos projet, coût de construction, profils virtuels, blocages actifs, liens vers les référentiels admin</td></tr>
+            <tr><td><strong>⚙️ Paramètres</strong></td><td>Infos projet, coût de construction, <em>client</em> (changement, adresses, adresse de facturation propre au projet), profils virtuels, blocages actifs, liens vers les référentiels admin</td></tr>
           </tbody>
         </table>
 
@@ -256,6 +256,8 @@ const sections = computed(() =>
           <li>Une tâche avec sous-tâches devient un agrégat en lecture seule (saisie sur ses sous-tâches).</li>
           <li>Les <strong>libellés du WBS client</strong> priment sur la nomenclature interne dans tout document destiné au client.</li>
           <li><strong>Fermer</strong> une tâche bloque la saisie pour tout le monde ; les <strong>cadenas</strong> (Équipe &amp; charge) bloquent une personne précise — sur une tâche, une phase ou tout le projet. Tout est réversible.</li>
+          <li>Le <strong>budget</strong> se saisit à un seul endroit : la tâche (colonnes de l'Échéancier ou fiche tâche). L'onglet Finances › Budget est une synthèse.</li>
+          <li>Chaque projet peut désigner <strong>son adresse de facturation</strong> parmi les adresses du client (⚙️ Paramètres) ; sans désignation, l'adresse par défaut du client s'applique.</li>
           <li>Date de fin ≥ date de début, vérifié partout à la saisie.</li>
         </ul>
       </template>

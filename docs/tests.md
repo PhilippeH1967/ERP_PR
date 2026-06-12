@@ -23,18 +23,19 @@ docker compose exec django python -m pytest -v --tb=short
 
 | Module | Tests | Statut |
 |--------|-------|--------|
-| core (auth, tenant, RLS, permissions, sprints) | 282 | ✅ |
-| projects (WBS, phases/tâches standard, services transversaux, équipes, avenants, agrégats) | 272 | ✅ |
+| core (auth, tenant, RLS, permissions, sprints) | 290 | ✅ |
+| projects (WBS, standards, services transversaux, équipes, avenants, billing_address, agrégats) | 291 | ✅ |
 | planning | 46 | ✅ |
-| time_entries | 41 | ✅ |
+| time_entries (dont blocages TimeEntryBlock) | 59 | ✅ |
 | billing | 34 | ✅ |
+| clients (dont anti-doublon adresses) | 27 | ✅ |
 | suppliers | 11 | ✅ |
 | leaves | 8 | ✅ |
 | dashboards | 8 | ✅ |
 | consortiums | 6 | ✅ |
 | expenses | 6 | ✅ |
 | data_ops | 6 | ✅ |
-| **Total** | **744** | **✅** |
+| **Total** | **792** | **✅** |
 
 > Les features récentes (catalogue `StandardTask` + `task_suggestions`, équipes `Team`
 > + `assign_team`, visibilité projet interne `is_internal`, `construction_cost`,
@@ -49,12 +50,13 @@ cd frontend && npm run test:unit          # vitest run
 cd frontend && npm run test:unit -- --watch
 ```
 
-**130 tests** sur **24 fichiers** (`frontend/src/__tests__/*.spec.ts`). Couvrent
-notamment : grille de saisie (timesheet, favoris, tâches obligatoires), Gantt
-(chart, helpers, jalons slide-over), avancement par phase, picker de tâches
-standard, panneau membres d'équipe, schémas fiscaux, et les écrans de
-paramétrage admin **Équipes** (`teamSettings.spec.ts`) et **Tâches standard**
-(`standardTaskSettings.spec.ts`).
+**189 tests** sur **31 fichiers** (`frontend/src/__tests__/*.spec.ts`). Couvrent
+notamment : grille de saisie (timesheet, favoris, tâches obligatoires), Gantt,
+fiche tâche unique (`taskSlideOver`), dialogue d'affectation unifié
+(`assignResourceDialog`), onglet ⚙️ Paramètres du projet (`projectSettingsTab` —
+client, adresses, adresse de facturation par projet), aide contextuelle
+(`helpContent`/`helpPanel`), échéancier (`scheduleHelpers`), arbre Équipe & charge
+(`phasePeopleTree`), écrans admin (Équipes, Tâches standard), schémas fiscaux.
 
 E2E Playwright : `cd frontend && npm run test:e2e`.
 

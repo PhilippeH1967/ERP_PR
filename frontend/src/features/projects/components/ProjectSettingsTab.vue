@@ -102,7 +102,6 @@ const clientSaved = ref(false)
 const clientError = ref('')
 const addresses = ref<AddressR[]>([])
 const editingAddressId = ref<number | 'new' | null>(null)
-const confirmDeleteAddress = ref<number | null>(null)
 const emptyAddr = () => ({
   address_line_1: '', address_line_2: '', city: '', province: 'QC',
   postal_code: '', country: 'Canada', is_billing: false, is_primary: false,
@@ -192,13 +191,6 @@ async function setProjectBillingAddress(id: number | null) {
   } catch (e: unknown) {
     clientError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
   }
-}
-
-async function deleteAddress(id: number) {
-  const cid = props.project?.client
-  confirmDeleteAddress.value = null
-  addresses.value = addresses.value.filter(a => a.id !== id) // optimiste
-  try { await apiClient.delete(`clients/${cid}/addresses/${id}/`) } catch { await loadAddresses() }
 }
 
 /* ── 3. Profils virtuels ── */
@@ -369,7 +361,9 @@ watch(() => props.project, (p) => {
       <p class="ps-hint">Changer le client réaffecte le projet : factures et rapports utiliseront ses coordonnées et son WBS client.</p>
 
       <template v-if="project?.client">
-        <h4 class="ps-subhead">Adresses <button class="btn-action" style="margin-left:6px;" data-ps-address-add @click="startAddAddress">+ Adresse</button></h4>
+        <h4 class="ps-subhead">Adresses
+          <button class="ps-btn-add" data-ps-address-add @click="startAddAddress">+ Ajouter une adresse</button>
+        </h4>
         <div v-for="a in addresses" :key="a.id" class="ps-row" data-ps-address>
           <template v-if="editingAddressId === a.id">
             <div class="ps-addr-form">
@@ -394,11 +388,6 @@ watch(() => props.project, (p) => {
             </div>
             <button v-if="project?.billing_address !== a.id" class="btn-action" data-ps-address-use title="Utiliser cette adresse pour la facturation de ce projet (les autres projets du client ne changent pas)" @click="setProjectBillingAddress(a.id)">Utiliser pour ce projet</button>
             <button class="btn-action" data-ps-address-edit @click="startEditAddress(a)">Modifier</button>
-            <template v-if="confirmDeleteAddress === a.id">
-              <button class="btn-action danger" data-ps-address-delete-confirm @click="deleteAddress(a.id)">Confirmer</button>
-              <button class="btn-action" @click="confirmDeleteAddress = null">Annuler</button>
-            </template>
-            <button v-else class="btn-action danger" data-ps-address-delete @click="confirmDeleteAddress = a.id">Supprimer…</button>
           </template>
         </div>
         <div v-if="editingAddressId === 'new'" class="ps-row">
@@ -422,7 +411,7 @@ watch(() => props.project, (p) => {
             <button class="btn-action" data-ps-address-default @click="setProjectBillingAddress(null)">Revenir à l'adresse par défaut du client</button>
           </template>
           <template v-else>
-            Sans désignation, l'adresse de facturation par défaut du client s'applique. Une adresse ajoutée ici est enregistrée dans la fiche client.
+            Sans désignation, l'adresse de facturation par défaut du client s'applique. Une adresse ajoutée ici est enregistrée dans la fiche client ; la <strong>suppression</strong> d'une adresse se fait uniquement dans la fiche client.
           </template>
         </p>
       </template>
@@ -525,7 +514,8 @@ watch(() => props.project, (p) => {
 .ps-row input { padding: 5px 9px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; }
 .ps-vava { width: 26px; height: 26px; border-radius: 50%; border: 1px dashed #7C3AED; color: #7C3AED; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; flex-shrink: 0; }
 .ps-select { padding: 5px 9px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; min-width: 170px; }
-.ps-subhead { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--color-gray-500); margin: 14px 0 6px; display: flex; align-items: center; }
+.ps-subhead { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--color-gray-500); margin: 14px 0 6px; display: flex; align-items: center; gap: 8px; }
+.ps-btn-add { background: var(--color-primary); color: #fff; border: none; border-radius: 5px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer; text-transform: none; letter-spacing: normal; }
 .ps-addr-form { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; }
 .ps-addr-form input[type=text], .ps-addr-form input:not([type]) { padding: 5px 9px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; flex: 1; min-width: 110px; }
 .ps-check { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--color-gray-600); white-space: nowrap; }

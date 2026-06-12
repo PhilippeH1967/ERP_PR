@@ -191,14 +191,12 @@ describe('ProjectSettingsTab — onglet ⚙️ Paramètres du projet', () => {
     )
   })
 
-  it('carte Client : supprimer une adresse avec confirmation inline', async () => {
+  it('carte Client : pas de suppression d’adresse au niveau projet (fiche client uniquement)', async () => {
     const wrapper = mountTab()
     await flushPromises()
-    await wrapper.find('[data-ps-address-delete]').trigger('click')
-    expect(mockDelete).not.toHaveBeenCalled()
-    await wrapper.find('[data-ps-address-delete-confirm]').trigger('click')
-    await flushPromises()
-    expect(mockDelete).toHaveBeenCalledWith('clients/5/addresses/9/')
+    expect(wrapper.find('[data-ps-address-delete]').exists()).toBe(false)
+    expect(wrapper.find('[data-ps-address-add]').exists()).toBe(true) // l'ajout, lui, est bien là
+    expect(wrapper.text()).toContain('suppression')
   })
 
   it('désigner une adresse pour CE projet → PATCH projects/3/ billing_address', async () => {
