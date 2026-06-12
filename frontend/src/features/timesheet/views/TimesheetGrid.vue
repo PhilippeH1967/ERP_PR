@@ -44,7 +44,7 @@ const liveDailyTotals = computed(() =>
 
 // Add task with dropdowns
 interface ProjectOption { id: number; code: string; name: string }
-interface TaskOption { id: number; wbs_code: string; name: string; display_label: string; phase_name: string; phase: number | null; is_chargeable?: boolean }
+interface TaskOption { id: number; wbs_code: string; name: string; display_label: string; phase_name: string; phase: number | null; parent: number | null; is_billable?: boolean; is_chargeable?: boolean; parent_name?: string }
 const availableProjects = ref<ProjectOption[]>([])
 const availableTasks = ref<TaskOption[]>([])
 const selectedProjectId = ref<number | null>(null)
@@ -66,6 +66,12 @@ async function onProjectSelect() {
     const resp = await apiClient.get(`projects/${selectedProjectId.value}/tasks/`, { params: { page_size: '500' } })
     const data = resp.data?.data || resp.data
     const all: TaskOption[] = Array.isArray(data) ? data : data?.results || []
+    // Référentiel : nom (libellé client) de la tâche-mère pour les sous-tâches.
+    const byId = new Map(all.map(t => [t.id, t]))
+    for (const t of all) {
+      const p = t.parent != null ? byId.get(t.parent) : undefined
+      t.parent_name = p ? (p.display_label || p.name) : ''
+    }
     // Seules les tâches SAISISSABLES (feuilles) : on exclut les tâches-mères.
     availableTasks.value = all.filter(t => t.is_chargeable !== false)
   } catch { availableTasks.value = [] }
@@ -480,7 +486,7 @@ function normClass(total: number, norm: number): string {
           <select v-model="selectedTaskId" data-add-task class="mt-1 block w-full rounded border border-border px-2 py-1.5 text-sm">
             <option :value="null">— Choisir une tâche —</option>
             <optgroup v-for="(tasks, phaseName) in tasksByPhase" :key="phaseName" :label="String(phaseName)">
-              <option v-for="t in tasks" :key="t.id" :value="t.id">{{ t.wbs_code }} — {{ t.display_label || t.name }}</option>
+              <option v-for="t in tasks" :key="t.id" :value="t.id">{{ t.wbs_code }} — {{ t.parent_name ? t.parent_name + ' › ' : '' }}{{ t.display_label || t.name }}{{ t.is_billable === false ? ' (non facturable)' : ' · $' }}</option>
             </optgroup>
           </select>
         </div>
@@ -572,6 +578,11 @@ function normClass(total: number, norm: number): string {
                   >Oblig.</span>
                   <span v-if="row.task_wbs_code" class="font-mono text-text-muted" style="font-size: 9px; margin-right: 4px;">{{ row.task_wbs_code }}</span>
                   <span class="text-text" style="font-size: 11px;">{{ row.task_name || row.client_label || row.phase_name }}</span>
+                  <span v-if="row.task_is_billable === true" class="ts-bill" title="Tâche facturable">$</span>
+                  <span v-else-if="row.task_is_billable === false" class="ts-nobill" title="Tâche non facturable">$</span>
+                  <div v-if="row.phase_name || row.task_parent_name" class="ts-ref" :title="'Référentiel : ' + row.phase_name + (row.task_parent_name ? ' › ' + row.task_parent_name : '')">
+                    {{ row.phase_name }}<template v-if="row.task_parent_name"> › {{ row.task_parent_name }}</template>
+                  </div>
                   <!-- Right-aligned: copier lundi (toujours visible, désactivé si lundi vide) + supprimer ligne -->
                   <button
                     v-if="!row.is_locked && !store.periodLocked"
@@ -682,3 +693,9 @@ function normClass(total: number, norm: number): string {
     />
   </div>
 </template>
+
+<style scoped>
+.ts-bill { display: inline-block; margin-left: 5px; font-size: 10px; font-weight: 800; color: var(--color-success, #15803D); background: #DCFCE7; border-radius: 4px; padding: 0 4px; }
+.ts-nobill { display: inline-block; margin-left: 5px; font-size: 10px; font-weight: 800; color: var(--color-gray-400); background: var(--color-gray-100); border-radius: 4px; padding: 0 4px; text-decoration: line-through; }
+.ts-ref { font-size: 9px; color: var(--color-gray-400); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+</style>

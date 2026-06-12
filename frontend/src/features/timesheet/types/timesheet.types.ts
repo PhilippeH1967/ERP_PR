@@ -9,6 +9,8 @@ export interface TimeEntry {
   task: number | null
   task_name: string
   task_wbs_code: string
+  task_parent_name?: string
+  task_is_billable?: boolean | null
   client_label: string
   date: string
   hours: string
@@ -43,6 +45,8 @@ export interface TimesheetGridRow {
   task_id: number | null
   task_name: string
   task_wbs_code: string
+  task_parent_name?: string
+  task_is_billable?: boolean | null
   client_label: string
   entries: Record<string, TimeEntry | null>
   is_locked: boolean
