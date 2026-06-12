@@ -209,3 +209,54 @@ class TestClientAddressDedupFuzzy:
             address_line_1="4555 av Oxford", city="Montreal", postal_code="H4A 2Y9",
         )
         assert resp.status_code == 201, resp.data
+
+
+@pytest.mark.django_db
+class TestClientAddressDeleteProtection:
+    """Suppression d'adresse : interdite si l'adresse est utilisée comme
+    adresse de facturation d'un projet."""
+
+    def _setup(self):
+        from apps.clients.models import Client, ClientAddress
+        from apps.core.models import Tenant
+
+        tenant = Tenant.objects.create(name="T", slug="t-addr-del")
+        client = Client.objects.create(tenant=tenant, name="VDM", alias="VDM")
+        addr = ClientAddress.objects.create(
+            tenant=tenant, client=client,
+            address_line_1="275 rue Notre-Dame E", city="Montréal",
+        )
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+
+        user = User.objects.create_user(username="del_user", password="x")
+        api = APIClient()
+        api.force_authenticate(user=user)
+        return tenant, client, addr, api
+
+    def test_delete_blocked_when_used_as_project_billing_address(self):
+        from apps.clients.models import ClientAddress
+        from apps.projects.models import Project
+
+        tenant, client, addr, api = self._setup()
+        Project.objects.create(
+            tenant=tenant, code="PRJ-X", name="P", client=client, billing_address=addr
+        )
+        resp = api.delete(
+            f"/api/v1/clients/{client.pk}/addresses/{addr.pk}/",
+            HTTP_X_TENANT_ID=str(tenant.pk),
+        )
+        assert resp.status_code == 409
+        assert "PRJ-X" in str(resp.data)
+        assert ClientAddress.objects.filter(pk=addr.pk).exists()
+
+    def test_delete_allowed_when_unused(self):
+        from apps.clients.models import ClientAddress
+
+        tenant, client, addr, api = self._setup()
+        resp = api.delete(
+            f"/api/v1/clients/{client.pk}/addresses/{addr.pk}/",
+            HTTP_X_TENANT_ID=str(tenant.pk),
+        )
+        assert resp.status_code == 204
+        assert not ClientAddress.objects.filter(pk=addr.pk).exists()

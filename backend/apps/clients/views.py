@@ -113,3 +113,26 @@ class ClientAddressViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         client = Client.objects.get(pk=self.kwargs["client_pk"])
         serializer.save(client=client, tenant=client.tenant)
+
+    def destroy(self, request, *args, **kwargs):
+        """Interdit la suppression d'une adresse utilisée comme adresse de
+        facturation d'un projet (``Project.billing_address``)."""
+        instance = self.get_object()
+        codes = list(instance.billing_projects.values_list("code", flat=True))
+        if codes:
+            return Response(
+                {
+                    "error": {
+                        "code": "ADDRESS_IN_USE",
+                        "message": (
+                            "Suppression impossible : cette adresse est l'adresse "
+                            f"de facturation de {len(codes)} projet(s) : "
+                            f"{', '.join(codes)}. Désignez d'abord une autre "
+                            "adresse sur ces projets."
+                        ),
+                        "details": [],
+                    }
+                },
+                status=409,
+            )
+        return super().destroy(request, *args, **kwargs)
