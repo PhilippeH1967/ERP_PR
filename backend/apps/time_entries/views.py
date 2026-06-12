@@ -225,6 +225,22 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         blocked = self._handle_lock_check(date_val, proj_id, ph_id)
         if blocked:
             return blocked
+        # Discipline de soumission : une semaine non soumise vieille de 2
+        # semaines ou plus bloque la saisie de la semaine courante (la
+        # régularisation des semaines en retard reste permise).
+        from datetime import timedelta
+
+        weeks, this_monday = self._user_unsubmitted_weeks(request)
+        threshold = (this_monday - timedelta(days=14)).isoformat()
+        if date_val and date_val >= this_monday and any(w <= threshold for w in weeks):
+            late = ", ".join(w for w in weeks if w <= threshold)
+            return Response(
+                {"error": {"code": "LATE_TIMESHEETS", "message": (
+                    "Saisie bloquée : vous devez d'abord soumettre vos feuilles "
+                    f"de temps en retard (semaines du {late})."
+                ), "details": []}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         self.perform_create(serializer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -244,6 +260,11 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
+        if instance.is_invoiced:
+            return Response(
+                {"error": {"code": "ENTRY_INVOICED", "message": "Ces heures ont été facturées au client : elles ne sont plus modifiables.", "details": []}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if instance.status == "LOCKED":
             return Response(
                 {"error": {"code": "ENTRY_LOCKED", "message": "Cette entrée est verrouillée."}},
@@ -261,6 +282,11 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
+        if instance.is_invoiced:
+            return Response(
+                {"error": {"code": "ENTRY_INVOICED", "message": "Ces heures ont été facturées au client : elles ne peuvent pas être supprimées.", "details": []}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if instance.status == "LOCKED":
             return Response(
                 {"error": {"code": "ENTRY_LOCKED", "message": "Cette entrée est verrouillée."}},
@@ -307,6 +333,41 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         if tenant_id:
             qs = qs.filter(tenant_id=tenant_id)
         return qs.order_by("date")
+
+    @staticmethod
+    def _monday(d):
+        from datetime import timedelta
+
+        return d - timedelta(days=d.weekday())
+
+    def _user_unsubmitted_weeks(self, request):
+        """Lundis (ISO) des semaines passées contenant encore des entrées en
+        brouillon pour l'employé courant."""
+        from datetime import date as date_type
+
+        this_monday = self._monday(date_type.today())
+        qs = TimeEntry.objects.filter(
+            employee=request.user, status="DRAFT", date__lt=this_monday
+        ).values_list("date", flat=True)
+        tenant_id = getattr(self.request, "tenant_id", None)
+        if tenant_id:
+            qs = qs.filter(tenant_id=tenant_id) if hasattr(qs, "filter") else qs
+        weeks = sorted({self._monday(d).isoformat() for d in qs})
+        return weeks, this_monday
+
+    @action(detail=False, methods=["get"], url_path="unsubmitted_weeks")
+    def unsubmitted_weeks(self, request):
+        """Semaines passées non soumises (entrées DRAFT) + indicateur de
+        blocage : une semaine en retard de 2 semaines ou plus bloque la saisie
+        de la semaine courante."""
+        from datetime import timedelta
+
+        weeks, this_monday = self._user_unsubmitted_weeks(request)
+        threshold = (this_monday - timedelta(days=14)).isoformat()
+        return Response({
+            "weeks": weeks,
+            "blocking": any(w <= threshold for w in weeks),
+        })
 
     @action(detail=False, methods=["get"])
     def holidays(self, request):
