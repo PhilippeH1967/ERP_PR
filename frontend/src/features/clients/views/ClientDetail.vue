@@ -196,11 +196,19 @@ async function deleteContact(contactId: number) {
 
 async function deleteAddress(addressId: number) {
   confirmDeleteAddress.value = null
-  // Instant UI update
+  formError.value = ''
+  // Instant UI update (rollback si le backend refuse — ex. adresse de
+  // facturation d'un projet → 409).
   if (store.currentClient) {
     store.currentClient.addresses = store.currentClient.addresses.filter((a: { id: number }) => a.id !== addressId)
   }
-  try { await clientApi.deleteAddress(clientId, addressId) } catch { /* ok */ }
+  try {
+    await clientApi.deleteAddress(clientId, addressId)
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: { message?: string } } } }
+    formError.value = err.response?.data?.error?.message || 'Suppression impossible.'
+    await store.fetchClient(clientId) // restaure la liste
+  }
 }
 
 async function deleteClient() {
