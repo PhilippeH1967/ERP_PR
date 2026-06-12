@@ -190,7 +190,8 @@ async function saveAddress() {
     editingAddressId.value = null
     await loadAddresses()
   } catch (e: unknown) {
-    clientError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
+    const err = (e as { response?: { data?: { error?: { message?: string; details?: Array<{ message?: string }> } } } }).response?.data?.error
+    clientError.value = err?.details?.[0]?.message || err?.message || 'Erreur de sauvegarde'
   } finally { addrSaving.value = false }
 }
 function addrLabel(a: AddressR): string {

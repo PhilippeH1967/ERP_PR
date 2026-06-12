@@ -123,7 +123,7 @@ Le **mode de facturation se définit au niveau de la tâche** (feuille), pas de 
 ### Adresse de facturation par projet
 - Chaque projet peut désigner **son** adresse de facturation parmi les **adresses de son client** (`Project.billing_address`) — deux projets d'un même client peuvent facturer à deux adresses. **Sans désignation**, l'adresse de facturation par défaut du client s'applique.
 - Une adresse d'un **autre client** est refusée ; **changer le client** d'un projet purge la désignation devenue invalide.
-- Les adresses s'**ajoutent/éditent** depuis le projet (elles vivent dans la fiche client, partagées) mais la **suppression** se fait uniquement dans la fiche client. **Anti-doublon** : même ligne 1 + ville + code postal (insensible casse/espaces) refusée pour un même client.
+- Les adresses s'**ajoutent/éditent** depuis le projet (elles vivent dans la fiche client, partagées) mais la **suppression** se fait uniquement dans la fiche client. **Anti-doublon** : même **ligne 1 + ville** après normalisation (casse, accents, ponctuation, particules « d'/de/du », abréviations de voie av/boul/ch/pl/rte) refusée pour un même client — le **code postal n'est pas comparé** (une adresse civique = un seul postal ; un postal différent sur la même rue/ville est une coquille).
 
 ### Coût de construction (projets externes)
 - Champ **`construction_cost`** : montant **informatif** du coût de construction, saisi sur la **Vue d'ensemble** d'un projet. Sert au calcul/contexte des honoraires.
