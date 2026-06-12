@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import HelpPanel from '@/features/help/components/HelpPanel.vue'
 import { useI18n } from 'vue-i18n'
 import { useAuth } from '@/shared/composables/useAuth'
 import { useLocale } from '@/shared/composables/useLocale'
@@ -20,6 +21,7 @@ const { isCollapsed, toggleSection } = useSidebarCollapse()
 initLocale()
 
 const userMenuOpen = ref(false)
+const helpOpen = ref(false)
 const { showWarning: showIdleWarning, remainingSeconds, dismiss: dismissIdle } = useIdleTimeout(() => logout())
 const unreadCount = ref(0)
 
@@ -158,6 +160,9 @@ function toggleLocale() {
             {{ currentLocale === 'fr' ? 'EN' : 'FR' }}
           </button>
 
+          <!-- Aide contextuelle -->
+          <button class="topbar-help" data-help-open title="Aide sur cet écran" aria-label="Aide" @click="helpOpen = true">?</button>
+
           <!-- Notifications bell -->
           <router-link to="/notifications" class="topbar-bell">
             <span>🔔</span>
@@ -218,6 +223,7 @@ function toggleLocale() {
 
     <!-- Cmd+K search (Sprint 2 - B3) -->
     <CommandPalette />
+    <HelpPanel :open="helpOpen" @close="helpOpen = false" />
   </div>
 </template>
 
@@ -319,6 +325,8 @@ function toggleLocale() {
   border-color: var(--color-primary);
 }
 
+.topbar-help { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--color-gray-300); background: #fff; color: var(--color-gray-500); font-size: 14px; font-weight: 700; cursor: pointer; line-height: 1; flex-shrink: 0; }
+.topbar-help:hover { color: var(--color-primary); border-color: var(--color-primary); }
 .topbar-bell {
   position: relative;
   width: 36px;

@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAuth } from '@/shared/composables/useAuth'
 
 const { currentUser } = useAuth()
+const route = useRoute()
 
-const activeSection = ref('welcome')
+const activeSection = ref(
+  typeof route.query.section === 'string' && route.query.section ? route.query.section : 'welcome',
+)
 
 const userRoles = computed(() => currentUser.value?.roles || [])
 const hasRole = (role: string) => userRoles.value.includes(role)
@@ -14,12 +18,12 @@ interface Section { key: string; label: string; icon: string; roles?: string[] }
 const allSections: Section[] = [
   { key: 'welcome', label: 'Bienvenue', icon: '👋' },
   { key: 'timesheets', label: 'Feuilles de temps', icon: '🕐' },
-  { key: 'leaves', label: 'Conges', icon: '🏖️' },
+  { key: 'leaves', label: 'Congés', icon: '🏖️' },
   { key: 'projects', label: 'Projets', icon: '📁' },
-  { key: 'expenses', label: 'Depenses', icon: '🧾' },
+  { key: 'expenses', label: 'Dépenses', icon: '🧾' },
   { key: 'approvals', label: 'Approbations', icon: '✅', roles: ['PM', 'PROJECT_DIRECTOR', 'FINANCE', 'PAIE', 'ADMIN'] },
   { key: 'billing', label: 'Facturation', icon: '📄', roles: ['FINANCE', 'PM', 'PROJECT_DIRECTOR', 'ADMIN'] },
-  { key: 'planning', label: 'Planification', icon: '📅' },
+  { key: 'planning', label: 'Occupation', icon: '📅' },
   { key: 'dashboard', label: 'Tableau de bord', icon: '📊' },
   { key: 'faq', label: 'FAQ', icon: '❓' },
 ]
@@ -213,51 +217,47 @@ const sections = computed(() =>
       <!-- Projets -->
       <template v-if="activeSection === 'projects'">
         <h1>Projets</h1>
-        <p class="help-intro">Consultez vos projets, leur avancement et leur structure.</p>
+        <p class="help-intro">Le module projet couvre tout le cycle : création, structure, calendrier, équipe, temps et finances.</p>
 
-        <h2>Liste des projets</h2>
-        <p>
-          La page <em>Projets</em> affiche tous les projets auxquels vous avez acces.
-          Utilisez les filtres (statut, client, unite d'affaires) pour affiner la liste.
-        </p>
+        <h2>Créer un projet (wizard)</h2>
+        <ol class="help-steps">
+          <li><strong>Identification</strong> — nom, client, type de contrat, dates, responsables, <em>services transversaux</em> (BIM, DD… → deviennent des phases Support imputables)</li>
+          <li><strong>Phases</strong> — héritées du jeu standard du cabinet (paramétrage admin), sans saisie</li>
+          <li><strong>Ressources</strong> — premières affectations (employés ou profils virtuels)</li>
+          <li><strong>Sous-traitants</strong> — budgets ST (optionnel)</li>
+          <li><strong>Confirmation</strong> — récapitulatif puis création</li>
+        </ol>
+        <p>Au démarrage, ajoutez les tâches par phase via « <strong>+ depuis le modèle</strong> » (catalogue standard, sans doublon).</p>
 
-        <h2>Fiche projet (12 onglets)</h2>
-        <p>Chaque projet dispose d'une fiche detaillee avec les onglets suivants :</p>
+        <h2>La fiche projet — 7 onglets</h2>
         <table class="help-table">
-          <thead><tr><th>Onglet</th><th>Contenu</th></tr></thead>
+          <thead><tr><th>Onglet</th><th>À quoi il sert</th></tr></thead>
           <tbody>
-            <tr><td><strong>Resume</strong></td><td>Informations generales, dates, responsables, statut</td></tr>
-            <tr><td><strong>WBS</strong></td><td>Structure de decoupage : phases, taches, sous-taches</td></tr>
-            <tr><td><strong>Budget</strong></td><td>Budget par phase, montants factures, restant</td></tr>
-            <tr><td><strong>Equipe</strong></td><td>Membres affectes et leurs roles</td></tr>
-            <tr><td><strong>Temps</strong></td><td>Heures saisies par phase et par personne</td></tr>
-            <tr><td><strong>Facturation</strong></td><td>Factures emises, ratio CA/Salaires</td></tr>
-            <tr><td><strong>Depenses</strong></td><td>Notes de frais liees au projet</td></tr>
-            <tr><td><strong>Sous-traitants</strong></td><td>Factures ST, budgets, retenues</td></tr>
-            <tr><td><strong>Gantt</strong></td><td>Vue chronologique des phases et jalons</td></tr>
-            <tr><td><strong>Documents</strong></td><td>Pieces jointes au projet</td></tr>
-            <tr><td><strong>Historique</strong></td><td>Journal de toutes les modifications</td></tr>
-            <tr><td><strong>Avenants</strong></td><td>Modifications contractuelles et leur impact</td></tr>
+            <tr><td><strong>📊 Pilotage</strong></td><td>KPI (budget, facturé, % consommé, heures), <em>alertes centralisées</em> avec liens de correction, avancement par phase (% heures / coût / honoraires)</td></tr>
+            <tr><td><strong>📅 Échéancier</strong></td><td>Phases (regroupements, dates dérivées) · Tâches (dates éditables en ligne, « Décaler l'échéancier », fiche tâche au clic) · Gantt (barres, jalons, dépendances)</td></tr>
+            <tr><td><strong>👥 Équipe &amp; charge</strong></td><td>Vues « Par phase » (arbre + personnes) et « Par personne » (affectations + cadenas de blocage). Dialogue « + Affectation » : Qui → Où → Combien</td></tr>
+            <tr><td><strong>⏱ Temps</strong></td><td>Heures saisies, pivot par employé ou par phase</td></tr>
+            <tr><td><strong>💰 Finances</strong></td><td>Budget (par tâche), honoraires, factures (WBS client), sous-traitants</td></tr>
+            <tr><td><strong>📝 Avenants</strong></td><td>Mini-contrats : ajout de tâches sur les phases existantes (badge AV-n), workflow d'approbation</td></tr>
+            <tr><td><strong>⚙️ Paramètres</strong></td><td>Infos projet, coût de construction, profils virtuels, blocages actifs, liens vers les référentiels admin</td></tr>
           </tbody>
         </table>
 
-        <h2 v-if="hasRole('PM') || hasRole('ADMIN')">Creer un projet (PM)</h2>
-        <div v-if="hasRole('PM') || hasRole('ADMIN')">
-          <p>La creation de projet suit un assistant en 5 etapes :</p>
-          <ol class="help-steps">
-            <li><strong>Metadonnees</strong> — Nom, client, type de contrat, dates, responsables (PM, Associe en charge, Approbateur facture)</li>
-            <li><strong>Phases / WBS</strong> — Definir les phases de realisation et services transversaux. Un template par type de contrat est propose.</li>
-            <li><strong>Budget</strong> — Heures et couts par phase/tache, mode de facturation (forfait ou horaire)</li>
-            <li><strong>Ressources & Planification</strong> — Affecter des profils virtuels par phase, definir les dates dans le Gantt</li>
-            <li><strong>Sous-traitants</strong> — Configurer les budgets ST (optionnel, peut etre complete plus tard)</li>
-          </ol>
-        </div>
-
-        <h2>Vue Gantt</h2>
+        <h2>La fiche tâche — tout au même endroit</h2>
         <p>
-          Le Gantt interactif affiche les phases du projet sur une timeline.
-          Vous pouvez zoomer (mois, trimestre, annee), voir les jalons et les dependances entre phases.
+          Cliquez le <strong>nom d'une tâche</strong> (Échéancier ou Gantt) pour ouvrir sa fiche :
+          identité (nom, libellé client, phase), dates, budget &amp; facturation, affectations
+          (employé / équipe / profil virtuel), ouverture/fermeture de la saisie, suppression.
         </p>
+
+        <h2>Règles à connaître</h2>
+        <ul>
+          <li>La <strong>phase</strong> est un regroupement : budget, dates, facturation et saisie vivent sur la <strong>tâche feuille</strong>.</li>
+          <li>Une tâche avec sous-tâches devient un agrégat en lecture seule (saisie sur ses sous-tâches).</li>
+          <li>Les <strong>libellés du WBS client</strong> priment sur la nomenclature interne dans tout document destiné au client.</li>
+          <li><strong>Fermer</strong> une tâche bloque la saisie pour tout le monde ; les <strong>cadenas</strong> (Équipe &amp; charge) bloquent une personne précise — sur une tâche, une phase ou tout le projet. Tout est réversible.</li>
+          <li>Date de fin ≥ date de début, vérifié partout à la saisie.</li>
+        </ul>
       </template>
 
       <!-- Depenses -->
@@ -422,12 +422,12 @@ const sections = computed(() =>
 
       <!-- Planification -->
       <template v-if="activeSection === 'planning'">
-        <h1>Planification</h1>
+        <h1>Occupation des ressources</h1>
         <p class="help-intro">Visualisez l'allocation des ressources et la disponibilite des equipes.</p>
 
         <h2>Vue globale des ressources</h2>
         <p>
-          La page <em>Planification</em> affiche l'allocation de chaque employe par projet et par semaine.
+          La page <em>Occupation</em> affiche l'allocation de chaque employe par projet et par semaine.
           Les indicateurs de charge permettent d'identifier :
         </p>
         <ul>
