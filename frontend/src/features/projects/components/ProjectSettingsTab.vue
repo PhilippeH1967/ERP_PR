@@ -22,6 +22,7 @@ interface ProjectInfo {
   services_transversaux?: string[]
   client?: number | null
   client_name?: string
+  billing_address?: number | null
 }
 interface UserL { id: number; username: string; email?: string }
 interface VirtualR { id: number; name: string; default_hourly_rate: string | number; is_active: boolean }
@@ -182,6 +183,17 @@ async function saveAddress() {
     clientError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
   } finally { addrSaving.value = false }
 }
+// Désigne l'adresse de facturation de CE projet (null = défaut du client).
+async function setProjectBillingAddress(id: number | null) {
+  clientError.value = ''
+  try {
+    await apiClient.patch(`projects/${props.projectId}/`, { billing_address: id })
+    emit('updated')
+  } catch (e: unknown) {
+    clientError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
+  }
+}
+
 async function deleteAddress(id: number) {
   const cid = props.project?.client
   confirmDeleteAddress.value = null
@@ -378,7 +390,9 @@ watch(() => props.project, (p) => {
               {{ a.address_line_1 }}<template v-if="a.address_line_2">, {{ a.address_line_2 }}</template>, {{ a.city }} ({{ a.province }}) {{ a.postal_code }}
               <span v-if="a.is_billing" class="badge badge-blue" style="margin-left:6px;font-size:9px;">Facturation</span>
               <span v-if="a.is_primary" class="badge badge-green" style="margin-left:4px;font-size:9px;">Principale</span>
+              <span v-if="project?.billing_address === a.id" class="badge badge-purple" style="margin-left:4px;font-size:9px;" title="Adresse utilisée pour la facturation de ce projet">Facturation de ce projet</span>
             </div>
+            <button v-if="project?.billing_address !== a.id" class="btn-action" data-ps-address-use title="Utiliser cette adresse pour la facturation de ce projet (les autres projets du client ne changent pas)" @click="setProjectBillingAddress(a.id)">Utiliser pour ce projet</button>
             <button class="btn-action" data-ps-address-edit @click="startEditAddress(a)">Modifier</button>
             <template v-if="confirmDeleteAddress === a.id">
               <button class="btn-action danger" data-ps-address-delete-confirm @click="deleteAddress(a.id)">Confirmer</button>
@@ -402,6 +416,15 @@ watch(() => props.project, (p) => {
           </div>
         </div>
         <p v-if="!addresses.length && editingAddressId !== 'new'" class="ps-hint">Aucune adresse — ajoutez l'adresse de facturation du client.</p>
+        <p class="ps-hint">
+          <template v-if="project?.billing_address">
+            Ce projet utilise une adresse de facturation spécifique.
+            <button class="btn-action" data-ps-address-default @click="setProjectBillingAddress(null)">Revenir à l'adresse par défaut du client</button>
+          </template>
+          <template v-else>
+            Sans désignation, l'adresse de facturation par défaut du client s'applique. Une adresse ajoutée ici est enregistrée dans la fiche client.
+          </template>
+        </p>
       </template>
     </div>
 

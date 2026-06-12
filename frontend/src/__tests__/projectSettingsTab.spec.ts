@@ -18,7 +18,7 @@ const PROJECT = {
   business_unit: 'Architecture', pm: 1, associate_in_charge: 2,
   construction_cost: 24500000, is_internal: false,
   services_transversaux: ['BIM', 'DD'],
-  client: 5, client_name: 'Ville de Montréal',
+  client: 5, client_name: 'Ville de Montréal', billing_address: null,
 }
 const CLIENTS = [
   { id: 5, name: 'Ville de Montréal' },
@@ -199,6 +199,24 @@ describe('ProjectSettingsTab — onglet ⚙️ Paramètres du projet', () => {
     await wrapper.find('[data-ps-address-delete-confirm]').trigger('click')
     await flushPromises()
     expect(mockDelete).toHaveBeenCalledWith('clients/5/addresses/9/')
+  })
+
+  it('désigner une adresse pour CE projet → PATCH projects/3/ billing_address', async () => {
+    const wrapper = mountTab()
+    await flushPromises()
+    await wrapper.find('[data-ps-address-use]').trigger('click')
+    await flushPromises()
+    expect(mockPatch).toHaveBeenCalledWith('projects/3/', { billing_address: 9 })
+    expect(wrapper.emitted('updated')).toBeTruthy()
+  })
+
+  it('adresse désignée : badge « Facturation de ce projet » + retour au défaut', async () => {
+    const wrapper = mountTab({ billing_address: 9 })
+    await flushPromises()
+    expect(wrapper.find('[data-ps-address]').text()).toContain('Facturation de ce projet')
+    await wrapper.find('[data-ps-address-default]').trigger('click')
+    await flushPromises()
+    expect(mockPatch).toHaveBeenCalledWith('projects/3/', { billing_address: null })
   })
 
   it('expose les liens vers les référentiels admin', async () => {
