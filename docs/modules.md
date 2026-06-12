@@ -10,10 +10,15 @@
 - **Coût de construction** : champ informatif `construction_cost` sur les **projets externes** (sert au calcul d'honoraires, masqué pour les projets internes).
 - **Paramétrage** (*Administration*) : *Phases standard* (`StandardPhase`, admin), *Tâches standard* (`StandardTask`, catalogue tâches/sous-tâches par phase, admin), *Équipes* (`Team`, groupes réutilisables, finance/paie/admin)
 - **Projet interne** : masqué pour tous sauf **admin** (queryset filtré sur `is_internal`)
-- **12 onglets fiche** : Vue d'ensemble, Phases, Tâches, Équipe, Temps, Avenants, Budget, Avancement, Gantt, Finance, Sous-traitants, Factures
-- **Vue d'ensemble** : avancement par phase en **% heures / % coût / % honoraires** + total facturé réel
-- **Équipe** : ajout de **profils virtuels sans avenant**, dropdown membres **recherchable**, affectation d'une **équipe entière** (paramétrage) sur le projet
+- **Fiche projet — 7 onglets par intention** : 📊 Pilotage (KPI, alertes centralisées, avancement par phase % heures/coût/honoraires + facturé) · 📅 Échéancier (Phases / Tâches / Gantt) · 👥 Équipe & charge · ⏱ Temps · 💰 Finances · 📝 Avenants · ⚙️ Paramètres. Aide contextuelle « ? » dans la barre du haut (contenu par écran/onglet).
+- **Fiche tâche unique** : clic sur le nom d'une tâche (Tâches ou Gantt) → un seul panneau pour tout éditer (identité, libellé client, phase, dates, budget/facturation, affectations, ouverture/fermeture de la saisie, suppression).
+- **Échéancier** : dates Début/Fin **éditables inline** sur les tâches feuilles (fin ≥ début à la frappe, dates dérivées sur les tâches-mères) + **« Décaler l'échéancier »** de N jours en masse.
+- **Affectation unifiée** : dialogue **Qui ? (employé / équipe / profil virtuel) → Où ? (projet / phase / tâche) → Combien ? (h-sem, période)** — remplace les canaux parallèles ; avertissement non bloquant si dépassement du budget de la tâche.
+- **Équipe & charge** : vues « Par phase » (arbre + personnes, recherche « où est X ») et « Par personne » ; **blocages de saisie** : fermeture globale d'une tâche/phase (tout le monde) ou ciblée `TimeEntryBlock` (personne × tâche / phase / **projet entier**), réversibles, grisé/barré.
+- **Budget = une seule porte d'entrée** : il se saisit sur la **tâche** (Échéancier ou fiche tâche) ; Finances › Budget est une **synthèse en lecture seule**.
+- **⚙️ Paramètres du projet** : infos (nom, dates, responsables, coût de construction), **carte Client** (changement de client, adresses — ajout/édition au projet, **suppression réservée à la fiche client**, anti-doublon backend ; **adresse de facturation propre au projet** `Project.billing_address`, repli sur le défaut client), profils virtuels (CRUD + remplacement), blocages actifs, liens vers les référentiels admin.
 - **Gantt interactif** : planification au niveau **tâche/sous-tâche** (tâche-mère/phase non cliquables = agrégats), contrôle budget non bloquant, 3 zooms, **jalons éditables (slide-over)**, dépendances FS/SS
+- **Rattrapage** : commande `backfill_support_phases` (services transversaux → phases SUPPORT + tâche imputable pour les projets antérieurs à la conversion).
 
 ### Clients
 - CRUD avec 5 onglets : Informations, Contacts, Adresses, Financier, Projets

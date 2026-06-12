@@ -17,6 +17,11 @@ class ContactSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
+def _norm_addr(value: str) -> str:
+    """Normalise pour la comparaison anti-doublon : casse + espaces."""
+    return "".join(str(value or "").lower().split())
+
+
 class ClientAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClientAddress
@@ -26,6 +31,44 @@ class ClientAddressSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        """Anti-doublon : refuse une adresse identique (ligne 1 + ville +
+        code postal, insensible à la casse et aux espaces) pour le même
+        client. L'adresse en cours d'édition est exclue de la comparaison."""
+        client_id = (
+            self.instance.client_id
+            if self.instance is not None
+            else self.context.get("view").kwargs.get("client_pk")
+            if self.context.get("view")
+            else None
+        )
+        if client_id is None:
+            return attrs
+
+        def merged(field: str) -> str:
+            if field in attrs:
+                return attrs[field]
+            return getattr(self.instance, field, "") if self.instance else ""
+
+        key = (
+            _norm_addr(merged("address_line_1")),
+            _norm_addr(merged("city")),
+            _norm_addr(merged("postal_code")),
+        )
+        qs = ClientAddress.objects.filter(client_id=client_id)
+        if self.instance is not None:
+            qs = qs.exclude(pk=self.instance.pk)
+        for existing in qs:
+            if key == (
+                _norm_addr(existing.address_line_1),
+                _norm_addr(existing.city),
+                _norm_addr(existing.postal_code),
+            ):
+                raise serializers.ValidationError(
+                    "Cette adresse existe déjà pour ce client."
+                )
+        return attrs
 
 
 class ClientSerializer(OptimisticLockMixin, serializers.ModelSerializer):

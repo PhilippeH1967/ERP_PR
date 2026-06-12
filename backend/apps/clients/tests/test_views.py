@@ -97,3 +97,59 @@ class TestContactAPI:
             format="json",
         )
         assert response.status_code == 201
+
+
+@pytest.mark.django_db
+class TestClientAddressDedup:
+    """Anti-doublon : une même adresse (ligne 1 + ville + code postal,
+    insensible à la casse/espaces) ne peut pas être créée deux fois pour un
+    même client."""
+
+    def _setup(self):
+        from apps.clients.models import Client, ClientAddress
+        from apps.core.models import Tenant
+
+        tenant = Tenant.objects.create(name="T", slug="t-addr-dedup")
+        client = Client.objects.create(tenant=tenant, name="VDM", alias="VDM")
+        addr = ClientAddress.objects.create(
+            tenant=tenant, client=client,
+            address_line_1="275 rue Notre-Dame E", city="Montréal",
+            province="QC", postal_code="H2Y 1C6",
+        )
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+
+        user = User.objects.create_user(username="addr_user", password="x")
+        api = APIClient()
+        api.force_authenticate(user=user)
+        return tenant, client, addr, api
+
+    def test_duplicate_rejected_case_and_space_insensitive(self):
+        tenant, client, _addr, api = self._setup()
+        resp = api.post(
+            f"/api/v1/clients/{client.pk}/addresses/",
+            {"address_line_1": "  275 RUE notre-dame e ", "city": "MONTRÉAL",
+             "postal_code": "h2y1c6"},
+            format="json", HTTP_X_TENANT_ID=str(tenant.pk),
+        )
+        assert resp.status_code == 400
+        assert "existe déjà" in str(resp.data)
+
+    def test_different_city_accepted(self):
+        tenant, client, _addr, api = self._setup()
+        resp = api.post(
+            f"/api/v1/clients/{client.pk}/addresses/",
+            {"address_line_1": "275 rue Notre-Dame E", "city": "Québec",
+             "postal_code": "G1R 4S9"},
+            format="json", HTTP_X_TENANT_ID=str(tenant.pk),
+        )
+        assert resp.status_code == 201, resp.data
+
+    def test_update_own_address_not_flagged_as_duplicate(self):
+        tenant, client, addr, api = self._setup()
+        resp = api.patch(
+            f"/api/v1/clients/{client.pk}/addresses/{addr.pk}/",
+            {"address_line_2": "Bureau 400"},
+            format="json", HTTP_X_TENANT_ID=str(tenant.pk),
+        )
+        assert resp.status_code == 200, resp.data

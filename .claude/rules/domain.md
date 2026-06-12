@@ -120,6 +120,11 @@ Le **mode de facturation se définit au niveau de la tâche** (feuille), pas de 
 - Les libellés de lignes de facture reprennent le **WBS client**
 - Taxes : architecture fiscale complète prévue MVP-2 (entités juridiques, TPS/TVQ, CTI/RTI)
 
+### Adresse de facturation par projet
+- Chaque projet peut désigner **son** adresse de facturation parmi les **adresses de son client** (`Project.billing_address`) — deux projets d'un même client peuvent facturer à deux adresses. **Sans désignation**, l'adresse de facturation par défaut du client s'applique.
+- Une adresse d'un **autre client** est refusée ; **changer le client** d'un projet purge la désignation devenue invalide.
+- Les adresses s'**ajoutent/éditent** depuis le projet (elles vivent dans la fiche client, partagées) mais la **suppression** se fait uniquement dans la fiche client. **Anti-doublon** : même ligne 1 + ville + code postal (insensible casse/espaces) refusée pour un même client.
+
 ### Coût de construction (projets externes)
 - Champ **`construction_cost`** : montant **informatif** du coût de construction, saisi sur la **Vue d'ensemble** d'un projet. Sert au calcul/contexte des honoraires.
 - **Projets externes uniquement** : masqué pour les projets internes (`is_internal`).
@@ -161,6 +166,7 @@ Le **mode de facturation se définit au niveau de la tâche** (feuille), pas de 
 - Validation côté backend (serializer) **ET** frontend (form)
 
 ### Feuilles de temps
+- **Blocages de saisie** : une tâche **fermée** (`Task.is_active=False`) refuse la saisie de **tout le monde** ; un blocage ciblé (`TimeEntryBlock`) la refuse pour **une personne** sur une tâche, une phase ou **tout le projet**. Les deux sont réversibles et contrôlés à l'API (pas seulement masqués).
 - Heures **validées** ne peuvent plus être modifiées par l'employé
 - Un employé ne peut saisir des heures projet sur une journée validée en congé
 - Les heures doivent être rattachées à une tâche existante du projet (pas de saisie libre)
@@ -182,6 +188,8 @@ Le **mode de facturation se définit au niveau de la tâche** (feuille), pas de 
 - **Projet interne visible par un non-admin** (doit être masqué)
 - **Coût de construction affiché/saisi sur un projet interne** (réservé aux projets externes)
 - Libellé "Planification" dans l'UI là où "Occupation" est attendu
+- **Budget de tâche éditable ailleurs** que sur la tâche (Échéancier / fiche tâche) — Finances › Budget doit rester une synthèse en lecture seule
+- **Projet référençant l'adresse d'un autre client** (`billing_address`) ou **suppression d'adresse possible depuis un projet**
 - **Service transversal non imputable** (stocké en `SupportService` au lieu d'une phase SUPPORT + tâche feuille)
 - **Double-comptage** d'agrégat (tâche-mère + sous-tâches comptées ensemble)
 - Réapparition du modèle `WBSElement` (supprimé)
