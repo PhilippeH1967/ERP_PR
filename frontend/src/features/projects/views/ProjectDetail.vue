@@ -2310,7 +2310,12 @@ watch(activeTab, (tab) => {
 
       <div v-if="budgetError" class="alert-error">{{ budgetError }}</div>
 
-      <!-- Task budget table grouped by phase -->
+      <!-- Task budget table grouped by phase (lecture seule) -->
+      <p class="phase-form-hint" style="margin:0 0 6px;">
+        Vue de synthèse en <strong>lecture seule</strong> — le budget ($ et heures) se définit sur chaque tâche dans
+        <button class="btn-link-inline" @click="activeTab = 'tasks'">Échéancier › Tâches &rarr;</button>
+        (ou via la fiche tâche).
+      </p>
       <div class="card-table">
         <table class="budget-table">
           <thead>
@@ -2336,32 +2341,10 @@ watch(activeTab, (tab) => {
                   {{ task.display_label || task.name }}
                 </td>
                 <td><span class="badge" :class="task.billing_mode === 'HORAIRE' ? 'badge-amber' : 'badge-blue'">{{ task.billing_mode }}</span></td>
-                <td class="text-right">
-                  <template v-if="canEditBudget">
-                    <input
-                      class="budget-input"
-                      :value="task.budgeted_cost"
-                      type="text"
-                      inputmode="decimal"
-                      @blur="(e: Event) => { const v = parseFloat(((e.target as HTMLInputElement).value || '0').replace(/\\s/g, '').replace(',', '.')); if (!isNaN(v)) saveTaskField(task.id, 'budgeted_cost', v) }"
-                      @keydown.enter="(e: Event) => (e.target as HTMLInputElement).blur()"
-                    />
-                  </template>
-                  <template v-else><span class="font-mono">{{ formatAmount(task.budgeted_cost) }}</span></template>
-                </td>
-                <td class="text-right">
-                  <template v-if="canEditBudget">
-                    <input
-                      class="budget-input"
-                      :value="task.budgeted_hours"
-                      type="text"
-                      inputmode="decimal"
-                      @blur="(e: Event) => { const v = parseFloat(((e.target as HTMLInputElement).value || '0').replace(/\\s/g, '').replace(',', '.')); if (!isNaN(v)) saveTaskField(task.id, 'budgeted_hours', v) }"
-                      @keydown.enter="(e: Event) => (e.target as HTMLInputElement).blur()"
-                    />
-                  </template>
-                  <template v-else><span class="font-mono">{{ task.budgeted_hours }}</span></template>
-                </td>
+                <!-- Budget en lecture seule : une seule porte d'entrée, la tâche
+                     (Échéancier › Tâches ou fiche tâche). Évite la double saisie. -->
+                <td class="text-right"><span class="font-mono">{{ formatAmount(task.budgeted_cost) }}</span></td>
+                <td class="text-right"><span class="font-mono">{{ task.budgeted_hours }}</span></td>
                 <td class="text-right font-mono">{{ formatAmount(0) }}</td>
                 <td class="text-right font-mono">{{ formatAmount(task.budgeted_cost) }}</td>
               </tr>
@@ -2382,7 +2365,7 @@ watch(activeTab, (tab) => {
         </table>
       </div>
 
-      <p class="budget-hint">Les lignes de facturation référenceront le budget de chaque tâche.</p>
+      <p class="budget-hint">Les lignes de facturation référenceront le budget de chaque tâche (défini dans Échéancier › Tâches).</p>
     </template>
 
     <!-- ═══ Gantt (US-PL06) ═══ -->

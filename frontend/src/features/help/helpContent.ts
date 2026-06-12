@@ -95,7 +95,7 @@ ctx({
   title: '💰 Finances du projet',
   intro: 'Budget, honoraires, factures et sous-traitants.',
   items: [
-    { title: 'Budget', body: 'Le budget se définit par tâche (heures × taux ou montant). Les agrégats de phase sont calculés.' },
+    { title: 'Budget (lecture seule)', body: 'Synthèse par tâche : budget $, heures, facturé, solde. Le budget se MODIFIE dans Échéancier › Tâches (ou la fiche tâche) — une seule porte d\'entrée, pas de double saisie.' },
     { title: 'Honoraires', body: 'Forfait, horaire ou « Coût des travaux % » (le coût de construction se modifie dans ⚙️ Paramètres).' },
     { title: 'Factures', body: 'Les lignes reprennent le WBS client. Une facture émise ne se modifie plus (avoir ou rectificative).' },
     { title: 'Sous-traitants', body: 'Factures ST, retenues, litiges — workflow reçu → autorisé → payé.' },
