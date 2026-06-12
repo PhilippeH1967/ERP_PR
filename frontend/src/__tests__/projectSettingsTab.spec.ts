@@ -9,6 +9,7 @@ import apiClient from '@/plugins/axios'
 import ProjectSettingsTab from '../features/projects/components/ProjectSettingsTab.vue'
 
 const mockGet = apiClient.get as unknown as ReturnType<typeof vi.fn>
+const mockPost = apiClient.post as unknown as ReturnType<typeof vi.fn>
 const mockPatch = apiClient.patch as unknown as ReturnType<typeof vi.fn>
 const mockDelete = apiClient.delete as unknown as ReturnType<typeof vi.fn>
 
@@ -17,7 +18,15 @@ const PROJECT = {
   business_unit: 'Architecture', pm: 1, associate_in_charge: 2,
   construction_cost: 24500000, is_internal: false,
   services_transversaux: ['BIM', 'DD'],
+  client: 5, client_name: 'Ville de Montréal',
 }
+const CLIENTS = [
+  { id: 5, name: 'Ville de Montréal' },
+  { id: 6, name: 'Université Laval' },
+]
+const ADDRESSES = [
+  { id: 9, address_line_1: '275 rue Notre-Dame E', address_line_2: '', city: 'Montréal', province: 'QC', postal_code: 'H2Y 1C6', country: 'Canada', is_billing: true, is_primary: true },
+]
 const USERS = [
   { id: 1, username: 'amonty', email: 'a@x.com' },
   { id: 2, username: 'jbel', email: 'j@x.com' },
@@ -35,6 +44,8 @@ function mockApi() {
   mockGet.mockImplementation((url: string) => {
     if (url === 'virtual-resources/') return Promise.resolve({ data: VIRTUALS })
     if (url === 'time_entry_blocks/') return Promise.resolve({ data: BLOCKS })
+    if (url === 'clients/') return Promise.resolve({ data: CLIENTS })
+    if (url.includes('/addresses/')) return Promise.resolve({ data: ADDRESSES })
     return Promise.resolve({ data: [] })
   })
 }
@@ -54,9 +65,11 @@ function mountTab(projectOverrides: Record<string, unknown> = {}) {
 describe('ProjectSettingsTab — onglet ⚙️ Paramètres du projet', () => {
   beforeEach(() => {
     mockGet.mockReset()
+    mockPost.mockReset()
     mockPatch.mockReset()
     mockDelete.mockReset()
     mockApi()
+    mockPost.mockResolvedValue({ data: { id: 99 } })
     mockPatch.mockResolvedValue({ data: {} })
     mockDelete.mockResolvedValue({ data: {} })
   })
@@ -129,6 +142,63 @@ describe('ProjectSettingsTab — onglet ⚙️ Paramètres du projet', () => {
     await rows[0]!.find('[data-ps-unblock]').trigger('click')
     await flushPromises()
     expect(mockDelete).toHaveBeenCalledWith('time_entry_blocks/1/')
+  })
+
+  it('carte Client : changer le client du projet → PATCH projects/3/', async () => {
+    const wrapper = mountTab()
+    await flushPromises()
+    await wrapper.find('[data-ps-client-select]').setValue('6')
+    await wrapper.find('[data-ps-client-save]').trigger('click')
+    await flushPromises()
+    expect(mockPatch).toHaveBeenCalledWith('projects/3/', expect.objectContaining({ client: 6 }))
+    expect(wrapper.emitted('updated')).toBeTruthy()
+  })
+
+  it('carte Client : liste les adresses avec badges facturation/principale', async () => {
+    const wrapper = mountTab()
+    await flushPromises()
+    const rows = wrapper.findAll('[data-ps-address]')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.text()).toContain('275 rue Notre-Dame E')
+    expect(rows[0]!.text()).toContain('Facturation')
+  })
+
+  it('carte Client : modifier une adresse → PATCH clients/5/addresses/9/', async () => {
+    const wrapper = mountTab()
+    await flushPromises()
+    await wrapper.find('[data-ps-address-edit]').trigger('click')
+    await wrapper.find('[data-ps-addr-line1]').setValue('100 rue Sainte-Catherine O')
+    await wrapper.find('[data-ps-addr-save]').trigger('click')
+    await flushPromises()
+    expect(mockPatch).toHaveBeenCalledWith(
+      'clients/5/addresses/9/',
+      expect.objectContaining({ address_line_1: '100 rue Sainte-Catherine O' }),
+    )
+  })
+
+  it('carte Client : ajouter une adresse de facturation → POST clients/5/addresses/', async () => {
+    const wrapper = mountTab()
+    await flushPromises()
+    await wrapper.find('[data-ps-address-add]').trigger('click')
+    await wrapper.find('[data-ps-addr-line1]').setValue('1 place Ville-Marie')
+    await wrapper.find('[data-ps-addr-city]').setValue('Montréal')
+    await wrapper.find('[data-ps-addr-billing]').setValue(true)
+    await wrapper.find('[data-ps-addr-save]').trigger('click')
+    await flushPromises()
+    expect(mockPost).toHaveBeenCalledWith(
+      'clients/5/addresses/',
+      expect.objectContaining({ address_line_1: '1 place Ville-Marie', is_billing: true }),
+    )
+  })
+
+  it('carte Client : supprimer une adresse avec confirmation inline', async () => {
+    const wrapper = mountTab()
+    await flushPromises()
+    await wrapper.find('[data-ps-address-delete]').trigger('click')
+    expect(mockDelete).not.toHaveBeenCalled()
+    await wrapper.find('[data-ps-address-delete-confirm]').trigger('click')
+    await flushPromises()
+    expect(mockDelete).toHaveBeenCalledWith('clients/5/addresses/9/')
   })
 
   it('expose les liens vers les référentiels admin', async () => {

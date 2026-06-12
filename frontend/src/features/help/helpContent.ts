@@ -117,6 +117,7 @@ ctx({
   intro: 'Tout le paramétrage du projet au même endroit.',
   items: [
     { title: 'Informations', body: 'Nom, dates, unité d\'affaires, PM, Associé en charge, coût de construction (projets externes).' },
+    { title: 'Client', body: 'Changer le client du projet et gérer ses adresses (dont l\'adresse de facturation). Lien vers la fiche client complète (contacts, financier).' },
     { title: 'Profils virtuels', body: 'Créer, modifier, supprimer, ou remplacer par un employé réel.' },
     { title: 'Blocages actifs', body: 'Vue d\'ensemble des blocages de saisie (tâche, phase ou projet) avec déblocage en un clic.' },
     { title: 'Référentiels', body: 'Liens vers Administration : phases standard, tâches standard, équipes.' },

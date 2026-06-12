@@ -9,7 +9,7 @@
  *  4. Blocages de saisie actifs (vue d'ensemble + déblocage)
  *  5. Liens vers les référentiels admin (phases / tâches standard, équipes)
  */
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import apiClient from '@/plugins/axios'
 
 interface ProjectInfo {
@@ -20,6 +20,8 @@ interface ProjectInfo {
   construction_cost?: number | string | null
   is_internal?: boolean
   services_transversaux?: string[]
+  client?: number | null
+  client_name?: string
 }
 interface UserL { id: number; username: string; email?: string }
 interface VirtualR { id: number; name: string; default_hourly_rate: string | number; is_active: boolean }
@@ -83,6 +85,108 @@ async function saveInfo() {
   } catch (e: unknown) {
     infoError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
   } finally { infoSaving.value = false }
+}
+
+/* ── 2b. Client du projet (changement + adresses) ── */
+interface AddressR {
+  id: number; address_line_1: string; address_line_2: string; city: string
+  province: string; postal_code: string; country: string
+  is_billing: boolean; is_primary: boolean
+}
+const clientsList = ref<Array<{ id: number; name: string }>>([])
+const clientSearch = ref('')
+const clientId = ref('')
+const clientSaving = ref(false)
+const clientSaved = ref(false)
+const clientError = ref('')
+const addresses = ref<AddressR[]>([])
+const editingAddressId = ref<number | 'new' | null>(null)
+const confirmDeleteAddress = ref<number | null>(null)
+const emptyAddr = () => ({
+  address_line_1: '', address_line_2: '', city: '', province: 'QC',
+  postal_code: '', country: 'Canada', is_billing: false, is_primary: false,
+})
+const addrForm = ref(emptyAddr())
+const addrSaving = ref(false)
+
+const filteredClients = computed(() => {
+  const q = clientSearch.value.trim().toLowerCase()
+  return clientsList.value.filter(c => !q || c.name.toLowerCase().includes(q))
+})
+
+async function loadClients() {
+  try {
+    const r = await apiClient.get('clients/', { params: { page_size: '500' } })
+    const d = r.data?.data || r.data
+    clientsList.value = (Array.isArray(d) ? d : d?.results || []) as Array<{ id: number; name: string }>
+  } catch { clientsList.value = [] }
+}
+async function loadAddresses() {
+  const cid = props.project?.client
+  if (!cid) { addresses.value = []; return }
+  try {
+    const r = await apiClient.get(`clients/${cid}/addresses/`)
+    const d = r.data?.data || r.data
+    addresses.value = (Array.isArray(d) ? d : d?.results || []) as AddressR[]
+  } catch { addresses.value = [] }
+}
+
+async function saveClient() {
+  clientError.value = ''
+  clientSaved.value = false
+  clientSaving.value = true
+  try {
+    await apiClient.patch(`projects/${props.projectId}/`, {
+      client: clientId.value ? Number(clientId.value) : null,
+    })
+    clientSaved.value = true
+    emit('updated')
+    await loadAddresses()
+  } catch (e: unknown) {
+    clientError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
+  } finally { clientSaving.value = false }
+}
+
+function startEditAddress(a: AddressR) {
+  editingAddressId.value = a.id
+  addrForm.value = {
+    address_line_1: a.address_line_1, address_line_2: a.address_line_2,
+    city: a.city, province: a.province, postal_code: a.postal_code,
+    country: a.country, is_billing: a.is_billing, is_primary: a.is_primary,
+  }
+  clientError.value = ''
+}
+function startAddAddress() {
+  editingAddressId.value = 'new'
+  addrForm.value = emptyAddr()
+  clientError.value = ''
+}
+async function saveAddress() {
+  const cid = props.project?.client
+  if (!cid || addrSaving.value) return
+  if (!addrForm.value.address_line_1.trim() || !addrForm.value.city.trim()) {
+    clientError.value = 'Adresse et ville sont obligatoires.'
+    return
+  }
+  addrSaving.value = true
+  clientError.value = ''
+  try {
+    if (editingAddressId.value === 'new') {
+      await apiClient.post(`clients/${cid}/addresses/`, addrForm.value)
+    } else {
+      await apiClient.patch(`clients/${cid}/addresses/${editingAddressId.value}/`, addrForm.value)
+    }
+    editingAddressId.value = null
+    await loadAddresses()
+  } catch (e: unknown) {
+    clientError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
+  } finally { addrSaving.value = false }
+}
+async function deleteAddress(id: number) {
+  const cid = props.project?.client
+  confirmDeleteAddress.value = null
+  addresses.value = addresses.value.filter(a => a.id !== id) // optimiste
+  try { await apiClient.delete(`clients/${cid}/addresses/${id}/`) } catch { await loadAddresses() }
 }
 
 /* ── 3. Profils virtuels ── */
@@ -186,7 +290,13 @@ async function unblock(id: number) {
   try { await apiClient.delete(`time_entry_blocks/${id}/`) } catch { await loadBlocks() }
 }
 
-watch(() => props.projectId, () => { loadVirtuals(); loadBlocks() }, { immediate: true })
+watch(() => props.projectId, () => { loadVirtuals(); loadBlocks(); loadClients() }, { immediate: true })
+// Synchronise le sélecteur de client + les adresses quand le projet change
+// (déclaré après l'état client pour éviter un accès avant initialisation).
+watch(() => props.project, (p) => {
+  clientId.value = p?.client != null ? String(p.client) : ''
+  loadAddresses()
+}, { immediate: true })
 </script>
 
 <template>
@@ -227,6 +337,72 @@ watch(() => props.projectId, () => { loadVirtuals(); loadBlocks() }, { immediate
         <span v-if="infoSaved" class="ps-saved">✓ Enregistré</span>
         <button class="btn-primary" :disabled="infoSaving" data-ps-save @click="saveInfo">{{ infoSaving ? 'Sauvegarde…' : 'Enregistrer' }}</button>
       </div>
+    </div>
+
+    <!-- 2. Client du projet (changement + adresses) -->
+    <div class="card ps-card">
+      <h3>Client
+        <RouterLink v-if="project?.client" class="ps-go" style="margin-left:auto;" :to="`/clients/${project.client}`">Ouvrir la fiche client complète →</RouterLink>
+      </h3>
+      <div v-if="clientError" class="alert-error" style="margin-bottom:10px;">{{ clientError }}</div>
+      <div class="ps-inline-form">
+        <input v-model="clientSearch" placeholder="Filtrer les clients…" style="max-width:200px;" data-ps-client-search />
+        <select v-model="clientId" class="ps-select" style="flex:1;" data-ps-client-select>
+          <option value="">— Aucun client —</option>
+          <option v-for="c in filteredClients" :key="c.id" :value="String(c.id)">{{ c.name }}</option>
+        </select>
+        <span v-if="clientSaved" class="ps-saved">✓ Enregistré</span>
+        <button class="btn-action primary" :disabled="clientSaving" data-ps-client-save @click="saveClient">{{ clientSaving ? '…' : 'Enregistrer' }}</button>
+      </div>
+      <p class="ps-hint">Changer le client réaffecte le projet : factures et rapports utiliseront ses coordonnées et son WBS client.</p>
+
+      <template v-if="project?.client">
+        <h4 class="ps-subhead">Adresses <button class="btn-action" style="margin-left:6px;" data-ps-address-add @click="startAddAddress">+ Adresse</button></h4>
+        <div v-for="a in addresses" :key="a.id" class="ps-row" data-ps-address>
+          <template v-if="editingAddressId === a.id">
+            <div class="ps-addr-form">
+              <input v-model="addrForm.address_line_1" placeholder="Adresse (ligne 1) *" data-ps-addr-line1 />
+              <input v-model="addrForm.address_line_2" placeholder="Ligne 2" />
+              <input v-model="addrForm.city" placeholder="Ville *" data-ps-addr-city />
+              <input v-model="addrForm.province" placeholder="Province" style="max-width:70px;" />
+              <input v-model="addrForm.postal_code" placeholder="Code postal" style="max-width:100px;" />
+              <input v-model="addrForm.country" placeholder="Pays" style="max-width:100px;" />
+              <label class="ps-check"><input v-model="addrForm.is_billing" type="checkbox" data-ps-addr-billing /> Facturation</label>
+              <label class="ps-check"><input v-model="addrForm.is_primary" type="checkbox" /> Principale</label>
+              <button class="btn-action primary" :disabled="addrSaving" data-ps-addr-save @click="saveAddress">Enregistrer</button>
+              <button class="btn-action" @click="editingAddressId = null">Annuler</button>
+            </div>
+          </template>
+          <template v-else>
+            <div style="flex:1;">
+              {{ a.address_line_1 }}<template v-if="a.address_line_2">, {{ a.address_line_2 }}</template>, {{ a.city }} ({{ a.province }}) {{ a.postal_code }}
+              <span v-if="a.is_billing" class="badge badge-blue" style="margin-left:6px;font-size:9px;">Facturation</span>
+              <span v-if="a.is_primary" class="badge badge-green" style="margin-left:4px;font-size:9px;">Principale</span>
+            </div>
+            <button class="btn-action" data-ps-address-edit @click="startEditAddress(a)">Modifier</button>
+            <template v-if="confirmDeleteAddress === a.id">
+              <button class="btn-action danger" data-ps-address-delete-confirm @click="deleteAddress(a.id)">Confirmer</button>
+              <button class="btn-action" @click="confirmDeleteAddress = null">Annuler</button>
+            </template>
+            <button v-else class="btn-action danger" data-ps-address-delete @click="confirmDeleteAddress = a.id">Supprimer…</button>
+          </template>
+        </div>
+        <div v-if="editingAddressId === 'new'" class="ps-row">
+          <div class="ps-addr-form">
+            <input v-model="addrForm.address_line_1" placeholder="Adresse (ligne 1) *" data-ps-addr-line1 />
+            <input v-model="addrForm.address_line_2" placeholder="Ligne 2" />
+            <input v-model="addrForm.city" placeholder="Ville *" data-ps-addr-city />
+            <input v-model="addrForm.province" placeholder="Province" style="max-width:70px;" />
+            <input v-model="addrForm.postal_code" placeholder="Code postal" style="max-width:100px;" />
+            <input v-model="addrForm.country" placeholder="Pays" style="max-width:100px;" />
+            <label class="ps-check"><input v-model="addrForm.is_billing" type="checkbox" data-ps-addr-billing /> Facturation</label>
+            <label class="ps-check"><input v-model="addrForm.is_primary" type="checkbox" /> Principale</label>
+            <button class="btn-action primary" :disabled="addrSaving" data-ps-addr-save @click="saveAddress">Enregistrer</button>
+            <button class="btn-action" @click="editingAddressId = null">Annuler</button>
+          </div>
+        </div>
+        <p v-if="!addresses.length && editingAddressId !== 'new'" class="ps-hint">Aucune adresse — ajoutez l'adresse de facturation du client.</p>
+      </template>
     </div>
 
     <!-- 2. Services transversaux -->
@@ -326,6 +502,10 @@ watch(() => props.projectId, () => { loadVirtuals(); loadBlocks() }, { immediate
 .ps-row input { padding: 5px 9px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; }
 .ps-vava { width: 26px; height: 26px; border-radius: 50%; border: 1px dashed #7C3AED; color: #7C3AED; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; flex-shrink: 0; }
 .ps-select { padding: 5px 9px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; min-width: 170px; }
+.ps-subhead { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--color-gray-500); margin: 14px 0 6px; display: flex; align-items: center; }
+.ps-addr-form { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; }
+.ps-addr-form input[type=text], .ps-addr-form input:not([type]) { padding: 5px 9px; border: 1px solid var(--color-gray-300); border-radius: 4px; font-size: 12px; flex: 1; min-width: 110px; }
+.ps-check { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--color-gray-600); white-space: nowrap; }
 .ps-link { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--color-gray-100); font-size: 13px; }
 .ps-link:last-child { border-bottom: none; }
 .ps-go { margin-left: auto; color: var(--color-primary); font-weight: 600; font-size: 12px; text-decoration: none; }
