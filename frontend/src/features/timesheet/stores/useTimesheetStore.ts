@@ -234,6 +234,12 @@ export const useTimesheetStore = defineStore('timesheet', () => {
   // Period locked — checked globally via API
   const periodLocked = ref(false)
   const holidays = ref<Array<{ date: string; name: string; is_paid: boolean; daily_hours: number }>>([])
+  // Discipline de soumission : semaines passées non soumises (lundis ISO).
+  const unsubmittedWeeks = ref<string[]>([])
+  const lateBlocking = ref(false)
+  // Saisie bloquée sur la semaine AFFICHÉE : retard ≥ 2 semaines ET semaine
+  // courante/future (les semaines en retard restent régularisables).
+  const lateBlocked = computed(() => lateBlocking.value && currentWeekStart.value >= getMondayOfWeek(new Date()))
   const holidaysByDate = computed<Record<string, { name: string; daily_hours: number }>>(() => {
     const m: Record<string, { name: string; daily_hours: number }> = {}
     for (const h of holidays.value) m[h.date] = { name: h.name, daily_hours: h.daily_hours }
@@ -311,6 +317,15 @@ export const useTimesheetStore = defineStore('timesheet', () => {
       // de la tâche « Férié » au max d'heures/jour (idempotent côté backend :
       // les corrections de l'employé ne sont jamais écrasées).
       try {
+        const uw = await apiClient.get('time_entries/unsubmitted_weeks/')
+        const ud = uw.data?.data || uw.data
+        unsubmittedWeeks.value = Array.isArray(ud?.weeks) ? ud.weeks : []
+        lateBlocking.value = !!ud?.blocking
+      } catch {
+        unsubmittedWeeks.value = []
+        lateBlocking.value = false
+      }
+      try {
         const hResp = await apiClient.get('time_entries/holidays/', { params: { week_start: currentWeekStart.value } })
         const hd = hResp.data?.data || hResp.data || []
         holidays.value = Array.isArray(hd) ? hd : []
@@ -332,6 +347,12 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     } finally {
       isLoading.value = false
     }
+  }
+
+  async function goToWeek(weekStart: string) {
+    currentWeekStart.value = weekStart
+    periodLocked.value = false
+    await fetchWeek()
   }
 
   async function navigateWeek(direction: 'prev' | 'next' | 'today') {
@@ -423,6 +444,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     gridRows, projectGroups, dailyTotals, weeklyTotal, weekDates,
     weeklyStats, statusMessage, hasModificationRequested, allSubmitted, periodLocked,
     holidays, holidaysByDate,
+    unsubmittedWeeks, lateBlocking, lateBlocked, goToWeek,
     favorites, isFavorite, toggleFavorite, mandatoryTasks,
     fetchWeek, navigateWeek, saveCell, copyMondayToWeek,
     submitWeek, copyPreviousWeek, canSaveHours,

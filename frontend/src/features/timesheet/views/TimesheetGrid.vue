@@ -136,6 +136,12 @@ async function addTask() {
     return
   }
 
+  // Discipline de soumission : retard ≥ 2 semaines → saisie bloquée ici.
+  if (store.lateBlocked) {
+    addTaskError.value = 'Saisie bloquée : soumettez d\'abord vos feuilles de temps en retard.'
+    return
+  }
+
   // Block if all entries are already submitted
   if (store.allSubmitted) {
     addTaskError.value = 'La feuille de temps a deja ete soumise. Contactez votre gestionnaire pour modification.'
@@ -204,7 +210,7 @@ function canDeleteRow(row: {
   is_mandatory?: boolean
 }): boolean {
   if (row.is_mandatory) return false
-  if (row.is_locked || store.periodLocked) return false
+  if (row.is_locked || store.periodLocked || store.lateBlocked) return false
   for (const date of store.weekDates) {
     const e = row.entries[date]
     if (e && e.status !== 'DRAFT') return false
@@ -314,6 +320,40 @@ function normClass(total: number, norm: number): string {
         </span>
       </div>
       <span class="text-xs text-text-muted">Soumission avant samedi 18h</span>
+    </div>
+
+    <!-- Discipline de soumission : blocage (retard ≥ 2 semaines) -->
+    <div
+      v-if="store.lateBlocked"
+      class="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-danger/30 bg-danger/5 p-3"
+      data-late-blocked
+    >
+      <span>⛔</span>
+      <span class="text-sm text-danger font-medium">
+        Saisie bloquée : vous avez des feuilles de temps non soumises depuis plus de 2 semaines.
+      </span>
+      <button
+        v-for="w in store.unsubmittedWeeks" :key="w"
+        class="rounded border border-danger/40 px-2 py-0.5 text-xs text-danger hover:bg-danger/10"
+        @click="store.goToWeek(w)"
+      >Semaine du {{ w }} →</button>
+    </div>
+    <!-- Flash : semaine précédente non soumise -->
+    <div
+      v-else-if="store.unsubmittedWeeks.length"
+      class="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3"
+      data-late-flash
+    >
+      <span>⚠️</span>
+      <span class="text-sm text-warning font-medium">
+        Feuille{{ store.unsubmittedWeeks.length > 1 ? 's' : '' }} de temps non soumise{{ store.unsubmittedWeeks.length > 1 ? 's' : '' }} —
+        complétez puis soumettez avant 2 semaines de retard (sinon la saisie sera bloquée).
+      </span>
+      <button
+        v-for="w in store.unsubmittedWeeks" :key="w"
+        class="rounded border border-warning/50 px-2 py-0.5 text-xs text-warning hover:bg-warning/10"
+        @click="store.goToWeek(w)"
+      >Semaine du {{ w }} →</button>
     </div>
 
     <!-- Period locked banner -->
@@ -453,8 +493,8 @@ function normClass(total: number, norm: number): string {
       </button>
       <button
         class="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-muted hover:bg-surface-alt"
-        :class="{ 'opacity-50 cursor-not-allowed': store.periodLocked }"
-        :disabled="store.periodLocked"
+        :class="{ 'opacity-50 cursor-not-allowed': store.periodLocked || store.lateBlocked }"
+        :disabled="store.periodLocked || store.lateBlocked"
         data-add-task-toggle
         @click="openAddTask"
       >
