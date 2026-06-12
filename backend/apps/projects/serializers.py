@@ -400,6 +400,38 @@ class ProjectSerializer(CostFieldFilterMixin, OptimisticLockMixin, serializers.M
     consortium_name = serializers.CharField(source="consortium.name", read_only=True, default="")
     team_members = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     team_members_detail = serializers.SerializerMethodField()
+    billing_address_label = serializers.SerializerMethodField()
+
+    def get_billing_address_label(self, obj) -> str:
+        """Adresse de facturation du projet, formatée pour l'affichage."""
+        a = obj.billing_address
+        if not a:
+            return ""
+        return f"{a.address_line_1}, {a.city} ({a.province}) {a.postal_code}".strip()
+
+    def validate(self, attrs):
+        """L'adresse de facturation du projet doit appartenir à SON client.
+
+        - Adresse d'un autre client → refusée.
+        - Changement de client sans nouvelle adresse → l'ancienne adresse,
+          devenue invalide, est purgée silencieusement.
+        """
+        client = (
+            attrs.get("client")
+            if "client" in attrs
+            else getattr(self.instance, "client", None)
+        )
+        if "billing_address" in attrs:
+            addr = attrs["billing_address"]
+            if addr is not None and (client is None or addr.client_id != client.pk):
+                raise serializers.ValidationError({
+                    "billing_address": "Cette adresse n'appartient pas au client du projet.",
+                })
+        elif "client" in attrs and self.instance is not None:
+            current = self.instance.billing_address
+            if current is not None and (client is None or current.client_id != client.pk):
+                attrs["billing_address"] = None
+        return attrs
 
     def get_team_members_detail(self, obj):
         """Team members as ``[{id, name}]`` — membership is managed via the
@@ -413,7 +445,8 @@ class ProjectSerializer(CostFieldFilterMixin, OptimisticLockMixin, serializers.M
     class Meta:
         model = Project
         fields = [
-            "id", "code", "name", "client", "client_name", "template", "contract_type",
+            "id", "code", "name", "client", "client_name",
+            "billing_address", "billing_address_label", "template", "contract_type",
             "status", "is_internal", "is_public", "is_consortium", "consortium", "consortium_name",
             "services_transversaux", "business_unit", "legal_entity",
             "start_date", "end_date", "construction_cost",

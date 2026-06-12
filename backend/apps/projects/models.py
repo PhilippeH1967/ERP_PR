@@ -100,6 +100,18 @@ class Project(TenantScopedModel, VersionedModel):
         null=True,
         blank=True,
     )
+    billing_address = models.ForeignKey(
+        "clients.ClientAddress",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="billing_projects",
+        verbose_name="Adresse de facturation du projet",
+        help_text=(
+            "Adresse (du client) utilisée pour la facturation de CE projet. "
+            "Vide = adresse de facturation par défaut du client."
+        ),
+    )
     template = models.ForeignKey(
         ProjectTemplate,
         on_delete=models.SET_NULL,
