@@ -198,10 +198,18 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
 
 
 class PublicHolidayViewSet(viewsets.ModelViewSet):
-    """Public holidays management."""
+    """Jours fériés (paramétrage par régime de travail). Lecture ouverte aux
+    authentifiés ; écriture réservée aux administrateurs."""
 
     serializer_class = PublicHolidaySerializer
     permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        from apps.core.permissions import IsAdmin
+
+        if self.action in ("list", "retrieve"):
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdmin()]
 
     def get_queryset(self):
         qs = PublicHoliday.objects.all()

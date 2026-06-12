@@ -144,6 +144,7 @@ ctx({
     { title: 'Favoris', body: 'Épinglez vos tâches récurrentes pour les retrouver chaque semaine.' },
     { title: 'Soumission', body: 'Soumettez la semaine : validation PM → Finance → Paie. Les heures validées ne sont plus modifiables.' },
     { title: 'Blocages', body: 'Une tâche fermée ou un blocage posé par votre PM empêche la saisie (message explicite).' },
+    { title: 'Jours fériés', body: 'Les fériés de votre régime de travail (province) sont surlignés et pré-remplis sur la tâche « Férié » à votre maximum d\'heures/jour. Vous pouvez corriger la valeur — elle ne sera pas écrasée.' },
   ],
 })
 ctx({
@@ -187,6 +188,7 @@ ctx({
   intro: 'Paramétrage global du cabinet (admin).',
   items: [
     { title: 'Référentiels', body: 'Phases standard (héritées par tous les projets), catalogue de tâches standard, équipes réutilisables, schémas fiscaux.' },
+    { title: 'Jours fériés', body: 'Paramétrage par régime de travail (lieu/province) — un férié peut viser un régime précis ou tous. Pré-remplis dans les feuilles de temps.' },
     { title: 'Périodes', body: 'Verrouillage des périodes de paie et exceptions.' },
   ],
 })

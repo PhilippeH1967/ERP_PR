@@ -72,7 +72,9 @@ class LeaveRequestSerializer(serializers.ModelSerializer):
 
 
 class PublicHolidaySerializer(serializers.ModelSerializer):
+    labor_rule_name = serializers.CharField(source="labor_rule.name", read_only=True, default="")
+
     class Meta:
         model = PublicHoliday
-        fields = ["id", "name", "date", "is_paid", "labor_rule"]
+        fields = ["id", "name", "date", "is_paid", "labor_rule", "labor_rule_name"]
         read_only_fields = ["id"]

@@ -233,6 +233,12 @@ export const useTimesheetStore = defineStore('timesheet', () => {
 
   // Period locked — checked globally via API
   const periodLocked = ref(false)
+  const holidays = ref<Array<{ date: string; name: string; is_paid: boolean; daily_hours: number }>>([])
+  const holidaysByDate = computed<Record<string, { name: string; daily_hours: number }>>(() => {
+    const m: Record<string, { name: string; daily_hours: number }> = {}
+    for (const h of holidays.value) m[h.date] = { name: h.name, daily_hours: h.daily_hours }
+    return m
+  })
 
   // Detect if some entries were sent back for modification (DRAFT mixed with SUBMITTED on same week)
   const hasModificationRequested = computed(() => {
@@ -300,6 +306,28 @@ export const useTimesheetStore = defineStore('timesheet', () => {
         mandatoryTasks.value = Array.isArray(mt) ? mt : []
       } catch {
         mandatoryTasks.value = []
+      }
+      // Jours fériés de la semaine (juridiction de l'employé) + pré-remplissage
+      // de la tâche « Férié » au max d'heures/jour (idempotent côté backend :
+      // les corrections de l'employé ne sont jamais écrasées).
+      try {
+        const hResp = await apiClient.get('time_entries/holidays/', { params: { week_start: currentWeekStart.value } })
+        const hd = hResp.data?.data || hResp.data || []
+        holidays.value = Array.isArray(hd) ? hd : []
+      } catch {
+        holidays.value = []
+      }
+      try {
+        if (!periodLocked.value && !allSubmitted.value && holidays.value.some(h => h.is_paid)) {
+          const pre = await apiClient.post('time_entries/prefill_holidays/', { week_start: currentWeekStart.value })
+          const created = (pre.data?.data || pre.data)?.created || 0
+          if (created > 0) {
+            const r2 = await timesheetApi.listEntries(params)
+            entries.value = r2.data?.data || r2.data || []
+          }
+        }
+      } catch {
+        // Pré-remplissage optionnel — la grille reste utilisable sans lui.
       }
     } finally {
       isLoading.value = false
@@ -394,6 +422,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     entries, isLoading, saveError, currentWeekStart, currentWeek,
     gridRows, projectGroups, dailyTotals, weeklyTotal, weekDates,
     weeklyStats, statusMessage, hasModificationRequested, allSubmitted, periodLocked,
+    holidays, holidaysByDate,
     favorites, isFavorite, toggleFavorite, mandatoryTasks,
     fetchWeek, navigateWeek, saveCell, copyMondayToWeek,
     submitWeek, copyPreviousWeek, canSaveHours,

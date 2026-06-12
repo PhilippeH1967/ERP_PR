@@ -234,6 +234,11 @@ const router = createRouter({
           component: () => import('@/features/admin/views/TeamSettings.vue'),
         },
         {
+          path: 'admin/holidays',
+          name: 'admin-holidays',
+          component: () => import('@/features/admin/views/HolidaySettings.vue'),
+        },
+        {
           path: 'admin/org',
           name: 'admin-org',
           component: () => import('@/features/admin/views/OrgSettings.vue'),

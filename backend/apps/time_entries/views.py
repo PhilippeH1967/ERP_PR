@@ -272,6 +272,130 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    def _user_daily_hours(self, request) -> float:
+        """Heures/jour de l'employé : override personnel (/5), sinon
+        daily_hours de son régime de travail, sinon 8."""
+        from apps.core.models import UserTenantAssociation
+
+        assoc = (
+            UserTenantAssociation.objects.filter(user=request.user)
+            .select_related("labor_rule")
+            .first()
+        )
+        if assoc and assoc.contract_hours_override:
+            return round(float(assoc.contract_hours_override) / 5, 2)
+        if assoc and assoc.labor_rule:
+            return float(assoc.labor_rule.daily_hours)
+        return 8.0
+
+    def _week_holidays(self, request, week_start):
+        """Fériés de la semaine pour la juridiction de l'employé : ceux de SON
+        régime de travail + les fériés globaux (labor_rule null)."""
+        from datetime import timedelta
+
+        from django.db.models import Q
+
+        from apps.core.models import UserTenantAssociation
+        from apps.leaves.models import PublicHoliday
+
+        assoc = UserTenantAssociation.objects.filter(user=request.user).first()
+        rule_id = assoc.labor_rule_id if assoc else None
+        qs = PublicHoliday.objects.filter(
+            date__gte=week_start, date__lte=week_start + timedelta(days=6)
+        ).filter(Q(labor_rule__isnull=True) | Q(labor_rule_id=rule_id))
+        tenant_id = getattr(request, "tenant_id", None)
+        if tenant_id:
+            qs = qs.filter(tenant_id=tenant_id)
+        return qs.order_by("date")
+
+    @action(detail=False, methods=["get"])
+    def holidays(self, request):
+        """Fériés de la semaine (?week_start=YYYY-MM-DD) pour l'employé
+        courant, avec ses heures/jour (pré-remplissage de la grille)."""
+        from datetime import date as date_type
+
+        week_start = request.query_params.get("week_start")
+        if not week_start:
+            return Response(
+                {"error": {"code": "MISSING_WEEK", "message": "week_start requis", "details": []}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            ws = date_type.fromisoformat(week_start)
+        except ValueError:
+            return Response(
+                {"error": {"code": "BAD_WEEK", "message": "week_start invalide", "details": []}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        daily = self._user_daily_hours(request)
+        data = [
+            {
+                "date": h.date.isoformat(),
+                "name": h.name,
+                "is_paid": h.is_paid,
+                "daily_hours": daily,
+            }
+            for h in self._week_holidays(request, ws)
+        ]
+        return Response(data)
+
+    @action(detail=False, methods=["post"], url_path="prefill_holidays")
+    def prefill_holidays(self, request):
+        """Pré-remplit la tâche obligatoire « Férié » pour les fériés payés de
+        la semaine, au max d'heures/jour de l'employé. Idempotent : ne touche
+        jamais une journée où une entrée « Férié » existe déjà (les corrections
+        de l'employé sont préservées)."""
+        from datetime import date as date_type
+
+        from apps.projects.models import Task
+
+        week_start = request.data.get("week_start")
+        if not week_start:
+            return Response(
+                {"error": {"code": "MISSING_WEEK", "message": "week_start requis", "details": []}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        ws = date_type.fromisoformat(str(week_start))
+        tenant_id = getattr(request, "tenant_id", None)
+        ferie_qs = Task.objects.filter(
+            always_display_in_timesheet=True, is_active=True, name__iexact="Férié"
+        )
+        if tenant_id:
+            ferie_qs = ferie_qs.filter(tenant_id=tenant_id)
+        ferie = ferie_qs.select_related("project").first()
+        if ferie is None:
+            return Response({"created": 0, "detail": "Tâche « Férié » absente du paramétrage."})
+
+        daily = self._user_daily_hours(request)
+        tenant = None
+        if tenant_id:
+            from apps.core.models import Tenant
+
+            tenant = Tenant.objects.get(pk=tenant_id)
+        else:
+            tenant = _get_tenant(request)
+
+        created = 0
+        for h in self._week_holidays(request, ws):
+            if not h.is_paid:
+                continue
+            exists = TimeEntry.objects.filter(
+                employee=request.user, task=ferie, date=h.date
+            ).exists()
+            if exists:
+                continue
+            TimeEntry.objects.create(
+                tenant=tenant,
+                employee=request.user,
+                project=ferie.project,
+                task=ferie,
+                date=h.date,
+                hours=daily,
+                notes=h.name,
+            )
+            created += 1
+        return Response({"created": created})
+
     @action(detail=False, methods=["post"])
     def submit_week(self, request):
         """Submit all draft entries for a week."""
