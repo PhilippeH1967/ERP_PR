@@ -2,7 +2,7 @@
 
 Régression : le script de nettoyage de la base supprime Project/Phase/Task ;
 sans recréation, la grille de saisie n'affiche plus les lignes obligatoires
-(Congés, Formation, Maladie). Cette commande les restaure de façon idempotente,
+(Congés, Formation, Maladie, Férié). Cette commande les restaure de façon idempotente,
 pour un ou tous les tenants.
 """
 
@@ -13,7 +13,7 @@ from django.core.management import call_command
 
 from apps.projects.models import Project, Task
 
-MANDATORY_NAMES = {"Congés", "Formation", "Maladie"}
+MANDATORY_NAMES = {"Congés", "Formation", "Maladie", "Férié"}
 
 
 @pytest.mark.django_db
@@ -38,7 +38,7 @@ class TestSeedInternalMandatoryTasks:
         n1 = Task.objects.filter(tenant=tenant, always_display_in_timesheet=True).count()
         call_command("seed_internal_mandatory_tasks", tenant_id=tenant.id)
         n2 = Task.objects.filter(tenant=tenant, always_display_in_timesheet=True).count()
-        assert n1 == n2 == 3
+        assert n1 == n2 == 4
 
     def test_tasks_returned_by_mandatory_endpoint(self, employee_client, tenant):
         """Bout-en-bout : les tâches seedées remontent bien dans la grille."""

@@ -83,6 +83,14 @@ const sections: AdminSection[] = [
     ready: true,
   },
   {
+    key: 'holidays',
+    title: 'Jours fériés',
+    desc: 'Fériés par régime de travail (province) — pré-remplis dans les feuilles de temps',
+    icon: '🎉',
+    route: '/admin/holidays',
+    ready: true,
+  },
+  {
     key: 'leave-types',
     title: 'Types de congés',
     desc: 'Vacances, maladie, personnel, parental — quotas et règles d\'accumulation',

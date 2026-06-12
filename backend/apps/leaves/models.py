@@ -200,9 +200,17 @@ class PublicHoliday(TenantScopedModel):
         db_table = "leaves_public_holiday"
         ordering = ["date"]
         constraints = [
+            # Un férié par (date, régime) : deux provinces/régimes peuvent
+            # avoir un férié à la même date.
+            models.UniqueConstraint(
+                fields=["date", "tenant", "labor_rule"],
+                condition=models.Q(labor_rule__isnull=False),
+                name="uq_public_holiday_date_tenant_rule",
+            ),
             models.UniqueConstraint(
                 fields=["date", "tenant"],
-                name="uq_public_holiday_date_tenant",
+                condition=models.Q(labor_rule__isnull=True),
+                name="uq_public_holiday_date_tenant_global",
             ),
         ]
 

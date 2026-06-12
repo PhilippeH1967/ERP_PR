@@ -34,6 +34,7 @@ MANDATORY_TASKS = [
     {"wbs_code": "ABS.1", "name": "Congés"},
     {"wbs_code": "ABS.2", "name": "Formation"},
     {"wbs_code": "ABS.3", "name": "Maladie"},
+    {"wbs_code": "ABS.4", "name": "Férié"},
 ]
 
 

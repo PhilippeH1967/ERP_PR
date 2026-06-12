@@ -516,9 +516,12 @@ function normClass(total: number, norm: number): string {
               v-for="(date, i) in store.weekDates"
               :key="date"
               class="min-w-[60px] px-1 py-1 text-center font-medium text-text-muted"
+              :class="{ 'th-holiday': store.holidaysByDate[date] }"
               style="font-size: 10px;"
+              :title="store.holidaysByDate[date] ? 'Jour férié : ' + store.holidaysByDate[date].name : ''"
             >
               {{ dayLabels[i] }} {{ date.slice(8) }}
+              <div v-if="store.holidaysByDate[date]" class="th-holiday-badge">Férié</div>
             </th>
             <th class="min-w-[50px] px-1 py-1 text-center font-medium text-text-muted" style="font-size: 10px;">
               Total
@@ -695,6 +698,8 @@ function normClass(total: number, norm: number): string {
 </template>
 
 <style scoped>
+.th-holiday { background: #FEF3C7; border-radius: 4px; }
+.th-holiday-badge { font-size: 8px; font-weight: 800; color: #92400E; text-transform: uppercase; letter-spacing: 0.04em; }
 .ts-bill { display: inline-block; margin-left: 5px; font-size: 10px; font-weight: 800; color: var(--color-success, #15803D); background: #DCFCE7; border-radius: 4px; padding: 0 4px; }
 .ts-nobill { display: inline-block; margin-left: 5px; font-size: 10px; font-weight: 800; color: var(--color-gray-400); background: var(--color-gray-100); border-radius: 4px; padding: 0 4px; text-decoration: line-through; }
 .ts-ref { font-size: 9px; color: var(--color-gray-400); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
