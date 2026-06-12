@@ -153,3 +153,59 @@ class TestClientAddressDedup:
             format="json", HTTP_X_TENANT_ID=str(tenant.pk),
         )
         assert resp.status_code == 200, resp.data
+
+
+@pytest.mark.django_db
+class TestClientAddressDedupFuzzy:
+    """Anti-doublon renforcé : accents, ponctuation, particules (d', de…),
+    abréviations de voie (av/avenue…) — et le code postal ne « sauve » pas un
+    doublon (une adresse civique = un seul code postal)."""
+
+    def _setup(self, line1="4553 av oxford", city="Montreal", postal="H4A2Y9"):
+        from apps.clients.models import Client, ClientAddress
+        from apps.core.models import Tenant
+
+        tenant = Tenant.objects.create(name="T", slug=f"t-fz-{line1[:6].strip()}")
+        client = Client.objects.create(tenant=tenant, name="C", alias="C")
+        ClientAddress.objects.create(
+            tenant=tenant, client=client,
+            address_line_1=line1, city=city, postal_code=postal,
+        )
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+
+        user = User.objects.create_user(username=f"fz{tenant.pk}", password="x")
+        api = APIClient()
+        api.force_authenticate(user=user)
+        return tenant, client, api
+
+    def _post(self, tenant, client, api, **payload):
+        return api.post(
+            f"/api/v1/clients/{client.pk}/addresses/", payload,
+            format="json", HTTP_X_TENANT_ID=str(tenant.pk),
+        )
+
+    def test_cas_terrain_apostrophe_particule_et_postal_different(self):
+        tenant, client, api = self._setup()
+        resp = self._post(
+            tenant, client, api,
+            address_line_1="4553 Av d'Oxford", city="Montreal", postal_code="H4A 2Y8",
+        )
+        assert resp.status_code == 400
+        assert "existe déjà" in str(resp.data)
+
+    def test_accents_et_abreviation_avenue(self):
+        tenant, client, api = self._setup(line1="1 avenue Émile-Zola", city="Montréal")
+        resp = self._post(
+            tenant, client, api,
+            address_line_1="1 av Emile Zola", city="Montreal", postal_code="H1H 1H1",
+        )
+        assert resp.status_code == 400
+
+    def test_numero_civique_different_accepte(self):
+        tenant, client, api = self._setup()
+        resp = self._post(
+            tenant, client, api,
+            address_line_1="4555 av Oxford", city="Montreal", postal_code="H4A 2Y9",
+        )
+        assert resp.status_code == 201, resp.data
