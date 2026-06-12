@@ -148,7 +148,9 @@ describe('ProjectSettingsTab — onglet ⚙️ Paramètres du projet', () => {
     const wrapper = mountTab()
     await flushPromises()
     await wrapper.find('[data-ps-client-select]').setValue('6')
-    await wrapper.find('[data-ps-client-save]').trigger('click')
+    await wrapper.find('[data-ps-client-save]').trigger('click') // demande de confirmation
+    expect(mockPatch).not.toHaveBeenCalled()
+    await wrapper.find('[data-ps-client-confirm]').trigger('click')
     await flushPromises()
     expect(mockPatch).toHaveBeenCalledWith('projects/3/', expect.objectContaining({ client: 6 }))
     expect(wrapper.emitted('updated')).toBeTruthy()
@@ -189,6 +191,8 @@ describe('ProjectSettingsTab — onglet ⚙️ Paramètres du projet', () => {
       'clients/5/addresses/',
       expect.objectContaining({ address_line_1: '1 place Ville-Marie', is_billing: true }),
     )
+    // La nouvelle adresse devient l'adresse de facturation de CE projet.
+    expect(mockPatch).toHaveBeenCalledWith('projects/3/', { billing_address: 99 })
   })
 
   it('carte Client : pas de suppression d’adresse au niveau projet (fiche client uniquement)', async () => {
@@ -199,22 +203,29 @@ describe('ProjectSettingsTab — onglet ⚙️ Paramètres du projet', () => {
     expect(wrapper.text()).toContain('suppression')
   })
 
-  it('désigner une adresse pour CE projet → PATCH projects/3/ billing_address', async () => {
+  it('choisir l’adresse de facturation du projet via le sélecteur → PATCH billing_address', async () => {
     const wrapper = mountTab()
     await flushPromises()
-    await wrapper.find('[data-ps-address-use]').trigger('click')
+    await wrapper.find('[data-ps-billing-select]').setValue('9')
     await flushPromises()
     expect(mockPatch).toHaveBeenCalledWith('projects/3/', { billing_address: 9 })
     expect(wrapper.emitted('updated')).toBeTruthy()
   })
 
-  it('adresse désignée : badge « Facturation de ce projet » + retour au défaut', async () => {
+  it('adresse désignée : badge + retour au défaut via le sélecteur', async () => {
     const wrapper = mountTab({ billing_address: 9 })
     await flushPromises()
     expect(wrapper.find('[data-ps-address]').text()).toContain('Facturation de ce projet')
-    await wrapper.find('[data-ps-address-default]').trigger('click')
+    expect(wrapper.find('[data-ps-billing-effective]').text()).toContain('Notre-Dame')
+    await wrapper.find('[data-ps-billing-select]').setValue('')
     await flushPromises()
     expect(mockPatch).toHaveBeenCalledWith('projects/3/', { billing_address: null })
+  })
+
+  it('sans client : message explicite, pas de section masquée silencieusement', async () => {
+    const wrapper = mountTab({ client: null, client_name: '' })
+    await flushPromises()
+    expect(wrapper.find('[data-ps-no-client]').exists()).toBe(true)
   })
 
   it('expose les liens vers les référentiels admin', async () => {

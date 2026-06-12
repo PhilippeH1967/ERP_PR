@@ -102,6 +102,8 @@ const clientSaved = ref(false)
 const clientError = ref('')
 const addresses = ref<AddressR[]>([])
 const editingAddressId = ref<number | 'new' | null>(null)
+const billingSelect = ref('')
+const confirmClientChange = ref(false)
 const emptyAddr = () => ({
   address_line_1: '', address_line_2: '', city: '', province: 'QC',
   postal_code: '', country: 'Canada', is_billing: false, is_primary: false,
@@ -131,7 +133,13 @@ async function loadAddresses() {
   } catch { addresses.value = [] }
 }
 
+function requestClientChange() {
+  if (!clientDirty.value) return
+  confirmClientChange.value = true
+}
+
 async function saveClient() {
+  confirmClientChange.value = false
   clientError.value = ''
   clientSaved.value = false
   clientSaving.value = true
@@ -172,7 +180,10 @@ async function saveAddress() {
   clientError.value = ''
   try {
     if (editingAddressId.value === 'new') {
-      await apiClient.post(`clients/${cid}/addresses/`, addrForm.value)
+      const r = await apiClient.post(`clients/${cid}/addresses/`, addrForm.value)
+      const created = r.data?.data || r.data
+      // Une adresse créée depuis le projet devient SON adresse de facturation.
+      if (created?.id) await setProjectBillingAddress(Number(created.id))
     } else {
       await apiClient.patch(`clients/${cid}/addresses/${editingAddressId.value}/`, addrForm.value)
     }
@@ -182,6 +193,26 @@ async function saveAddress() {
     clientError.value = (e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Erreur de sauvegarde'
   } finally { addrSaving.value = false }
 }
+function addrLabel(a: AddressR): string {
+  return `${a.address_line_1}, ${a.city} (${a.province}) ${a.postal_code}`.trim()
+}
+// Adresse effectivement utilisée pour la facturation de ce projet :
+// désignation explicite, sinon adresse « facturation » du client, sinon
+// principale, sinon la première.
+const effectiveAddress = computed<AddressR | null>(() => {
+  const designated = addresses.value.find(a => a.id === props.project?.billing_address)
+  return designated
+    || addresses.value.find(a => a.is_billing)
+    || addresses.value.find(a => a.is_primary)
+    || addresses.value[0]
+    || null
+})
+const clientDirty = computed(() => clientId.value !== String(props.project?.client ?? ''))
+
+function onBillingSelect() {
+  setProjectBillingAddress(billingSelect.value ? Number(billingSelect.value) : null)
+}
+
 // Désigne l'adresse de facturation de CE projet (null = défaut du client).
 async function setProjectBillingAddress(id: number | null) {
   clientError.value = ''
@@ -299,6 +330,7 @@ watch(() => props.projectId, () => { loadVirtuals(); loadBlocks(); loadClients()
 // (déclaré après l'état client pour éviter un accès avant initialisation).
 watch(() => props.project, (p) => {
   clientId.value = p?.client != null ? String(p.client) : ''
+  billingSelect.value = p?.billing_address != null ? String(p.billing_address) : ''
   loadAddresses()
 }, { immediate: true })
 </script>
@@ -356,41 +388,33 @@ watch(() => props.project, (p) => {
           <option v-for="c in filteredClients" :key="c.id" :value="String(c.id)">{{ c.name }}</option>
         </select>
         <span v-if="clientSaved" class="ps-saved">✓ Enregistré</span>
-        <button class="btn-action primary" :disabled="clientSaving" data-ps-client-save @click="saveClient">{{ clientSaving ? '…' : 'Enregistrer' }}</button>
+        <template v-if="confirmClientChange">
+          <span class="ps-hint" style="margin:0;">Changer le client de ce projet ?</span>
+          <button class="btn-action danger" data-ps-client-confirm @click="saveClient">Confirmer</button>
+          <button class="btn-action" @click="confirmClientChange = false; clientId = String(project?.client ?? '')">Annuler</button>
+        </template>
+        <button v-else class="btn-action primary" :disabled="clientSaving || !clientDirty" data-ps-client-save @click="requestClientChange">{{ clientSaving ? '…' : 'Enregistrer' }}</button>
       </div>
       <p class="ps-hint">Changer le client réaffecte le projet : factures et rapports utiliseront ses coordonnées et son WBS client.</p>
 
       <template v-if="project?.client">
-        <h4 class="ps-subhead">Adresses
-          <button class="ps-btn-add" data-ps-address-add @click="startAddAddress">+ Ajouter une adresse</button>
-        </h4>
-        <div v-for="a in addresses" :key="a.id" class="ps-row" data-ps-address>
-          <template v-if="editingAddressId === a.id">
-            <div class="ps-addr-form">
-              <input v-model="addrForm.address_line_1" placeholder="Adresse (ligne 1) *" data-ps-addr-line1 />
-              <input v-model="addrForm.address_line_2" placeholder="Ligne 2" />
-              <input v-model="addrForm.city" placeholder="Ville *" data-ps-addr-city />
-              <input v-model="addrForm.province" placeholder="Province" style="max-width:70px;" />
-              <input v-model="addrForm.postal_code" placeholder="Code postal" style="max-width:100px;" />
-              <input v-model="addrForm.country" placeholder="Pays" style="max-width:100px;" />
-              <label class="ps-check"><input v-model="addrForm.is_billing" type="checkbox" data-ps-addr-billing /> Facturation</label>
-              <label class="ps-check"><input v-model="addrForm.is_primary" type="checkbox" /> Principale</label>
-              <button class="btn-action primary" :disabled="addrSaving" data-ps-addr-save @click="saveAddress">Enregistrer</button>
-              <button class="btn-action" @click="editingAddressId = null">Annuler</button>
-            </div>
-          </template>
-          <template v-else>
-            <div style="flex:1;">
-              {{ a.address_line_1 }}<template v-if="a.address_line_2">, {{ a.address_line_2 }}</template>, {{ a.city }} ({{ a.province }}) {{ a.postal_code }}
-              <span v-if="a.is_billing" class="badge badge-blue" style="margin-left:6px;font-size:9px;">Facturation</span>
-              <span v-if="a.is_primary" class="badge badge-green" style="margin-left:4px;font-size:9px;">Principale</span>
-              <span v-if="project?.billing_address === a.id" class="badge badge-purple" style="margin-left:4px;font-size:9px;" title="Adresse utilisée pour la facturation de ce projet">Facturation de ce projet</span>
-            </div>
-            <button v-if="project?.billing_address !== a.id" class="btn-action" data-ps-address-use title="Utiliser cette adresse pour la facturation de ce projet (les autres projets du client ne changent pas)" @click="setProjectBillingAddress(a.id)">Utiliser pour ce projet</button>
-            <button class="btn-action" data-ps-address-edit @click="startEditAddress(a)">Modifier</button>
-          </template>
+        <h4 class="ps-subhead">Adresse de facturation de ce projet</h4>
+        <div class="ps-inline-form">
+          <select v-model="billingSelect" class="ps-select" style="flex:1;" data-ps-billing-select @change="onBillingSelect">
+            <option value="">Adresse de facturation par défaut du client</option>
+            <option v-for="a in addresses" :key="a.id" :value="String(a.id)">{{ addrLabel(a) }}</option>
+          </select>
+          <button v-if="effectiveAddress" class="btn-action" data-ps-address-edit @click="startEditAddress(effectiveAddress)">✏️ Modifier cette adresse</button>
+          <button class="ps-btn-add" data-ps-address-add @click="startAddAddress">+ Nouvelle adresse</button>
         </div>
-        <div v-if="editingAddressId === 'new'" class="ps-row">
+        <p class="ps-hint" data-ps-billing-effective>
+          Adresse utilisée :
+          <strong v-if="effectiveAddress">{{ addrLabel(effectiveAddress) }}</strong>
+          <strong v-else>aucune adresse chez ce client — créez-en une</strong>
+          <template v-if="effectiveAddress && !project?.billing_address"> (défaut du client)</template>
+        </p>
+
+        <div v-if="editingAddressId !== null" class="ps-row">
           <div class="ps-addr-form">
             <input v-model="addrForm.address_line_1" placeholder="Adresse (ligne 1) *" data-ps-addr-line1 />
             <input v-model="addrForm.address_line_2" placeholder="Ligne 2" />
@@ -404,17 +428,22 @@ watch(() => props.project, (p) => {
             <button class="btn-action" @click="editingAddressId = null">Annuler</button>
           </div>
         </div>
-        <p v-if="!addresses.length && editingAddressId !== 'new'" class="ps-hint">Aucune adresse — ajoutez l'adresse de facturation du client.</p>
-        <p class="ps-hint">
-          <template v-if="project?.billing_address">
-            Ce projet utilise une adresse de facturation spécifique.
-            <button class="btn-action" data-ps-address-default @click="setProjectBillingAddress(null)">Revenir à l'adresse par défaut du client</button>
-          </template>
-          <template v-else>
-            Sans désignation, l'adresse de facturation par défaut du client s'applique. Une adresse ajoutée ici est enregistrée dans la fiche client ; la <strong>suppression</strong> d'une adresse se fait uniquement dans la fiche client.
-          </template>
-        </p>
+
+        <template v-if="addresses.length">
+          <h4 class="ps-subhead">Toutes les adresses du client</h4>
+          <div v-for="a in addresses" :key="a.id" class="ps-row" data-ps-address>
+            <div style="flex:1;">
+              {{ addrLabel(a) }}
+              <span v-if="a.is_billing" class="badge badge-blue" style="margin-left:6px;font-size:9px;">Facturation</span>
+              <span v-if="a.is_primary" class="badge badge-green" style="margin-left:4px;font-size:9px;">Principale</span>
+              <span v-if="project?.billing_address === a.id" class="badge badge-purple" style="margin-left:4px;font-size:9px;">Facturation de ce projet</span>
+            </div>
+            <button class="btn-action" @click="startEditAddress(a)">Modifier</button>
+          </div>
+        </template>
+        <p class="ps-hint">Une nouvelle adresse créée ici est enregistrée dans la fiche client et devient l'adresse de facturation de ce projet. Les doublons sont refusés. La <strong>suppression</strong> d'une adresse se fait uniquement dans la fiche client.</p>
       </template>
+      <p v-else class="ps-hint" data-ps-no-client>Aucun client associé à ce projet — choisissez un client ci-dessus puis « Enregistrer » pour gérer son adresse de facturation.</p>
     </div>
 
     <!-- 2. Services transversaux -->
