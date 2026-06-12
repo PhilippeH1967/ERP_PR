@@ -225,22 +225,9 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         blocked = self._handle_lock_check(date_val, proj_id, ph_id)
         if blocked:
             return blocked
-        # Discipline de soumission : une semaine non soumise vieille de 2
-        # semaines ou plus bloque la saisie de la semaine courante (la
-        # régularisation des semaines en retard reste permise).
-        from datetime import timedelta
-
-        weeks, this_monday = self._user_unsubmitted_weeks(request)
-        threshold = (this_monday - timedelta(days=14)).isoformat()
-        if date_val and date_val >= this_monday and any(w <= threshold for w in weeks):
-            late = ", ".join(w for w in weeks if w <= threshold)
-            return Response(
-                {"error": {"code": "LATE_TIMESHEETS", "message": (
-                    "Saisie bloquée : vous devez d'abord soumettre vos feuilles "
-                    f"de temps en retard (semaines du {late})."
-                ), "details": []}},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        blocked = self._check_submission_discipline(request, date_val)
+        if blocked:
+            return blocked
         self.perform_create(serializer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -277,6 +264,10 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             instance, data=request.data, partial=kwargs.get("partial", False)
         )
         serializer.is_valid(raise_exception=True)
+        date_val = serializer.validated_data.get("date", instance.date)
+        blocked = self._check_submission_discipline(request, date_val)
+        if blocked:
+            return blocked
         serializer.save()
         return Response(serializer.data)
 
@@ -348,25 +339,58 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         this_monday = self._monday(date_type.today())
         qs = TimeEntry.objects.filter(
             employee=request.user, status="DRAFT", date__lt=this_monday
-        ).values_list("date", flat=True)
+        )
         tenant_id = getattr(self.request, "tenant_id", None)
         if tenant_id:
-            qs = qs.filter(tenant_id=tenant_id) if hasattr(qs, "filter") else qs
-        weeks = sorted({self._monday(d).isoformat() for d in qs})
+            qs = qs.filter(tenant_id=tenant_id)
+        dates = qs.values_list("date", flat=True).distinct()
+        weeks = sorted({self._monday(d).isoformat() for d in dates})
         return weeks, this_monday
+
+    def _late_unsubmitted_weeks(self, request):
+        """Semaines non soumises + celles en retard de 2 semaines ou plus
+        (seuil unique du blocage de saisie)."""
+        from datetime import timedelta
+
+        weeks, this_monday = self._user_unsubmitted_weeks(request)
+        threshold = (this_monday - timedelta(days=14)).isoformat()
+        late = [w for w in weeks if w <= threshold]
+        return weeks, late, this_monday
+
+    def _check_submission_discipline(self, request, date_val):
+        """Discipline de soumission : une semaine non soumise vieille de 2
+        semaines ou plus bloque toute écriture dans la semaine courante (la
+        régularisation des semaines passées reste permise).
+
+        Retourne une ``Response`` 400 LATE_TIMESHEETS si bloqué, sinon ``None``.
+        Couvre create/update/copy_previous_week/prefill_holidays.
+        """
+        from datetime import date as date_type
+
+        if not date_val:
+            return None
+        if date_val < self._monday(date_type.today()):
+            return None
+        _, late, _ = self._late_unsubmitted_weeks(request)
+        if not late:
+            return None
+        return Response(
+            {"error": {"code": "LATE_TIMESHEETS", "message": (
+                "Saisie bloquée : vous devez d'abord soumettre vos feuilles "
+                f"de temps en retard (semaines du {', '.join(late)})."
+            ), "details": []}},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     @action(detail=False, methods=["get"], url_path="unsubmitted_weeks")
     def unsubmitted_weeks(self, request):
         """Semaines passées non soumises (entrées DRAFT) + indicateur de
         blocage : une semaine en retard de 2 semaines ou plus bloque la saisie
         de la semaine courante."""
-        from datetime import timedelta
-
-        weeks, this_monday = self._user_unsubmitted_weeks(request)
-        threshold = (this_monday - timedelta(days=14)).isoformat()
+        weeks, late, _ = self._late_unsubmitted_weeks(request)
         return Response({
             "weeks": weeks,
-            "blocking": any(w <= threshold for w in weeks),
+            "blocking": bool(late),
         })
 
     @action(detail=False, methods=["get"])
@@ -417,6 +441,9 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         ws = date_type.fromisoformat(str(week_start))
+        blocked = self._check_submission_discipline(request, ws)
+        if blocked:
+            return blocked
         tenant_id = getattr(request, "tenant_id", None)
         ferie_qs = Task.objects.filter(
             always_display_in_timesheet=True, is_active=True, name__iexact="Férié"
@@ -633,6 +660,9 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
         from datetime import date as date_type
 
         current_start = date_type.fromisoformat(week_start)
+        blocked = self._check_submission_discipline(request, current_start)
+        if blocked:
+            return blocked
         prev_start = current_start - timedelta(weeks=1)
         prev_end = prev_start + timedelta(days=6)
 
@@ -1077,10 +1107,13 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
             )
 
         my_project_ids = set(Project.objects.filter(pm=request.user).values_list("id", flat=True))
+        # Les heures facturées ne peuvent pas redevenir DRAFT (elles seraient
+        # ré-éditables côté UI alors que l'API les refuse — état incorrigible).
         entries = TimeEntry.objects.filter(
             id__in=entry_ids,
             status="SUBMITTED",
             project_id__in=my_project_ids,
+            is_invoiced=False,
         )
         count = entries.update(status="DRAFT", rejection_reason=reason)
         return Response({"rejected_count": count, "reason": reason})
@@ -1119,6 +1152,13 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
                 entry = TimeEntry.objects.get(pk=entry_id)
                 if entry.status == "DRAFT":
                     errors.append({"entry_id": entry_id, "message": "Cannot correct DRAFT entries"})
+                    continue
+                if entry.is_invoiced:
+                    errors.append({
+                        "entry_id": entry_id,
+                        "message": "Ces heures ont été facturées au client : "
+                                   "elles ne sont plus modifiables.",
+                    })
                     continue
                 entry.hours = new_hours
                 entry.notes = f"{entry.notes}\n[Correction: {reason}]".strip()
@@ -1184,6 +1224,19 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
                 )
 
         entries = TimeEntry.objects.filter(id__in=entry_ids)
+        invoiced_ids = list(entries.filter(is_invoiced=True).values_list("id", flat=True))
+        if invoiced_ids:
+            return Response(
+                {
+                    "error": {
+                        "code": "ENTRY_INVOICED",
+                        "message": "Transfert refusé : des heures facturées au "
+                                   "client sont incluses dans la sélection.",
+                        "details": invoiced_ids,
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         transferred = 0
         for entry in entries:
             old_info = f"{entry.project.code}/{entry.task.wbs_code if entry.task else 'N/A'}"
@@ -1299,6 +1352,9 @@ class WeeklyApprovalViewSet(viewsets.ModelViewSet):
             date__gte=approval.week_start,
             date__lt=approval.week_start + timedelta(days=7),
             status="SUBMITTED",
+            # Les heures facturées restent SUBMITTED : un retour en DRAFT les
+            # rendrait éditables côté UI alors que l'API les refuse.
+            is_invoiced=False,
         ).update(status="DRAFT", rejection_reason=reason)
 
         return Response(WeeklyApprovalSerializer(approval).data)

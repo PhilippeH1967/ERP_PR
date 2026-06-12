@@ -125,6 +125,69 @@ class TestLateSubmissionBlocksCurrentWeek:
 
 
 @pytest.mark.django_db
+class TestLateBlockCoversAllWritePaths:
+    """Le blocage LATE_TIMESHEETS doit couvrir update(), copy_previous_week
+    et prefill_holidays — pas seulement create()."""
+
+    def _make_late_week(self, env):
+        this_monday = _monday(date.today())
+        TimeEntry.objects.create(
+            tenant=env["tenant"], employee=env["user"], project=env["project"],
+            task=env["task"], date=this_monday - timedelta(days=21), hours=7,
+            status="DRAFT",
+        )
+        return this_monday
+
+    def test_update_current_week_entry_blocked_when_late(self, env):
+        this_monday = self._make_late_week(env)
+        e = TimeEntry.objects.create(
+            tenant=env["tenant"], employee=env["user"], project=env["project"],
+            task=env["task"], date=this_monday, hours=7, status="DRAFT",
+        )
+        resp = env["api"].patch(
+            f"/api/v1/time_entries/{e.pk}/",
+            {"hours": "9", "version": e.version},
+            format="json", HTTP_X_TENANT_ID=str(env["tenant"].pk),
+        )
+        assert resp.status_code == 400
+        assert "LATE_TIMESHEETS" in str(resp.data)
+        e.refresh_from_db()
+        assert float(e.hours) == 7
+
+    def test_update_late_week_entry_still_allowed(self, env):
+        this_monday = self._make_late_week(env)
+        e = TimeEntry.objects.get(date=this_monday - timedelta(days=21))
+        resp = env["api"].patch(
+            f"/api/v1/time_entries/{e.pk}/",
+            {"hours": "8", "version": e.version},
+            format="json", HTTP_X_TENANT_ID=str(env["tenant"].pk),
+        )
+        assert resp.status_code == 200, resp.data
+        e.refresh_from_db()
+        assert float(e.hours) == 8
+
+    def test_copy_previous_week_blocked_when_late(self, env):
+        this_monday = self._make_late_week(env)
+        resp = env["api"].post(
+            "/api/v1/time_entries/copy_previous_week/",
+            {"week_start": this_monday.isoformat()},
+            format="json", HTTP_X_TENANT_ID=str(env["tenant"].pk),
+        )
+        assert resp.status_code == 400
+        assert "LATE_TIMESHEETS" in str(resp.data)
+
+    def test_prefill_holidays_blocked_when_late(self, env):
+        this_monday = self._make_late_week(env)
+        resp = env["api"].post(
+            "/api/v1/time_entries/prefill_holidays/",
+            {"week_start": this_monday.isoformat()},
+            format="json", HTTP_X_TENANT_ID=str(env["tenant"].pk),
+        )
+        assert resp.status_code == 400
+        assert "LATE_TIMESHEETS" in str(resp.data)
+
+
+@pytest.mark.django_db
 class TestInvoicedEntriesImmutable:
     def _entry(self, env, **kw):
         return TimeEntry.objects.create(
