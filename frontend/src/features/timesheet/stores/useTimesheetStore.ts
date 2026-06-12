@@ -14,23 +14,37 @@ const DAILY_NORM = 8
 const WEEKLY_NORM = 40
 const CONTRACT_HOURS = 40
 
-function getDatesForWeek(weekStart: string): string[] {
+// Dates en heure LOCALE — toISOString() (UTC) décale d'un jour le soir pour
+// les fuseaux à l'ouest d'UTC (ex. Montréal 21h lundi = mardi UTC).
+function toLocalISODate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function parseLocalDate(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y || 0, (m || 1) - 1, d || 1)
+}
+
+export function getDatesForWeek(weekStart: string): string[] {
   const dates: string[] = []
-  const start = new Date(weekStart)
+  const start = parseLocalDate(weekStart)
   for (let i = 0; i < 7; i++) {
     const d = new Date(start)
     d.setDate(start.getDate() + i)
-    dates.push(d.toISOString().slice(0, 10))
+    dates.push(toLocalISODate(d))
   }
   return dates
 }
 
-function getMondayOfWeek(d: Date): string {
+export function getMondayOfWeek(d: Date): string {
   const date = new Date(d)
   const day = date.getDay()
   const diff = date.getDate() - day + (day === 0 ? -6 : 1)
   date.setDate(diff)
-  return date.toISOString().slice(0, 10)
+  return toLocalISODate(date)
 }
 
 function safeHours(hours: string | number | undefined): number {
@@ -59,7 +73,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
   const locks = ref<Array<{ phase: number | null; person: number | null }>>([])
   const isLoading = ref(false)
   const currentWeekStart = ref(getMondayOfWeek(new Date()))
-  const saveError = ref<{ type: string; entryId?: number } | null>(null)
+  const saveError = ref<{ type: string; entryId?: number; message?: string } | null>(null)
   const weeklyStats = ref({ contract_hours: 40, average_4_weeks: 0, billable_rate_percent: 0, week_totals: [0, 0, 0, 0] as number[] })
   const favorites = ref<Set<number>>(loadFavoritesFromStorage())
   const mandatoryTasks = ref<MandatoryTask[]>([])
@@ -333,7 +347,9 @@ export const useTimesheetStore = defineStore('timesheet', () => {
         holidays.value = []
       }
       try {
-        if (!periodLocked.value && !allSubmitted.value && holidays.value.some(h => h.is_paid)) {
+        // lateBlocked : la création d'entrées est refusée côté backend
+        // (LATE_TIMESHEETS) — inutile de tenter le pré-remplissage.
+        if (!periodLocked.value && !allSubmitted.value && !lateBlocked.value && holidays.value.some(h => h.is_paid)) {
           const pre = await apiClient.post('time_entries/prefill_holidays/', { week_start: currentWeekStart.value })
           const created = (pre.data?.data || pre.data)?.created || 0
           if (created > 0) {
@@ -351,6 +367,7 @@ export const useTimesheetStore = defineStore('timesheet', () => {
 
   async function goToWeek(weekStart: string) {
     currentWeekStart.value = weekStart
+    entries.value = [] // Clear immediately to avoid stale rows
     periodLocked.value = false
     await fetchWeek()
   }
@@ -359,9 +376,9 @@ export const useTimesheetStore = defineStore('timesheet', () => {
     if (direction === 'today') {
       currentWeekStart.value = getMondayOfWeek(new Date())
     } else {
-      const current = new Date(currentWeekStart.value)
+      const current = parseLocalDate(currentWeekStart.value)
       current.setDate(current.getDate() + (direction === 'next' ? 7 : -7))
-      currentWeekStart.value = current.toISOString().slice(0, 10)
+      currentWeekStart.value = toLocalISODate(current)
     }
     entries.value = [] // Clear immediately to avoid stale rows
     periodLocked.value = false // Reset until fetchWeek updates it
@@ -395,11 +412,18 @@ export const useTimesheetStore = defineStore('timesheet', () => {
         if (created) entries.value.push(created)
       }
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { status: number } }
+      const axiosErr = err as {
+        response?: { status: number; data?: { error?: { message?: string } } }
+      }
       if (axiosErr.response?.status === 409) {
         saveError.value = { type: 'conflict', entryId: existing?.id }
       } else {
-        saveError.value = { type: 'error' }
+        // Toujours exposer le message du backend (LATE_TIMESHEETS,
+        // ENTRY_INVOICED, PERIOD_LOCKED…) — jamais d'erreur muette.
+        saveError.value = {
+          type: 'error',
+          message: axiosErr.response?.data?.error?.message,
+        }
       }
       throw err
     }

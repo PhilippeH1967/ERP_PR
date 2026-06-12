@@ -98,9 +98,9 @@ watch(() => store.currentWeekStart, () => {
   addTaskError.value = ''
 })
 
-async function onCellSave(projectId: number, phaseId: number | null, date: string, hours: string, taskId?: number | null) {
-  await store.saveCell(projectId, phaseId, date, hours, taskId)
-  // Clear the live override now that the server is the source of truth.
+function onCellSaved(projectId: number, phaseId: number | null, date: string, _hours: string, taskId?: number | null) {
+  // La cellule a sauvegardé via le store (et géré l'erreur) — on purge
+  // seulement l'override live, le serveur est la source de vérité.
   delete liveHours.value[cellKey(projectId, phaseId, taskId, date)]
 }
 
@@ -487,6 +487,8 @@ function normClass(total: number, norm: number): string {
     <div class="mb-4 flex gap-3 items-center">
       <button
         class="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10"
+        :class="{ 'opacity-50 cursor-not-allowed': store.periodLocked || store.lateBlocked }"
+        :disabled="store.periodLocked || store.lateBlocked"
         @click="store.copyPreviousWeek()"
       >
         Copier semaine précédente
@@ -666,10 +668,10 @@ function normClass(total: number, norm: number): string {
                 :phase-id="row.phase_id"
                 :task-id="row.task_id"
                 :date="date"
-                :is-locked="row.is_locked || store.periodLocked || (row.entries[date]?.status !== undefined && row.entries[date]?.status !== 'DRAFT')"
+                :is-locked="row.is_locked || store.periodLocked || store.lateBlocked || (row.entries[date]?.status !== undefined && row.entries[date]?.status !== 'DRAFT')"
                 :is-invoiced="!!row.entries[date]?.is_invoiced"
                 :aria-label="`${row.project_code} ${row.task_wbs_code || row.phase_name} ${date}`"
-                @save="onCellSave"
+                @saved="onCellSaved"
                 @update:live-hours="onCellLiveUpdate"
               />
               <td class="px-1 py-1 text-center font-mono font-semibold text-text" style="font-size: 11px;">

@@ -18,7 +18,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  save: [projectId: number, phaseId: number | null, date: string, hours: string, taskId?: number | null]
+  saved: [projectId: number, phaseId: number | null, date: string, hours: string, taskId?: number | null]
   'update:liveHours': [projectId: number, phaseId: number | null, date: string, hours: string, taskId?: number | null]
 }>()
 
@@ -75,14 +75,22 @@ async function onBlur() {
   showError.value = false
   errorMessage.value = ''
   try {
-    emit('save', props.projectId, props.phaseId, props.date, val || '0', props.taskId)
+    // Attendre la réponse serveur : pas de flash « succès » sur un refus.
+    await store.saveCell(props.projectId, props.phaseId, props.date, val || '0', props.taskId)
+    emit('saved', props.projectId, props.phaseId, props.date, val || '0', props.taskId)
     showFeedback.value = true
     setTimeout(() => {
       showFeedback.value = false
     }, 500)
   } catch {
-    showError.value = true
+    // Erreur backend affichée (jamais muette) : LATE_TIMESHEETS,
+    // ENTRY_INVOICED, PERIOD_LOCKED… puis retour à la valeur d'origine.
     localValue.value = original
+    emitLive(original)
+    showError.value = true
+    errorMessage.value = store.saveError?.message
+      || 'Sauvegarde refusée par le serveur.'
+    setTimeout(() => { showError.value = false; errorMessage.value = '' }, 6000)
   }
 }
 
