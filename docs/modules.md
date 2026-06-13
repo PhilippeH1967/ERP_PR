@@ -39,6 +39,28 @@
 - Period locking : gel global, exceptions, verrouillage phase/personne
 - Heures contrat dynamiques (LaborRule)
 - Relances Wed/Fri + escalade PM
+- **Discipline de soumission** (PR #74) : si une semaine a ≥ 2 semaines de retard sans
+  soumission, tous les chemins d'écriture sont bloqués pour la semaine courante/future
+  (`create`, `update`, `copy_previous_week`, `prefill_holidays`) via un helper unique
+  `_check_submission_discipline()`. La régularisation des semaines en retard reste
+  toujours possible. Code retour : `400 LATE_TIMESHEETS`.
+- **Heures facturées intouchables** (PR #74) : une entrée avec `is_invoiced=True` est
+  protégée à deux niveaux :
+  - **modèle** : `TimeEntry.save()` refuse toute modification des champs
+    `INVOICED_PROTECTED_FIELDS` (`hours`, `date`, `project_id`, `task_id`,
+    `employee_id`) ; les transitions de statut (ex. PM_APPROVED → LOCKED) restent
+    permises.
+  - **signal** `pre_delete` : déclenche un `ProtectedError` à la suppression directe
+    ou en cascade (suppression de la tâche parente).
+  - **API** : `bulk_correct`, `transfer_hours`, `reject_entries`, `reject_pm` ignorent
+    ou refusent silencieusement les entrées facturées. La suppression d'une tâche via
+    l'API (`TaskViewSet.perform_destroy`) retourne `400` si des entrées facturées
+    existent. Code retour : `400 ENTRY_INVOICED`.
+- **Frontend** : `TimesheetCell` affiche le message d'erreur backend (LATE_TIMESHEETS,
+  ENTRY_INVOICED…) et revient à la valeur précédente. `getMondayOfWeek` / `getDatesForWeek`
+  calculent en heure locale (pas UTC) — correction dérive soirée en fuseaux ouest.
+  `lateBlocked` ne s'applique qu'à la semaine courante/future ; `goToWeek` vide
+  immédiatement les entrées avant le fetch suivant.
 
 ### Congés / Absences
 - 7 types Québec : Vacances, Maladie, Personnel, Férié, Parental, Sans solde, Deuil

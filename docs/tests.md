@@ -26,7 +26,7 @@ docker compose exec django python -m pytest -v --tb=short
 | core (auth, tenant, RLS, permissions, sprints) | 290 | ✅ |
 | projects (WBS, standards, services transversaux, équipes, avenants, billing_address, agrégats) | 291 | ✅ |
 | planning | 46 | ✅ |
-| time_entries (dont blocages TimeEntryBlock) | 59 | ✅ |
+| time_entries (blocages, discipline, immuabilité heures facturées) | 100 | ✅ |
 | billing | 34 | ✅ |
 | clients (dont anti-doublon adresses) | 27 | ✅ |
 | suppliers | 11 | ✅ |
@@ -35,13 +35,21 @@ docker compose exec django python -m pytest -v --tb=short
 | consortiums | 6 | ✅ |
 | expenses | 6 | ✅ |
 | data_ops | 6 | ✅ |
-| **Total** | **792** | **✅** |
+| **Total** | **833** | **✅** |
 
 > Les features récentes (catalogue `StandardTask` + `task_suggestions`, équipes `Team`
 > + `assign_team`, visibilité projet interne `is_internal`, `construction_cost`,
 > tâches internes obligatoires) sont couvertes — voir
 > `apps/projects/tests/test_standard_tasks.py`, `apps/core/tests/test_teams.py`,
 > `apps/projects/tests/test_internal_mandatory_tasks.py`.
+>
+> **PR #74 — invariants feuilles de temps (41 nouveaux tests) :**
+> - `test_invoiced_immutability.py` : 15 tests — verrou modèle (`save()` + signal
+>   `pre_delete`), API `bulk_correct`, `transfer_hours`, `reject_entries`, `reject_pm`,
+>   suppression de tâche avec entrées facturées.
+> - `test_submission_discipline.py` : 26 tests — discipline LATE_TIMESHEETS sur tous
+>   les chemins d'écriture (`create`, `update`, `copy_previous_week`,
+>   `prefill_holidays`) ; régularisation des semaines en retard toujours permise.
 
 ## Tests frontend automatisés (Vitest)
 
@@ -50,13 +58,23 @@ cd frontend && npm run test:unit          # vitest run
 cd frontend && npm run test:unit -- --watch
 ```
 
-**189 tests** sur **31 fichiers** (`frontend/src/__tests__/*.spec.ts`). Couvrent
+**204 tests** sur **33 fichiers** (`frontend/src/__tests__/*.spec.ts`). Couvrent
 notamment : grille de saisie (timesheet, favoris, tâches obligatoires), Gantt,
 fiche tâche unique (`taskSlideOver`), dialogue d'affectation unifié
 (`assignResourceDialog`), onglet ⚙️ Paramètres du projet (`projectSettingsTab` —
 client, adresses, adresse de facturation par projet), aide contextuelle
 (`helpContent`/`helpPanel`), échéancier (`scheduleHelpers`), arbre Équipe & charge
-(`phasePeopleTree`), écrans admin (Équipes, Tâches standard), schémas fiscaux.
+(`phasePeopleTree`), écrans admin (Équipes, Tâches standard), schémas fiscaux,
+discipline de soumission et immuabilité des heures facturées (`timesheetDiscipline`).
+
+**PR #74 — 14 nouveaux tests Vitest (`timesheetDiscipline.spec.ts`) :**
+- helpers de dates : `getMondayOfWeek` sans dérive UTC le soir (fuseaux ouest),
+  `getDatesForWeek` avec dates locales
+- store : `lateBlocked` actif sur semaine courante seulement, `fetchWeek` ne
+  pré-remplit pas les fériés si saisie bloquée, `saveCell` expose le message
+  backend, `goToWeek` vide les entrées immédiatement
+- `TimesheetCell` : message d'erreur backend affiché, flash succès uniquement
+  en cas de réponse 2xx
 
 E2E Playwright : `cd frontend && npm run test:e2e`.
 

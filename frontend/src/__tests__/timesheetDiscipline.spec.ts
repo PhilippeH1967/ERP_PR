@@ -153,7 +153,7 @@ describe('useTimesheetStore — discipline de soumission', () => {
 describe('TimesheetCell — erreurs backend affichées', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
   function mountCell(entry: TimeEntry | null = null) {
@@ -184,6 +184,25 @@ describe('TimesheetCell — erreurs backend affichées', () => {
       expect(wrapper.text()).toContain('Saisie bloquée')
     })
     expect(wrapper.find('input').classes()).not.toContain('bg-success/10')
+  })
+
+  it('affiche le message ENTRY_INVOICED et revient à la valeur initiale', async () => {
+    // saveCell appelle toujours POST (l'entrée n'est pas dans store.entries dans ce test)
+    vi.mocked(apiClient.post).mockRejectedValue({
+      response: {
+        status: 400,
+        data: { error: { code: 'ENTRY_INVOICED', message: 'Modification impossible : cette heure a été facturée au client.' } },
+      },
+    })
+    const wrapper = mountCell(makeEntry({ id: 1, hours: '7.5' }))
+    const input = wrapper.find('input')
+    await input.setValue('9')
+    await input.trigger('blur')
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain('facturée au client')
+    })
+    expect(wrapper.find('input').classes()).not.toContain('bg-success/10')
+    expect((wrapper.find('input').element as HTMLInputElement).value).toBe('7.5')
   })
 
   it('flash succès uniquement après une sauvegarde réussie', async () => {
