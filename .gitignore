@@ -1,5 +1,6 @@
-# Tests visuels (fichiers Excel locaux, pas versionnés)
-tests_visuels/
+# Tests visuels — Excel locaux non versionnés, plans Markdown versionnés
+tests_visuels/*.xlsx
+tests_visuels/*.xls
 
 # Environment
 .env
