@@ -1007,3 +1007,21 @@ class TaskViewSet(viewsets.ModelViewSet):
                 wbs_code = f"{base}.{existing_count + 1}"
             serializer.validated_data["wbs_code"] = wbs_code
         serializer.save(project=project, tenant=project.tenant)
+
+    def perform_destroy(self, instance):
+        # Heures facturées intouchables : la suppression d'une tâche cascade
+        # sur ses entrées de temps — refusée si certaines sont facturées.
+        from rest_framework.exceptions import ValidationError
+
+        from apps.time_entries.models import TimeEntry
+
+        task_ids = [instance.pk, *instance.subtasks.values_list("pk", flat=True)]
+        if TimeEntry.objects.filter(task_id__in=task_ids, is_invoiced=True).exists():
+            # Le handler d'exceptions (apps.core.exceptions) remonte detail["message"].
+            raise ValidationError(
+                {
+                    "message": "Suppression impossible : des heures de cette "
+                               "tâche ont été facturées au client.",
+                }
+            )
+        instance.delete()

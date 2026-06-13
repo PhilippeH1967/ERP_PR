@@ -1,7 +1,12 @@
 """Time entry, approval, and locking models."""
 
+from decimal import Decimal
+
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 from simple_history.models import HistoricalRecords
 
 from apps.core.models import TenantScopedModel, VersionedModel
@@ -63,7 +68,38 @@ class TimeEntry(TenantScopedModel, VersionedModel):
         ]
         ordering = ["-date"]
 
+    # Champs qui portent la valeur facturée : figés dès que is_invoiced=True.
+    # Les transitions de statut (workflow paie/verrouillage) restent permises.
+    INVOICED_PROTECTED_FIELDS = ("hours", "date", "project_id", "task_id", "employee_id")
+
+    def _invoiced_protected_changes(self) -> list[str]:
+        """Champs protégés modifiés alors que l'entrée est facturée en base."""
+        old = (
+            type(self)
+            .objects.filter(pk=self.pk)
+            .values("is_invoiced", *self.INVOICED_PROTECTED_FIELDS)
+            .first()
+        )
+        if not old or not old["is_invoiced"]:
+            return []
+        changed = []
+        for field in self.INVOICED_PROTECTED_FIELDS:
+            new_val, old_val = getattr(self, field), old[field]
+            if field == "hours":
+                new_val = Decimal(str(new_val)) if new_val is not None else None
+                old_val = Decimal(str(old_val)) if old_val is not None else None
+            if new_val != old_val:
+                changed.append(field)
+        return changed
+
     def save(self, *args, **kwargs):
+        # Heures facturées intouchables — garde au niveau modèle pour couvrir
+        # TOUS les chemins d'écriture (vues, actions bulk, admin, shell). Le
+        # flag is_invoiced lui-même est posé par billing (queryset.update).
+        if self.pk and self._invoiced_protected_changes():
+            raise ValidationError(
+                "Ces heures ont été facturées au client : elles ne sont plus modifiables."
+            )
         # La phase est dérivée de la tâche (champ déprécié, conservé pour les
         # rapports/exports). La saisie se fait au niveau tâche.
         if self.task_id:
@@ -72,6 +108,18 @@ class TimeEntry(TenantScopedModel, VersionedModel):
 
     def __str__(self):
         return f"{self.employee} — {self.project} — {self.date} ({self.hours}h)"
+
+
+@receiver(pre_delete, sender=TimeEntry, dispatch_uid="protect_invoiced_time_entries")
+def protect_invoiced_time_entries(sender, instance, **kwargs):
+    """Filet de sécurité : aucune suppression d'heures facturées, y compris en
+    cascade (suppression d'une tâche ou d'un projet)."""
+    if instance.is_invoiced:
+        raise models.ProtectedError(
+            "Ces heures ont été facturées au client : elles ne peuvent pas "
+            "être supprimées.",
+            {instance},
+        )
 
 
 class ApprovalStatus(models.TextChoices):

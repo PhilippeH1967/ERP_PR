@@ -143,7 +143,7 @@ ctx({
     { title: 'Saisie', body: 'Choisissez le projet puis la tâche (feuilles uniquement). Les tâches obligatoires (Congés, Formation, Maladie) sont toujours affichées.' },
     { title: 'Favoris', body: 'Épinglez vos tâches récurrentes pour les retrouver chaque semaine.' },
     { title: 'Soumission', body: 'Soumettez la semaine : validation PM → Finance → Paie. Les heures validées ne sont plus modifiables ; les heures FACTURÉES au client sont définitivement intouchables.' },
-    { title: 'Discipline de soumission', body: 'Semaine précédente non soumise → avertissement. Au-delà de 2 semaines de retard → la saisie de la semaine courante est bloquée jusqu\'à régularisation (liens directs vers les semaines en retard).' },
+    { title: 'Discipline de soumission', body: 'Semaine précédente non soumise → avertissement. À partir de 2 semaines de retard → la saisie de la semaine courante est bloquée jusqu\'à régularisation (liens directs vers les semaines en retard).' },
     { title: 'Blocages', body: 'Une tâche fermée ou un blocage posé par votre PM empêche la saisie (message explicite).' },
     { title: 'Jours fériés', body: 'Les fériés de votre régime de travail (province) sont surlignés et pré-remplis sur la tâche « Férié » à votre maximum d\'heures/jour. Vous pouvez corriger la valeur — elle ne sera pas écrasée.' },
   ],
